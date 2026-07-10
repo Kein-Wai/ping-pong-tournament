@@ -12,5 +12,31 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
 
+  api:
+    build: ./api
+    container_name: ping-pong-api
+    ports:
+      - "3000:3000"
+    volumes:
+      # Sincroniza el código local con el contenedor en tiempo real
+      - ./api:/app
+      # Evita que la carpeta local de node_modules sobreescriba la del contenedor
+      - /app/node_modules
+    depends_on:
+      - db
+    environment:
+      - PORT=3000
+
+  client:
+    build: ./client
+    container_name: ping-pong-client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
 volumes:
   pg_data:
