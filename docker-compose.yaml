@@ -26,7 +26,7 @@ services:
       - db
     environment:
       - PORT=3000
-      - DATABASE_URL="postgresql://pingpong_admin:supersecretpassword@localhost:5432/pingpong_db?schema=public"
+      - DATABASE_URL=postgresql://pingpong_admin:supersecretpassword@db:5432/pingpong_db?schema=public
 
   client:
     build: ./client

@@ -1,5 +1,8 @@
 FROM node:24-alpine
 
+# Añadimos openssl porque Prisma en Alpine Linux lo necesita obligatoriamente
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Copiamos solo los archivos de dependencias primero (optimiza el caché de Docker)
