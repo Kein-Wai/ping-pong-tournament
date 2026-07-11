@@ -1,13 +1,208 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
-}
-
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model UserType {
+  id    Int    @id
+  name  String @unique @db.VarChar(255)
+  users User[]
+
+  @@map("user_type")
+}
+
+model User {
+  id              Int      @id
+  userTypeId      Int      @map("user_type_id")
+  name            String   @db.VarChar(255)
+  surname         String   @db.VarChar(255)
+  secondSurname   String?  @map("secondsurname") @db.VarChar(255)
+  nickname        String?  @db.VarChar(255)
+  email           String   @db.VarChar(255)
+  
+  // Relaciones
+  userType        UserType @relation(fields: [userTypeId], references: [id])
+  stats           Stats[]
+  matchesAsPlayerOne Match[] @relation("PlayerOne")
+  matchesAsPlayerTwo Match[] @relation("PlayerTwo")
+  groupClasifications TournamentGroupClas[]
+  leagueClasifications LeagueClas[]
+
+  @@index([name, email], name: "user_name_email_index")
+  @@map("user")
+}
+
+model Stats {
+  id             Int   @id
+  userId         Int   @map("user_id")
+  score          Int?
+  matchWon       Int?  @map("match_won")
+  matchLost      Int?  @map("match_lost")
+  setWon         Int?  @map("set_won")
+  setLosts       Int?  @map("set_losts")
+  pointWon       Int?  @map("point_won")
+  pointLost      Int?  @map("point_lost")
+  tournamentWon  Int?  @map("tournament_won")
+  tournamentLost Int?  @map("tournament_lost")
+  
+  // Relaciones
+  user           User  @relation(fields: [userId], references: [id])
+
+  @@map("stats")
+}
+
+model Match {
+  id               BigInt             @id
+  dateStart        DateTime           @map("datestart") @db.Date
+  tournamentId     BigInt?            @map("tournament_id")
+  groupId          BigInt?            @map("group_id")
+  knockoutId       BigInt?            @map("knockout_id")
+  leagueId         BigInt?            @map("league_id")
+  
+  // SOLUCIÓN: Cambiamos BigInt por Int para que coincida con el id de User
+  playerOneId      Int                @map("player_one")
+  playerTwoId      Int                @map("player_two")
+  
+  // Marcadores de sets
+  setOnePlayerOne   BigInt?            @default(0) @map("set_one_player_one")
+  setOnePlayerTwo   BigInt?            @default(0) @map("set_one_player_two")
+  setTwoPlayerOne   BigInt?            @default(0) @map("set_two_player_one")
+  setTwoPlayerTwo   BigInt?            @default(0) @map("set_two_player_two")
+  setThreePlayerOne BigInt?            @default(0) @map("set_three_player_one")
+  setThreePlayerTwo BigInt?            @default(0) @map("set_three_player_two")
+  setFourPlayerOne  BigInt?            @default(0) @map("set_four_player_one")
+  setFourPlayerTwo  BigInt?            @default(0) @map("set_four_player_two")
+  setFivePlayerOne  BigInt?            @default(0) @map("set_five_player_one")
+  setFivePlayerTwo  BigInt?            @default(0) @map("set_five_player_two")
+  setSixPlayerOne   BigInt?            @default(0) @map("set_six_player_one")
+  setSixPlayerTwo   BigInt?            @default(0) @map("set_six_player_two")
+  setSevenPlayerOne BigInt?            @default(0) @map("set_seven_player_one")
+  setSevenPlayerTwo BigInt?            @default(0) @map("set_seven_player_two")
+  status            String?            @db.VarChar(255)
+
+  // Relaciones
+  tournament       Tournament?        @relation(fields: [tournamentId], references: [id])
+  group            TournamentGroup?   @relation(fields: [groupId], references: [id])
+  knockout         TournamentKnockout? @relation(fields: [knockoutId], references: [id])
+  league           League?            @relation(fields: [leagueId], references: [id])
+  playerOne        User               @relation("PlayerOne", fields: [playerOneId], references: [id], map: "match_player_one_foreign")
+  
+  // SOLUCIÓN: Corregimos el nombre de la relación de "Two" a "PlayerTwo"
+  playerTwo        User               @relation("PlayerTwo", fields: [playerTwoId], references: [id], map: "match_player_two_foreign")
+
+  @@map("match")
+}
+
+model Tournament {
+  id               BigInt               @id
+  dateStart        DateTime             @map("datestart") @db.Date
+  name             String               @db.VarChar(255)
+  numPlayers       Int                  @map("num_players")
+  numGroup         Int?                 @map("num_group")
+  numGroupPlayers  Int?                 @map("num_group_players")
+  typeTournament   String?              @map("type_tournament") @db.VarChar(255)
+  levelTournament  String?              @map("level_tournament") @db.VarChar(255)
+  rounds           String?              @db.VarChar(255)
+  status           String?              @db.VarChar(255)
+  typeKnockout     String?              @map("type_knockout") @db.VarChar(255)
+  playersKnockout  String?              @map("players_knockout") @db.VarChar(255)
+  sortKnockout     String?              @map("sort_knockout") @db.VarChar(255)
+  allPos           Boolean?             @map("all_pos")
+  groupsCreated    Boolean?             @map("groups_created")
+  knockoutCreated  Boolean?             @map("knockout_created")
+  
+  // Relaciones
+  matches          Match[]
+  groups           TournamentGroup[]
+  knockouts        TournamentKnockout[]
+
+  @@map("tournament")
+}
+
+model League {
+  id              BigInt       @id
+  dateStart       DateTime     @map("datestart") @db.Date
+  name            String       @unique @db.VarChar(255)
+  numPlayers      BigInt       @map("num_players")
+  typeTournament  String?      @map("type_tournament") @db.VarChar(255)
+  levelTournament String?      @map("level_tournament") @db.VarChar(255)
+  status          String?      @db.VarChar(255)
+  
+  // Relaciones
+  matches         Match[]
+  clasifications  LeagueClas[]
+
+  @@map("league")
+}
+
+model TournamentGroup {
+  id           BigInt                @id
+  tournamentId BigInt                @map("tournament_id")
+  group        Int
+  status       String?               @db.VarChar(255)
+  
+  // Relaciones
+  tournament   Tournament            @relation(fields: [tournamentId], references: [id])
+  matches      Match[]
+  clasifications TournamentGroupClas[]
+
+  @@map("tournament_group")
+}
+
+model TournamentKnockout {
+  id           BigInt     @id
+  tournamentId BigInt     @map("tournament_id")
+  round        String     @db.VarChar(255)
+  status       String?    @db.VarChar(255)
+  
+  // Relaciones
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  matches      Match[]
+
+  @@map("tournament_knockout")
+}
+
+model TournamentGroupClas {
+  id                BigInt          @id
+  tournamentGroupId BigInt          @map("tournament_group_id")
+  playerId          Int             @map("player_id")
+  gamesWon          Int?            @default(0) @map("games_won")
+  gamesLost         Int?            @default(0) @map("games_lost")
+  setsWon           Int?            @default(0) @map("sets_won")
+  setsLost          Int?            @default(0) @map("sets_lost")
+  pointsWon         Int?            @default(0) @map("points_won")
+  pointsLost        Int?            @default(0) @map("points_lost")
+  pointsClas        Int?            @default(0) @map("points_clas")
+  position          Int?            @default(0)
+
+  // Relaciones
+  tournamentGroup   TournamentGroup @relation(fields: [tournamentGroupId], references: [id])
+  player            User            @relation(fields: [playerId], references: [id])
+
+  @@map("tournament_group_clas")
+}
+
+model LeagueClas {
+  id         BigInt  @id
+  leagueId   BigInt  @map("league_id")
+  playerId   Int     @map("player_id")
+  gamesWon   Int?    @default(0) @map("games_won")
+  gamesLost  Int?    @default(0) @map("games_lost")
+  setsWon    Int?    @default(0) @map("sets_won")
+  setsLost   Int?    @default(0) @map("sets_lost")
+  pointsWon  Int?    @default(0) @map("points_won")
+  pointsLost Int?    @default(0) @map("points_lost")
+  pointsClas Int?    @default(0) @map("points_clas")
+  position   Int?    @default(0)
+  status     String? @db.VarChar(255)
+
+  // Relaciones
+  league     League  @relation(fields: [leagueId], references: [id])
+  player     User    @relation(fields: [playerId], references: [id])
+
+  @@map("league_clas")
 }
