@@ -73,4 +73,56 @@ Durante el desarrollo, hemos establecido las siguientes convenciones y reglas de
 
 ### 4. Sistema de Rutas Centralizado
 
-- Implementación de un `Router` principal en `src/routes/index.ts` que delega
+- Implementación de un `Router` principal en `src/routes/index.ts` que delega las responsabilidades a módulos específicos (`/api/users`, `/api/user-types`).
+
+### 5. Documentación Interactiva (Swagger)
+
+- Integración de `swagger-ui-express`.
+- Definición de _paths_, _schemas_ y _parameters_ directamente en TypeScript (`src/swagger.ts`) para evitar los problemas de indentación de YAML.
+- UI accesible en `/api-docs`.
+
+### 6. Validación de Datos (Zod)
+
+- Implementación de esquemas de validación estricta para la creación (POST) y actualización parcial (PUT) de usuarios.
+- Intercepción de errores (`safeParse`) para devolver respuestas HTTP `400 Bad Request` claras y detalladas al cliente.
+
+### 7. Pruebas Unitarias (Vitest + Supertest)
+
+- Configuración del entorno de pruebas interceptando el ORM (`vi.mock`).
+- Cobertura completa del CRUD de usuarios validando códigos de estado (200, 201, 204, 400, 500) sin tocar la base de datos real.
+
+---
+
+## 💻 Comandos Útiles de Desarrollo
+
+**Levantar el proyecto:**
+
+```bash
+docker compose up -d
+```
+
+**Aplicar cambios en la base de datos y ejecutar Sembrado:**
+_(Útil si se modifica el schema.prisma)_
+
+```bash
+docker compose exec api npx prisma migrate dev --name <nombre_descriptivo>
+```
+
+**Forzar el sembrado (Seeding) manualmente:**
+
+```bash
+docker compose exec api npx prisma db seed
+```
+
+**Ejecutar los Tests:**
+
+```bash
+npm run test
+```
+
+**Actualizar los tipos de Prisma en VS Code:**
+_(Si el editor muestra falsos errores tras una migración)_
+
+```bash
+npx prisma generate
+```
