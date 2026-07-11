@@ -11,6 +11,9 @@
     "lint": "eslint src/",
     "format": "prettier --write \"src/**/*.ts\""
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -19,7 +22,8 @@
     "@prisma/client": "^5.22.0",
     "express": "^5.2.1",
     "swagger-jsdoc": "^6.3.0",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

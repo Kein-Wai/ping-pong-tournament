@@ -3,18 +3,15 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const types = [
-    { id: 1, name: 'Admin' },
-    { id: 2, name: 'Player' },
-  ];
+  const types = [{ name: 'Admin' }, { name: 'Player' }];
 
   console.log('Sembrando tipos de usuario...');
 
   for (const type of types) {
     await prisma.userType.upsert({
-      where: { id: type.id },
+      where: { name: type.name }, // <-- Ahora buscamos por nombre
       update: {},
-      create: type,
+      create: type, // <-- Al crear, Prisma autogenerará el UUID
     });
   }
 

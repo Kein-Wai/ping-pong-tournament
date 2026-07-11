@@ -16,8 +16,8 @@ describe('GET /api/user-types', () => {
   it('debería devolver una lista de tipos de usuario con status 200', async () => {
     // 1. Preparamos los datos simulados
     const mockUserTypes = [
-      { id: 1, name: 'Admin' },
-      { id: 2, name: 'Player' },
+      { id: '123e4567-e89b-12d3-a456-426614174000', name: 'Admin' },
+      { id: '123e4567-e89b-12d3-a456-426614174002', name: 'Player' },
     ];
 
     // 2. Le decimos al mock de Prisma que resuelva la promesa con esos datos

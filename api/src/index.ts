@@ -5,6 +5,8 @@ import { setupSwagger } from './swagger';
 export const app = express();
 const PORT = 3000;
 
+app.use(express.json());
+
 app.use('/api', apiRoutes);
 
 setupSwagger(app);

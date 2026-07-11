@@ -26,7 +26,7 @@ const options = {
                     items: {
                       type: 'object',
                       properties: {
-                        id: { type: 'integer', example: 1 },
+                        id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
                         name: { type: 'string', example: 'Admin' },
                       },
                     },
@@ -37,6 +37,112 @@ const options = {
             500: {
               description: 'Error interno del servidor',
             },
+          },
+        },
+      },
+      '/api/users': {
+        get: {
+          summary: 'Obtiene la lista de todos los usuarios',
+          tags: ['Users'],
+          responses: {
+            200: {
+              description: 'Lista de usuarios devuelta exitosamente',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                        email: { type: 'string', example: 'jugador@pingpong.com' },
+                        name: { type: 'string', example: 'Carlos Alcaraz' },
+                        userTypeId: { type: 'integer', example: 2 },
+                        createdAt: { type: 'string', format: 'date-time' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            500: { description: 'Error al obtener los usuarios' },
+          },
+        },
+        post: {
+          summary: 'Crea un nuevo usuario',
+          tags: ['Users'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    email: { type: 'string', example: 'nuevo@pingpong.com' },
+                    name: { type: 'string', example: 'Rafa Nadal' },
+                    userTypeId: { type: 'integer', example: 2 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: 'Usuario creado exitosamente',
+            },
+            500: { description: 'Error al crear el usuario' },
+          },
+        },
+      },
+      '/api/users/{id}': {
+        put: {
+          summary: 'Actualiza un usuario existente',
+          tags: ['Users'],
+          parameters: [
+            {
+              id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+              in: 'path',
+              required: true,
+              description: 'ID del usuario a actualizar',
+              schema: { type: 'string' },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', example: 'Rafa Nadal (Actualizado)' },
+                    email: { type: 'string', example: 'rafa@pingpong.com' },
+                    userTypeId: { type: 'integer', example: 1 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Usuario actualizado exitosamente' },
+            500: { description: 'Error al actualizar el usuario' },
+          },
+        },
+        delete: {
+          summary: 'Borra un usuario',
+          tags: ['Users'],
+          parameters: [
+            {
+              id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+              in: 'path',
+              required: true,
+              description: 'ID del usuario a borrar',
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            204: { description: 'Usuario borrado exitosamente (Sin contenido)' },
+            500: { description: 'Error al borrar el usuario' },
           },
         },
       },

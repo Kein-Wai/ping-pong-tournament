@@ -8,7 +8,7 @@ generator client {
 }
 
 model UserType {
-  id    Int    @id
+  id    String @id @default(uuid())
   name  String @unique @db.VarChar(255)
   users User[]
 
@@ -16,13 +16,13 @@ model UserType {
 }
 
 model User {
-  id              Int      @id
-  userTypeId      Int      @map("user_type_id")
+  id              String   @id @default(uuid())
+  userTypeId      String   @map("user_type_id")
   name            String   @db.VarChar(255)
   surname         String   @db.VarChar(255)
   secondSurname   String?  @map("secondsurname") @db.VarChar(255)
   nickname        String?  @db.VarChar(255)
-  email           String   @db.VarChar(255)
+  email           String   @unique @db.VarChar(255)
   
   // Relaciones
   userType        UserType @relation(fields: [userTypeId], references: [id])
@@ -37,8 +37,8 @@ model User {
 }
 
 model Stats {
-  id             Int   @id
-  userId         Int   @map("user_id")
+  id             String @id @default(uuid())
+  userId         String @map("user_id")
   score          Int?
   matchWon       Int?  @map("match_won")
   matchLost      Int?  @map("match_lost")
@@ -56,16 +56,16 @@ model Stats {
 }
 
 model Match {
-  id               BigInt             @id
+  id               String             @id @default(uuid())
   dateStart        DateTime           @map("datestart") @db.Date
-  tournamentId     BigInt?            @map("tournament_id")
-  groupId          BigInt?            @map("group_id")
-  knockoutId       BigInt?            @map("knockout_id")
-  leagueId         BigInt?            @map("league_id")
+  tournamentId     String?            @map("tournament_id")
+  groupId          String?            @map("group_id")
+  knockoutId       String?            @map("knockout_id")
+  leagueId         String?            @map("league_id")
   
   // SOLUCIÓN: Cambiamos BigInt por Int para que coincida con el id de User
-  playerOneId      Int                @map("player_one")
-  playerTwoId      Int                @map("player_two")
+  playerOneId      String             @map("player_one")
+  playerTwoId      String             @map("player_two")
   
   // Marcadores de sets
   setOnePlayerOne   BigInt?            @default(0) @map("set_one_player_one")
@@ -98,7 +98,7 @@ model Match {
 }
 
 model Tournament {
-  id               BigInt               @id
+  id               String               @id @default(uuid())
   dateStart        DateTime             @map("datestart") @db.Date
   name             String               @db.VarChar(255)
   numPlayers       Int                  @map("num_players")
@@ -124,7 +124,7 @@ model Tournament {
 }
 
 model League {
-  id              BigInt       @id
+  id              String       @id @default(uuid())
   dateStart       DateTime     @map("datestart") @db.Date
   name            String       @unique @db.VarChar(255)
   numPlayers      BigInt       @map("num_players")
@@ -140,8 +140,8 @@ model League {
 }
 
 model TournamentGroup {
-  id           BigInt                @id
-  tournamentId BigInt                @map("tournament_id")
+  id           String                @id @default(uuid())
+  tournamentId String                @map("tournament_id")
   group        Int
   status       String?               @db.VarChar(255)
   
@@ -154,8 +154,8 @@ model TournamentGroup {
 }
 
 model TournamentKnockout {
-  id           BigInt     @id
-  tournamentId BigInt     @map("tournament_id")
+  id           String     @id @default(uuid())
+  tournamentId String     @map("tournament_id")
   round        String     @db.VarChar(255)
   status       String?    @db.VarChar(255)
   
@@ -167,9 +167,9 @@ model TournamentKnockout {
 }
 
 model TournamentGroupClas {
-  id                BigInt          @id
-  tournamentGroupId BigInt          @map("tournament_group_id")
-  playerId          Int             @map("player_id")
+  id                String          @id @default(uuid())
+  tournamentGroupId String          @map("tournament_group_id")
+  playerId          String          @map("player_id")
   gamesWon          Int?            @default(0) @map("games_won")
   gamesLost         Int?            @default(0) @map("games_lost")
   setsWon           Int?            @default(0) @map("sets_won")
@@ -187,9 +187,9 @@ model TournamentGroupClas {
 }
 
 model LeagueClas {
-  id         BigInt  @id
-  leagueId   BigInt  @map("league_id")
-  playerId   Int     @map("player_id")
+  id         String  @id @default(uuid())
+  leagueId   String  @map("league_id")
+  playerId   String  @map("player_id")
   gamesWon   Int?    @default(0) @map("games_won")
   gamesLost  Int?    @default(0) @map("games_lost")
   setsWon    Int?    @default(0) @map("sets_won")
