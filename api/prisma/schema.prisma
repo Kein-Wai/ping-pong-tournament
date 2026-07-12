@@ -19,7 +19,10 @@ model User {
   id              String   @id @default(uuid())
   userTypeId      String   @map("user_type_id")
   name            String   @db.VarChar(255)
-  surname         String   @db.VarChar(255)
+  surname         String?  @db.VarChar(255)
+  password        String?  
+  authProvider    String   @default("LOCAL")
+  googleId        String?  @unique
   secondSurname   String?  @map("secondsurname") @db.VarChar(255)
   nickname        String?  @db.VarChar(255)
   email           String   @unique @db.VarChar(255)
@@ -63,25 +66,24 @@ model Match {
   knockoutId       String?            @map("knockout_id")
   leagueId         String?            @map("league_id")
   
-  // SOLUCIÓN: Cambiamos BigInt por Int para que coincida con el id de User
   playerOneId      String             @map("player_one")
   playerTwoId      String             @map("player_two")
   
   // Marcadores de sets
-  setOnePlayerOne   BigInt?            @default(0) @map("set_one_player_one")
-  setOnePlayerTwo   BigInt?            @default(0) @map("set_one_player_two")
-  setTwoPlayerOne   BigInt?            @default(0) @map("set_two_player_one")
-  setTwoPlayerTwo   BigInt?            @default(0) @map("set_two_player_two")
-  setThreePlayerOne BigInt?            @default(0) @map("set_three_player_one")
-  setThreePlayerTwo BigInt?            @default(0) @map("set_three_player_two")
-  setFourPlayerOne  BigInt?            @default(0) @map("set_four_player_one")
-  setFourPlayerTwo  BigInt?            @default(0) @map("set_four_player_two")
-  setFivePlayerOne  BigInt?            @default(0) @map("set_five_player_one")
-  setFivePlayerTwo  BigInt?            @default(0) @map("set_five_player_two")
-  setSixPlayerOne   BigInt?            @default(0) @map("set_six_player_one")
-  setSixPlayerTwo   BigInt?            @default(0) @map("set_six_player_two")
-  setSevenPlayerOne BigInt?            @default(0) @map("set_seven_player_one")
-  setSevenPlayerTwo BigInt?            @default(0) @map("set_seven_player_two")
+  setOnePlayerOne   Int?            @default(0) @map("set_one_player_one")
+  setOnePlayerTwo   Int?            @default(0) @map("set_one_player_two")
+  setTwoPlayerOne   Int?            @default(0) @map("set_two_player_one")
+  setTwoPlayerTwo   Int?            @default(0) @map("set_two_player_two")
+  setThreePlayerOne Int?            @default(0) @map("set_three_player_one")
+  setThreePlayerTwo Int?            @default(0) @map("set_three_player_two")
+  setFourPlayerOne  Int?            @default(0) @map("set_four_player_one")
+  setFourPlayerTwo  Int?            @default(0) @map("set_four_player_two")
+  setFivePlayerOne  Int?            @default(0) @map("set_five_player_one")
+  setFivePlayerTwo  Int?            @default(0) @map("set_five_player_two")
+  setSixPlayerOne   Int?            @default(0) @map("set_six_player_one")
+  setSixPlayerTwo   Int?            @default(0) @map("set_six_player_two")
+  setSevenPlayerOne Int?            @default(0) @map("set_seven_player_one")
+  setSevenPlayerTwo Int?            @default(0) @map("set_seven_player_two")
   status            String?            @db.VarChar(255)
 
   // Relaciones
@@ -127,7 +129,7 @@ model League {
   id              String       @id @default(uuid())
   dateStart       DateTime     @map("datestart") @db.Date
   name            String       @unique @db.VarChar(255)
-  numPlayers      BigInt       @map("num_players")
+  numPlayers      Int       @map("num_players")
   typeTournament  String?      @map("type_tournament") @db.VarChar(255)
   levelTournament String?      @map("level_tournament") @db.VarChar(255)
   status          String?      @db.VarChar(255)
