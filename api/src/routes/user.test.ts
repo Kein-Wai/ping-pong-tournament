@@ -8,11 +8,16 @@ vi.mock('../../src/db', () => ({
   default: {
     user: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
   },
+}));
+
+vi.mock('../../src/middleware/auth.middleware', () => ({
+  verifyToken: (req: any, res: any, next: any) => next(),
 }));
 
 describe('CRUD de Rutas de Usuario (/api/users)', () => {
@@ -27,6 +32,9 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
     secondSurname: null,
     nickname: null,
     userTypeId: TYPE_UUID,
+    password: 'hashed-password-fake',
+    authProvider: 'LOCAL',
+    googleId: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -65,8 +73,37 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
     expect(prisma.user.create).toHaveBeenCalledOnce();
   });
 
+  it('POST / - debería dar error de validación (400)', async () => {
+    // Simulamos la respuesta de creación exitosa
+    vi.mocked(prisma.user.create).mockResolvedValue(mockUser);
+
+    const newUserPayload = {
+      email: 12311,
+      name: 'ca',
+      surname: 'e', // <-- Añadido
+      userTypeId: 2,
+    };
+
+    const response = await request(app).post('/api/users').send(newUserPayload);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toHaveProperty('error', 'Datos de entrada inválidos');
+    expect(response.body.details.properties).toHaveProperty('email');
+  });
+
+  it('GET /:id - debería devolver un usuario (200)', async () => {
+    // Simulamos que la BD devuelve un array con nuestro usuario
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser);
+
+    const response = await request(app).get('/api/users/123e4567-e89b-12d3-a456-426614174000');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(mockUser);
+    expect(prisma.user.findUnique).toHaveBeenCalledOnce();
+  });
+
   it('PUT /:id - debería actualizar un usuario existente (200)', async () => {
-    const updatedUser = { ...mockUser, name: 'Rafa Nadal' };
+    const updatedUser = { ...mockUser, name: 'Rafa' };
 
     // Simulamos la respuesta de actualización exitosa
     vi.mocked(prisma.user.update).mockResolvedValue(updatedUser);
@@ -85,6 +122,28 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
         where: { id: '123e4567-e89b-12d3-a456-426614174000' },
       }),
     );
+  });
+
+  it('PUT /:id  - debería dar error de validación (400)', async () => {
+    const updatedUser = { ...mockUser, name: 'Rafa' };
+
+    // Simulamos la respuesta de actualización exitosa
+    vi.mocked(prisma.user.update).mockResolvedValue(updatedUser);
+
+    const updatePayload = {
+      email: 12311,
+      name: 'ca',
+      surname: 'e', // <-- Añadido
+      userTypeId: 2,
+    };
+
+    const response = await request(app)
+      .put('/api/users/123e4567-e89b-12d3-a456-426614174000')
+      .send(updatePayload);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toHaveProperty('error', 'Datos de entrada inválidos');
+    expect(response.body.details.properties).toHaveProperty('email');
   });
 
   it('DELETE /:id - debería borrar un usuario y no devolver contenido (204)', async () => {

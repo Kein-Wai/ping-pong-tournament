@@ -12,6 +12,10 @@ vi.mock('../db', () => ({
   },
 }));
 
+vi.mock('../../src/middleware/auth.middleware', () => ({
+  verifyToken: (req: any, res: any, next: any) => next(),
+}));
+
 describe('GET /api/user-types', () => {
   it('debería devolver una lista de tipos de usuario con status 200', async () => {
     // 1. Preparamos los datos simulados

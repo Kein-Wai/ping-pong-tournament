@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs'; // <-- Importar bcrypt
 import prisma from '../db';
 import { createUserSchema, updateUserSchema } from '../schemas/user.schema';
+import { z } from 'zod';
 
 const router = Router();
 
@@ -24,20 +26,46 @@ router.post('/', async (req, res) => {
     if (!validation.success) {
       res.status(400).json({
         error: 'Datos de entrada inválidos',
-        details: validation.error.format(),
+        details: z.treeifyError(validation.error),
       });
       return;
     }
 
+    const { password, ...userData } = validation.data;
+    let hashedPassword = null;
+
+    // Si nos pasan contraseña, la encriptamos
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
     // 3. Si pasa, usamos validation.data (que ya está tipado y limpio)
     const newUser = await prisma.user.create({
-      data: validation.data,
+      data: {
+        ...userData,
+        password: hashedPassword,
+        // Si hay contraseña es LOCAL, si no (lo crearemos desde la ruta de Google)
+        authProvider: password ? 'LOCAL' : 'UNKNOWN',
+      },
     });
+
+    const { password: _, ...userWithoutPassword } = newUser;
 
     res.status(201).json(newUser);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al crear el usuario' });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({ where: { id: id } });
+    res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener los usuarios' });
   }
 });
 
@@ -51,7 +79,7 @@ router.put('/:id', async (req, res) => {
     if (!validation.success) {
       res.status(400).json({
         error: 'Datos de entrada inválidos',
-        details: validation.error.format(),
+        details: z.treeifyError(validation.error),
       });
       return;
     }
