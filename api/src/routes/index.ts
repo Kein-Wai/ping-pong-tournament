@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import userTypeRoutes from './user-type';
 import userRoutes from './user';
+import authRoutes from './auth';
+import matchRoutes from './match';
+import { verifyToken } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Aquí centralizas y mapeas cada módulo a su path correspondiente
-router.use('/user-types', userTypeRoutes);
-router.use('/users', userRoutes);
-// En el futuro, cuando crees más rutas, solo tendrás que añadirlas aquí abajo:
-// router.use('/users', userRoutes);
-// router.use('/tournaments', tournamentRoutes);
+router.use('/auth', authRoutes);
+router.use('/user-types', verifyToken, userTypeRoutes);
+router.use('/users', verifyToken, userRoutes);
+router.use('/matches', verifyToken, matchRoutes);
 
 export default router;
