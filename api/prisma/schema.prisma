@@ -46,7 +46,7 @@ model Stats {
   matchWon       Int?  @map("match_won")
   matchLost      Int?  @map("match_lost")
   setWon         Int?  @map("set_won")
-  setLosts       Int?  @map("set_losts")
+  setLost       Int?  @map("set_lost")
   pointWon       Int?  @map("point_won")
   pointLost      Int?  @map("point_lost")
   tournamentWon  Int?  @map("tournament_won")
