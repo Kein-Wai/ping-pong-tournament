@@ -122,7 +122,6 @@ describe('GET /api/matches', () => {
     const response = await request(app).get('/api/matches');
 
     // 4. Comprobamos que todo funciona como esperamos
-    console.log(response);
     expect(response.status).toBe(200);
     expect(response.body).toEqual(mockMatches);
     expect(prisma.match.findMany).toHaveBeenCalledOnce();

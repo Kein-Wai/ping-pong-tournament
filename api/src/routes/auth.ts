@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import prisma from '../db';
-import { loginLocalSchema, loginGoogleSchema, registerSchema } from '../schemas/user.schema';
+import { loginLocalSchema, loginGoogleSchema, registerSchema } from '../schemas/user';
 import { z } from 'zod';
 
 const router = Router();
@@ -47,6 +47,9 @@ router.post('/register', async (req, res) => {
         surname,
         authProvider: 'LOCAL',
         userTypeId: playerRole.id,
+        stats: {
+          create: {}, // Crea la fila vinculada automáticamente asumiendo el default(500)
+        },
       },
       include: { userType: true },
     });
@@ -154,6 +157,9 @@ router.post('/google', async (req, res) => {
           authProvider: 'GOOGLE',
           googleId,
           userTypeId: playerRole.id,
+          stats: {
+            create: {}, // Crea la fila vinculada automáticamente asumiendo el default(500)
+          },
         },
         include: { userType: true },
       });

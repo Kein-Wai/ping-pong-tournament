@@ -29,11 +29,12 @@ model User {
   
   // Relaciones
   userType        UserType @relation(fields: [userTypeId], references: [id])
-  stats           Stats[]
+  stats           Stats?
   matchesAsPlayerOne Match[] @relation("PlayerOne")
   matchesAsPlayerTwo Match[] @relation("PlayerTwo")
   groupClasifications TournamentGroupClas[]
   leagueClasifications LeagueClas[]
+  tournamentInscriptions TournamentParticipant[]
 
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
@@ -41,12 +42,12 @@ model User {
 
 model Stats {
   id             String @id @default(uuid())
-  userId         String @map("user_id")
-  score          Int?
+  userId         String @unique @map("user_id")
+  elo            Int?   @default(500)
   matchWon       Int?  @map("match_won")
   matchLost      Int?  @map("match_lost")
   setWon         Int?  @map("set_won")
-  setLost       Int?  @map("set_lost")
+  setLost        Int?  @map("set_lost")
   pointWon       Int?  @map("point_won")
   pointLost      Int?  @map("point_lost")
   tournamentWon  Int?  @map("tournament_won")
@@ -92,8 +93,6 @@ model Match {
   knockout         TournamentKnockout? @relation(fields: [knockoutId], references: [id])
   league           League?            @relation(fields: [leagueId], references: [id])
   playerOne        User               @relation("PlayerOne", fields: [playerOneId], references: [id], map: "match_player_one_foreign")
-  
-  // SOLUCIÓN: Corregimos el nombre de la relación de "Two" a "PlayerTwo"
   playerTwo        User               @relation("PlayerTwo", fields: [playerTwoId], references: [id], map: "match_player_two_foreign")
 
   @@map("match")
@@ -121,9 +120,12 @@ model Tournament {
   matches          Match[]
   groups           TournamentGroup[]
   knockouts        TournamentKnockout[]
+  participants     TournamentParticipant[]
 
   @@map("tournament")
 }
+
+
 
 model League {
   id              String       @id @default(uuid())
@@ -140,6 +142,23 @@ model League {
 
   @@map("league")
 }
+
+model TournamentParticipant {
+  id           String     @id @default(uuid())
+  tournamentId String     @map("tournament_id")
+  playerId     String     @map("player_id")
+  registeredAt DateTime   @default(now()) @map("registered_at")
+  status       String     // Valores que usaremos: "PENDING", "CONFIRMED", "NO_SHOW"
+  
+  // Relaciones
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player       User       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  // Un jugador no puede apuntarse dos veces al mismo torneo
+  @@unique([tournamentId, playerId])
+  @@map("tournament_participant")
+}
+
 
 model TournamentGroup {
   id           String                @id @default(uuid())
@@ -172,6 +191,7 @@ model TournamentGroupClas {
   id                String          @id @default(uuid())
   tournamentGroupId String          @map("tournament_group_id")
   playerId          String          @map("player_id")
+  played          Int?            @default(0) @map("played")
   gamesWon          Int?            @default(0) @map("games_won")
   gamesLost         Int?            @default(0) @map("games_lost")
   setsWon           Int?            @default(0) @map("sets_won")

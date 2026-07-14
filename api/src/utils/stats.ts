@@ -1,50 +1,50 @@
 import { PrismaClient } from '@prisma/client';
-import { STATUS } from '../constants';
+import { STATUS, POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
+import { calculateMatchResults } from './match';
 
 export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
-  // 1. Regla de oro: Solo actualizamos si el partido está Completado
   if (match.status !== STATUS.COMPLETED) {
     return;
   }
 
-  // 2. Extraemos todos los sets en un array para poder iterarlos
-  const sets = [
-    [match.setOnePlayerOne, match.setOnePlayerTwo],
-    [match.setTwoPlayerOne, match.setTwoPlayerTwo],
-    [match.setThreePlayerOne, match.setThreePlayerTwo],
-    [match.setFourPlayerOne, match.setFourPlayerTwo],
-    [match.setFivePlayerOne, match.setFivePlayerTwo],
-    [match.setSixPlayerOne, match.setSixPlayerTwo],
-    [match.setSevenPlayerOne, match.setSevenPlayerTwo],
-  ];
+  const { p1Sets, p2Sets, p1Points, p2Points, p1WinsMatch } = calculateMatchResults(match);
 
-  let p1Sets = 0,
-    p2Sets = 0;
-  let p1Points = 0,
-    p2Points = 0;
+  const p1Stats = await prisma.stats.findFirst({ where: { userId: match.playerOneId } });
+  const p2Stats = await prisma.stats.findFirst({ where: { userId: match.playerTwoId } });
 
-  // 3. Calculamos quién ganó cada set y sumamos los puntos totales
-  for (const [s1, s2] of sets) {
-    // Convertimos de BigInt a Number (por si acaso Prisma los trae como BigInt)
-    const score1 = Number(s1 || 0);
-    const score2 = Number(s2 || 0);
+  let p1Score = p1Stats?.elo && p1Stats.elo > 0 ? p1Stats.elo : SCORE_DEFAULT;
+  let p2Score = p2Stats?.elo && p2Stats.elo > 0 ? p2Stats.elo : SCORE_DEFAULT;
 
-    if (score1 === 0 && score2 === 0) continue; // Set no jugado
+  const diff = Math.abs(p1Score - p2Score);
 
-    p1Points += score1;
-    p2Points += score2;
+  let bucket: readonly [number, number];
+  if (diff <= 24) bucket = POINTS_MATCHES['24'];
+  else if (diff <= 49) bucket = POINTS_MATCHES['49'];
+  else if (diff <= 99) bucket = POINTS_MATCHES['99'];
+  else if (diff <= 249) bucket = POINTS_MATCHES['249'];
+  else bucket = POINTS_MATCHES['750'];
 
-    if (score1 > score2) p1Sets++;
-    else if (score2 > score1) p2Sets++;
+  const p1IsFavorite = p1Score >= p2Score;
+  let p1ScoreDelta = 0;
+  let p2ScoreDelta = 0;
+
+  // Determinamos los puntos a sumar/restar
+  if (p1WinsMatch) {
+    // Gana P1
+    const pointsExchanged = p1IsFavorite ? bucket[0] : bucket[1];
+    p1ScoreDelta = pointsExchanged;
+    p2ScoreDelta = -Math.min(pointsExchanged, p2Score - 1);
+  } else {
+    // Gana P2
+    const pointsExchanged = !p1IsFavorite ? bucket[0] : bucket[1];
+    p2ScoreDelta = pointsExchanged;
+    p1ScoreDelta = -Math.min(pointsExchanged, p1Score - 1);
   }
 
-  // 4. ¿Quién ganó el partido?
-  const p1WinsMatch = p1Sets > p2Sets ? 1 : 0;
-  const p2WinsMatch = p2Sets > p1Sets ? 1 : 0;
-
-  // 5. Función auxiliar interna para inyectar los datos en la base de datos
-  const updateUserStats = async (
+  const savePlayerStats = async (
     userId: string,
+    statsId: string | undefined,
+    scoreDelta: number,
     wonMatch: number,
     lostMatch: number,
     wonSets: number,
@@ -52,14 +52,11 @@ export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
     wonPoints: number,
     lostPoints: number,
   ) => {
-    // Buscamos si el jugador ya tiene una fila en la tabla Stats
-    const userStats = await prisma.stats.findFirst({ where: { userId } });
-
-    if (userStats) {
-      // Si ya tiene stats, le SUMAMOS los de este partido (increment)
+    if (statsId) {
       await prisma.stats.update({
-        where: { id: userStats.id },
+        where: { id: statsId },
         data: {
+          elo: { increment: scoreDelta },
           matchWon: { increment: wonMatch },
           matchLost: { increment: lostMatch },
           setWon: { increment: wonSets },
@@ -69,17 +66,16 @@ export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
         },
       });
     } else {
-      // Si es su primer partido completado, le creamos su fila de Stats
       await prisma.stats.create({
         data: {
           userId,
+          elo: 500 + scoreDelta, // Puntaje base + el resultado de su primer partido
           matchWon: wonMatch,
           matchLost: lostMatch,
           setWon: wonSets,
           setLost: lostSet,
           pointWon: wonPoints,
           pointLost: lostPoints,
-          score: 0, // Lo dejamos en 0 por ahora
           tournamentWon: 0,
           tournamentLost: 0,
         },
@@ -87,20 +83,25 @@ export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
     }
   };
 
-  // 6. Ejecutamos la actualización para ambos jugadores
-  await updateUserStats(
+  // 5. EJECUTAMOS EL GUARDADO
+  await savePlayerStats(
     match.playerOneId,
-    p1WinsMatch,
-    p2WinsMatch,
+    p1Stats?.id,
+    p1ScoreDelta,
+    p1WinsMatch ? 1 : 0,
+    p1WinsMatch ? 0 : 1,
     p1Sets,
     p2Sets,
     p1Points,
     p2Points,
   );
-  await updateUserStats(
+
+  await savePlayerStats(
     match.playerTwoId,
-    p2WinsMatch,
-    p1WinsMatch,
+    p2Stats?.id,
+    p2ScoreDelta,
+    p1WinsMatch ? 0 : 1,
+    p1WinsMatch ? 1 : 0,
     p2Sets,
     p1Sets,
     p2Points,

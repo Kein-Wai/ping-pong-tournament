@@ -33,7 +33,6 @@ const options = {
           description:
             'Crea un nuevo usuario con el rol de Player automáticamente y devuelve un JWT para iniciar sesión inmediatamente.',
           tags: ['Auth'],
-          // Importante: No ponemos "security" aquí porque es una ruta pública
           requestBody: {
             required: true,
             content: {
@@ -263,6 +262,58 @@ const options = {
           },
         },
       },
+      '/api/users/me': {
+        put: {
+          summary: 'Actualizar perfil propio',
+          description:
+            'Permite al usuario autenticado cambiar su nombre, apellidos y contraseña. Si el usuario ya tenía contraseña, se requiere enviar "currentPassword" para validar el cambio.',
+          tags: ['Users'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', example: 'Carlos' },
+                    surname: { type: 'string', example: 'Alcaraz' },
+                    currentPassword: { type: 'string', example: 'MiClaveVieja123' },
+                    newPassword: { type: 'string', example: 'MiClaveNueva456' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'Perfil actualizado exitosamente',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Perfil actualizado con éxito' },
+                      user: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string' },
+                          email: { type: 'string' },
+                          name: { type: 'string' },
+                          surname: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Datos inválidos o falta la contraseña actual' },
+            401: { description: 'Usuario no autenticado o contraseña actual incorrecta' },
+            404: { description: 'Usuario no encontrado' },
+            500: { description: 'Error interno' },
+          },
+        },
+      },
       '/api/users/{id}': {
         get: {
           summary: 'Obtienes un solo user',
@@ -397,6 +448,333 @@ const options = {
               },
             },
             500: { description: 'Error interno del servidor' },
+          },
+        },
+        post: {
+          summary: 'Registrar un nuevo partido',
+          description:
+            'Crea un nuevo partido. Permite registrar tanto partidos programados (sin puntos) como partidos ya completados (enviando los resultados de los sets). Actualiza automáticamente las estadísticas (Elo) y las clasificaciones si el partido está completado.',
+          tags: ['Matches'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['playerOneId', 'playerTwoId'],
+                  properties: {
+                    playerOneId: {
+                      type: 'string',
+                      format: 'uuid',
+                      example: '123e4567-e89b-12d3-a456-426614174001',
+                    },
+                    playerTwoId: {
+                      type: 'string',
+                      format: 'uuid',
+                      example: '123e4567-e89b-12d3-a456-426614174002',
+                    },
+                    dateStart: {
+                      type: 'string',
+                      format: 'date-time',
+                      example: '2026-07-20T10:00:00.000Z',
+                    },
+                    tournamentId: {
+                      type: 'string',
+                      format: 'uuid',
+                      description: 'Opcional. ID del torneo',
+                    },
+                    groupId: {
+                      type: 'string',
+                      format: 'uuid',
+                      description: 'Opcional. ID del grupo',
+                    },
+                    knockoutId: {
+                      type: 'string',
+                      format: 'uuid',
+                      description: 'Opcional. ID de la eliminatoria',
+                    },
+                    leagueId: {
+                      type: 'string',
+                      format: 'uuid',
+                      description: 'Opcional. ID de la liga',
+                    },
+                    setOnePlayerOne: {
+                      type: 'integer',
+                      example: 11,
+                      description: 'Puntos del Jugador 1 en el Set 1',
+                    },
+                    setOnePlayerTwo: {
+                      type: 'integer',
+                      example: 8,
+                      description: 'Puntos del Jugador 2 en el Set 1',
+                    },
+                    setTwoPlayerOne: { type: 'integer', example: 9 },
+                    setTwoPlayerTwo: { type: 'integer', example: 11 },
+                    setThreePlayerOne: { type: 'integer', example: 12 },
+                    setThreePlayerTwo: { type: 'integer', example: 10 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: 'Partido registrado con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Partido registrado con éxito' },
+                      match: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          status: { type: 'string', example: 'Completado' },
+                          playerOneId: { type: 'string', format: 'uuid' },
+                          playerTwoId: { type: 'string', format: 'uuid' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: {
+              description:
+                'Datos inválidos. Zod validará reglas de Ping Pong (ej. diferencia de 2 puntos, mínimo 11 puntos) o que los jugadores no sean el mismo.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      error: { type: 'string', example: 'Datos inválidos' },
+                      details: { type: 'object', description: 'Árbol de errores de Zod' },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+            },
+          },
+        },
+      },
+      '/api/tournaments': {
+        post: {
+          summary: 'Crear un nuevo torneo',
+          description:
+            'Crea un torneo en estado "PROGRAMADO" a la espera de que se inscriban los participantes. Campos como el estado y la creación de grupos/fases son controlados estrictamente por el backend.',
+          tags: ['Tournaments'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['name', 'dateStart', 'numPlayers'],
+                  properties: {
+                    name: {
+                      type: 'string',
+                      example: 'Open de Verano 2026 - Castellón',
+                      description: 'Nombre del torneo (mínimo 3 caracteres)',
+                    },
+                    dateStart: {
+                      type: 'string',
+                      format: 'date-time',
+                      example: '2026-07-20T09:00:00.000Z',
+                      description: 'Fecha de inicio en formato ISO 8601',
+                    },
+                    numPlayers: {
+                      type: 'integer',
+                      example: 16,
+                      description: 'Número máximo de jugadores permitidos',
+                    },
+                    numGroup: {
+                      type: 'integer',
+                      example: 4,
+                      description: 'Cantidad de grupos deseada',
+                    },
+                    numGroupPlayers: {
+                      type: 'integer',
+                      example: 4,
+                      description: 'Jugadores por grupo',
+                    },
+                    typeTournament: { type: 'string', example: 'Abierto' },
+                    levelTournament: { type: 'string', example: 'Intermedio' },
+                    rounds: { type: 'string', example: '3' },
+                    typeKnockout: { type: 'string', example: 'Llave A' },
+                    playersKnockout: {
+                      type: 'string',
+                      example: '2',
+                      description: 'Clasificados por grupo',
+                    },
+                    sortKnockout: { type: 'string', example: 'Sorteo Cabezas de Serie' },
+                    allPos: {
+                      type: 'boolean',
+                      example: true,
+                      description: 'Si es true, se juegan todas las posiciones de consolación',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: 'Torneo creado con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Torneo creado con éxito' },
+                      tournament: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          name: { type: 'string' },
+                          status: { type: 'string', example: 'PROGRAMADO' },
+                          groupsCreated: { type: 'boolean', example: false },
+                          knockoutCreated: { type: 'boolean', example: false },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: {
+              description: 'Datos inválidos enviados en el body (Error de validación Zod)',
+            },
+            500: {
+              description: 'Error interno del servidor',
+            },
+          },
+        },
+      },
+      '/api/tournaments/{id}/register': {
+        post: {
+          summary: 'Inscribir un jugador en el torneo',
+          description:
+            'Apunta a un jugador a un torneo específico. Valida que el torneo exista, que tenga plazas libres, que no se hayan generado los grupos todavía y que el jugador no esté ya inscrito.',
+          tags: ['Tournaments'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'ID único del torneo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['playerId'],
+                  properties: {
+                    playerId: {
+                      type: 'string',
+                      format: 'uuid',
+                      example: '123e4567-e89b-12d3-a456-426614174001',
+                      description: 'ID único del jugador a inscribir',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: 'Jugador inscrito con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Jugador inscrito con éxito' },
+                      participant: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          tournamentId: { type: 'string', format: 'uuid' },
+                          playerId: { type: 'string', format: 'uuid' },
+                          status: { type: 'string', example: 'CONFIRMED' },
+                          registeredAt: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: {
+              description:
+                'Solicitud denegada (Ej. El torneo está lleno, los grupos ya están creados, el jugador ya está inscrito, o el UUID es inválido).',
+            },
+            404: {
+              description: 'Torneo no encontrado',
+            },
+            500: {
+              description: 'Error interno del servidor',
+            },
+          },
+        },
+      },
+      '/api/tournaments/{id}/generate-groups': {
+        post: {
+          summary: 'Generar grupos y partidos (Algoritmo Serpiente)',
+          description:
+            'Cierra las inscripciones del torneo, ordena a los jugadores confirmados por su ELO y los distribuye en grupos usando el método "Snake Seeding". Además, genera automáticamente todos los partidos de la fase de grupos y cambia el estado del torneo a ABIERTO.',
+          tags: ['Tournaments'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'ID único del torneo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: {
+              description: 'Grupos y partidos generados con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      message: {
+                        type: 'string',
+                        example: 'Grupos y partidos generados mediante Serpiente',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: {
+              description:
+                'Error en la solicitud (Ej. El torneo no existe, no hay jugadores suficientes, o los grupos ya fueron generados).',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      error: { type: 'string', example: 'Los grupos ya han sido generados' },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+            },
           },
         },
       },

@@ -44,6 +44,24 @@ export const createUserSchema = z.object({
     .regex(/\d/, { message: 'Debe contener almenos un numero' })
     .regex(/[@$!%*?&]/, { message: 'Debe almenos contener un character especial' })
     .optional(),
+  elo: z.number().int().positive().optional().default(500),
 });
 
 export const updateUserSchema = createUserSchema.partial();
+
+export const updateProfileSchema = z
+  .object({
+    name: z.string().optional(),
+    surname: z.string().optional(),
+    currentPassword: z.string().optional(),
+    newPassword: z
+      .string()
+      .min(6, 'La nueva contraseña debe tener al menos 6 caracteres')
+      .optional(),
+    confirmPassword: z.string().optional(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    // Esta validación personalizada se ejecutará automáticamente
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'], // Le dice a Zod que el error pertenece a este campo
+  });

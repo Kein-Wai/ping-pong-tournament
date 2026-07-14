@@ -141,7 +141,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
 
     it('FALLO: Debería rechazar un token de Google falso o caducado (401)', async () => {
       // Simulamos que la librería de Google lanza un error al validar el token falso
-      mockVerifyIdToken.mockRejectedValue(new Error('Token signature invalid'));
+      mockVerifyIdToken.mockRejectedValue('Token signature invalid');
 
       const response = await request(app)
         .post('/api/auth/google')

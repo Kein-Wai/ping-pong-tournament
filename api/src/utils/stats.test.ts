@@ -60,13 +60,13 @@ describe('Utility: updateMatchStats', () => {
     expect(mockPrisma.stats.create).toHaveBeenCalledWith({
       data: {
         userId: 'uuid-player-1',
+        elo: 509,
         matchWon: 1,
         matchLost: 0,
         setWon: 2,
         setLost: 0,
         pointWon: 22, // 11 + 11
         pointLost: 14, // 5 + 9
-        score: 0,
         tournamentWon: 0,
         tournamentLost: 0,
       },
@@ -82,7 +82,7 @@ describe('Utility: updateMatchStats', () => {
         setLost: 2,
         pointWon: 14,
         pointLost: 22,
-        score: 0,
+        elo: 491,
         tournamentWon: 0,
         tournamentLost: 0,
       },
@@ -90,40 +90,57 @@ describe('Utility: updateMatchStats', () => {
   });
 
   it('Debería INCREMENTAR las estadísticas si los jugadores ya tenían partidos guardados', async () => {
-    // Simulamos que findFirst SÍ encuentra registros previos en la base de datos
+    // Simulamos que findFirst encuentra registros previos
+    // Les damos un elo base de 500 a ambos para que la lógica funcione predeciblemente
     mockPrisma.stats.findFirst
-      .mockResolvedValueOnce({ id: 'stats-id-p1', userId: 'uuid-p1' }) // Primera llamada (P1)
-      .mockResolvedValueOnce({ id: 'stats-id-p2', userId: 'uuid-p2' }); // Segunda llamada (P2)
+      .mockResolvedValueOnce({ id: 'stats-id-p1', userId: 'uuid-p1', elo: 500 })
+      .mockResolvedValueOnce({ id: 'stats-id-p2', userId: 'uuid-p2', elo: 500 });
 
-    // Simulamos un partido reñido al mejor de 3 donde gana el Jugador 2 (Resultado: 1-2 en sets)
+    // Partido reñido: P1 gana el primero (11-8), P2 remonta (9-11, 11-13)
     const matchPayload = {
       status: STATUS.COMPLETED,
       playerOneId: 'uuid-p1',
       playerTwoId: 'uuid-p2',
       setOnePlayerOne: 11,
-      setOnePlayerTwo: 8, // Set 1 para P1
+      setOnePlayerTwo: 8,
       setTwoPlayerOne: 9,
-      setTwoPlayerTwo: 11, // Set 2 para P2
+      setTwoPlayerTwo: 11,
       setThreePlayerOne: 11,
-      setThreePlayerTwo: 13, // Set 3 para P2 (por diferencia de 2)
+      setThreePlayerTwo: 13,
     };
 
     await updateMatchStats(mockPrisma, matchPayload);
 
-    // No debe crear nada nuevo, debe actualizar
+    // No debe crear nada, solo actualizar
     expect(mockPrisma.stats.create).not.toHaveBeenCalled();
     expect(mockPrisma.stats.update).toHaveBeenCalledTimes(2);
 
-    // Verificamos que al Jugador 1 (Perdedor en este caso) se le inyectan los "increment" correctamente
+    // 1. Verificamos al Jugador 1 (Perdedor)
+    // Matemáticas Elo: diff=0 -> gana/pierde 12 pts (bucket['24'][1]) -> P1 pierde 12
     expect(mockPrisma.stats.update).toHaveBeenCalledWith({
       where: { id: 'stats-id-p1' },
       data: {
+        elo: { increment: -12 }, // <-- ¡Añadido el delta de Elo!
         matchWon: { increment: 0 },
         matchLost: { increment: 1 },
-        setWon: { increment: 1 }, // Ganó 1 set
-        setLost: { increment: 2 }, // Perdió 2 sets
+        setWon: { increment: 1 },
+        setLost: { increment: 2 },
         pointWon: { increment: 31 }, // 11 + 9 + 11
         pointLost: { increment: 32 }, // 8 + 11 + 13
+      },
+    });
+
+    // 2. Verificamos al Jugador 2 (Ganador)
+    expect(mockPrisma.stats.update).toHaveBeenCalledWith({
+      where: { id: 'stats-id-p2' },
+      data: {
+        elo: { increment: 12 },
+        matchWon: { increment: 1 },
+        matchLost: { increment: 0 },
+        setWon: { increment: 2 },
+        setLost: { increment: 1 },
+        pointWon: { increment: 32 }, // 8 + 11 + 13
+        pointLost: { increment: 31 }, // 11 + 9 + 11
       },
     });
   });

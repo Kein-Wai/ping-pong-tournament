@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import prisma from '../db';
-import { createMatchSchema } from '../schemas/match.schema';
+import { createMatchSchema } from '../schemas/match';
 import { z } from 'zod';
 import { STATUS } from './../constants';
-
+import { updateMatchStats } from '../utils/stats';
+import { processMatchResult } from '../utils/match-processor'; // <-- IMPORTAMOS LA UTILIDAD
 const router = Router();
 
 router.get('/', async (req, res) => {
@@ -74,19 +75,43 @@ router.post('/', async (req, res) => {
       return;
     }
 
+    const matchStatus =
+      (setOnePlayerOne !== undefined && setOnePlayerOne > 0) ||
+      (setOnePlayerTwo !== undefined && setOnePlayerTwo > 0)
+        ? STATUS.COMPLETED
+        : STATUS.OPEN;
+
     const newMatch = await prisma.match.create({
       data: {
         playerOneId,
         playerTwoId,
-        // Si nos envían fecha la usamos, si no, ponemos la fecha actual por defecto
         dateStart: dateStart ? new Date(dateStart) : new Date(),
-        status: STATUS.SCHEDULE, // Por defecto el partido está programado
+        status: matchStatus,
         tournamentId,
         groupId,
         knockoutId,
         leagueId,
+        // Inyectamos los sets (si no vienen, Prisma usará el @default(0) de tu esquema)
+        setOnePlayerOne,
+        setOnePlayerTwo,
+        setTwoPlayerOne,
+        setTwoPlayerTwo,
+        setThreePlayerOne,
+        setThreePlayerTwo,
+        setFourPlayerOne,
+        setFourPlayerTwo,
+        setFivePlayerOne,
+        setFivePlayerTwo,
+        setSixPlayerOne,
+        setSixPlayerTwo,
+        setSevenPlayerOne,
+        setSevenPlayerTwo,
       },
     });
+
+    await updateMatchStats(prisma, newMatch);
+
+    await processMatchResult(prisma, newMatch);
 
     /*
     // =====================================================================
