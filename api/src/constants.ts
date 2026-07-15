@@ -1,6 +1,6 @@
 // api/src/constants.ts
-
-import { CANCELLED } from 'node:dns';
+export const BYE_USER_ID = '00000000-0000-0000-0000-000000000000';
+export const TBD_USER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
 export const STATUS = {
   SCHEDULE: 'Programado',

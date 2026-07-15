@@ -3,7 +3,9 @@ import { z } from 'zod';
 import prisma from '../db';
 import { createTournamentSchema, registerParticipantSchema } from '../schemas/tournament';
 import { generateTournamentGroups } from '../utils/group-generator';
-import { MatchStatus, PlayerTournamentStatus } from '@prisma/client';
+import { MatchStatus, PlayerTournamentStatus, KnockoutType } from '@prisma/client';
+import { fetchTournamentBracket } from '../utils/knockout';
+import { fetchGroupMatches, fetchGroupClassifications } from '../utils/group';
 
 const router = Router();
 
@@ -143,6 +145,70 @@ router.post('/:id/generate-groups', async (req, res) => {
     console.error('Error al generar grupos:', error);
     // Devolvemos 400 para mostrar el mensaje de error de nuestra utilidad (ej. "Los grupos ya han sido generados")
     res.status(400).json({ error: error.message || 'Error al generar los grupos' });
+  }
+});
+
+router.get('/:id/bracket', async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+
+    // Extraemos el tipo de la query (?type=A o ?type=B). Por defecto usamos la Llave A.
+    const type = (req.query.type as KnockoutType) || KnockoutType.A;
+
+    // 1. Llamamos a la utilidad
+    const knockouts = await fetchTournamentBracket(prisma, tournamentId, type);
+
+    // 2. Evaluamos la respuesta
+    if (!knockouts || knockouts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No se ha generado el cuadro para este torneo todavía.',
+      });
+    }
+
+    // 3. Devolvemos los datos
+    return res.status(200).json({
+      success: true,
+      data: knockouts,
+    });
+  } catch (error) {
+    console.error('Error al obtener el cuadro:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor al cargar el cuadro.',
+    });
+  }
+});
+
+// GET Partidos de grupos (Soporta ?groupId=...)
+router.get('/:id/groups/matches', async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+    const { groupId } = req.query; // opcional: ?groupId=123
+
+    const matches = await fetchGroupMatches(prisma, tournamentId, groupId as string);
+
+    return res.status(200).json({ success: true, data: matches });
+  } catch (error) {
+    console.error('Error fetching group matches:', error);
+    return res
+      .status(500)
+      .json({ success: false, message: 'Error al obtener los partidos del grupo.' });
+  }
+});
+
+// GET Clasificaciones de grupos (Soporta ?groupId=...)
+router.get('/:id/groups/classifications', async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+    const { groupId } = req.query; // opcional: ?groupId=123
+
+    const clasifications = await fetchGroupClassifications(prisma, tournamentId, groupId as string);
+
+    return res.status(200).json({ success: true, data: clasifications });
+  } catch (error) {
+    console.error('Error fetching group classifications:', error);
+    return res.status(500).json({ success: false, message: 'Error al obtener la clasificación.' });
   }
 });
 

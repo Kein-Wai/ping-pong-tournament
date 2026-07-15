@@ -778,6 +778,263 @@ const options = {
           },
         },
       },
+      '/api/tournaments/{id}/groups/matches': {
+        get: {
+          summary: 'Obtener partidos de la fase de grupos',
+          description:
+            'Devuelve una lista de todos los partidos correspondientes a la fase de grupos de un torneo. Permite filtrar opcionalmente por un grupo específico.',
+          tags: ['Tournaments'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'ID único del torneo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+            {
+              name: 'groupId',
+              in: 'query',
+              required: false,
+              description: 'ID único del grupo para filtrar los partidos de un solo grupo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: {
+              description: 'Lista de partidos obtenida con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'array',
+                        description: 'Lista de partidos',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            dateStart: { type: 'string', format: 'date-time' },
+                            status: { type: 'string', example: 'Programado' },
+                            playerOne: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                surname: { type: 'string' },
+                              },
+                            },
+                            playerTwo: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                surname: { type: 'string' },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: false },
+                      message: {
+                        type: 'string',
+                        example: 'Error al obtener los partidos del grupo.',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+
+      '/api/tournaments/{id}/groups/classifications': {
+        get: {
+          summary: 'Obtener clasificación de la fase de grupos',
+          description:
+            'Devuelve la tabla de clasificación de la fase de grupos ordenada por número de grupo y posición. Se puede filtrar por un grupo específico.',
+          tags: ['Tournaments'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'ID único del torneo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+            {
+              name: 'groupId',
+              in: 'query',
+              required: false,
+              description: 'ID único del grupo para ver solo su clasificación',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: {
+              description: 'Clasificación obtenida con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'array',
+                        description: 'Lista de clasificaciones',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            position: { type: 'integer', example: 1 },
+                            pointsClas: { type: 'integer', example: 6 },
+                            matchesPlayed: { type: 'integer', example: 3 },
+                            player: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                surname: { type: 'string' },
+                              },
+                            },
+                            tournamentGroup: {
+                              type: 'object',
+                              properties: {
+                                group: { type: 'integer', example: 1 },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+            },
+          },
+        },
+      },
+
+      '/api/tournaments/{id}/bracket': {
+        get: {
+          summary: 'Obtener el cuadro de eliminatorias (Bracket)',
+          description:
+            'Devuelve el árbol completo de las rondas eliminatorias de un torneo (Ej. Cuartos, Semifinales, Final), incluyendo los partidos programados, completados y los futuros cruces (TBD).',
+          tags: ['Tournaments'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'ID único del torneo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+            {
+              name: 'type',
+              in: 'query',
+              required: false,
+              description:
+                'Tipo de llave (A para Principal, B para Consolación). Por defecto es A.',
+              schema: { type: 'string', enum: ['A', 'B'], default: 'A' },
+            },
+          ],
+          responses: {
+            200: {
+              description: 'Cuadro de eliminatorias obtenido con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'array',
+                        description: 'Lista de rondas eliminatorias',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            round: { type: 'string', example: 'Octavos' },
+                            type: { type: 'string', example: 'A' },
+                            matches: {
+                              type: 'array',
+                              description: 'Partidos correspondientes a esta ronda',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  order: { type: 'integer', example: 0 },
+                                  status: { type: 'string', example: 'Programado' },
+                                  playerOne: {
+                                    type: 'object',
+                                    nullable: true,
+                                    properties: {
+                                      id: { type: 'string' },
+                                      name: { type: 'string' },
+                                      surname: { type: 'string' },
+                                    },
+                                  },
+                                  playerTwo: {
+                                    type: 'object',
+                                    nullable: true,
+                                    properties: {
+                                      id: { type: 'string' },
+                                      name: { type: 'string' },
+                                      surname: { type: 'string' },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            404: {
+              description: 'Cuadro no encontrado (aún no se han generado las eliminatorias)',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: false },
+                      message: {
+                        type: 'string',
+                        example: 'No se ha generado el cuadro para este torneo todavía.',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+            },
+          },
+        },
+      },
     },
     servers: [
       {

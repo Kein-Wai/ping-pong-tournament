@@ -17,12 +17,19 @@ vi.mock('../../src/db', () => ({
     },
     tournamentGroup: {
       create: vi.fn(),
+      findMany: vi.fn(),
     },
     tournamentGroupClas: {
       create: vi.fn(),
+      findMany: vi.fn(),
     },
     match: {
       create: vi.fn(),
+      findMany: vi.fn(),
+    },
+    tournamentKnockout: {
+      // <-- Añadido nuevo bloque completo
+      findMany: vi.fn(),
     },
     $transaction: vi.fn(), // Añadido para simular las transacciones
   },
@@ -270,6 +277,116 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
       // En grupos de 2 jugadores (2 por grupo en este ejemplo), la matriz es [[1,2]],
       // por lo que debería crearse exactamente 1 partido por grupo (2 en total)
       expect(prisma.match.create).toHaveBeenCalledTimes(2);
+    });
+  });
+  // ============================================================================
+  // LECTURA DE GRUPOS Y ELIMINATORIAS
+  // ============================================================================
+
+  describe('GET /:id/groups/matches', () => {
+    it('Debería devolver la lista de partidos de grupos (200)', async () => {
+      // Simulamos la respuesta de la BD con un partido de prueba
+      const mockMatches = [{ id: 'match-1', dateStart: MOCK_DATE, group: { group: 1 } }];
+      vi.mocked(prisma.match.findMany).mockResolvedValue(mockMatches as any);
+
+      const response = await request(app).get(`/api/tournaments/${MOCK_UUID}/groups/matches`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toEqual(mockMatches);
+      expect(prisma.match.findMany).toHaveBeenCalledOnce();
+    });
+
+    it('Debería devolver error interno (500) si falla la base de datos', async () => {
+      // Simulamos que la base de datos se cae
+      vi.mocked(prisma.match.findMany).mockRejectedValue(new Error('DB Error'));
+
+      const response = await request(app).get(`/api/tournaments/${MOCK_UUID}/groups/matches`);
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('Error al obtener los partidos del grupo.');
+    });
+  });
+
+  describe('GET /:id/groups/classifications', () => {
+    it('Debería devolver la clasificación de la fase de grupos (200)', async () => {
+      // Simulamos a un jugador en la clasificación
+      const mockClasifications = [
+        { id: 'clas-1', position: 1, pointsClas: 6, tournamentGroup: { group: 1 } },
+      ];
+      vi.mocked(prisma.tournamentGroupClas.findMany).mockResolvedValue(mockClasifications as any);
+
+      const response = await request(app).get(
+        `/api/tournaments/${MOCK_UUID}/groups/classifications`,
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toEqual(mockClasifications);
+      expect(prisma.tournamentGroupClas.findMany).toHaveBeenCalledOnce();
+    });
+
+    it('Debería permitir filtrar por un grupo específico usando query param', async () => {
+      vi.mocked(prisma.tournamentGroupClas.findMany).mockResolvedValue([] as any);
+
+      const groupId = 'grupo-123';
+      await request(app).get(
+        `/api/tournaments/${MOCK_UUID}/groups/classifications?groupId=${groupId}`,
+      );
+
+      // Comprobamos que el controlador le pasó el parámetro correcto a la utilidad
+      expect(prisma.tournamentGroupClas.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tournamentGroupId: groupId }),
+        }),
+      );
+    });
+  });
+
+  describe('GET /:id/bracket', () => {
+    it('Debería devolver el cuadro de eliminatorias (200)', async () => {
+      // Simulamos un cuadro generado con una ronda de Octavos
+      const mockBracket = [
+        {
+          id: 'knockout-1',
+          round: 'Octavos',
+          type: 'A',
+          matches: [{ id: 'match-1', order: 0, status: 'Programado' }],
+        },
+      ];
+      vi.mocked(prisma.tournamentKnockout.findMany).mockResolvedValue(mockBracket as any);
+
+      const response = await request(app).get(`/api/tournaments/${MOCK_UUID}/bracket`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toEqual(mockBracket);
+      expect(prisma.tournamentKnockout.findMany).toHaveBeenCalledOnce();
+    });
+
+    it('Debería devolver error (404) si el cuadro aún no se ha generado', async () => {
+      // Simulamos que el torneo existe pero la consulta de knockouts devuelve un array vacío
+      vi.mocked(prisma.tournamentKnockout.findMany).mockResolvedValue([] as any);
+
+      const response = await request(app).get(`/api/tournaments/${MOCK_UUID}/bracket`);
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe('No se ha generado el cuadro para este torneo todavía.');
+    });
+
+    it('Debería permitir solicitar la llave de consolación (Type B)', async () => {
+      vi.mocked(prisma.tournamentKnockout.findMany).mockResolvedValue([{ id: 'mock' }] as any);
+
+      await request(app).get(`/api/tournaments/${MOCK_UUID}/bracket?type=B`);
+
+      // Comprobamos que se consultó a la BD pidiendo específicamente el type 'B'
+      expect(prisma.tournamentKnockout.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ type: 'B' }),
+        }),
+      );
     });
   });
 });

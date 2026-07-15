@@ -145,7 +145,7 @@ model Match {
   groupId          String?            @map("group_id")
   knockoutId       String?            @map("knockout_id")
   leagueId         String?            @map("league_id")
-  
+  matchOrder       Int?               @default(0) @map("match_order")
   playerOneId      String             @map("player_one")
   playerTwoId      String             @map("player_two")
   
