@@ -15,6 +15,85 @@ model UserType {
   @@map("user_type")
 }
 
+
+enum MatchStatus {
+  Programado
+  Iniciado
+  Abierto
+  Completado
+  Cancelado
+}
+
+enum TournamentStatus {
+  Programado
+  Iniciado
+  Grupos
+  R128avos
+  R64avos
+  R32avos
+  R16avos
+  Octavos
+  Cuartos
+  Semifinales
+  Final
+  Completado
+  Cancelado
+}
+
+enum PlayerTournamentStatus {
+  Pendiente
+  Confirmado
+  NoPresentado
+}
+
+enum TypeTournament {
+  Interno
+  Abierto
+  Oficial
+}
+
+enum LevelTournament {
+  Principiante
+  Intermedio
+  Avanzado
+  Federado
+  Mixto
+}
+
+enum Rounds {
+  TodosvsTodos
+  GruposKnockout
+  Knockout
+}
+enum RoundKnockouts {
+  R128avos
+  R64avos
+  R32avos
+  R16avos
+  Octavos
+  Cuartos
+  Semifinales
+  Final
+}
+
+enum TypeKnockout {
+  LlaveA
+  LlaveAB
+}
+
+enum SortKnockout {
+  Siembra
+  Aleatorio
+}
+
+enum SortGroups {
+  Snake
+  Aleatorio
+}
+
+
+
+
 model User {
   id              String   @id @default(uuid())
   userTypeId      String   @map("user_type_id")
@@ -85,7 +164,7 @@ model Match {
   setSixPlayerTwo   Int?            @default(0) @map("set_six_player_two")
   setSevenPlayerOne Int?            @default(0) @map("set_seven_player_one")
   setSevenPlayerTwo Int?            @default(0) @map("set_seven_player_two")
-  status            String?            @db.VarChar(255)
+  status            MatchStatus?    @default(Programado)
 
   // Relaciones
   tournament       Tournament?        @relation(fields: [tournamentId], references: [id])
@@ -105,16 +184,17 @@ model Tournament {
   numPlayers       Int                  @map("num_players")
   numGroup         Int?                 @map("num_group")
   numGroupPlayers  Int?                 @map("num_group_players")
-  typeTournament   String?              @map("type_tournament") @db.VarChar(255)
-  levelTournament  String?              @map("level_tournament") @db.VarChar(255)
-  rounds           String?              @db.VarChar(255)
-  status           String?              @db.VarChar(255)
-  typeKnockout     String?              @map("type_knockout") @db.VarChar(255)
-  playersKnockout  String?              @map("players_knockout") @db.VarChar(255)
-  sortKnockout     String?              @map("sort_knockout") @db.VarChar(255)
+  typeTournament   TypeTournament?      @map("type_tournament") @default(Interno)
+  levelTournament  LevelTournament?     @map("level_tournament") @default(Mixto)
+  rounds           Rounds?              @default(GruposKnockout)
+  status           TournamentStatus?    @default(Programado)
+  typeKnockout     TypeKnockout?        @map("type_knockout") @default(LlaveA)
+  playersKnockout  Int?                 @map("players_knockout")
+  sortGroups       SortGroups?          @map("sort_groups") @default(Snake)
+  sortKnockout     SortKnockout?        @map("sort_knockout") @default(Siembra)
   allPos           Boolean?             @map("all_pos")
-  groupsCreated    Boolean?             @map("groups_created")
-  knockoutCreated  Boolean?             @map("knockout_created")
+  groupsCreated    Boolean?             @map("groups_created") @default(false)
+  knockoutCreated  Boolean?             @map("knockout_created") @default(false)
   
   // Relaciones
   matches          Match[]
@@ -131,10 +211,10 @@ model League {
   id              String       @id @default(uuid())
   dateStart       DateTime     @map("datestart") @db.Date
   name            String       @unique @db.VarChar(255)
-  numPlayers      Int       @map("num_players")
-  typeTournament  String?      @map("type_tournament") @db.VarChar(255)
-  levelTournament String?      @map("level_tournament") @db.VarChar(255)
-  status          String?      @db.VarChar(255)
+  numPlayers      Int          @map("num_players")
+  typeTournament   TypeTournament?      @map("type_tournament") @default(Interno)
+  levelTournament  LevelTournament?     @map("level_tournament") @default(Mixto)
+  status          MatchStatus?      @default(Programado)
   
   // Relaciones
   matches         Match[]
@@ -148,7 +228,7 @@ model TournamentParticipant {
   tournamentId String     @map("tournament_id")
   playerId     String     @map("player_id")
   registeredAt DateTime   @default(now()) @map("registered_at")
-  status       String     // Valores que usaremos: "PENDING", "CONFIRMED", "NO_SHOW"
+  status       PlayerTournamentStatus?     @default(Pendiente)
   
   // Relaciones
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
@@ -164,7 +244,7 @@ model TournamentGroup {
   id           String                @id @default(uuid())
   tournamentId String                @map("tournament_id")
   group        Int
-  status       String?               @db.VarChar(255)
+  status       MatchStatus?               @default(Programado)
   
   // Relaciones
   tournament   Tournament            @relation(fields: [tournamentId], references: [id])
@@ -174,11 +254,17 @@ model TournamentGroup {
   @@map("tournament_group")
 }
 
+enum KnockoutType {
+  A
+  B
+}
+
 model TournamentKnockout {
   id           String     @id @default(uuid())
+  type         KnockoutType @default(A)
   tournamentId String     @map("tournament_id")
-  round        String     @db.VarChar(255)
-  status       String?    @db.VarChar(255)
+  round        RoundKnockouts  
+  status       MatchStatus?    @default(Programado)
   
   // Relaciones
   tournament   Tournament @relation(fields: [tournamentId], references: [id])
@@ -191,7 +277,7 @@ model TournamentGroupClas {
   id                String          @id @default(uuid())
   tournamentGroupId String          @map("tournament_group_id")
   playerId          String          @map("player_id")
-  played          Int?            @default(0) @map("played")
+  played            Int?            @default(0) @map("played")
   gamesWon          Int?            @default(0) @map("games_won")
   gamesLost         Int?            @default(0) @map("games_lost")
   setsWon           Int?            @default(0) @map("sets_won")
@@ -199,7 +285,7 @@ model TournamentGroupClas {
   pointsWon         Int?            @default(0) @map("points_won")
   pointsLost        Int?            @default(0) @map("points_lost")
   pointsClas        Int?            @default(0) @map("points_clas")
-  position          Int?            @default(0)
+  position          Int             @default(0)
 
   // Relaciones
   tournamentGroup   TournamentGroup @relation(fields: [tournamentGroupId], references: [id])
@@ -212,6 +298,7 @@ model LeagueClas {
   id         String  @id @default(uuid())
   leagueId   String  @map("league_id")
   playerId   String  @map("player_id")
+  played     Int?    @default(0) @map("played")
   gamesWon   Int?    @default(0) @map("games_won")
   gamesLost  Int?    @default(0) @map("games_lost")
   setsWon    Int?    @default(0) @map("sets_won")

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../db';
 import { createTournamentSchema, registerParticipantSchema } from '../schemas/tournament';
 import { generateTournamentGroups } from '../utils/group-generator';
+import { MatchStatus, PlayerTournamentStatus } from '@prisma/client';
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.post('/', async (req, res) => {
         allPos: data.allPos,
 
         // --- VALORES CONTROLADOS ESTRICTAMENTE POR EL BACKEND ---
-        status: 'PROGRAMADO',
+        status: MatchStatus.Programado,
         groupsCreated: false,
         knockoutCreated: false,
       },
@@ -115,7 +116,7 @@ router.post('/:id/register', async (req, res) => {
       data: {
         tournamentId,
         playerId,
-        status: 'CONFIRMED', // Por defecto lo dejamos confirmado para que entre al sorteo
+        status: PlayerTournamentStatus.Pendiente, // Por defecto lo dejamos confirmado para que entre al sorteo
       },
     });
 

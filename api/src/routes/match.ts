@@ -2,7 +2,7 @@ import { Router } from 'express';
 import prisma from '../db';
 import { createMatchSchema } from '../schemas/match';
 import { z } from 'zod';
-import { STATUS } from './../constants';
+import { MatchStatus } from '@prisma/client';
 import { updateMatchStats } from '../utils/stats';
 import { processMatchResult } from '../utils/match-processor'; // <-- IMPORTAMOS LA UTILIDAD
 const router = Router();
@@ -54,6 +54,7 @@ router.post('/', async (req, res) => {
       groupId,
       knockoutId,
       leagueId,
+      status,
       setOnePlayerOne,
       setOnePlayerTwo,
       setTwoPlayerOne,
@@ -75,18 +76,12 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    const matchStatus =
-      (setOnePlayerOne !== undefined && setOnePlayerOne > 0) ||
-      (setOnePlayerTwo !== undefined && setOnePlayerTwo > 0)
-        ? STATUS.COMPLETED
-        : STATUS.OPEN;
-
     const newMatch = await prisma.match.create({
       data: {
         playerOneId,
         playerTwoId,
         dateStart: dateStart ? new Date(dateStart) : new Date(),
-        status: matchStatus,
+        status: status,
         tournamentId,
         groupId,
         knockoutId,
@@ -143,6 +138,71 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('Error al crear el partido:', error);
     res.status(500).json({ error: 'Error interno al crear el partido' });
+  }
+});
+
+// OJO: Asegúrate de tener un schema para el PUT (ej. updateMatchSchema) en tu archivo Zod.
+// Suele ser igual que el createMatchSchema, pero sin requerir los IDs de los jugadores.
+
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Validamos los datos (asumiendo que tienes updateMatchSchema importado)
+    // const validation = updateMatchSchema.safeParse(req.body);
+    // Si usas el mismo esquema pero parcial:
+    const validation = createMatchSchema.partial().safeParse(req.body);
+
+    if (!validation.success) {
+      res.status(400).json({
+        error: 'Datos inválidos',
+        details: z.treeifyError(validation.error),
+      });
+      return;
+    }
+
+    const data = validation.data;
+
+    // 2. Comprobamos que el partido existe
+    const existingMatch = await prisma.match.findUnique({
+      where: { id },
+    });
+
+    if (!existingMatch) {
+      res.status(404).json({ error: 'Partido no encontrado' });
+      return;
+    }
+
+    const matchStatus = data.status ? data.status : existingMatch.status;
+
+    // 4. Actualizamos el partido en la base de datos
+    const updatedMatch = await prisma.match.update({
+      where: { id },
+      data: {
+        ...data,
+        status: matchStatus,
+      },
+    });
+
+    // 5. Estadísticas individuales (Cuidado aquí si tu updateMatchStats suma incrementalmente,
+    // tendrías que asegurarte de que no sume doble si el partido ya estaba completado antes).
+    if (
+      updatedMatch.status === MatchStatus.Completado &&
+      existingMatch.status !== MatchStatus.Completado
+    ) {
+      await updateMatchStats(prisma, updatedMatch);
+    }
+
+    // 6. ¡LA MAGIA CENTRALIZADA! Recalcula grupos, mira si terminó la fase, etc.
+    await processMatchResult(prisma, updatedMatch);
+
+    res.status(200).json({
+      message: 'Partido actualizado con éxito',
+      match: updatedMatch,
+    });
+  } catch (error) {
+    console.error('Error al actualizar el partido:', error);
+    res.status(500).json({ error: 'Error interno al actualizar el partido' });
   }
 });
 

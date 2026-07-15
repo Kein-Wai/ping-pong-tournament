@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { STATUS } from '../constants';
+import { MatchStatus } from '@prisma/client';
 
 export const updateGroupStandings = async (prisma: PrismaClient, groupId: string) => {
   // 1. Obtenemos a todos los jugadores que pertenecen a este grupo
@@ -13,7 +13,7 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
   const completedMatches = await prisma.match.findMany({
     where: {
       groupId: groupId,
-      status: STATUS.COMPLETED, // O el estado exacto que uses (ej. 'COMPLETED')
+      status: MatchStatus.Completado, // O el estado exacto que uses (ej. 'COMPLETED')
     },
   });
 
@@ -154,5 +154,29 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
     }),
   );
 
-  return true; // Terminamos el Paso 1 con éxito
+  // 1. Necesitamos saber a qué torneo pertenece este grupo
+  const groupInfo = await prisma.tournamentGroup.findUnique({
+    where: { id: groupId },
+    select: { tournamentId: true },
+  });
+
+  if (!groupInfo) throw new Error('Grupo no encontrado');
+
+  // 2. Contamos cuántos partidos de FASE DE GRUPOS quedan pendientes en todo el torneo
+  const pendingMatches = await prisma.match.count({
+    where: {
+      tournamentId: groupInfo.tournamentId,
+      groupId: { not: null }, // Nos aseguramos de que es un partido de liguilla, no de eliminatorias
+      status: { not: 'Completado' }, // Si usas otro string en tu base de datos (ej. 'PENDIENTE'), ajústalo aquí
+    },
+  });
+
+  // 3. Si el contador es 0, ¡bingo! La fase de grupos ha concluido.
+  const isGroupPhaseFinished = pendingMatches === 0;
+
+  return {
+    success: true,
+    isGroupPhaseFinished,
+    tournamentId: groupInfo.tournamentId, // Lo devolvemos porque lo necesitaremos para la Fase 4
+  };
 };

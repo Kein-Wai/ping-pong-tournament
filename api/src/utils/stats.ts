@@ -1,9 +1,10 @@
 import { PrismaClient } from '@prisma/client';
-import { STATUS, POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
+import { POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
 import { calculateMatchResults } from './match';
+import { MatchStatus } from '@prisma/client';
 
 export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
-  if (match.status !== STATUS.COMPLETED) {
+  if (match.status !== MatchStatus.Completado) {
     return;
   }
 

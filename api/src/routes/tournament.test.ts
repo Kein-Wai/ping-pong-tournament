@@ -61,9 +61,9 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
     numGroupPlayers: 4,
     typeTournament: 'Interno',
     levelTournament: 'Intermedio',
-    rounds: 'Grupos/Llave',
-    typeKnockout: 'A',
-    playersKnockout: '2',
+    rounds: 'GruposKnockout',
+    typeKnockout: 'LlaveA',
+    playersKnockout: 2,
     sortKnockout: 'Aleatorio',
     allPos: true,
   };
@@ -82,7 +82,7 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
     expect(prisma.tournament.create).toHaveBeenCalledOnce();
     expect(prisma.tournament.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        status: 'PROGRAMADO',
+        status: 'Programado',
         groupsCreated: false,
         knockoutCreated: false,
       }),
@@ -108,43 +108,60 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
   });
 
   it('POST /:id/register - debería inscribir a un jugador si hay hueco (201)', async () => {
-    const tournamentId = MOCK_UUID;
+    // 1. Usamos UUIDs reales para pasar el filtro estricto de Zod
+    const tournamentId = '550e8400-e29b-41d4-a716-446655440000';
     const playerId = '123e4567-e89b-12d3-a456-426614174001';
 
-    // 1. Simulamos que el torneo existe y solo tiene 1 participante apuntado de 8 permitidos
+    // Generamos una fecha válida en formato ISO 8601 (String) para enviarla en el JSON
+    const validIsoDate = new Date().toISOString();
+
+    // 2. Simulamos que el torneo existe y solo tiene 1 participante apuntado de 8 permitidos
     vi.mocked(prisma.tournament.findUnique).mockResolvedValue({
       id: tournamentId,
       numPlayers: 8,
       groupsCreated: false,
-      _count: { participants: 1 }, // ¡Hay hueco!
+      _count: { participants: 1 },
     } as any);
 
-    // 2. Simulamos que NO estaba apuntado ya
+    // 3. Simulamos que NO estaba apuntado ya
     vi.mocked(prisma.tournamentParticipant.findUnique).mockResolvedValue(null);
 
-    // 3. Simulamos la creación exitosa
+    // 4. Simulamos la creación exitosa
     const mockCreatedParticipant = {
       id: 'inscripcion-1',
       tournamentId,
       playerId,
       status: 'CONFIRMED',
-      registeredAt: MOCK_DATE,
+      registeredAt: new Date(validIsoDate), // Prisma devuelve objetos Date nativos
     };
+
     vi.mocked(prisma.tournamentParticipant.create).mockResolvedValue(mockCreatedParticipant as any);
 
-    // Ejecutamos la petición
-    const response = await request(app)
-      .post(`/api/tournaments/${tournamentId}/register`)
-      .send({ playerId });
+    // 5. Ejecutamos la petición enviando exactamente lo que pide Zod
+    const response = await request(app).post(`/api/tournaments/${tournamentId}/register`).send({
+      playerId,
+      // Lo enviamos por si tu esquema Zod lo valida desde el body
+      registeredAt: validIsoDate, // Enviamos la fecha válida
+    });
 
     expect(response.status).toBe(201);
-    expect(response.body.participant).toEqual(mockCreatedParticipant);
+
+    // Al comparar la respuesta, Supertest parsea las fechas a String (JSON),
+    // por lo que debemos comparar contra el string ISO, no contra el objeto Date de Prisma.
+    expect(response.body.participant).toEqual({
+      ...mockCreatedParticipant,
+      registeredAt: validIsoDate,
+    });
+
     expect(prisma.tournamentParticipant.create).toHaveBeenCalledOnce();
   });
 
   it('POST /:id/register - debería dar error (400) si el torneo está lleno', async () => {
-    const tournamentId = MOCK_UUID;
+    const tournamentId = '550e8400-e29b-41d4-a716-446655440000';
     const playerId = '123e4567-e89b-12d3-a456-426614174001';
+
+    // Generamos una fecha válida en formato ISO 8601 (String) para enviarla en el JSON
+    const validIsoDate = new Date().toISOString();
 
     // Simulamos que el torneo ya tiene 8 participantes de 8 posibles
     vi.mocked(prisma.tournament.findUnique).mockResolvedValue({

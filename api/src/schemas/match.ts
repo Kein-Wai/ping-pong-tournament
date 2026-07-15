@@ -1,10 +1,9 @@
 import { z } from 'zod'; // Asegúrate de importar Zod arriba del todo si no lo tienes
 const scoreSchema = z.number().int().min(0, 'La puntuación no puede ser negativa').optional();
+import { MatchStatus } from '@prisma/client';
 
 export const createMatchSchema = z
   .object({
-    playerOneId: z.uuid('El ID del Jugador 1 debe ser un UUID válido'),
-    playerTwoId: z.uuid('El ID del Jugador 2 debe ser un UUID válido'),
     dateStart: z.iso
       .datetime('Formato de fecha inválido. Usa ISO 8601 (ej. 2026-07-15T10:30:00Z)')
       .optional(),
@@ -12,7 +11,8 @@ export const createMatchSchema = z
     groupId: z.uuid().optional(),
     knockoutId: z.uuid().optional(),
     leagueId: z.uuid().optional(),
-
+    playerOneId: z.uuid('El ID del Jugador 1 debe ser un UUID válido'),
+    playerTwoId: z.uuid('El ID del Jugador 2 debe ser un UUID válido'),
     setOnePlayerOne: scoreSchema,
     setOnePlayerTwo: scoreSchema,
     setTwoPlayerOne: scoreSchema,
@@ -27,6 +27,7 @@ export const createMatchSchema = z
     setSixPlayerTwo: scoreSchema,
     setSevenPlayerOne: scoreSchema,
     setSevenPlayerTwo: scoreSchema,
+    status: z.enum(MatchStatus).optional(),
   })
   .superRefine((data, ctx) => {
     // Creamos un mapa de los sets para iterarlos fácilmente y no repetir código

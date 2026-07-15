@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { STATUS } from '../constants';
+import { MatchStatus } from '@prisma/client';
 import { MATCH_MATRIX } from '../constants';
 
 const MATCH_MATRICES: Record<number, number[][]> = MATCH_MATRIX;
@@ -18,7 +18,7 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
   const participants = await prisma.tournamentParticipant.findMany({
     where: {
       tournamentId: tournamentId,
-      status: 'CONFIRMED',
+      status: 'Confirmado',
     },
     include: {
       player: {
@@ -78,7 +78,7 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
         data: {
           tournamentId: tournament.id,
           group: i + 1, // Grupo 1, 2, 3...
-          status: STATUS.SCHEDULE,
+          status: MatchStatus.Programado,
         },
       });
 
@@ -111,7 +111,7 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
                 groupId: group.id,
                 playerOneId: playerOneId,
                 playerTwoId: playerTwoId,
-                status: 'PROGRAMADO',
+                status: 'Programado',
                 dateStart: new Date(), // Aquí el Admin podría ponerles fecha en el futuro
               },
             });
@@ -125,7 +125,7 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
       where: { id: tournament.id },
       data: {
         groupsCreated: true,
-        status: STATUS.SCHEDULE, // El torneo ya está vivo
+        status: MatchStatus.Programado, // El torneo ya está vivo
       },
     });
   });

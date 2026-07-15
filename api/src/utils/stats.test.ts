@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { updateMatchStats } from '../../src/utils/stats';
-import { STATUS } from '../../src/constants';
+import { MatchStatus } from '@prisma/client';
 
 describe('Utility: updateMatchStats', () => {
   // 1. Creamos un "Espía/Mock" local de Prisma muy ligero
@@ -20,7 +20,7 @@ describe('Utility: updateMatchStats', () => {
 
   it('Debería ignorar el partido y salir rápido si el estado NO es "Completado"', async () => {
     const openMatch = {
-      status: STATUS.OPEN,
+      status: MatchStatus.Abierto,
       playerOneId: 'player-1',
       playerTwoId: 'player-2',
     };
@@ -39,7 +39,7 @@ describe('Utility: updateMatchStats', () => {
 
     // Simulamos un partido donde gana el Jugador 1 (2 sets a 0)
     const matchPayload = {
-      status: STATUS.COMPLETED,
+      status: MatchStatus.Completado,
       playerOneId: 'uuid-player-1',
       playerTwoId: 'uuid-player-2',
       setOnePlayerOne: 11,
@@ -98,7 +98,7 @@ describe('Utility: updateMatchStats', () => {
 
     // Partido reñido: P1 gana el primero (11-8), P2 remonta (9-11, 11-13)
     const matchPayload = {
-      status: STATUS.COMPLETED,
+      status: MatchStatus.Completado,
       playerOneId: 'uuid-p1',
       playerTwoId: 'uuid-p2',
       setOnePlayerOne: 11,

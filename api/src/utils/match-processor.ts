@@ -1,10 +1,11 @@
 import { PrismaClient, Match } from '@prisma/client';
-import { STATUS } from '../constants';
+import { MatchStatus } from '@prisma/client';
+
 import { updateGroupStandings } from './standings'; // La que creamos antes para recalcular el grupo
 
 export const processMatchResult = async (prisma: PrismaClient, match: Match) => {
   // Solo procesamos la lógica extra si el partido está FINALIZADO / COMPLETADO
-  if (match.status !== STATUS.COMPLETED) {
+  if (match.status !== MatchStatus.Completado) {
     return;
   }
 

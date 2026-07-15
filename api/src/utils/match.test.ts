@@ -1,10 +1,10 @@
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { calculateMatchResults } from './match';
-import { STATUS } from '../../src/constants';
+import { MatchStatus } from '@prisma/client';
 
 describe('Utility: calculate Match', () => {
   const matchPayload1 = {
-    status: STATUS.COMPLETED,
+    status: MatchStatus.Completado,
     playerOneId: 'uuid-player-1',
     playerTwoId: 'uuid-player-2',
     setOnePlayerOne: 11,
@@ -14,7 +14,7 @@ describe('Utility: calculate Match', () => {
     // Los demás sets no se enviaron o son 0
   };
   const matchPayload2 = {
-    status: STATUS.COMPLETED,
+    status: MatchStatus.Completado,
     playerOneId: 'uuid-player-1',
     playerTwoId: 'uuid-player-2',
     setOnePlayerOne: 12,

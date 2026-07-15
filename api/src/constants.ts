@@ -13,6 +13,8 @@ export const STATUS = {
   NO_SHOW: 'No presentado',
 } as const;
 
+export const STATUS_MATCH_VAL = ['Programado', 'Abierto', 'Iniciado', 'Completado', 'Cancelado'];
+
 export const ROUNDS = {
   GROUPS: 'Grupos',
   KNOCKOUTS: 'Eliminatorias',
