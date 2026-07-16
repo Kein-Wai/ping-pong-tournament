@@ -1,5 +1,3 @@
-// api/src/utils/match.utils.ts
-
 export const calculateMatchResults = (match: any) => {
   const sets = [
     [match.setOnePlayerOne, match.setOnePlayerTwo],

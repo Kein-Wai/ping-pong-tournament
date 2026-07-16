@@ -10,6 +10,7 @@ import {
 
 import { BYE_USER_ID, TBD_USER_ID } from '../constants';
 import { calculateMatchResults } from './match';
+import { randomUUID } from 'crypto';
 
 const ROUND_PROGRESSION = [
   RoundKnockouts.R128avos,
@@ -230,206 +231,223 @@ export const createKnockoutDraw = (
 export const saveKnockoutBracket = async (
   prisma: PrismaClient,
   tournamentId: string,
-  type: KnockoutType, // 'A' o 'B' (Principal o Consolación)
-  firstRoundMatches: any[], // El array que devolvió createKnockoutDraw en el Paso 2
-  dateStart: Date, // Fecha prevista para los partidos
+  type: KnockoutType,
+  firstRoundMatches: any[],
+  dateStart: Date,
+  allPos: boolean = false, // <-- El parámetro que nos pide la "Full Cascada"
 ) => {
-  if (firstRoundMatches.length === 0) {
-    throw new Error('No hay partidos para guardar.');
+  if (firstRoundMatches.length === 0) throw new Error('No hay partidos para guardar.');
+
+  const bracketSize = firstRoundMatches.length * 2;
+  const initialRoundIndex = ROUND_PROGRESSION.indexOf(
+    determineInitialRound(firstRoundMatches.length),
+  );
+
+  // 1. Iniciamos el primer bloque (La primera ronda)
+  let currentBrackets = [
+    {
+      matches: firstRoundMatches.map((m, idx) => {
+        const isBye = !m.playerOne || !m.playerTwo;
+        return {
+          id: randomUUID(), // 🚀 Generamos el ID aquí para poder vincularlo
+          p1Id: m.playerOne ? m.playerOne.playerId : BYE_USER_ID,
+          p2Id: m.playerTwo ? m.playerTwo.playerId : BYE_USER_ID,
+          matchOrder: idx,
+          winnerGoesToMatchId: null as string | null,
+          loserGoesToMatchId: null as string | null,
+          status: isBye ? MatchStatus.Completado : MatchStatus.Programado,
+          isBye,
+        };
+      }),
+      posStart: 1,
+      posEnd: bracketSize,
+      roundIndex: initialRoundIndex,
+    },
+  ];
+
+  const allGeneratedBrackets: any[] = [];
+
+  // 2. EL MOTOR DE EXPANSIÓN (Grafo)
+  while (currentBrackets.length > 0) {
+    const nextBrackets = [];
+
+    for (const bracket of currentBrackets) {
+      allGeneratedBrackets.push(bracket); // Guardamos este bloque para insertarlo luego
+
+      // Si este bloque solo tiene 1 partido, es una "Final" de posición, no hay más allá.
+      if (bracket.matches.length === 1) continue;
+
+      const midPos = Math.floor((bracket.posStart + bracket.posEnd) / 2);
+      const winnerMatches = [];
+      const loserMatches = [];
+
+      // Emparejamos los partidos de 2 en 2
+      let nextMatchOrder = 0;
+      for (let i = 0; i < bracket.matches.length; i += 2) {
+        const m1 = bracket.matches[i]; // Partido de arriba (Par)
+        const m2 = bracket.matches[i + 1]; // Partido de abajo (Impar)
+
+        // Creamos los nodos vacíos del futuro
+        const wMatch = {
+          id: randomUUID(),
+          p1Id: TBD_USER_ID,
+          p2Id: TBD_USER_ID,
+          matchOrder: nextMatchOrder,
+          winnerGoesToMatchId: null,
+          loserGoesToMatchId: null,
+          status: MatchStatus.Programado,
+          isBye: false,
+        };
+        const lMatch = {
+          id: randomUUID(),
+          p1Id: TBD_USER_ID,
+          p2Id: TBD_USER_ID,
+          matchOrder: nextMatchOrder,
+          winnerGoesToMatchId: null,
+          loserGoesToMatchId: null,
+          status: MatchStatus.Programado,
+          isBye: false,
+        };
+
+        // 🕸️ ¡LA MAGIA DEL GRAFO! Enlazamos el presente con el futuro
+        m1.winnerGoesToMatchId = wMatch.id;
+        m1.loserGoesToMatchId = lMatch.id;
+        m2.winnerGoesToMatchId = wMatch.id;
+        m2.loserGoesToMatchId = lMatch.id;
+
+        winnerMatches.push(wMatch);
+        loserMatches.push(lMatch);
+        nextMatchOrder++;
+      }
+
+      // La ruta de los ganadores SIEMPRE se crea
+      nextBrackets.push({
+        matches: winnerMatches,
+        posStart: bracket.posStart,
+        posEnd: midPos,
+        roundIndex: bracket.roundIndex + 1,
+      });
+
+      // La ruta de perdedores se crea si 'allPos' es true,
+      // o si es la lucha por el 3º y 4º puesto (posStart=1, posEnd=4).
+      if (allPos || (bracket.posStart === 1 && bracket.posEnd === 4)) {
+        nextBrackets.push({
+          matches: loserMatches,
+          posStart: midPos + 1,
+          posEnd: bracket.posEnd,
+          roundIndex: bracket.roundIndex + 1,
+        });
+      } else {
+        // Si no se juega esta consolación, borramos el enlace para que el Vigía no busque fantasmas
+        for (let i = 0; i < bracket.matches.length; i++) {
+          bracket.matches[i].loserGoesToMatchId = null;
+        }
+      }
+    }
+    currentBrackets = nextBrackets;
   }
 
-  // 1. Calculamos cuál es la primera ronda (ej: si hay 8 partidos, son Octavos)
-  const initialRound = determineInitialRound(firstRoundMatches.length);
+  // 3. LA TRANSACCIÓN (Volcado masivo a BD)
+  const byeMatchesIdsToTrigger: string[] = [];
 
-  // 2. Iniciamos la Transacción Atómica
-  return await prisma.$transaction(async (tx) => {
-    // --- 2.1 Crear el Contenedor (TournamentKnockout) ---
-    const knockout = await tx.tournamentKnockout.create({
-      data: {
-        tournamentId,
-        type,
-        round: initialRound,
-        status: MatchStatus.Programado,
-      },
-    });
-
-    // --- 2.2 Preparar los datos de los Partidos ---
-    // Usamos createMany para optimizar si la BD lo soporta, o generamos un array de promesas.
-    // Dado que necesitamos flexibilidad por si hay BYEs, lo haremos preparando el array.
-    const matchDataToInsert: any[] = [];
-    const completedByeMatches: any[] = []; // Opcional: para loguear o gestionar Byes
-    let matchIndex = 0;
-
-    for (const match of firstRoundMatches) {
-      // Magia de los BYEs: Si uno de los jugadores es null, el partido es un BYE.
-      // En la vida real, el jugador que SÍ existe gana automáticamente o avanza.
-      // Pero nuestro esquema exige playerOneId y playerTwoId (String, NO null).
-
-      const p1 = match.playerOne;
-      const p2 = match.playerTwo;
-      const isBye = !p1 || !p2;
-
-      const status = isBye ? MatchStatus.Completado : MatchStatus.Programado;
-
-      // Lógica simple de BYE (Si p1 no existe, gana p2. Si p2 no existe, gana p1)
-      let finalP1Id = p1 ? p1.playerId : BYE_USER_ID; // Ojo: asegúrate de usar la propiedad correcta (playerId, userId, etc.)
-      let finalP2Id = p2 ? p2.playerId : BYE_USER_ID;
-
-      matchDataToInsert.push({
-        dateStart,
-        tournamentId,
-        knockoutId: knockout.id,
-        playerOneId: finalP1Id,
-        playerTwoId: finalP2Id,
-        status,
-        // Si es un BYE, opcionalmente puedes forzar un marcador (ej. 11-0)
-        setOnePlayerOne: isBye && p1 ? 11 : 0,
-        setOnePlayerTwo: isBye && p2 ? 11 : 0,
-        matchOrder: matchIndex,
-      });
-      matchIndex++;
-    }
-
-    // --- 2.3 Insertar todos los partidos de la ronda ---
-    await tx.match.createMany({
-      data: matchDataToInsert,
-    });
-
-    // --- 2.4 Actualizar el Estado del Torneo ---
-    // Si estamos creando la Llave A, avanzamos el estado del torneo
-    // a la ronda correspondiente.
-    if (type === KnockoutType.A) {
-      await tx.tournament.update({
-        where: { id: tournamentId },
-        data: {
-          // Casteamos status porque determinamos la ronda y coinciden los nombres en los enums
-          // (ej: RoundKnockouts.Octavos -> TournamentStatus.Octavos)
-          status: initialRound as unknown as TournamentStatus,
-        },
-      });
-    }
-
-    const startIndex = ROUND_PROGRESSION.indexOf(initialRound);
-    let currentMatchesCount = firstRoundMatches.length;
-
-    // Iteramos por las rondas que quedan hasta llegar a la Final
-    for (let i = startIndex + 1; i < ROUND_PROGRESSION.length; i++) {
-      const nextRoundName = ROUND_PROGRESSION[i];
-      currentMatchesCount = currentMatchesCount / 2; // Si eran 8, ahora son 4 (Cuartos)
-
-      if (currentMatchesCount < 1) break;
-
-      // 1. Creamos el contenedor (TournamentKnockout) de la futura ronda
-      const futureKnockout = await tx.tournamentKnockout.create({
+  await prisma.$transaction(async (tx) => {
+    for (const bracket of allGeneratedBrackets) {
+      // Creamos el contenedor
+      const knockout = await tx.tournamentKnockout.create({
         data: {
           tournamentId,
           type,
-          round: nextRoundName,
+          round: ROUND_PROGRESSION[bracket.roundIndex],
           status: MatchStatus.Programado,
+          positions: `${bracket.posStart}-${bracket.posEnd}`, // Ej: "1-8" o "5-8"
         },
       });
 
-      // 2. Preparamos N partidos completamente vacíos (TBD vs TBD)
-      const futureMatches = Array.from({ length: currentMatchesCount }).map((_, idx) => ({
-        dateStart, // De momento ponemos la misma fecha de inicio
-        tournamentId,
-        knockoutId: futureKnockout.id,
-        playerOneId: TBD_USER_ID,
-        playerTwoId: TBD_USER_ID,
-        status: MatchStatus.Programado,
-        order: idx,
-      }));
+      // Preparamos los partidos
+      const matchesData = bracket.matches.map((m: any) => {
+        if (m.isBye) byeMatchesIdsToTrigger.push(m.id); // Guardamos los BYE para activarlos luego
 
-      // 3. Los insertamos de golpe
-      await tx.match.createMany({
-        data: futureMatches,
+        return {
+          id: m.id, // Forzamos el ID que generamos para que el Grafo no se rompa
+          dateStart,
+          tournamentId,
+          knockoutId: knockout.id,
+          playerOneId: m.p1Id,
+          playerTwoId: m.p2Id,
+          matchOrder: m.matchOrder,
+          status: m.status,
+          setOnePlayerOne: m.isBye && m.p1Id !== BYE_USER_ID ? 11 : 0,
+          setOnePlayerTwo: m.isBye && m.p2Id !== BYE_USER_ID ? 11 : 0,
+          winnerGoesToMatchId: m.winnerGoesToMatchId,
+          loserGoesToMatchId: m.loserGoesToMatchId,
+        };
       });
+
+      await tx.match.createMany({ data: matchesData });
     }
 
-    return {
-      success: true,
-      knockoutId: knockout.id,
-      matchesCreated: matchDataToInsert.length,
-      initialRound,
-    };
+    if (type === KnockoutType.A) {
+      await tx.tournament.update({
+        where: { id: tournamentId },
+        data: { status: TournamentStatus.R128avos }, // Opcional: ajustar al status real
+      });
+    }
   });
+
+  // 4. AUTO-RESOLVER LOS BYES
+  // Lanzamos el Vigía contra los partidos fantasma para que empujen al jugador real a la 2ª Ronda
+  for (const byeMatchId of byeMatchesIdsToTrigger) {
+    await processKnockoutAdvancement(prisma, byeMatchId);
+  }
+
+  return { success: true };
 };
 
 export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: string) => {
-  // 1. Obtenemos el partido recién completado con la info de su eliminatoria
   const completedMatch = await prisma.match.findUnique({
     where: { id: matchId },
-    include: { knockout: true },
   });
 
-  if (!completedMatch || completedMatch.status !== 'Completado' || !completedMatch.knockout) {
-    return;
-  }
+  if (!completedMatch || completedMatch.status !== 'Completado') return;
 
-  // 2. Usamos tu utilidad para obtener el resultado limpio
+  // Calculamos el ganador como siempre
   const matchResults = calculateMatchResults(completedMatch);
 
-  // Si no hay un ganador claro (ej. empate a 0 sets por un error humano), abortamos
   if (!matchResults.p1WinsMatch && !matchResults.p2WinsMatch) {
-    console.warn(`Partido ${matchId} completado pero sin ganador claro. No se avanza a nadie.`);
+    // Si no hay ganador claro (empate a 0), puede ser un error manual.
+    // Ojo: Si era un BYE (11-0), sí hay ganador.
     return;
   }
 
-  // Determinamos el ID del ganador gracias a tus booleanos
   const winnerId = matchResults.p1WinsMatch
     ? completedMatch.playerOneId
     : completedMatch.playerTwoId;
+  const loserId = matchResults.p1WinsMatch
+    ? completedMatch.playerTwoId
+    : completedMatch.playerOneId;
 
-  // 3. Averiguamos cuál es la siguiente ronda
-  const currentRoundName = completedMatch.knockout.round;
-  const currentRoundIndex = ROUND_PROGRESSION.indexOf(currentRoundName);
-
-  if (currentRoundIndex === ROUND_PROGRESSION.length - 1) {
-    console.log(`🏆 ¡El jugador ${winnerId} ha ganado el torneo!`);
-    return;
-  }
-
-  const nextRoundName = ROUND_PROGRESSION[currentRoundIndex + 1];
-
-  // 4. Ejecutamos la matemática para encontrar su sitio en la siguiente ronda
+  // Actualizamos atómicamente siguiendo el Grafo
   await prisma.$transaction(async (tx) => {
-    const currentRoundMatches = await tx.match.findMany({
-      where: { knockoutId: completedMatch.knockoutId },
-      orderBy: { matchOrder: 'asc' }, // (Recuerda el tip del order si los UUIDs v4 te dan problemas)
-    });
+    // ¿Va el ganador a algún sitio?
+    if (completedMatch.winnerGoesToMatchId) {
+      // Saber si le toca arriba o abajo es tan fácil como mirar si su partido de origen era par o impar
+      const isSlotOne = (completedMatch.matchOrder ?? 0) % 2 === 0;
 
-    const matchIndex = currentRoundMatches.findIndex((m) => m.id === matchId);
-    if (matchIndex === -1) throw new Error('Error crítico: Partido no encontrado en su ronda');
+      await tx.match.update({
+        where: { id: completedMatch.winnerGoesToMatchId },
+        data: isSlotOne ? { playerOneId: winnerId } : { playerTwoId: winnerId },
+      });
+    }
 
-    const nextKnockout = await tx.tournamentKnockout.findFirst({
-      where: {
-        tournamentId: completedMatch.knockout!.tournamentId,
-        type: completedMatch.knockout!.type,
-        round: nextRoundName,
-      },
-    });
+    // ¿Va el perdedor a algún sitio? (Solo pasará si allPos es true o es el 3º y 4º puesto)
+    if (completedMatch.loserGoesToMatchId) {
+      const isSlotOne = (completedMatch.matchOrder ?? 0) % 2 === 0;
 
-    if (!nextKnockout) return;
-
-    const nextRoundMatches = await tx.match.findMany({
-      where: { knockoutId: nextKnockout.id },
-      orderBy: { matchOrder: 'asc' },
-    });
-
-    // La fórmula matemática de emparejamiento
-    const nextMatchIndex = Math.floor(matchIndex / 2);
-    const isSlotOne = matchIndex % 2 === 0;
-
-    const targetMatch = nextRoundMatches[nextMatchIndex];
-    if (!targetMatch) return;
-
-    // Actualizamos el hueco TBD con el ID del ganador real
-    const updateData = isSlotOne ? { playerOneId: winnerId } : { playerTwoId: winnerId };
-
-    await tx.match.update({
-      where: { id: targetMatch.id },
-      data: updateData,
-    });
+      await tx.match.update({
+        where: { id: completedMatch.loserGoesToMatchId },
+        data: isSlotOne ? { playerOneId: loserId } : { playerTwoId: loserId },
+      });
+    }
   });
 };
 

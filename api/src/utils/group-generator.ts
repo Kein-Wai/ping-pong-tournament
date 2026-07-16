@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { MatchStatus } from '@prisma/client';
+import { TournamentStatus } from '@prisma/client';
 import { MATCH_MATRIX } from '../constants';
 
 const MATCH_MATRICES: Record<number, number[][]> = MATCH_MATRIX;
@@ -78,7 +78,7 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
         data: {
           tournamentId: tournament.id,
           group: i + 1, // Grupo 1, 2, 3...
-          status: MatchStatus.Programado,
+          status: TournamentStatus.Programado,
         },
       });
 
@@ -125,7 +125,7 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
       where: { id: tournament.id },
       data: {
         groupsCreated: true,
-        status: MatchStatus.Programado, // El torneo ya está vivo
+        status: TournamentStatus.Programado, // El torneo ya está vivo
       },
     });
   });

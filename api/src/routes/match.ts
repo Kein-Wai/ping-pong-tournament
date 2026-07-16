@@ -108,29 +108,6 @@ router.post('/', async (req, res) => {
 
     await processMatchResult(prisma, newMatch);
 
-    /*
-    // =====================================================================
-    // ⬇️ HUECO RESERVADO PARA LA LÓGICA EXTRA QUE ME VAS A PEDIR ⬇️
-    // =====================================================================
-    
-    // ... aquí meteremos tu magia ...
-
-       TODA ESTA LOGICA DEBERIA ESTAR SEPARADA PORQUE SEGURAMENTE LA PONGAMOS EN UPDATE TAMBIEN
-    // =====================================================================
-    // SI EL PARTIDO ESTA FINALIZADO (SI EL PARTIDO SE CREA Y SE METE EL RESULTADO DIRECTAMENTE)
-    // 1. Actualizar los stats de cada jugador 
-    // 2. Si el partido es de un tournament:
-          1. Ver si el tournament existe
-          2. Ver si el partido es de group
-            1. Ver si el group existe
-            2. Actualizar el tournament_group_clas usando el tournament_group_id y el player_id
-          3. Ver si el partido es de knockout
-            1. Ver si el knockout existe
-       3. Si el partido es de league
-          1. Ver si el league existe.
-          2. Actualizar el league_clas usando el league_id y el player_id    
-    */
-
     res.status(201).json({
       message: 'Partido programado con éxito',
       match: newMatch,

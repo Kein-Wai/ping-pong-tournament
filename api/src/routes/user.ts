@@ -9,7 +9,9 @@ const router = Router();
 // GET: Obtener todos los usuarios
 router.get('/', async (req, res) => {
   try {
-    const users = await prisma.user.findMany();
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, name: true, surname: true, userTypeId: true, stats: true }, // Todo menos password y googleId
+    });
     res.json(users);
   } catch (error) {
     console.error(error);
@@ -52,9 +54,18 @@ router.post('/', async (req, res) => {
           },
         },
       },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        surname: true,
+        secondSurname: true,
+        nickname: true,
+        // Evitamos devolver la contraseña hasheada
+      },
     });
 
-    const { password: _, ...userWithoutPassword } = newUser;
+    // const { password: _, ...userWithoutPassword } = newUser;
 
     res.status(201).json(newUser);
   } catch (error) {
