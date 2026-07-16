@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createTournamentSchema } from '../../src/schemas/tournament'; // Ajusta la ruta correcta
+import { createTournamentSchema } from '../../src/schemas/tournament';
 import { Rounds } from '@prisma/client';
 
 describe('Zod Schema: createTournamentSchema', () => {
@@ -45,7 +45,7 @@ describe('Zod Schema: createTournamentSchema', () => {
       const result = createTournamentSchema.safeParse({
         ...baseValidData,
         numPlayers: 8,
-        numGroup: 2, // Inválido para Todos vs Todos
+        numGroup: 2,
         rounds: Rounds.TodosvsTodos,
       });
 
@@ -90,7 +90,7 @@ describe('Zod Schema: createTournamentSchema', () => {
       const result = createTournamentSchema.safeParse({
         ...baseValidData,
         numPlayers: 16,
-        numGroup: 1, // Muy pocos
+        numGroup: 1,
         rounds: Rounds.GruposKnockout,
       });
       expect(result.success).toBe(false);
@@ -106,7 +106,7 @@ describe('Zod Schema: createTournamentSchema', () => {
         ...baseValidData,
         numPlayers: 16,
         numGroup: 8,
-        numGroupPlayers: 2, // Muy pocos por grupo
+        numGroupPlayers: 2,
         rounds: Rounds.GruposKnockout,
       });
       expect(result.success).toBe(false);
@@ -146,7 +146,7 @@ describe('Zod Schema: createTournamentSchema', () => {
       const result = createTournamentSchema.safeParse({
         ...baseValidData,
         numPlayers: 16,
-        numGroup: 4, // No tiene sentido en Knockout
+        numGroup: 4,
         rounds: Rounds.Knockout,
       });
       expect(result.success).toBe(false);
@@ -162,7 +162,7 @@ describe('Zod Schema: createTournamentSchema', () => {
     it('11. Debería fallar si el nombre tiene menos de 3 caracteres', () => {
       const result = createTournamentSchema.safeParse({
         ...baseValidData,
-        name: 'AB', // Inválido
+        name: 'AB',
         numPlayers: 10,
       });
       expect(result.success).toBe(false);

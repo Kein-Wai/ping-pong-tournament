@@ -29,14 +29,11 @@ export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
   let p1ScoreDelta = 0;
   let p2ScoreDelta = 0;
 
-  // Determinamos los puntos a sumar/restar
   if (p1WinsMatch) {
-    // Gana P1
     const pointsExchanged = p1IsFavorite ? bucket[0] : bucket[1];
     p1ScoreDelta = pointsExchanged;
     p2ScoreDelta = -Math.min(pointsExchanged, p2Score - 1);
   } else {
-    // Gana P2
     const pointsExchanged = !p1IsFavorite ? bucket[0] : bucket[1];
     p2ScoreDelta = pointsExchanged;
     p1ScoreDelta = -Math.min(pointsExchanged, p1Score - 1);
@@ -70,7 +67,7 @@ export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
       await prisma.stats.create({
         data: {
           userId,
-          elo: 500 + scoreDelta, // Puntaje base + el resultado de su primer partido
+          elo: 500 + scoreDelta,
           matchWon: wonMatch,
           matchLost: lostMatch,
           setWon: wonSets,
@@ -84,7 +81,6 @@ export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
     }
   };
 
-  // 5. EJECUTAMOS EL GUARDADO
   await savePlayerStats(
     match.playerOneId,
     p1Stats?.id,

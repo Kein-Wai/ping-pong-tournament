@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createMatchSchema } from '../../src/schemas/match'; // Ajusta la ruta a tu archivo
+import { createMatchSchema } from '../../src/schemas/match';
 
 describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
   const validPlayerOneId = '11111111-1111-4111-a111-111111111111';
@@ -26,7 +26,6 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       playerTwoId: validPlayerTwoId,
       setOnePlayerOne: 0,
       setOnePlayerTwo: 0,
-      // No enviamos el resto de sets
     };
 
     const result = createMatchSchema.safeParse(data);
@@ -39,7 +38,6 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       playerOneId: validPlayerOneId,
       playerTwoId: validPlayerTwoId,
       setOnePlayerOne: 11,
-      // Olvidamos setOnePlayerTwo
     };
 
     const result = createMatchSchema.safeParse(data);
@@ -78,7 +76,7 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       playerOneId: validPlayerOneId,
       playerTwoId: validPlayerTwoId,
       setOnePlayerOne: 11,
-      setOnePlayerTwo: 10, // Diferencia de 1
+      setOnePlayerTwo: 10,
     };
 
     const result = createMatchSchema.safeParse(data);
@@ -97,16 +95,15 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       playerOneId: validPlayerOneId,
       playerTwoId: validPlayerTwoId,
       setOnePlayerOne: 11,
-      setOnePlayerTwo: 5, // Set 1: Válido
+      setOnePlayerTwo: 5,
       setTwoPlayerOne: 13,
-      setTwoPlayerTwo: 12, // Set 2: Inválido (dif < 2)
+      setTwoPlayerTwo: 12,
     };
 
     const result = createMatchSchema.safeParse(data);
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      // Verificamos que el error es del Set 2 específicamente
       const issue = result.error.issues.find((i) => i.message.includes('En el Set 2'));
       expect(issue).toBeDefined();
       expect(issue?.message).toContain('diferencia mínima de 2 puntos');

@@ -4,22 +4,21 @@ import { createMatchSchema } from '../schemas/match';
 import { z } from 'zod';
 import { MatchStatus } from '@prisma/client';
 import { updateMatchStats } from '../utils/stats';
-import { processMatchResult } from '../utils/match-processor'; // <-- IMPORTAMOS LA UTILIDAD
+import { processMatchResult } from '../utils/match-processor';
 const router = Router();
 
 router.get('/', async (req, res) => {
   try {
     const matches = await prisma.match.findMany({
-      orderBy: { dateStart: 'desc' }, // Ordenados por fecha de inicio
+      orderBy: { dateStart: 'desc' },
       include: {
-        // Incluimos los datos básicos de los jugadores
         playerOne: {
           select: { id: true, name: true, surname: true, email: true },
         },
         playerTwo: {
           select: { id: true, name: true, surname: true, email: true },
         },
-        // Incluimos las relaciones de competiciones (si existen)
+
         tournament: true,
         league: true,
         group: true,
@@ -86,7 +85,7 @@ router.post('/', async (req, res) => {
         groupId,
         knockoutId,
         leagueId,
-        // Inyectamos los sets (si no vienen, Prisma usará el @default(0) de tu esquema)
+
         setOnePlayerOne,
         setOnePlayerTwo,
         setTwoPlayerOne,
@@ -118,16 +117,10 @@ router.post('/', async (req, res) => {
   }
 });
 
-// OJO: Asegúrate de tener un schema para el PUT (ej. updateMatchSchema) en tu archivo Zod.
-// Suele ser igual que el createMatchSchema, pero sin requerir los IDs de los jugadores.
-
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1. Validamos los datos (asumiendo que tienes updateMatchSchema importado)
-    // const validation = updateMatchSchema.safeParse(req.body);
-    // Si usas el mismo esquema pero parcial:
     const validation = createMatchSchema.partial().safeParse(req.body);
 
     if (!validation.success) {
@@ -140,7 +133,6 @@ router.put('/:id', async (req, res) => {
 
     const data = validation.data;
 
-    // 2. Comprobamos que el partido existe
     const existingMatch = await prisma.match.findUnique({
       where: { id },
     });
@@ -152,7 +144,6 @@ router.put('/:id', async (req, res) => {
 
     const matchStatus = data.status ? data.status : existingMatch.status;
 
-    // 4. Actualizamos el partido en la base de datos
     const updatedMatch = await prisma.match.update({
       where: { id },
       data: {
@@ -161,8 +152,6 @@ router.put('/:id', async (req, res) => {
       },
     });
 
-    // 5. Estadísticas individuales (Cuidado aquí si tu updateMatchStats suma incrementalmente,
-    // tendrías que asegurarte de que no sume doble si el partido ya estaba completado antes).
     if (
       updatedMatch.status === MatchStatus.Completado &&
       existingMatch.status !== MatchStatus.Completado
@@ -170,7 +159,6 @@ router.put('/:id', async (req, res) => {
       await updateMatchStats(prisma, updatedMatch);
     }
 
-    // 6. ¡LA MAGIA CENTRALIZADA! Recalcula grupos, mira si terminó la fase, etc.
     await processMatchResult(prisma, updatedMatch);
 
     res.status(200).json({

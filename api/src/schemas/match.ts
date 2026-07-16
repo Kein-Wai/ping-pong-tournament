@@ -1,4 +1,4 @@
-import { z } from 'zod'; // Asegúrate de importar Zod arriba del todo si no lo tienes
+import { z } from 'zod';
 const scoreSchema = z.number().int().min(0, 'La puntuación no puede ser negativa').optional();
 import { MatchStatus } from '@prisma/client';
 
@@ -30,7 +30,6 @@ export const createMatchSchema = z
     status: z.enum(MatchStatus).optional(),
   })
   .superRefine((data, ctx) => {
-    // Creamos un mapa de los sets para iterarlos fácilmente y no repetir código
     const setsToValidate = [
       { p1: 'setOnePlayerOne', p2: 'setOnePlayerTwo', name: 'Set 1' },
       { p1: 'setTwoPlayerOne', p2: 'setTwoPlayerTwo', name: 'Set 2' },
@@ -45,12 +44,10 @@ export const createMatchSchema = z
       const score1 = data[set.p1];
       const score2 = data[set.p2];
 
-      // REGLA 0: Si ambos son undefined o ambos son 0, el set no se ha jugado aún. Es válido.
       if ((score1 === undefined && score2 === undefined) || (score1 === 0 && score2 === 0)) {
         continue;
       }
 
-      // REGLA 1: Si envían la puntuación de un jugador, DEBEN enviar la del otro.
       if (score1 === undefined || score2 === undefined) {
         ctx.addIssue({
           code: 'custom',
@@ -60,11 +57,9 @@ export const createMatchSchema = z
         continue;
       }
 
-      // Extraemos las matemáticas para comprobar las reglas del Ping Pong
       const maxScore = Math.max(score1, score2);
       const diff = Math.abs(score1 - score2);
 
-      // REGLA 2: Alguien tiene que haber llegado al menos a 11 puntos
       if (maxScore < 11) {
         ctx.addIssue({
           code: 'custom',
@@ -73,7 +68,6 @@ export const createMatchSchema = z
         });
       }
 
-      // REGLA 3: Diferencia mínima de 2 puntos para ganar
       if (diff < 2) {
         ctx.addIssue({
           code: 'custom',

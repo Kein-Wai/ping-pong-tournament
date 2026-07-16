@@ -11,7 +11,6 @@ describe('Utility: calculate Match', () => {
     setOnePlayerTwo: 5,
     setTwoPlayerOne: 11,
     setTwoPlayerTwo: 9,
-    // Los demás sets no se enviaron o son 0
   };
   const matchPayload2 = {
     status: MatchStatus.Completado,

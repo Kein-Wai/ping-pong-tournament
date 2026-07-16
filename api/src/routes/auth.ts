@@ -8,11 +8,9 @@ import { z } from 'zod';
 
 const router = Router();
 
-// Cliente de Google
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
-// --- RUTA 3: REGISTRO PÚBLICO DE JUGADOR ---
 router.post('/register', async (req, res) => {
   try {
     const validation = registerSchema.safeParse(req.body);
@@ -22,7 +20,6 @@ router.post('/register', async (req, res) => {
       return;
     }
 
-    // Extraemos solo los datos que necesitamos (ignoramos confirmPassword)
     const { email, password, name, surname } = validation.data;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -48,7 +45,7 @@ router.post('/register', async (req, res) => {
         authProvider: 'LOCAL',
         userTypeId: playerRole.id,
         stats: {
-          create: {}, // Crea la fila vinculada automáticamente asumiendo el default(500)
+          create: {},
         },
       },
       include: { userType: true },
@@ -87,7 +84,6 @@ router.post('/login', async (req, res) => {
       include: { userType: true },
     });
 
-    // Si no existe o se registró con Google y no tiene contraseña local
     if (!user || !user.password) {
       return res
         .status(401)
@@ -111,7 +107,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// --- RUTA 2: LOGIN CON GOOGLE ---
 router.post('/google', async (req, res) => {
   try {
     const validation = loginGoogleSchema.safeParse(req.body);
@@ -119,7 +114,6 @@ router.post('/google', async (req, res) => {
 
     const { credential } = validation.data;
 
-    // 1. Verificar el token con los servidores de Google
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -132,15 +126,12 @@ router.post('/google', async (req, res) => {
 
     const { email, given_name, family_name, sub: googleId } = payload;
 
-    // 2. Buscar si el usuario ya existe en nuestra BD
     let user = await prisma.user.findUnique({
       where: { email },
       include: { userType: true },
     });
 
-    // 3. Si no existe, lo creamos sobre la marcha (Registro automático)
     if (!user) {
-      // Buscamos el ID del rol "Player" para asignarlo por defecto
       const playerRole = await prisma.userType.findUnique({ where: { name: 'Player' } });
 
       if (!playerRole) {
@@ -158,13 +149,12 @@ router.post('/google', async (req, res) => {
           googleId,
           userTypeId: playerRole.id,
           stats: {
-            create: {}, // Crea la fila vinculada automáticamente asumiendo el default(500)
+            create: {},
           },
         },
         include: { userType: true },
       });
     } else if (!user.googleId) {
-      // 4. (Opcional) Si existía de forma Local, vinculamos su cuenta de Google
       user = await prisma.user.update({
         where: { email },
         data: { googleId, authProvider: 'GOOGLE' },
@@ -172,7 +162,6 @@ router.post('/google', async (req, res) => {
       });
     }
 
-    // 5. Generar NUESTRO propio JWT, independientemente de si es nuevo o antiguo
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.userType.name },
       JWT_SECRET,

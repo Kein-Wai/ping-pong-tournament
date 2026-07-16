@@ -2,7 +2,6 @@ import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { Express } from 'express';
 
-// Información básica de tu API
 const options = {
   definition: {
     openapi: '3.0.0',
@@ -23,7 +22,7 @@ const options = {
     },
     security: [
       {
-        bearerAuth: [], // Esto aplica el candado a nivel global en Swagger
+        bearerAuth: [],
       },
     ],
     paths: {
@@ -1043,13 +1042,12 @@ const options = {
       },
     ],
   },
-  // Le decimos a Swagger dónde buscar los comentarios (nuestra carpeta de rutas)
+
   apis: ['./src/routes/*.ts'],
 };
 
 const swaggerSpec = swaggerJSDoc(options);
 
 export const setupSwagger = (app: Express) => {
-  // Creamos la ruta /api-docs donde vivirá la interfaz gráfica
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 };

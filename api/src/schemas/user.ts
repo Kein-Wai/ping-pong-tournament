@@ -25,9 +25,8 @@ export const registerSchema = z
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    // Esta validación personalizada se ejecutará automáticamente
     message: 'Las contraseñas no coinciden',
-    path: ['confirmPassword'], // Le dice a Zod que el error pertenece a este campo
+    path: ['confirmPassword'],
   });
 
 export const createUserSchema = z.object({
@@ -61,7 +60,6 @@ export const updateProfileSchema = z
     confirmPassword: z.string().optional(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    // Esta validación personalizada se ejecutará automáticamente
     message: 'Las contraseñas no coinciden',
-    path: ['confirmPassword'], // Le dice a Zod que el error pertenece a este campo
+    path: ['confirmPassword'],
   });

@@ -28,18 +28,14 @@ export const createTournamentSchema = z
     allPos: z.boolean().optional().default(false),
   })
   .superRefine((data, ctx) => {
-    // Extraemos las variables para que el código sea más limpio
     const type = data.rounds;
     const players = data.numPlayers;
     const groups = data.numGroup;
     const playersPerGroup = data.numGroupPlayers;
     const playersKnock = data.playersKnockout;
-    // Si no han enviado el tipo de torneo, no aplicamos estas reglas estrictas
+
     if (!type) return;
 
-    // ======================================================
-    // REGLAS: Todos vs Todos (Liguilla única)
-    // ======================================================
     if (type === Rounds.TodosvsTodos) {
       if (players < 3 || players > 10) {
         ctx.addIssue({
@@ -49,7 +45,6 @@ export const createTournamentSchema = z
         });
       }
 
-      // Forzamos a que si envían el número de grupos, sea exactamente 1
       if (groups === undefined || groups !== 1) {
         ctx.addIssue({
           code: 'custom',
@@ -59,9 +54,6 @@ export const createTournamentSchema = z
       }
     }
 
-    // ======================================================
-    // REGLAS: Grupos + Knockouts (Fase de grupos y eliminatorias)
-    // ======================================================
     if (type === Rounds.GruposKnockout) {
       if (players < 6 || players > 128) {
         ctx.addIssue({
@@ -103,9 +95,6 @@ export const createTournamentSchema = z
       }
     }
 
-    // ======================================================
-    // REGLAS: Solo Knockouts (Eliminación directa)
-    // ======================================================
     if (type === Rounds.Knockout) {
       if (players < 4 || players > 128) {
         ctx.addIssue({
@@ -115,7 +104,6 @@ export const createTournamentSchema = z
         });
       }
 
-      // Opcional: En un torneo de solo eliminatorias, los grupos no tienen sentido
       if (groups !== undefined || playersPerGroup !== undefined) {
         ctx.addIssue({
           code: 'custom',

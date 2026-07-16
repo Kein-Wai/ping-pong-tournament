@@ -7,7 +7,7 @@ export const fetchGroupMatches = async (
 ) => {
   const whereClause: any = {
     tournamentId,
-    knockoutId: null, // Aseguramos que son solo partidos de fase de grupos
+    knockoutId: null,
   };
 
   if (groupId) {
@@ -21,10 +21,7 @@ export const fetchGroupMatches = async (
       playerTwo: { select: { id: true, name: true, surname: true } },
       group: { select: { id: true, group: true } },
     },
-    orderBy: [
-      { group: { group: 'asc' } }, // Ordenamos primero por el número de grupo
-      { dateStart: 'asc' }, // Luego por fecha
-    ],
+    orderBy: [{ group: { group: 'asc' } }, { dateStart: 'asc' }],
   });
 };
 
@@ -47,9 +44,6 @@ export const fetchGroupClassifications = async (
       player: { select: { id: true, name: true, surname: true } },
       tournamentGroup: { select: { group: true } },
     },
-    orderBy: [
-      { tournamentGroup: { group: 'asc' } },
-      { position: 'asc' }, // Orden vital para ver quién va primero
-    ],
+    orderBy: [{ tournamentGroup: { group: 'asc' } }, { position: 'asc' }],
   });
 };

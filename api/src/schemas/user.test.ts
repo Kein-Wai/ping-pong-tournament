@@ -6,12 +6,9 @@ import {
   createUserSchema,
   updateUserSchema,
   updateProfileSchema,
-} from '../../src/schemas/user'; // Ajusta la ruta a tu archivo
+} from '../../src/schemas/user';
 
 describe('Zod Schemas: Autenticación y Usuarios', () => {
-  // ======================================================
-  // LOGIN SCHEMAS
-  // ======================================================
   describe('loginLocalSchema & loginGoogleSchema', () => {
     it('1. loginLocalSchema debería pasar con email y password válidos', () => {
       const result = loginLocalSchema.safeParse({ email: 'test@test.com', password: '123' });
@@ -29,9 +26,6 @@ describe('Zod Schemas: Autenticación y Usuarios', () => {
     });
   });
 
-  // ======================================================
-  // REGISTER SCHEMA
-  // ======================================================
   describe('registerSchema', () => {
     const validRegisterData = {
       email: 'test@test.com',
@@ -48,7 +42,7 @@ describe('Zod Schemas: Autenticación y Usuarios', () => {
     it('5. Debería fallar si la contraseña no cumple la seguridad (faltan mayúsculas/símbolos)', () => {
       const result = registerSchema.safeParse({
         ...validRegisterData,
-        password: 'password123', // Falta mayúscula y carácter especial
+        password: 'password123',
         confirmPassword: 'password123',
       });
 
@@ -64,7 +58,7 @@ describe('Zod Schemas: Autenticación y Usuarios', () => {
       const result = registerSchema.safeParse({
         ...validRegisterData,
         password: 'Password123!',
-        confirmPassword: 'Password1234!', // Distinta
+        confirmPassword: 'Password1234!',
       });
 
       expect(result.success).toBe(false);
@@ -75,9 +69,6 @@ describe('Zod Schemas: Autenticación y Usuarios', () => {
     });
   });
 
-  // ======================================================
-  // CREATE & UPDATE USER SCHEMA
-  // ======================================================
   describe('createUserSchema & updateUserSchema', () => {
     const validUserTypeId = '11111111-1111-4111-a111-111111111111';
 
@@ -89,7 +80,7 @@ describe('Zod Schemas: Autenticación y Usuarios', () => {
       });
 
       expect(result.success).toBe(true);
-      // Validamos que aplique el default del ELO
+
       if (result.success) {
         expect(result.data.elo).toBe(500);
       }
@@ -113,9 +104,6 @@ describe('Zod Schemas: Autenticación y Usuarios', () => {
     });
   });
 
-  // ======================================================
-  // UPDATE PROFILE SCHEMA
-  // ======================================================
   describe('updateProfileSchema', () => {
     it('10. Debería pasar si solo se actualizan datos básicos', () => {
       const result = updateProfileSchema.safeParse({
