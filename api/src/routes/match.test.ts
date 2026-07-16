@@ -3,7 +3,6 @@ import request from 'supertest';
 import { app } from '../index';
 import prisma from '../db';
 
-// Interceptamos nuestra instancia de Prisma para que no llame a PostgreSQL
 vi.mock('../db', () => ({
   default: {
     match: {
@@ -14,11 +13,11 @@ vi.mock('../db', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => next(),
+  requireAdmin: (req: any, res: any, next: any) => next(),
 }));
 
 describe('GET /api/matches', () => {
   it('debería devolver una lista de tipos de partidos con status 200', async () => {
-    // 1. Preparamos los datos simulados
     const mockMatches = [
       {
         id: '550e8400-e29b-41d4-a716-446655440001',
@@ -115,26 +114,20 @@ describe('GET /api/matches', () => {
       },
     ];
 
-    // 2. Le decimos al mock de Prisma que resuelva la promesa con esos datos
     vi.mocked(prisma.match.findMany).mockResolvedValue(mockMatches as any);
 
-    // 3. Hacemos la petición HTTP simulada a nuestra ruta
     const response = await request(app).get('/api/matches');
 
-    // 4. Comprobamos que todo funciona como esperamos
     expect(response.status).toBe(200);
     expect(response.body).toEqual(mockMatches);
     expect(prisma.match.findMany).toHaveBeenCalledOnce();
   });
 
   it('debería devolver un error 500 si la base de datos falla', async () => {
-    // 1. Simulamos que la base de datos se ha caído
     vi.mocked(prisma.match.findMany).mockRejectedValue('Error de conexión a la DB');
 
-    // 2. Hacemos la petición HTTP simulada
     const response = await request(app).get('/api/matches');
 
-    // 3. Comprobamos que el servidor no explota y devuelve el error controlado
     expect(response.status).toBe(500);
     expect(response.body).toHaveProperty('error', 'Error interno al obtener los partidos');
   });

@@ -21,6 +21,7 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
     req.user = { id: 'user-id-123', email: 'test@test.com', role: 'Player' };
     next();
   },
+  requireAdmin: (req: any, res: any, next: any) => next(),
 }));
 
 describe('CRUD de Rutas de Usuario (/api/users)', () => {

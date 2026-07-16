@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import prisma from '../db';
+import { requireAdmin } from '../middleware/auth.middleware';
 
 const router = Router();
 
-router.get('/', async (req, res) => {
+router.get('/', requireAdmin, async (req, res) => {
   try {
     const userTypes = await prisma.userType.findMany();
     res.json(userTypes);

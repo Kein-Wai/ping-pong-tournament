@@ -36,6 +36,7 @@ vi.mock('../../src/db', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => next(),
+  requireAdmin: (req: any, res: any, next: any) => next(),
 }));
 const MOCK_UUID = '123e4567-e89b-12d3-a456-426614174000';
 const MOCK_DATE = '2026-07-13T00:00:00.000Z';

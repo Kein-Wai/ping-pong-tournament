@@ -15,6 +15,23 @@ declare global {
   }
 }
 
+export const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
+  // Verificamos que el usuario exista (verifyToken ya debería haberlo comprobado)
+  if (!req.user) {
+    res.status(401).json({ error: 'Usuario no autenticado' });
+    return;
+  }
+
+  // Comprobamos el rol exacto (Asegúrate de que coincide con el nombre en tu BD)
+  if (req.user.role !== 'Admin') {
+    res.status(403).json({ error: 'Acceso denegado. Se requieren permisos de Administrador.' });
+    return;
+  }
+
+  // Si es Admin, le abrimos la puerta VIP
+  next();
+};
+
 export const verifyToken = (req: Request, res: Response, next: NextFunction): void => {
   const authHeader = req.headers.authorization;
 

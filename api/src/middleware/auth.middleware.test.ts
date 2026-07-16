@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { verifyToken } from '../../src/middleware/auth.middleware';
+import { verifyToken, requireAdmin } from '../../src/middleware/auth.middleware';
 
 // Mockeamos jsonwebtoken
 vi.mock('jsonwebtoken');
@@ -75,6 +75,55 @@ describe('Auth Middleware (verifyToken)', () => {
     expect(nextFunction).toHaveBeenCalledOnce();
 
     // Comprobamos que NO le devolvió ningún error
+    expect(mockRes.status).not.toHaveBeenCalled();
+  });
+});
+
+describe('Auth Middleware (requireAdmin)', () => {
+  // Fabricamos peticiones falsas antes de cada test
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let nextFunction: NextFunction;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockReq = {};
+    mockRes = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+    nextFunction = vi.fn();
+  });
+
+  it('FALLO: Debería bloquear (401) si no hay usuario en la petición', () => {
+    // req.user no existe (ej. alguien se saltó verifyToken)
+    requireAdmin(mockReq as Request, mockRes as Response, nextFunction);
+
+    expect(mockRes.status).toHaveBeenCalledWith(401);
+    expect(mockRes.json).toHaveBeenCalledWith({ error: 'Usuario no autenticado' });
+    expect(nextFunction).not.toHaveBeenCalled(); // ❌ Puerta cerrada
+  });
+
+  it('FALLO: Debería bloquear (403) si el usuario es un Player normal', () => {
+    // Simulamos que el usuario logueado es solo 'Player'
+    mockReq.user = { id: '123', email: 'test@test.com', role: 'Player' };
+
+    requireAdmin(mockReq as Request, mockRes as Response, nextFunction);
+
+    expect(mockRes.status).toHaveBeenCalledWith(403);
+    expect(mockRes.json).toHaveBeenCalledWith({
+      error: 'Acceso denegado. Se requieren permisos de Administrador.',
+    });
+    expect(nextFunction).not.toHaveBeenCalled(); // ❌ Puerta cerrada
+  });
+
+  it('ÉXITO: Debería dejar pasar (next) si el usuario es Admin', () => {
+    // Simulamos que el usuario logueado tiene el rol supremo
+    mockReq.user = { id: '456', email: 'admin@test.com', role: 'Admin' };
+
+    requireAdmin(mockReq as Request, mockRes as Response, nextFunction);
+
+    expect(nextFunction).toHaveBeenCalledOnce(); // ✅ Puerta abierta
     expect(mockRes.status).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,7 @@ vi.mock('../db', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => next(),
+  requireAdmin: (req: any, res: any, next: any) => next(),
 }));
 
 describe('GET /api/user-types', () => {

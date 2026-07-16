@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../db';
 import { createUserSchema, updateUserSchema, updateProfileSchema } from '../schemas/user';
 import { z } from 'zod';
+import { requireAdmin } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
     const validation = createUserSchema.safeParse(req.body);
 
@@ -146,9 +147,9 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const validation = updateUserSchema.safeParse(req.body);
 
@@ -182,9 +183,9 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     await prisma.user.delete({
       where: { id: id },
