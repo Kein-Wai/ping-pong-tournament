@@ -109,7 +109,9 @@ export const Partidos = () => {
     const fetchPlayers = async () => {
       try {
         const response = await api.get(ENDPOINTS.MATCHES.BASE);
-        const data = response.data.data || response.data;
+        const data = response.data.sort((a: Match, b: Match) =>
+          a.dateStart > b.dateStart ? 1 : -1,
+        );
 
         if (Array.isArray(data)) {
           setMatches(data);
@@ -181,7 +183,11 @@ export const Partidos = () => {
             <IconCalendar size={16} stroke={1.5} color="blue" />
             <div>
               <Text fz="sm" fw={500}>
-                {match?.dateStart || ''}
+                {new Date(match?.dateStart).toLocaleDateString('es-ES', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
               </Text>
             </div>
           </Group>
@@ -227,7 +233,7 @@ export const Partidos = () => {
     <Stack gap="md">
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group justify="space-between" mb="md">
-          <Title order={2}>Plantilla de Jugadores</Title>
+          <Title order={2}>Historial de Partidas</Title>
           <TextInput
             placeholder="Buscar partido..."
             leftSection={<IconSearch size={16} />}

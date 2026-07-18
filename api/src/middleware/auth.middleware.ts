@@ -5,6 +5,8 @@ export interface UserPayload {
   id: string;
   email: string;
   role: string;
+  clubId?: string | null;
+  clubStatus?: string | null;
 }
 
 declare global {
@@ -15,20 +17,33 @@ declare global {
   }
 }
 
-export const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
-  // Verificamos que el usuario exista (verifyToken ya debería haberlo comprobado)
+// Nivel 1: Dios (Solo para ti)
+export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
   if (!req.user) {
     res.status(401).json({ error: 'Usuario no autenticado' });
     return;
   }
-
-  // Comprobamos el rol exacto (Asegúrate de que coincide con el nombre en tu BD)
-  if (req.user.role !== 'Admin') {
-    res.status(403).json({ error: 'Acceso denegado. Se requieren permisos de Administrador.' });
+  if (req.user.role !== 'SuperAdmin') {
+    res
+      .status(403)
+      .json({ error: 'Acceso denegado. Solo el SuperAdmin puede realizar esta acción.' });
     return;
   }
+  next();
+};
 
-  // Si es Admin, le abrimos la puerta VIP
+// Nivel 2: Presidentes de Club (Tú también puedes pasar por aquí)
+export const requireAdminClub = (req: Request, res: Response, next: NextFunction): void => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Usuario no autenticado' });
+    return;
+  }
+  if (req.user.role !== 'SuperAdmin' && req.user.role !== 'AdminClub') {
+    res
+      .status(403)
+      .json({ error: 'Acceso denegado. Se requieren permisos de Administrador de Club.' });
+    return;
+  }
   next();
 };
 
@@ -46,11 +61,8 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction): vo
 
   try {
     const secret = process.env.JWT_SECRET || 'fallback-secret';
-
     const decoded = jwt.verify(token, secret) as UserPayload;
-
     req.user = decoded;
-
     next();
   } catch (error) {
     res.status(401).json({ error: 'Token inválido o expirado.' });

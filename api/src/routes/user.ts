@@ -3,46 +3,69 @@ import bcrypt from 'bcryptjs';
 import prisma from '../db';
 import { createUserSchema, updateUserSchema, updateProfileSchema } from '../schemas/user';
 import { z } from 'zod';
-import { requireAdmin } from '../middleware/auth.middleware';
+import { requireSuperAdmin, requireAdminClub } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.get('/', async (req, res) => {
   try {
+    const role = req.user?.role;
+    const clubId = req.user?.clubId;
+
     const playerType = await prisma.userType.findUnique({
       where: {
         name: 'Player',
       },
     });
+
     if (!playerType) {
       return res
         .status(500)
         .json({ error: 'El rol Player no está configurado en la base de datos' });
     }
-    if (playerType) {
-      const users = await prisma.user.findMany({
-        where: {
-          userTypeId: playerType.id,
-        },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          surname: true,
-          userTypeId: true,
-          stats: true,
-        },
-      });
-      res.json(users);
+
+    // Filtro base: Solo queremos que devuelva jugadores (no otros admins)
+    let whereClause: any = {
+      userTypeId: playerType.id,
+    };
+
+    // Filtro de Club:
+    if (role === 'SuperAdmin') {
+      // El SuperAdmin puede ver absolutamente a todos los jugadores del sistema
+    } else if (role === 'AdminClub') {
+      // El AdminClub solo puede ver a los jugadores que pertenecen a SU club
+      whereClause.clubId = clubId;
+    } else {
+      // Un jugador normal solo debería poder ver el ranking/lista de la gente de su propio club
+      whereClause.clubId = clubId;
     }
+
+    const users = await prisma.user.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        surname: true,
+        userTypeId: true,
+        clubId: true,
+        clubStatus: true,
+        stats: true,
+      },
+    });
+
+    res.json(users);
   } catch (error) {
     console.error('DAME EL ERROR', error);
     res.status(500).json({ error: 'Error al obtener los usuarios' });
   }
 });
 
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAdminClub, async (req, res) => {
   try {
+    const role = req.user?.role;
+    const adminClubId = req.user?.clubId;
+
     const validation = createUserSchema.safeParse(req.body);
 
     if (!validation.success) {
@@ -53,19 +76,33 @@ router.post('/', requireAdmin, async (req, res) => {
       return;
     }
 
-    const { password, ...userData } = validation.data;
+    const { password, clubId, clubStatus, ...userData } = validation.data;
     let hashedPassword = null;
 
     if (password) {
       hashedPassword = await bcrypt.hash(password, 10);
     }
 
+    // LÓGICA DE CLUBES:
+    let finalClubId = clubId;
+    let finalClubStatus = clubStatus || 'Registrado';
+
+    if (role === 'AdminClub') {
+      // Si eres AdminClub, el jugador se va a TU club por la fuerza y entra Aprobado
+      if (!adminClubId) {
+        return res.status(403).json({ error: 'No tienes un club asignado para añadir jugadores' });
+      }
+      finalClubId = adminClubId;
+      finalClubStatus = 'Aprobado';
+    }
+
     const newUser = await prisma.user.create({
       data: {
         ...userData,
         password: hashedPassword,
-
         authProvider: password ? 'LOCAL' : 'UNKNOWN',
+        clubId: finalClubId,
+        clubStatus: finalClubStatus as any,
         stats: {
           create: {
             elo: userData.elo,
@@ -79,6 +116,8 @@ router.post('/', requireAdmin, async (req, res) => {
         surname: true,
         secondSurname: true,
         nickname: true,
+        clubId: true,
+        clubStatus: true,
       },
     });
 
@@ -169,9 +208,25 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAdminClub, async (req, res) => {
   try {
     const id = req.params.id as string;
+    const role = req.user?.role;
+    const adminClubId = req.user?.clubId;
+
+    // 1. Buscamos al usuario que intentan editar
+    const userToEdit = await prisma.user.findUnique({ where: { id } });
+
+    if (!userToEdit) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // 2. Filtro de Club: El presidente solo puede editar a los suyos
+    if (role === 'AdminClub' && userToEdit.clubId !== adminClubId) {
+      return res
+        .status(403)
+        .json({ error: 'No tienes permiso para editar jugadores de otros clubes' });
+    }
 
     const validation = updateUserSchema.safeParse(req.body);
 
@@ -183,15 +238,23 @@ router.put('/:id', requireAdmin, async (req, res) => {
       return;
     }
 
+    const dataToUpdate = { ...validation.data };
+
+    // 3. Prevenir que un AdminClub cambie de club a un jugador a la fuerza por aquí
+    if (role === 'AdminClub') {
+      delete dataToUpdate.clubId;
+      delete dataToUpdate.clubStatus;
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: id },
       data: {
-        ...validation.data,
-        ...(validation.data.elo !== undefined && {
+        ...dataToUpdate,
+        ...(dataToUpdate.elo !== undefined && {
           stats: {
             upsert: {
-              create: { elo: validation.data.elo },
-              update: { elo: validation.data.elo },
+              create: { elo: dataToUpdate.elo },
+              update: { elo: dataToUpdate.elo },
             },
           },
         }),
@@ -205,9 +268,25 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdminClub, async (req, res) => {
   try {
     const id = req.params.id as string;
+    const role = req.user?.role;
+    const adminClubId = req.user?.clubId;
+
+    // 1. Buscamos al usuario que intentan borrar
+    const userToDelete = await prisma.user.findUnique({ where: { id } });
+
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // 2. Filtro de Club: El presidente solo puede borrar a los suyos
+    if (role === 'AdminClub' && userToDelete.clubId !== adminClubId) {
+      return res
+        .status(403)
+        .json({ error: 'No tienes permiso para borrar jugadores de otros clubes' });
+    }
 
     await prisma.user.delete({
       where: { id: id },

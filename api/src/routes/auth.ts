@@ -52,7 +52,13 @@ router.post('/register', async (req, res) => {
     });
 
     const token = jwt.sign(
-      { id: newUser.id, email: newUser.email, role: newUser.userType.name },
+      {
+        id: newUser.id, // (Usa user o newUser dependiendo de la ruta en la que estés)
+        email: newUser.email,
+        role: newUser.userType?.name,
+        clubId: newUser.clubId,
+        clubStatus: newUser.clubStatus,
+      },
       JWT_SECRET,
       { expiresIn: '8h' },
     );
@@ -96,7 +102,13 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.userType.name },
+      {
+        id: user.id,
+        email: user.email,
+        role: user.userType.name,
+        clubId: user.clubId,
+        clubStatus: user.clubStatus,
+      },
       JWT_SECRET,
       { expiresIn: '8h' },
     );
@@ -163,7 +175,13 @@ router.post('/google', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.userType.name },
+      {
+        id: user.id,
+        email: user.email,
+        role: user.userType.name,
+        clubId: user.clubId,
+        clubStatus: user.clubStatus,
+      },
       JWT_SECRET,
       { expiresIn: '8h' },
     );

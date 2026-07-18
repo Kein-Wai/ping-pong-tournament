@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, TypeUser } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -6,7 +7,7 @@ const BYE_USER_ID = '00000000-0000-0000-0000-000000000000';
 const TBD_USER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
 async function main() {
-  console.log('🧹 Limpiando datos de torneos anteriores para evitar duplicados...');
+  console.log('🧹 Limpiando datos de torneos y clubes anteriores para evitar duplicados...');
   await prisma.match.deleteMany();
   await prisma.tournamentKnockout.deleteMany();
   await prisma.tournamentParticipant.deleteMany();
@@ -17,12 +18,18 @@ async function main() {
   await prisma.tournament.deleteMany();
 
   await prisma.stats.deleteMany();
-
   await prisma.user.deleteMany();
-  console.log('🌱 Iniciando el proceso de Seed...');
+
+  await prisma.club.deleteMany();
+
+  console.log('🌱 Iniciando el proceso de Seed Multi-tenant...');
 
   // --- 1. ROLES ---
-  const types = [{ name: 'Admin' }, { name: 'Player' }];
+  const types = [
+    { name: TypeUser.SuperAdmin },
+    { name: TypeUser.AdminClub },
+    { name: TypeUser.Player },
+  ];
   let savedTypes = [];
 
   for (const type of types) {
@@ -34,10 +41,69 @@ async function main() {
       }),
     );
   }
-  const playerRoleId = savedTypes[1].id;
+  const superAdminRoleId = savedTypes[0].id;
+  const adminClubRoleId = savedTypes[1].id;
+  const playerRoleId = savedTypes[2].id;
 
-  // --- 2. JUGADORES ESPECIALES ---
-  const byeUser = await prisma.user.upsert({
+  // --- 2. CREACIÓN DE CLUBES ---
+  console.log('🏢 Generando Clubes...');
+  const clubA = await prisma.club.create({
+    data: { name: 'Club Tenis de Mesa Castellón', status: 'Aprobado' },
+  });
+
+  const clubB = await prisma.club.create({
+    data: { name: 'PingPong Club Valencia', status: 'Aprobado' },
+  });
+
+  // --- 3. CREACIÓN DE ADMINISTRADORES ---
+  const hashedPasswordSuper = await bcrypt.hash('112233cheung', 10);
+  await prisma.user.create({
+    data: {
+      email: 'keinwai@hotmail.com',
+      name: 'Kein-Wai',
+      surname: 'Cheung',
+      nickname: 'Quinguaichun',
+      userTypeId: superAdminRoleId,
+      password: hashedPasswordSuper,
+      authProvider: 'LOCAL',
+    },
+  });
+
+  const hashedPasswordClub = await bcrypt.hash('112233club', 10);
+
+  const adminA = await prisma.user.create({
+    data: {
+      email: 'admin@castellon.local',
+      name: 'Admin',
+      surname: 'Castellón',
+      userTypeId: adminClubRoleId,
+      password: hashedPasswordClub,
+      clubId: clubA.id,
+      clubStatus: 'Aprobado',
+      authProvider: 'LOCAL',
+    },
+  });
+
+  const adminB = await prisma.user.create({
+    data: {
+      email: 'admin@valencia.local',
+      name: 'Admin',
+      surname: 'Valencia',
+      userTypeId: adminClubRoleId,
+      password: hashedPasswordClub,
+      clubId: clubB.id,
+      clubStatus: 'Aprobado',
+      authProvider: 'LOCAL',
+    },
+  });
+
+  console.log('====================================================');
+  console.log(`👤 Admin Club A (Castellón): ${adminA.email} | PW: 112233club`);
+  console.log(`👤 Admin Club B (Valencia):  ${adminB.email} | PW: 112233club`);
+  console.log('====================================================');
+
+  // --- 4. JUGADORES ESPECIALES ---
+  await prisma.user.upsert({
     where: { id: BYE_USER_ID },
     update: {},
     create: {
@@ -49,7 +115,7 @@ async function main() {
     },
   });
 
-  const tbdUser = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { id: TBD_USER_ID },
     update: {},
     create: {
@@ -61,11 +127,14 @@ async function main() {
     },
   });
 
-  // --- 3. CREAR 60 JUGADORES ---
-  console.log('👥 Generando 60 jugadores...');
-  const createdPlayers = [];
+  // --- 5. CREAR 60 JUGADORES (40 Club A / 20 Club B) ---
+  console.log('👥 Generando 60 jugadores y distribuyéndolos...');
+  const playersClubA = [];
+  const playersClubB = [];
+
   for (let i = 1; i <= 60; i++) {
     const startingElo = Math.floor(400 + i * 20);
+    const assignedClub = i <= 40 ? clubA.id : clubB.id;
 
     const p = await prisma.user.create({
       data: {
@@ -73,6 +142,8 @@ async function main() {
         name: `Jugador`,
         surname: `${i}`,
         userTypeId: playerRoleId,
+        clubId: assignedClub,
+        clubStatus: 'Aprobado',
         stats: {
           create: {
             elo: startingElo,
@@ -89,14 +160,15 @@ async function main() {
       },
       include: { stats: true },
     });
-    createdPlayers.push(p);
+
+    if (i <= 40) playersClubA.push(p);
+    else playersClubB.push(p);
   }
 
-  const sortedPlayersDesc = [...createdPlayers].sort(
-    (a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0),
-  );
+  const sortedA = [...playersClubA].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
+  const sortedB = [...playersClubB].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
 
-  // --- 4. MOTOR DE SIMULACIÓN DE PARTIDOS (NUEVO Y REALISTA) ---
+  // --- 6. MOTOR DE SIMULACIÓN DE PARTIDOS ---
   async function simulateAndSaveMatch(
     tournamentId: string,
     p1Id: string,
@@ -111,25 +183,20 @@ async function main() {
     let p2SetsWon = 0;
     let ptsP1 = 0;
     let ptsP2 = 0;
-
-    // Almacenamos el resultado de cada set jugado
     const setScores: { s1: number; s2: number }[] = [];
 
-    // Jugar al mejor de 5 (el primero que llegue a 3 sets gana)
     while (p1SetsWon < 3 && p2SetsWon < 3) {
       const p1WinsThisSet = Math.random() > 0.5;
-      const isDeuce = Math.random() > 0.85; // 15% de probabilidad de irse a desempate (ventaja)
+      const isDeuce = Math.random() > 0.85;
       let s1 = 0,
         s2 = 0;
 
       if (isDeuce) {
-        // Desempates como 12-10, 13-11, 14-12
         const base = 10 + Math.floor(Math.random() * 3);
         s1 = p1WinsThisSet ? base + 2 : base;
         s2 = p1WinsThisSet ? base : base + 2;
       } else {
-        // Resultados normales (ej. 11-5, 11-8)
-        const loserScore = Math.floor(Math.random() * 9); // del 0 al 8
+        const loserScore = Math.floor(Math.random() * 9);
         s1 = p1WinsThisSet ? 11 : loserScore;
         s2 = p1WinsThisSet ? loserScore : 11;
       }
@@ -144,7 +211,6 @@ async function main() {
 
     const p1WinsMatch = p1SetsWon === 3;
 
-    // 1. Guardar Partido con resultados reales
     const createdMatch = await prisma.match.create({
       data: {
         dateStart: new Date(),
@@ -154,7 +220,6 @@ async function main() {
         matchOrder,
         playerOneId: p1Id,
         playerTwoId: p2Id,
-        // Asignamos los sets jugados, los que no se jugaron quedan en 0
         setOnePlayerOne: setScores[0]?.s1 ?? 0,
         setOnePlayerTwo: setScores[0]?.s2 ?? 0,
         setTwoPlayerOne: setScores[1]?.s1 ?? 0,
@@ -169,7 +234,6 @@ async function main() {
       },
     });
 
-    // 2. Actualizar Stats Globales del Usuario
     await prisma.stats.update({
       where: { userId: p1Id },
       data: {
@@ -194,7 +258,6 @@ async function main() {
       },
     });
 
-    // 3. Actualizar Clasificación del Grupo
     if (groupId && clas1Id && clas2Id) {
       await prisma.tournamentGroupClas.update({
         where: { id: clas1Id },
@@ -232,19 +295,20 @@ async function main() {
   }
 
   // ============================================================================
-  // TORNEO 1: COMPLETADO (32 JUGADORES)
+  // TORNEO 1: CLUB A - COMPLETADO (32 JUGADORES)
   // ============================================================================
-  console.log('\n🏆 Generando Torneo 1 (Completado - 32 Jugadores)...');
-  const t1Players = sortedPlayersDesc.slice(0, 32);
+  console.log('\n🏆 Generando Torneo 1 (Club A | Completado - 32 Jugadores)...');
+  const t1Players = sortedA.slice(0, 32);
 
   const t1 = await prisma.tournament.create({
     data: {
-      name: 'Grand Slam de Verano 2026',
+      name: 'Grand Slam Castellón 2026',
       dateStart: new Date(),
+      clubId: clubA.id,
       numPlayers: 32,
       numGroup: 8,
       numGroupPlayers: 4,
-      typeTournament: 'Abierto',
+      typeTournament: 'Interno',
       levelTournament: 'Avanzado',
       rounds: 'GruposKnockout',
       status: 'Completado',
@@ -278,12 +342,11 @@ async function main() {
     snakeGroupsT1[index].push(t1Players[i]);
   }
 
-  console.log('   ⚔️ Simulando fase de grupos T1...');
   for (let g = 0; g < 8; g++) {
     const groupDb = t1Groups[g];
     const groupPlayers = snakeGroupsT1[g];
-
     const clasRecords = [];
+
     for (const p of groupPlayers) {
       const c = await prisma.tournamentGroupClas.create({
         data: { tournamentGroupId: groupDb.id, playerId: p.id },
@@ -318,6 +381,7 @@ async function main() {
         data: { position: pos + 1 },
       });
 
+      // Registrar clasificación de los eliminados en grupos (3ro y 4to)
       if (pos >= 2) {
         await prisma.tournamentClas.create({
           data: {
@@ -331,145 +395,135 @@ async function main() {
     advancingT1.push(clas[0].playerId, clas[1].playerId);
   }
 
-  console.log('   ⚔️ Simulando Eliminatorias Sembradas y Conectadas T1...');
-  const kOctavos = await prisma.tournamentKnockout.create({
+  const kOctavosT1 = await prisma.tournamentKnockout.create({
     data: { type: 'A', tournamentId: t1.id, round: 'Octavos', status: 'Completado' },
   });
-  const kCuartos = await prisma.tournamentKnockout.create({
+  const kCuartosT1 = await prisma.tournamentKnockout.create({
     data: { type: 'A', tournamentId: t1.id, round: 'Cuartos', status: 'Completado' },
   });
-  const kSemis = await prisma.tournamentKnockout.create({
+  const kSemisT1 = await prisma.tournamentKnockout.create({
     data: { type: 'A', tournamentId: t1.id, round: 'Semifinales', status: 'Completado' },
   });
-  const kFinal = await prisma.tournamentKnockout.create({
+  const kFinalT1 = await prisma.tournamentKnockout.create({
     data: { type: 'A', tournamentId: t1.id, round: 'Final', status: 'Completado' },
   });
 
   const bracket16 = [0, 15, 7, 8, 4, 11, 3, 12, 2, 13, 5, 10, 6, 9, 1, 14];
 
-  // OCTAVOS
-  const octavosMatches = [];
+  const octavosMatchesT1 = [];
   for (let i = 0; i < 16; i += 2) {
     const res = await simulateAndSaveMatch(
       t1.id,
       advancingT1[bracket16[i]],
       advancingT1[bracket16[i + 1]],
       null,
-      kOctavos.id,
+      kOctavosT1.id,
       null,
       null,
       i / 2,
     );
-    octavosMatches.push(res);
-
+    octavosMatchesT1.push(res);
     await prisma.tournamentClas.create({
       data: { tournamentId: t1.id, playerId: res.loser, lastRound: 'Octavos', position: 9 },
     });
   }
 
-  // CUARTOS (Y conectamos Octavos hacia Cuartos)
-  const cuartosMatches = [];
+  const cuartosMatchesT1 = [];
   for (let i = 0; i < 8; i += 2) {
     const res = await simulateAndSaveMatch(
       t1.id,
-      octavosMatches[i].winner,
-      octavosMatches[i + 1].winner,
+      octavosMatchesT1[i].winner,
+      octavosMatchesT1[i + 1].winner,
       null,
-      kCuartos.id,
+      kCuartosT1.id,
       null,
       null,
       i / 2,
     );
-    cuartosMatches.push(res);
-
+    cuartosMatchesT1.push(res);
     await prisma.match.update({
-      where: { id: octavosMatches[i].matchId },
+      where: { id: octavosMatchesT1[i].matchId },
       data: { winnerGoesToMatchId: res.matchId },
     });
     await prisma.match.update({
-      where: { id: octavosMatches[i + 1].matchId },
+      where: { id: octavosMatchesT1[i + 1].matchId },
       data: { winnerGoesToMatchId: res.matchId },
     });
-
     await prisma.tournamentClas.create({
       data: { tournamentId: t1.id, playerId: res.loser, lastRound: 'Cuartos', position: 5 },
     });
   }
 
-  // SEMIS (Y conectamos Cuartos hacia Semis)
-  const semisMatches = [];
+  const semisMatchesT1 = [];
   for (let i = 0; i < 4; i += 2) {
     const res = await simulateAndSaveMatch(
       t1.id,
-      cuartosMatches[i].winner,
-      cuartosMatches[i + 1].winner,
+      cuartosMatchesT1[i].winner,
+      cuartosMatchesT1[i + 1].winner,
       null,
-      kSemis.id,
+      kSemisT1.id,
       null,
       null,
       i / 2,
     );
-    semisMatches.push(res);
-
+    semisMatchesT1.push(res);
     await prisma.match.update({
-      where: { id: cuartosMatches[i].matchId },
+      where: { id: cuartosMatchesT1[i].matchId },
       data: { winnerGoesToMatchId: res.matchId },
     });
     await prisma.match.update({
-      where: { id: cuartosMatches[i + 1].matchId },
+      where: { id: cuartosMatchesT1[i + 1].matchId },
       data: { winnerGoesToMatchId: res.matchId },
     });
-
     await prisma.tournamentClas.create({
       data: { tournamentId: t1.id, playerId: res.loser, lastRound: 'Semifinales', position: 3 },
     });
   }
 
-  // FINAL (Y conectamos Semis hacia Final)
-  const finalMatch = await simulateAndSaveMatch(
+  const finalMatchT1 = await simulateAndSaveMatch(
     t1.id,
-    semisMatches[0].winner,
-    semisMatches[1].winner,
+    semisMatchesT1[0].winner,
+    semisMatchesT1[1].winner,
     null,
-    kFinal.id,
+    kFinalT1.id,
     null,
     null,
     0,
   );
-
   await prisma.match.update({
-    where: { id: semisMatches[0].matchId },
-    data: { winnerGoesToMatchId: finalMatch.matchId },
+    where: { id: semisMatchesT1[0].matchId },
+    data: { winnerGoesToMatchId: finalMatchT1.matchId },
   });
   await prisma.match.update({
-    where: { id: semisMatches[1].matchId },
-    data: { winnerGoesToMatchId: finalMatch.matchId },
+    where: { id: semisMatchesT1[1].matchId },
+    data: { winnerGoesToMatchId: finalMatchT1.matchId },
   });
 
   await prisma.stats.update({
-    where: { userId: finalMatch.winner },
+    where: { userId: finalMatchT1.winner },
     data: { tournamentWon: { increment: 1 } },
   });
 
   await prisma.tournamentClas.create({
-    data: { tournamentId: t1.id, playerId: finalMatch.loser, lastRound: 'Final', position: 2 },
+    data: { tournamentId: t1.id, playerId: finalMatchT1.loser, lastRound: 'Final', position: 2 },
   });
   await prisma.tournamentClas.create({
-    data: { tournamentId: t1.id, playerId: finalMatch.winner, lastRound: 'Final', position: 1 },
+    data: { tournamentId: t1.id, playerId: finalMatchT1.winner, lastRound: 'Final', position: 1 },
   });
 
   // ============================================================================
-  // TORNEO 2: PROGRAMADO
+  // TORNEO 2: CLUB A - PROGRAMADO (18 INCRITOS)
   // ============================================================================
-  console.log('\n📅 Generando Torneo 2 (Programado - 18/32 Inscritos)...');
+  console.log('\n📅 Generando Torneo 2 (Club A | Programado - 18/32 Inscritos)...');
   const t2 = await prisma.tournament.create({
     data: {
-      name: 'Challenger de Otoño',
+      name: 'Challenger Castellón de Otoño',
       dateStart: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      clubId: clubA.id,
       numPlayers: 32,
       numGroup: 8,
       numGroupPlayers: 4,
-      typeTournament: 'Oficial',
+      typeTournament: 'Abierto', // Permitirá que lo vean de otros clubes
       levelTournament: 'Intermedio',
       rounds: 'GruposKnockout',
       status: 'Programado',
@@ -480,7 +534,7 @@ async function main() {
     },
   });
 
-  const t2Players = sortedPlayersDesc.slice(32, 50);
+  const t2Players = sortedA.slice(15, 33); // Metemos a 18 jugadores del Club A
   for (const p of t2Players) {
     await prisma.tournamentParticipant.create({
       data: { tournamentId: t2.id, playerId: p.id, status: 'Confirmado' },
@@ -488,15 +542,16 @@ async function main() {
   }
 
   // ============================================================================
-  // TORNEO 3: EN JUEGO (CUARTOS DE FINAL)
+  // TORNEO 3: CLUB B - EN JUEGO (CUARTOS DE FINAL)
   // ============================================================================
-  console.log('\n🔥 Generando Torneo 3 (En Juego - Cuartos de Final)...');
-  const t3Players = sortedPlayersDesc.slice(10, 26);
+  console.log('\n🔥 Generando Torneo 3 (Club B | En Juego - Cuartos de Final)...');
+  const t3Players = sortedB.slice(0, 16); // 16 jugadores del Club B
 
   const t3 = await prisma.tournament.create({
     data: {
-      name: 'Masters 1000 Invierno',
+      name: 'Masters 1000 Valencia',
       dateStart: new Date(new Date().setDate(new Date().getDate() - 2)),
+      clubId: clubB.id,
       numPlayers: 16,
       numGroup: 4,
       numGroupPlayers: 4,
@@ -534,12 +589,11 @@ async function main() {
     snakeGroupsT3[index].push(t3Players[i]);
   }
 
-  console.log('   ⚔️ Simulando fase de grupos T3...');
   for (let g = 0; g < 4; g++) {
     const groupDb = t3Groups[g];
     const groupPlayers = snakeGroupsT3[g];
-
     const clasRecords = [];
+
     for (const p of groupPlayers) {
       const c = await prisma.tournamentGroupClas.create({
         data: { tournamentGroupId: groupDb.id, playerId: p.id },
@@ -574,6 +628,7 @@ async function main() {
         data: { position: pos + 1 },
       });
 
+      // Registrar eliminados en fase de grupos T3
       if (pos >= 2) {
         await prisma.tournamentClas.create({
           data: {
@@ -587,7 +642,6 @@ async function main() {
     advancingT3.push(clas[0].playerId, clas[1].playerId);
   }
 
-  console.log('   ⏳ Creando Bracket Completo de Eliminatorias (Programado, T3)...');
   const t3CuartosKnockout = await prisma.tournamentKnockout.create({
     data: { type: 'A', tournamentId: t3.id, round: 'Cuartos', status: 'Programado' },
   });
@@ -598,7 +652,6 @@ async function main() {
     data: { type: 'A', tournamentId: t3.id, round: 'Final', status: 'Programado' },
   });
 
-  // 1. Creamos la Final
   const t3FinalMatch = await prisma.match.create({
     data: {
       dateStart: new Date(),
@@ -611,7 +664,6 @@ async function main() {
     },
   });
 
-  // 2. Creamos las Semis conectando a la Final
   const t3SemisMatches = [];
   for (let i = 0; i < 2; i++) {
     const m = await prisma.match.create({
@@ -629,20 +681,16 @@ async function main() {
     t3SemisMatches.push(m);
   }
 
-  // 3. Creamos los Cuartos (jugadores reales) conectando a las Semis
   const bracket8 = [0, 7, 3, 4, 2, 5, 1, 6];
   for (let i = 0; i < 8; i += 2) {
-    const p1 = advancingT3[bracket8[i]];
-    const p2 = advancingT3[bracket8[i + 1]];
     const matchOrder = i / 2;
-
     await prisma.match.create({
       data: {
         dateStart: new Date(),
         tournamentId: t3.id,
         knockoutId: t3CuartosKnockout.id,
-        playerOneId: p1,
-        playerTwoId: p2,
+        playerOneId: advancingT3[bracket8[i]],
+        playerTwoId: advancingT3[bracket8[i + 1]],
         status: 'Programado',
         matchOrder: matchOrder,
         winnerGoesToMatchId: t3SemisMatches[Math.floor(matchOrder / 2)].id,
@@ -650,7 +698,201 @@ async function main() {
     });
   }
 
-  console.log('\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar el Frontend!');
+  // ============================================================================
+  // TORNEO 4: CLUB B - COMPLETADO (16 JUGADORES)
+  // ============================================================================
+  console.log('\n🏆 Generando Torneo 4 (Club B | Completado - 16 Jugadores)...');
+  const t4Players = sortedB.slice(4, 20); // Cogemos a los 16 restantes
+
+  const t4 = await prisma.tournament.create({
+    data: {
+      name: 'Liga de Primavera Valencia',
+      dateStart: new Date(),
+      clubId: clubB.id,
+      numPlayers: 16,
+      numGroup: 4,
+      numGroupPlayers: 4,
+      typeTournament: 'Interno',
+      levelTournament: 'Avanzado',
+      rounds: 'GruposKnockout',
+      status: 'Completado',
+      typeKnockout: 'LlaveA',
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      groupsCreated: true,
+      knockoutCreated: true,
+    },
+  });
+
+  for (const p of t4Players) {
+    await prisma.tournamentParticipant.create({
+      data: { tournamentId: t4.id, playerId: p.id, status: 'Confirmado' },
+    });
+  }
+
+  const t4Groups = [];
+  for (let i = 1; i <= 4; i++) {
+    t4Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t4.id, group: i, status: 'Completado' },
+      }),
+    );
+  }
+
+  const snakeGroupsT4: any[][] = Array.from({ length: 4 }, () => []);
+  for (let i = 0; i < t4Players.length; i++) {
+    const cycle = Math.floor(i / 4);
+    const index = cycle % 2 === 0 ? i % 4 : 3 - (i % 4);
+    snakeGroupsT4[index].push(t4Players[i]);
+  }
+
+  for (let g = 0; g < 4; g++) {
+    const groupDb = t4Groups[g];
+    const groupPlayers = snakeGroupsT4[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (let i = 0; i < groupPlayers.length; i++) {
+      for (let j = i + 1; j < groupPlayers.length; j++) {
+        await simulateAndSaveMatch(
+          t4.id,
+          groupPlayers[i].id,
+          groupPlayers[j].id,
+          groupDb.id,
+          null,
+          clasRecords[i].clasId,
+          clasRecords[j].clasId,
+        );
+      }
+    }
+  }
+
+  const advancingT4 = [];
+  for (const g of t4Groups) {
+    const clas = await prisma.tournamentGroupClas.findMany({
+      where: { tournamentGroupId: g.id },
+      orderBy: [{ pointsClas: 'desc' }, { setsWon: 'desc' }],
+    });
+    for (let pos = 0; pos < clas.length; pos++) {
+      await prisma.tournamentGroupClas.update({
+        where: { id: clas[pos].id },
+        data: { position: pos + 1 },
+      });
+
+      // NUEVO: Registrar eliminados en fase de grupos T4
+      if (pos >= 2) {
+        await prisma.tournamentClas.create({
+          data: {
+            tournamentId: t4.id,
+            playerId: clas[pos].playerId,
+            position: pos === 2 ? 9 : 13,
+          },
+        });
+      }
+    }
+    advancingT4.push(clas[0].playerId, clas[1].playerId);
+  }
+
+  const kCuartosT4 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t4.id, round: 'Cuartos', status: 'Completado' },
+  });
+  const kSemisT4 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t4.id, round: 'Semifinales', status: 'Completado' },
+  });
+  const kFinalT4 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t4.id, round: 'Final', status: 'Completado' },
+  });
+
+  const cuartosMatchesT4 = [];
+  for (let i = 0; i < 8; i += 2) {
+    const res = await simulateAndSaveMatch(
+      t4.id,
+      advancingT4[bracket8[i]],
+      advancingT4[bracket8[i + 1]],
+      null,
+      kCuartosT4.id,
+      null,
+      null,
+      i / 2,
+    );
+    cuartosMatchesT4.push(res);
+
+    // NUEVO: Registrar perdedores en Cuartos de T4
+    await prisma.tournamentClas.create({
+      data: { tournamentId: t4.id, playerId: res.loser, lastRound: 'Cuartos', position: 5 },
+    });
+  }
+
+  const semisMatchesT4 = [];
+  for (let i = 0; i < 4; i += 2) {
+    const res = await simulateAndSaveMatch(
+      t4.id,
+      cuartosMatchesT4[i].winner,
+      cuartosMatchesT4[i + 1].winner,
+      null,
+      kSemisT4.id,
+      null,
+      null,
+      i / 2,
+    );
+    semisMatchesT4.push(res);
+    await prisma.match.update({
+      where: { id: cuartosMatchesT4[i].matchId },
+      data: { winnerGoesToMatchId: res.matchId },
+    });
+    await prisma.match.update({
+      where: { id: cuartosMatchesT4[i + 1].matchId },
+      data: { winnerGoesToMatchId: res.matchId },
+    });
+
+    // NUEVO: Registrar perdedores en Semis de T4
+    await prisma.tournamentClas.create({
+      data: { tournamentId: t4.id, playerId: res.loser, lastRound: 'Semifinales', position: 3 },
+    });
+  }
+
+  const finalMatchT4 = await simulateAndSaveMatch(
+    t4.id,
+    semisMatchesT4[0].winner,
+    semisMatchesT4[1].winner,
+    null,
+    kFinalT4.id,
+    null,
+    null,
+    0,
+  );
+  await prisma.match.update({
+    where: { id: semisMatchesT4[0].matchId },
+    data: { winnerGoesToMatchId: finalMatchT4.matchId },
+  });
+  await prisma.match.update({
+    where: { id: semisMatchesT4[1].matchId },
+    data: { winnerGoesToMatchId: finalMatchT4.matchId },
+  });
+
+  // NUEVO: Registrar clasificación del ganador y perdedor de la final de T4
+  await prisma.tournamentClas.create({
+    data: { tournamentId: t4.id, playerId: finalMatchT4.loser, lastRound: 'Final', position: 2 },
+  });
+  await prisma.tournamentClas.create({
+    data: { tournamentId: t4.id, playerId: finalMatchT4.winner, lastRound: 'Final', position: 1 },
+  });
+
+  // NUEVO: Sumar torneo ganado al jugador victorioso de T4
+  await prisma.stats.update({
+    where: { userId: finalMatchT4.winner },
+    data: { tournamentWon: { increment: 1 } },
+  });
+
+  console.log(
+    '\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar el Frontend Multi-tenant!',
+  );
 }
 
 main()

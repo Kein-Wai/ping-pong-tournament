@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserClubStatus } from '@prisma/client';
 
 export const loginLocalSchema = z.object({
   email: z.email(),
@@ -44,6 +45,15 @@ export const createUserSchema = z.object({
     .regex(/[@$!%*?&]/, { message: 'Debe almenos contener un character especial' })
     .optional(),
   elo: z.number().int().positive().optional().default(500),
+  clubId: z.string().uuid('El ID del club debe ser un UUID').nullable().optional(),
+  clubStatus: z
+    .enum([
+      UserClubStatus.Registrado,
+      UserClubStatus.Pendiente,
+      UserClubStatus.Aprobado,
+      UserClubStatus.Rechazado,
+    ])
+    .optional(),
 });
 
 export const updateUserSchema = createUserSchema.partial();

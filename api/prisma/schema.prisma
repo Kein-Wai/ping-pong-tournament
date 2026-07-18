@@ -7,14 +7,19 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum TypeUser {
+  SuperAdmin
+  AdminClub
+  Player
+}
+
 model UserType {
   id    String @id @default(uuid())
-  name  String @unique @db.VarChar(255)
+  name  TypeUser @unique 
   users User[]
 
   @@map("user_type")
 }
-
 
 enum MatchStatus {
   Programado
@@ -91,12 +96,39 @@ enum SortGroups {
   Aleatorio
 }
 
+enum ClubStatus {
+  Pendiente  // Esperando que el SuperAdmin lo apruebe
+  Aprobado   // El club ya puede operar
+  Inactivo   // Bloqueado (ej: por mal uso)
+}
 
+enum UserClubStatus {
+  Registrado // Usuario que acaba de entrar con Google y aún no ha pedido unirse a nada
+  Pendiente  // Ha solicitado unirse a un club y espera al AdminClub
+  Aprobado   // Es miembro de pleno derecho
+  Rechazado  // No le han dejado entrar
+}
+
+model Club {
+  id          String     @id @default(uuid())
+  name        String     @unique @db.VarChar(255)
+  status      ClubStatus @default(Pendiente)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  // Relaciones
+  users       User[]
+  tournaments Tournament[]
+  leagues     League[]
+  @@map("club")
+}
 
 
 model User {
   id              String   @id @default(uuid())
   userTypeId      String   @map("user_type_id")
+
+  clubId          String?  @map("club_id")
+  clubStatus      UserClubStatus? @default(Registrado) @map("club_status")
   name            String   @db.VarChar(255)
   surname         String?  @db.VarChar(255)
   password        String?  
@@ -107,6 +139,7 @@ model User {
   email           String   @unique @db.VarChar(255)
   
   // Relaciones
+  club            Club?    @relation(fields: [clubId], references: [id])
   userType        UserType @relation(fields: [userTypeId], references: [id])
   stats           Stats?
   matchesAsPlayerOne Match[] @relation("PlayerOne")
@@ -183,6 +216,7 @@ model Match {
 model Tournament {
   id               String               @id @default(uuid())
   dateStart        DateTime             @map("datestart") @db.Date
+  clubId           String?              @map("club_id")
   name             String               @db.VarChar(255)
   numPlayers       Int                  @map("num_players")
   numGroup         Int?                 @map("num_group")
@@ -205,7 +239,7 @@ model Tournament {
   knockouts        TournamentKnockout[]
   participants     TournamentParticipant[]
   clasifications   TournamentClas[]
-
+  club             Club?                @relation(fields: [clubId], references: [id])
   @@map("tournament")
 }
 
@@ -227,6 +261,7 @@ model TournamentClas {
 
 model League {
   id              String       @id @default(uuid())
+  clubId           String?              @map("club_id")
   dateStart       DateTime     @map("datestart") @db.Date
   name            String       @unique @db.VarChar(255)
   numPlayers      Int          @map("num_players")
@@ -237,7 +272,7 @@ model League {
   // Relaciones
   matches         Match[]
   clasifications  LeagueClas[]
-
+  club             Club?                @relation(fields: [clubId], references: [id])
   @@map("league")
 }
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { app } from '../index';
 import prisma from '../db';
+import { TypeUser } from '@prisma/client';
 
 vi.mock('../db', () => ({
   default: {
@@ -13,14 +14,18 @@ vi.mock('../db', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => next(),
-  requireAdmin: (req: any, res: any, next: any) => next(),
+  requireSuperAdmin: (req: any, res: any, next: any) => {
+    req.user = { id: 'admin', role: 'SuperAdmin' };
+    next();
+  },
+  requireAdminClub: (req: any, res: any, next: any) => next(),
 }));
 
 describe('GET /api/user-types', () => {
   it('debería devolver una lista de tipos de usuario con status 200', async () => {
     const mockUserTypes = [
-      { id: '123e4567-e89b-12d3-a456-426614174000', name: 'Admin' },
-      { id: '123e4567-e89b-12d3-a456-426614174002', name: 'Player' },
+      { id: '123e4567-e89b-12d3-a456-426614174000', name: TypeUser.AdminClub },
+      { id: '123e4567-e89b-12d3-a456-426614174002', name: TypeUser.Player },
     ];
 
     vi.mocked(prisma.userType.findMany).mockResolvedValue(mockUserTypes);

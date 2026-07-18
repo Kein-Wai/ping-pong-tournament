@@ -11,7 +11,32 @@ const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const tournaments = await prisma.tournament.findMany();
+    const role = req.user?.role;
+    const clubId = req.user?.clubId;
+
+    let whereClause: any = {};
+
+    if (role === 'SuperAdmin') {
+      // El SuperAdmin ve absolutamente todos los torneos
+      whereClause = {};
+    } else if (role === 'AdminClub') {
+      // El Admin del club solo ve los torneos de SU club
+      whereClause = { clubId: clubId };
+    } else {
+      // Los jugadores ven los torneos de su club + cualquier torneo "Abierto" de otros clubes
+      whereClause = {
+        OR: [{ clubId: clubId ? clubId : 'no-club-assigned' }, { typeTournament: 'Abierto' }],
+      };
+    }
+
+    const tournaments = await prisma.tournament.findMany({
+      where: whereClause,
+      include: {
+        club: { select: { name: true } }, // Incluimos el nombre del club para el Frontend
+      },
+      orderBy: { dateStart: 'asc' },
+    });
+
     return res.status(200).json({ success: true, data: tournaments });
   } catch (error) {
     console.error('Error fetching tournaments:', error);
@@ -21,6 +46,14 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    const role = req.user?.role;
+    const userClubId = req.user?.clubId;
+
+    // Si es un Admin de Club, obligamos a que tenga un club asignado
+    if (role === 'AdminClub' && !userClubId) {
+      return res.status(403).json({ error: 'No perteneces a ningún club para crear torneos' });
+    }
+
     const validation = createTournamentSchema.safeParse(req.body);
 
     if (!validation.success) {
@@ -51,6 +84,9 @@ router.post('/', async (req, res) => {
         status: MatchStatus.Programado,
         groupsCreated: false,
         knockoutCreated: false,
+
+        // AÑADIDO: Asignamos automáticamente el torneo al club del usuario que lo crea
+        clubId: userClubId || null,
       },
     });
 
