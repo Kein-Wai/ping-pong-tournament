@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Las carpetas que queremos escanear (añade más si tienes lógica fuera de src)
-const dirsToScan = ['./src', './prisma'];
+const dirsToScan = ['./src'];
 const outputFile = 'codigo_completo.txt';
 let output = '';
 
@@ -17,7 +17,7 @@ function scanDirectory(dir) {
     // Ignoramos carpetas que no nos interesan
     if (stat.isDirectory()) {
       scanDirectory(fullPath);
-    } else if (fullPath.endsWith('.ts') || fullPath.endsWith('.prisma')) {
+    } else if (fullPath.endsWith('.tsx') || fullPath.endsWith('.css')) {
       output += `\n\n================================================\n`;
       output += `📂 ARCHIVO: ${fullPath}\n`;
       output += `================================================\n\n`;
