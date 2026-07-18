@@ -22,6 +22,6 @@ export const ENDPOINTS = {
     CLASSIFICATION: (id: string) => `/tournaments/${id}/classifications`,
   },
   MATCHES: {
-    BASE: '/match',
+    BASE: '/matches',
   },
 } as const;

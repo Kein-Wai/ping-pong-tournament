@@ -7,6 +7,7 @@ import { Jugadores } from './pages/Jugadores/Jugadores';
 import { JugadorPerfil } from './pages/Jugadores/JugadorPerfil';
 import { Torneos } from './pages/Torneos/Torneos';
 import { TorneoDetalles } from './pages/Torneos/TorneoDetalles';
+import { Partidos } from './pages/Partidos/Partidos';
 
 function App() {
   return (
@@ -20,7 +21,7 @@ function App() {
             <Route path="/torneos" element={<div>{<Torneos />}</div>} />
             <Route path="/torneos/:id" element={<div>{<TorneoDetalles />}</div>} />
             <Route path="/jugadores" element={<Jugadores />} />
-            <Route path="/historial" element={<div>Página de Historial</div>} />
+            <Route path="/historial" element={<Partidos />} />
             <Route path="/estadisticas" element={<div>Página de Estadísticas</div>} />
             <Route path="/jugadores/:id" element={<JugadorPerfil />} />
             <Route path="/admin" element={<div>Panel de Administración</div>} />
