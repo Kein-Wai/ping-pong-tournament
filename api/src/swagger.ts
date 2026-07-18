@@ -561,6 +561,55 @@ const options = {
         },
       },
       '/api/tournaments': {
+        get: {
+          summary: 'Obtener todos los torneos',
+          description: 'Devuelve una lista con todos los torneos registrados en la base de datos.',
+          tags: ['Tournaments'],
+          responses: {
+            200: {
+              description: 'Lista de torneos devuelta exitosamente',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string', example: 'Open de Verano 2026 - Castellón' },
+                            dateStart: { type: 'string', format: 'date-time' },
+                            numPlayers: { type: 'integer', example: 16 },
+                            status: { type: 'string', example: 'Programado' },
+                            groupsCreated: { type: 'boolean', example: false },
+                            knockoutCreated: { type: 'boolean', example: false },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: false },
+                      message: { type: 'string', example: 'Error al obtener torneos' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         post: {
           summary: 'Crear un nuevo torneo',
           description:
@@ -649,6 +698,66 @@ const options = {
             },
             500: {
               description: 'Error interno del servidor',
+            },
+          },
+        },
+      },
+      '/api/tournaments/{id}': {
+        get: {
+          summary: 'Obtener un torneo específico',
+          description: 'Devuelve todos los detalles de un torneo buscando por su ID único.',
+          tags: ['Tournaments'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'ID único del torneo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: {
+              description: 'Torneo encontrado y devuelto exitosamente',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'object',
+                        nullable: true, // Prisma devuelve null si no lo encuentra
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          name: { type: 'string', example: 'Open de Verano 2026 - Castellón' },
+                          dateStart: { type: 'string', format: 'date-time' },
+                          numPlayers: { type: 'integer', example: 16 },
+                          status: { type: 'string', example: 'Programado' },
+                          typeTournament: { type: 'string', example: 'Abierto' },
+                          levelTournament: { type: 'string', example: 'Intermedio' },
+                          groupsCreated: { type: 'boolean', example: false },
+                          knockoutCreated: { type: 'boolean', example: false },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: false },
+                      message: { type: 'string', example: 'Error al obtener torneo' },
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -1030,6 +1139,146 @@ const options = {
             },
             500: {
               description: 'Error interno del servidor',
+            },
+          },
+        },
+      },
+      '/api/tournaments/{id}/classifications': {
+        get: {
+          summary: 'Obtener clasificación final del torneo',
+          description:
+            'Devuelve la tabla de posiciones finales de todos los jugadores que han terminado su participación en el torneo.',
+          tags: ['Tournaments'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'ID único del torneo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: {
+              description: 'Clasificación final obtenida con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'array',
+                        description: 'Lista de clasificaciones finales',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            tournamentId: { type: 'string', format: 'uuid' },
+                            playerId: { type: 'string', format: 'uuid' },
+                            lastRound: { type: 'string', example: 'Semifinales', nullable: true },
+                            position: { type: 'integer', example: 3, nullable: true },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: false },
+                      message: { type: 'string', example: 'Error al obtener la clasificación.' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/api/tournaments/{id}/participants': {
+        get: {
+          summary: 'Obtener lista de participantes inscritos',
+          description:
+            'Devuelve la lista de todos los jugadores inscritos en un torneo, ordenados por fecha de inscripción, incluyendo sus estadísticas básicas (como el ELO).',
+          tags: ['Tournaments'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'ID único del torneo',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: {
+              description: 'Participantes obtenidos con éxito',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: {
+                        type: 'array',
+                        description: 'Lista de participantes inscritos',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            tournamentId: { type: 'string', format: 'uuid' },
+                            playerId: { type: 'string', format: 'uuid' },
+                            registeredAt: { type: 'string', format: 'date-time' },
+                            status: { type: 'string', example: 'Confirmado' },
+                            player: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', format: 'uuid' },
+                                name: { type: 'string', example: 'Carlos' },
+                                surname: { type: 'string', example: 'Alcaraz' },
+                                stats: {
+                                  type: 'object',
+                                  nullable: true,
+                                  properties: {
+                                    elo: { type: 'integer', example: 850 },
+                                    matchWon: { type: 'integer', example: 10 },
+                                    matchLost: { type: 'integer', example: 2 },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: false },
+                      message: {
+                        type: 'string',
+                        example: 'Error interno del servidor al cargar los participantes.',
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
         },

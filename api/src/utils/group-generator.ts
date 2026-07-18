@@ -110,7 +110,7 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
       where: { id: tournament.id },
       data: {
         groupsCreated: true,
-        status: TournamentStatus.Programado,
+        status: TournamentStatus.Grupos,
       },
     });
   });

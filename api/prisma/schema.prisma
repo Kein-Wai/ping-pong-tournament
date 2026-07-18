@@ -114,6 +114,7 @@ model User {
   groupClasifications TournamentGroupClas[]
   leagueClasifications LeagueClas[]
   tournamentInscriptions TournamentParticipant[]
+  tournamentgroupClasifications TournamentClas[]
 
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
@@ -203,8 +204,23 @@ model Tournament {
   groups           TournamentGroup[]
   knockouts        TournamentKnockout[]
   participants     TournamentParticipant[]
+  clasifications   TournamentClas[]
 
   @@map("tournament")
+}
+
+model TournamentClas {
+  id                String          @id @default(uuid())
+  tournamentId      String          @map("tournament_group_id")
+  playerId          String          @map("player_id")
+  lastRound         RoundKnockouts? 
+  position          Int?             @default(0)
+
+  // Relaciones
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player       User       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("tournament_clas")
 }
 
 

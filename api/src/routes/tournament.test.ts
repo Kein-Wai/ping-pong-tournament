@@ -241,7 +241,7 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
         where: { id: MOCK_UUID },
         data: {
           groupsCreated: true,
-          status: 'Programado',
+          status: 'Grupos',
         },
       });
 

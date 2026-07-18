@@ -355,15 +355,80 @@ export const saveKnockoutBracket = async (
   return { success: true };
 };
 
+// Añade esta función helper justo encima de processKnockoutAdvancement
+const recordTournamentClassification = async (
+  tx: any,
+  match: any,
+  playerId: string,
+  isWinner: boolean,
+) => {
+  // Evitamos registrar a fantasmas o TBDs
+  if (playerId === BYE_USER_ID || playerId === TBD_USER_ID) return;
+
+  // Verificamos si ya está clasificado para no duplicar (ej. si hubo un recálculo)
+  const existing = await tx.tournamentClas.findFirst({
+    where: { tournamentId: match.tournamentId, playerId },
+  });
+  if (existing) return;
+
+  const round = match.knockout.round;
+  const type = match.knockout.type;
+  let position = 0;
+
+  // Cálculo de posiciones estándar para la Llave A (Campeón, Subcampeón, Semifinalistas=3, Cuartos=5...)
+  if (type === 'A') {
+    if (isWinner && round === 'Final') position = 1;
+    else if (!isWinner && round === 'Final') position = 2;
+    else if (!isWinner) {
+      switch (round) {
+        case 'Semifinales':
+          position = 3;
+          break;
+        case 'Cuartos':
+          position = 5;
+          break;
+        case 'Octavos':
+          position = 9;
+          break;
+        case 'R16avos':
+          position = 17;
+          break;
+        case 'R32avos':
+          position = 33;
+          break;
+        case 'R64avos':
+          position = 65;
+          break;
+        case 'R128avos':
+          position = 129;
+          break;
+      }
+    }
+  }
+
+  // Guardamos la clasificación final en la nueva tabla
+  await tx.tournamentClas.create({
+    data: {
+      tournamentId: match.tournamentId,
+      playerId: playerId,
+      lastRound: round,
+      position: position,
+    },
+  });
+};
+
 export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: string) => {
+  // AÑADIDO: include { knockout: true } para tener los datos de la ronda
   const completedMatch = await prisma.match.findUnique({
     where: { id: matchId },
+    include: { knockout: true },
   });
 
-  if (!completedMatch || completedMatch.status !== 'Completado') return;
+  if (!completedMatch || completedMatch.status !== 'Completado' || !completedMatch.knockout) return;
 
   const matchResults = calculateMatchResults(completedMatch);
 
+  // Si nadie ganó (ej. empate a 0 o partido cancelado rarísimo), salimos
   if (!matchResults.p1WinsMatch && !matchResults.p2WinsMatch) {
     return;
   }
@@ -376,22 +441,36 @@ export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: 
     : completedMatch.playerOneId;
 
   await prisma.$transaction(async (tx) => {
+    // --- LÓGICA DEL GANADOR ---
     if (completedMatch.winnerGoesToMatchId) {
       const isSlotOne = (completedMatch.matchOrder ?? 0) % 2 === 0;
-
       await tx.match.update({
         where: { id: completedMatch.winnerGoesToMatchId },
         data: isSlotOne ? { playerOneId: winnerId } : { playerTwoId: winnerId },
       });
+    } else {
+      // Si el ganador no va a ningún otro partido, ¡HA TERMINADO SU TORNEO! (Ej: Ganó la final)
+      await recordTournamentClassification(tx, completedMatch, winnerId, true);
+
+      // Si es la Final de la Llave A, el torneo ha terminado oficialmente
+      if (completedMatch.knockout?.round === 'Final' && completedMatch.knockout?.type === 'A') {
+        await tx.tournament.update({
+          where: { id: completedMatch.tournamentId! },
+          data: { status: TournamentStatus.Completado },
+        });
+      }
     }
 
+    // --- LÓGICA DEL PERDEDOR ---
     if (completedMatch.loserGoesToMatchId) {
       const isSlotOne = (completedMatch.matchOrder ?? 0) % 2 === 0;
-
       await tx.match.update({
         where: { id: completedMatch.loserGoesToMatchId },
         data: isSlotOne ? { playerOneId: loserId } : { playerTwoId: loserId },
       });
+    } else {
+      // Si el perdedor no va a ningún otro partido, ESTÁ ELIMINADO
+      await recordTournamentClassification(tx, completedMatch, loserId, false);
     }
   });
 };

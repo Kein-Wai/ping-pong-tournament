@@ -13,6 +13,22 @@ export const STATUS = {
   NO_SHOW: 'No presentado',
 } as const;
 
+export const TOURNAMENT_STATUS = {
+  SCHEDULE: 'Programado',
+  STARTED: 'Iniciado',
+  COMPLETED: 'Completado',
+  CANCELLED: 'Cancelado',
+  GROUPS: 'Grupos',
+  R128AVOS: 'R128avos',
+  R64AVOS: 'R64avos',
+  R32AVOS: 'R32avos',
+  R16AVOS: 'R16avos',
+  OCTAVOS: 'Octavos',
+  CUARTOS: 'Cuartos',
+  SEMIFINALES: 'Semifinales',
+  FINAL: 'Final',
+} as const;
+
 export const STATUS_MATCH_VAL = ['Programado', 'Abierto', 'Iniciado', 'Completado', 'Cancelado'];
 
 export const ROUNDS = {

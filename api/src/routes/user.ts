@@ -9,12 +9,34 @@ const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const users = await prisma.user.findMany({
-      select: { id: true, email: true, name: true, surname: true, userTypeId: true, stats: true },
+    const playerType = await prisma.userType.findUnique({
+      where: {
+        name: 'Player',
+      },
     });
-    res.json(users);
+    if (!playerType) {
+      return res
+        .status(500)
+        .json({ error: 'El rol Player no está configurado en la base de datos' });
+    }
+    if (playerType) {
+      const users = await prisma.user.findMany({
+        where: {
+          userTypeId: playerType.id,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          surname: true,
+          userTypeId: true,
+          stats: true,
+        },
+      });
+      res.json(users);
+    }
   } catch (error) {
-    console.error(error);
+    console.error('DAME EL ERROR', error);
     res.status(500).json({ error: 'Error al obtener los usuarios' });
   }
 });
@@ -139,7 +161,7 @@ router.put('/me', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await prisma.user.findUnique({ where: { id: id } });
+    const user = await prisma.user.findUnique({ where: { id: id }, include: { stats: true } });
     res.json(user);
   } catch (error) {
     console.error(error);

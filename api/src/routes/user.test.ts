@@ -13,6 +13,9 @@ vi.mock('../../src/db', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    userType: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -137,7 +140,7 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
 
   it('GET / - debería devolver la lista de usuarios (200)', async () => {
     vi.mocked(prisma.user.findMany).mockResolvedValue([mockUser]);
-
+    vi.mocked(prisma.userType.findUnique).mockResolvedValue({ id: 'user-id-123' } as any);
     const response = await request(app).get('/api/users');
 
     expect(response.status).toBe(200);

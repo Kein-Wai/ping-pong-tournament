@@ -2,7 +2,12 @@ import { PrismaClient, Match, KnockoutType } from '@prisma/client';
 import { MatchStatus } from '@prisma/client';
 import { updateGroupStandings } from './standings';
 
-import { harvestKnockoutPlayers, createKnockoutDraw, saveKnockoutBracket } from './knockout';
+import {
+  harvestKnockoutPlayers,
+  createKnockoutDraw,
+  saveKnockoutBracket,
+  processKnockoutAdvancement,
+} from './knockout';
 
 export const processMatchResult = async (prisma: PrismaClient, match: Match) => {
   if (match.status !== MatchStatus.Completado) {
@@ -82,6 +87,7 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
 
         if (knockout) {
           console.log(`Procesando partido de eliminatoria: ${knockout.id}`);
+          await processKnockoutAdvancement(prisma, match.id);
         }
       }
     }

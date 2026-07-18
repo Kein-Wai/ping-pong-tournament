@@ -9,6 +9,16 @@ import { fetchGroupMatches, fetchGroupClassifications } from '../utils/group';
 
 const router = Router();
 
+router.get('/', async (req, res) => {
+  try {
+    const tournaments = await prisma.tournament.findMany();
+    return res.status(200).json({ success: true, data: tournaments });
+  } catch (error) {
+    console.error('Error fetching tournaments:', error);
+    return res.status(500).json({ success: false, message: 'Error al obtener torneos' });
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const validation = createTournamentSchema.safeParse(req.body);
@@ -51,6 +61,37 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('Error al crear el torneo:', error);
     res.status(500).json({ error: 'Error interno al crear el torneo' });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  const tournamentId = req.params.id;
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: {
+        id: tournamentId,
+      },
+      include: {
+        participants: {
+          include: {
+            player: {
+              include: {
+                stats: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (tournament) return res.status(200).json({ success: true, data: tournament });
+    else
+      return res
+        .status(200)
+        .json({ success: true, data: tournament, message: 'Torneo no encontrado' });
+    return res.status(200).json({ success: true, data: tournament });
+  } catch (error) {
+    console.error('Error fetching tournament:', error);
+    return res.status(500).json({ success: false, message: 'Error al obtener torneo' });
   }
 });
 
@@ -137,6 +178,33 @@ router.post('/:id/generate-groups', async (req, res) => {
   }
 });
 
+router.get('/:id/participants', async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+
+    const participants = await prisma.tournamentParticipant.findMany({
+      where: { tournamentId: tournamentId },
+      include: {
+        player: {
+          select: { id: true, name: true, surname: true, stats: true },
+        },
+      },
+      orderBy: { registeredAt: 'asc' }, // Orden de llegada
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: participants,
+    });
+  } catch (error) {
+    console.error('Error al obtener los participantes:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor al cargar los participantes.',
+    });
+  }
+});
+
 router.get('/:id/bracket', async (req, res) => {
   try {
     const tournamentId = req.params.id;
@@ -187,6 +255,26 @@ router.get('/:id/groups/classifications', async (req, res) => {
     const { groupId } = req.query;
 
     const clasifications = await fetchGroupClassifications(prisma, tournamentId, groupId as string);
+
+    return res.status(200).json({ success: true, data: clasifications });
+  } catch (error) {
+    console.error('Error fetching group classifications:', error);
+    return res.status(500).json({ success: false, message: 'Error al obtener la clasificación.' });
+  }
+});
+
+router.get('/:id/classifications', async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+
+    const clasifications = await prisma.tournamentClas.findMany({
+      where: { tournamentId: tournamentId },
+      include: {
+        player: {
+          select: { id: true, name: true, surname: true },
+        },
+      },
+    });
 
     return res.status(200).json({ success: true, data: clasifications });
   } catch (error) {
