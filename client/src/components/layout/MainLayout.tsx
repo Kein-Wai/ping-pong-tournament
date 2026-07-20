@@ -8,7 +8,6 @@ import {
   Avatar,
   UnstyledButton,
   useMantineColorScheme,
-  ActionIcon,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -23,35 +22,60 @@ import {
   IconSettings,
   IconSun,
   IconMoon,
+  IconBuildingCommunity,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
+import { APP_ROUTES } from '../../constants/routes'; // 👈 IMPORTADO
 
 export const MainLayout = () => {
-  // Manejamos el estado de abierto/cerrado del menú en móviles
   const [opened, { toggle }] = useDisclosure();
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const location = useLocation(); // Para saber en qué ruta estamos y marcar el menú activo
+  const location = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate(APP_ROUTES.LOGIN);
   };
 
-  // Definimos las rutas del menú base (para todos los jugadores)
-  const navItems = [
-    { label: 'Inicio', icon: IconHome, path: '/' },
-    { label: 'Torneos', icon: IconTrophy, path: '/torneos' },
-    { label: 'Jugadores', icon: IconUsers, path: '/jugadores' },
-    { label: 'Historial', icon: IconHistory, path: '/historial' },
-    { label: 'Estadísticas', icon: IconChartBar, path: '/estadisticas' },
+  const isSuperAdmin = user?.role === 'SuperAdmin';
+  const isAdminClub = user?.role === 'AdminClub';
+  const isPlayer = user?.role === 'Player';
+  const hasApprovedClub = user?.clubStatus === 'Aprobado' && user?.clubId;
+
+  // --- CONSTRUCCIÓN DEL MENÚ SEGÚN TU JERARQUÍA ---
+  const navItems: { label: string; icon: any; path: string }[] = [
+    { label: 'Inicio', icon: IconHome, path: APP_ROUTES.HOME },
+    { label: 'Torneos', icon: IconTrophy, path: APP_ROUTES.TORNEOS.LIST },
   ];
 
-  // Si es Admin, le añadimos opciones extra
-  if (user?.role === 'Admin') {
-    navItems.push({ label: 'Administración', icon: IconSettings, path: '/admin' });
+  // Restricción: Jugadores y Estadísticas solo si tienes club aprobado o eres Admin
+  if (isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub)) {
+    navItems.push(
+      { label: 'Jugadores', icon: IconUsers, path: APP_ROUTES.JUGADORES.LIST },
+      { label: 'Historial', icon: IconHistory, path: APP_ROUTES.PARTIDOS },
+      { label: 'Estadísticas', icon: IconChartBar, path: APP_ROUTES.ESTADISTICAS },
+    );
+  }
+
+  // Pestaña especial: Si eres Player libre, rechazado o pendiente, ves la lista para aplicar
+  if (isPlayer && !hasApprovedClub) {
+    navItems.push({
+      label: 'Unirse a un Club',
+      icon: IconBuildingCommunity,
+      path: APP_ROUTES.CLUB_SELECTION,
+    });
+  }
+
+  // Pestañas de gestión exclusivas
+  if (isAdminClub) {
+    navItems.push({ label: 'Mi Club', icon: IconBuildingCommunity, path: APP_ROUTES.MI_CLUB });
+  }
+
+  if (isSuperAdmin) {
+    navItems.push({ label: 'Panel Global', icon: IconSettings, path: APP_ROUTES.ADMIN_PANEL });
   }
 
   return (
@@ -64,7 +88,6 @@ export const MainLayout = () => {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group>
-            {/* Botón hamburguesa: Solo visible en móvil (escondido a partir de 'sm') */}
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Text
               fw={900}
@@ -75,7 +98,7 @@ export const MainLayout = () => {
               {DICTIONARY.app_title}
             </Text>
           </Group>
-          {/* Menú de Usuario en la esquina */}
+
           <Menu shadow="md" width={200}>
             <Menu.Target>
               <UnstyledButton>
@@ -83,7 +106,6 @@ export const MainLayout = () => {
                   <Avatar color="blue" radius="xl" size="sm">
                     {user?.name.charAt(0).toUpperCase()}
                   </Avatar>
-                  {/* Ocultamos el nombre en móviles muy pequeños para ahorrar espacio */}
                   <Text size="sm" visibleFrom="xs" fw={500}>
                     {user?.name}
                   </Text>
@@ -99,7 +121,6 @@ export const MainLayout = () => {
               >
                 Modo {isDark ? 'Claro' : 'Oscuro'}
               </Menu.Item>
-              <Menu.Item leftSection={<IconSettings size={14} />}>Mi Perfil</Menu.Item>
               <Menu.Divider />
               <Menu.Item color="red" leftSection={<IconLogout size={14} />} onClick={handleLogout}>
                 Cerrar Sesión
@@ -119,7 +140,7 @@ export const MainLayout = () => {
             active={location.pathname === item.path}
             onClick={() => {
               navigate(item.path);
-              if (opened) toggle(); // Cierra el menú en móvil tras hacer clic
+              if (opened) toggle();
             }}
             style={{ borderRadius: 8, marginBottom: 4 }}
           />
@@ -128,8 +149,6 @@ export const MainLayout = () => {
 
       {/* --- CONTENIDO PRINCIPAL --- */}
       <AppShell.Main>
-        {/* Usamos el fondo ligeramente gris en tema claro para resaltar las tarjetas, 
-            y lo ocultamos (darkHidden) para que el tema oscuro fluya natural. */}
         <Outlet />
       </AppShell.Main>
     </AppShell>

@@ -13,6 +13,7 @@ import {
   TextInput,
   Pagination,
   Select,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconCalendar,
@@ -21,11 +22,15 @@ import {
   IconSearch,
   IconFilter,
   IconTournament,
+  IconBuildingCommunity,
+  IconPlus,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/axios';
+import { useAuthStore } from '../../store/authStore';
+import { ENDPOINTS } from '../../api/endpoints';
 
-// Interfaz sincronizada con tu modelo Tournament de Prisma
+// Interfaz actualizada con soporte Multi-tenant
 interface Tournament {
   id: string;
   name: string;
@@ -35,11 +40,16 @@ interface Tournament {
   levelTournament: string | null;
   rounds: string | null;
   status: string | null;
+  clubId: string | null;
+  club?: {
+    name: string;
+  } | null;
 }
 
 const ITEMS_PER_PAGE = 10;
 
 export const Torneos = () => {
+  const { user } = useAuthStore();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -48,10 +58,13 @@ export const Torneos = () => {
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
   const [page, setPage] = useState(1);
 
+  // Comprobación de rol para permisos de creación
+  const canCreateTournament = user?.role === 'SuperAdmin' || user?.role === 'AdminClub';
+
   useEffect(() => {
     const fetchTournaments = async () => {
       try {
-        const response = await api.get('/tournaments');
+        const response = await api.get(ENDPOINTS.TOURNAMENTS.BASE);
         const data = response.data.data || response.data;
         if (Array.isArray(data)) {
           setTournaments(data);
@@ -80,7 +93,6 @@ export const Torneos = () => {
     page * ITEMS_PER_PAGE,
   );
 
-  // Extraer los estados únicos que existen actualmente en la base de datos para el Select
   const availableStatuses = [
     'Todos',
     ...Array.from(new Set(tournaments.map((t) => t.status).filter(Boolean))),
@@ -104,19 +116,28 @@ export const Torneos = () => {
     );
   }
 
-  // Soporte para los nuevos Enum de tu base de datos (Grupos, Final, R16avos, etc.)
   const getStatusColor = (status: string | null) => {
     if (!status) return 'gray';
     if (status === 'Programado') return 'blue';
     if (status === 'Completado') return 'green';
     if (status === 'Cancelado') return 'red';
-    return 'orange'; // Cualquier estado en juego (Iniciado, Grupos, Cuartos, etc.)
+    return 'orange';
   };
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between">
+      {/* Cabecera Adaptativa con botón condicional */}
+      <Group justify="space-between" align="center">
         <Title order={2}>Torneos</Title>
+        {canCreateTournament && (
+          <Button
+            leftSection={<IconPlus size={16} />}
+            color="blue"
+            onClick={() => navigate('/torneos/nuevo')}
+          >
+            Crear Torneo
+          </Button>
+        )}
       </Group>
 
       {/* Barra de Búsqueda y Filtros */}
@@ -166,6 +187,18 @@ export const Torneos = () => {
               </Card.Section>
 
               <Stack gap="xs" mt="md" mb="md" style={{ flex: 1 }}>
+                {/* Organizado por Club (Inyección Visual Multi-tenant) */}
+                <Group gap="xs">
+                  <IconBuildingCommunity
+                    size={16}
+                    stroke={1.5}
+                    color="var(--mantine-color-blue-filled)"
+                  />
+                  <Text size="sm" fw={600} c="blue.6" truncate>
+                    {t.club?.name || 'Torneo Global / SaaS'}
+                  </Text>
+                </Group>
+
                 <Group gap="xs">
                   <IconCalendar size={16} stroke={1.5} color="var(--mantine-color-dimmed)" />
                   <Text size="sm" c="dimmed">

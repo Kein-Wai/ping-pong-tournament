@@ -238,7 +238,7 @@ router.put('/:id', requireAdminClub, async (req, res) => {
       return;
     }
 
-    const dataToUpdate = { ...validation.data };
+    const { elo, ...dataToUpdate } = validation.data;
 
     // 3. Prevenir que un AdminClub cambie de club a un jugador a la fuerza por aquí
     if (role === 'AdminClub') {
@@ -249,15 +249,18 @@ router.put('/:id', requireAdminClub, async (req, res) => {
     const updatedUser = await prisma.user.update({
       where: { id: id },
       data: {
-        ...dataToUpdate,
-        ...(dataToUpdate.elo !== undefined && {
+        ...dataToUpdate, // 👈 Ahora dataToUpdate ya no contiene la propiedad 'elo'
+        ...(elo !== undefined && {
           stats: {
             upsert: {
-              create: { elo: dataToUpdate.elo },
-              update: { elo: dataToUpdate.elo },
+              create: { elo: elo },
+              update: { elo: elo },
             },
           },
         }),
+      },
+      include: {
+        stats: true, // Incluimos stats en la respuesta para que el Frontend reciba el nuevo ELO
       },
     });
 

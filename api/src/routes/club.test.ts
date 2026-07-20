@@ -35,22 +35,54 @@ describe('CRUD de Rutas de Clubes (/api/clubs)', () => {
   });
 
   describe('GET /api/clubs (Listado Público)', () => {
-    it('ÉXITO: Debería devolver SOLO los clubes con estado Aprobado (200)', async () => {
-      const mockClubs = [
-        { id: '1', name: 'Club PingPong Castellón', createdAt: new Date().toISOString() },
+    it('ÉXITO: Debería devolver los clubes con estado Aprobado y su memberCount (200)', async () => {
+      // Simula exactamente lo que devuelve findMany() con la estructura de Prisma
+      const mockDbClubs = [
+        {
+          id: '1',
+          name: 'Club PingPong Castellón',
+          city: 'Castellon de la Plana',
+          address: 'Calle Falsa 123',
+          foundedAt: null,
+          createdAt: new Date().toISOString(),
+          _count: { users: 60 },
+        },
       ];
 
-      vi.mocked(prisma.club.findMany).mockResolvedValue(mockClubs as any);
+      // Lo que el controlador procesa y le devuelve al cliente final formateado
+      const expectedResponseData = [
+        {
+          id: '1',
+          name: 'Club PingPong Castellón',
+          city: 'Castellon de la Plana',
+          address: 'Calle Falsa 123',
+          foundedAt: null,
+          createdAt: mockDbClubs[0].createdAt,
+          memberCount: 60,
+        },
+      ];
+
+      vi.mocked(prisma.club.findMany).mockResolvedValue(mockDbClubs as any);
 
       const response = await request(app).get('/api/clubs');
-
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toEqual(mockClubs);
+      expect(response.body.data).toEqual(expectedResponseData);
 
+      // Verificamos que el select tenga la estructura del nuevo controlador
       expect(prisma.club.findMany).toHaveBeenCalledWith({
         where: { status: 'Aprobado' },
-        select: { id: true, name: true, createdAt: true },
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          address: true,
+          foundedAt: true,
+          createdAt: true,
+          _count: {
+            select: { users: true },
+          },
+        },
       });
     });
 
@@ -66,12 +98,22 @@ describe('CRUD de Rutas de Clubes (/api/clubs)', () => {
   });
 
   describe('POST /api/clubs (Solicitar Club Nuevo)', () => {
-    const payload = { name: 'Club Tenis de Mesa Madrid' };
+    // Payload actualizado con el campo obligatorio "city"
+    const payload = {
+      name: 'Club Tenis de Mesa Madrid',
+      city: 'Madrid',
+    };
 
-    it('ÉXITO: Debería crear un club con estado Pendiente (201)', async () => {
+    it('ÉXITO: Debería crear un club con estado Pendiente y campos geográficos (201)', async () => {
       vi.mocked(prisma.club.findUnique).mockResolvedValue(null);
 
-      const createdClub = { id: '2', name: payload.name, status: 'Pendiente' };
+      const createdClub = {
+        id: '2',
+        name: payload.name,
+        city: payload.city,
+        address: null,
+        status: 'Pendiente',
+      };
       vi.mocked(prisma.club.create).mockResolvedValue(createdClub as any);
 
       const response = await request(app).post('/api/clubs').send(payload);
@@ -82,13 +124,27 @@ describe('CRUD de Rutas de Clubes (/api/clubs)', () => {
 
       expect(prisma.club.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { name: payload.name, status: 'Pendiente' },
+          data: {
+            name: payload.name,
+            city: payload.city,
+            status: 'Pendiente',
+          },
         }),
       );
     });
 
     it('FALLO: Debería rechazar si el nombre tiene menos de 3 caracteres (Zod - 400)', async () => {
-      const response = await request(app).post('/api/clubs').send({ name: 'AB' });
+      const response = await request(app).post('/api/clubs').send({ name: 'AB', city: 'Valencia' }); // Nombre inválido
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Datos inválidos');
+      expect(prisma.club.create).not.toHaveBeenCalled();
+    });
+
+    it('FALLO: Debería rechazar si la ciudad es inválida o vacía (Zod - 400)', async () => {
+      const response = await request(app)
+        .post('/api/clubs')
+        .send({ name: 'Club Valencia', city: '' }); // Ciudad vacía
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Datos inválidos');

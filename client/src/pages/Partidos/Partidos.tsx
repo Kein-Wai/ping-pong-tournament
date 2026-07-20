@@ -24,6 +24,7 @@ import {
   IconCalendar,
   IconPencilCheck,
   IconPingPong,
+  IconUsersGroup,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -40,9 +41,15 @@ interface Tournament {
   typeKnockout: string | null;
 }
 
+interface Club {
+  id: string;
+  name: string;
+  city: string;
+}
+
 export interface Match {
   id: string;
-  dateStart: string; // Viene como ISO string (ej: "2026-07-18T00:00:00.000Z") desde la API
+  dateStart: string;
   tournamentId: string | null;
   groupId: string | null;
   knockoutId: string | null;
@@ -51,7 +58,6 @@ export interface Match {
   playerOneId: string;
   playerTwoId: string;
 
-  // Marcadores de sets
   setOnePlayerOne: number | null;
   setOnePlayerTwo: number | null;
   setTwoPlayerOne: number | null;
@@ -67,24 +73,24 @@ export interface Match {
   setSevenPlayerOne: number | null;
   setSevenPlayerTwo: number | null;
 
-  status: string | null; // Ej: "Programado", "Completado"...
+  status: string | null;
   winnerGoesToMatchId: string | null;
   loserGoesToMatchId: string | null;
 
-  // --- Relaciones (Opcionales, dependiendo de si haces "include" en el backend) ---
   playerOne?: {
     id: string;
     name: string;
     surname: string | null;
+    club: Club | null;
   } | null;
 
   playerTwo?: {
     id: string;
     name: string;
     surname: string | null;
+    club: Club | null;
   } | null;
 
-  // Puedes añadir tournament, group, knockout o league aquí abajo si alguna vez los "incluyes"
   group?: {
     id: string;
     group: number;
@@ -194,6 +200,16 @@ export const Partidos = () => {
         </Table.Td>
         <Table.Td>
           <Group gap="sm">
+            <IconUsersGroup size={16} stroke={1.5} color="red" />
+            <div>
+              <Text fz="sm" fw={500}>
+                {match?.playerOne?.club?.name}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+        <Table.Td>
+          <Group gap="sm">
             <div>
               <Text fz="sm" fw={500}>
                 {match?.playerOne?.name} {match?.playerOne?.surname}
@@ -213,7 +229,17 @@ export const Partidos = () => {
             </div>
           </Group>
         </Table.Td>
-
+        <Table.Td>
+          <Group gap="sm">
+            <IconUsersGroup size={16} stroke={1.5} color="red" />
+            <div>
+              <Text fz="sm" fw={500}>
+                {match?.playerTwo?.club?.name}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+        <Table.Td></Table.Td>
         <Table.Td>
           <Tooltip label="Ver perfil completo">
             <ActionIcon
@@ -249,9 +275,11 @@ export const Partidos = () => {
               <Table.Tr>
                 <Table.Th>Torneo</Table.Th>
                 <Table.Th>Dia Partido</Table.Th>
-                <Table.Th visibleFrom="sm">Jugador 1</Table.Th>
+                <Table.Th visibleFrom="sm">Club Jugador 1</Table.Th>
+                <Table.Th>Jugador 1</Table.Th>
                 <Table.Th></Table.Th>
-                <Table.Th visibleFrom="sm">Jugador 2</Table.Th>
+                <Table.Th>Jugador 2</Table.Th>
+                <Table.Th visibleFrom="sm">Club Jugador 2</Table.Th>
                 <Table.Th>Acción</Table.Th>
               </Table.Tr>
             </Table.Thead>

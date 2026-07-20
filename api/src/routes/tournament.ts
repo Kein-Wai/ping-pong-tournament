@@ -1,11 +1,17 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db';
-import { createTournamentSchema, registerParticipantSchema } from '../schemas/tournament';
+import {
+  createTournamentSchema,
+  registerParticipantSchema,
+  baseTournamentObject,
+  validateTournamentBusinessRules,
+} from '../schemas/tournament';
 import { generateTournamentGroups } from '../utils/group-generator';
 import { MatchStatus, PlayerTournamentStatus, KnockoutType } from '@prisma/client';
 import { fetchTournamentBracket } from '../utils/knockout';
 import { fetchGroupMatches, fetchGroupClassifications } from '../utils/group';
+import { requireAdminClub } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -17,13 +23,10 @@ router.get('/', async (req, res) => {
     let whereClause: any = {};
 
     if (role === 'SuperAdmin') {
-      // El SuperAdmin ve absolutamente todos los torneos
       whereClause = {};
     } else if (role === 'AdminClub') {
-      // El Admin del club solo ve los torneos de SU club
       whereClause = { clubId: clubId };
     } else {
-      // Los jugadores ven los torneos de su club + cualquier torneo "Abierto" de otros clubes
       whereClause = {
         OR: [{ clubId: clubId ? clubId : 'no-club-assigned' }, { typeTournament: 'Abierto' }],
       };
@@ -32,7 +35,7 @@ router.get('/', async (req, res) => {
     const tournaments = await prisma.tournament.findMany({
       where: whereClause,
       include: {
-        club: { select: { name: true } }, // Incluimos el nombre del club para el Frontend
+        club: { select: { name: true } },
       },
       orderBy: { dateStart: 'asc' },
     });
@@ -44,12 +47,11 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireAdminClub, async (req, res) => {
   try {
     const role = req.user?.role;
     const userClubId = req.user?.clubId;
 
-    // Si es un Admin de Club, obligamos a que tenga un club asignado
     if (role === 'AdminClub' && !userClubId) {
       return res.status(403).json({ error: 'No perteneces a ningún club para crear torneos' });
     }
@@ -85,7 +87,6 @@ router.post('/', async (req, res) => {
         groupsCreated: false,
         knockoutCreated: false,
 
-        // AÑADIDO: Asignamos automáticamente el torneo al club del usuario que lo crea
         clubId: userClubId || null,
       },
     });
@@ -124,10 +125,67 @@ router.get('/:id', async (req, res) => {
       return res
         .status(200)
         .json({ success: true, data: tournament, message: 'Torneo no encontrado' });
-    return res.status(200).json({ success: true, data: tournament });
   } catch (error) {
     console.error('Error fetching tournament:', error);
     return res.status(500).json({ success: false, message: 'Error al obtener torneo' });
+  }
+});
+
+router.put('/:id', requireAdminClub, async (req, res) => {
+  try {
+    const tournamentId = req.params.id as string;
+    const adminClubId = req.user?.clubId;
+    const role = req.user?.role;
+
+    const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Torneo no encontrado' });
+    }
+
+    if (role === 'AdminClub' && tournament.clubId !== adminClubId) {
+      return res.status(403).json({ error: 'No tienes permiso para editar este torneo' });
+    }
+
+    const validation = baseTournamentObject.partial().safeParse(req.body);
+    if (!validation.success) {
+      return res
+        .status(400)
+        .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    }
+
+    const mergedData = {
+      ...tournament,
+      ...validation.data,
+      dateStart:
+        tournament.dateStart instanceof Date
+          ? tournament.dateStart.toISOString()
+          : tournament.dateStart,
+    };
+    console.log(mergedData);
+
+    const businessValidation = baseTournamentObject
+      .superRefine(validateTournamentBusinessRules)
+      .safeParse(mergedData);
+
+    console.log(businessValidation);
+
+    if (!businessValidation.success) {
+      return res.status(400).json({
+        error: 'La nueva configuración rompe las reglas del torneo',
+        details: z.treeifyError(businessValidation.error),
+      });
+    }
+
+    const updatedTournament = await prisma.tournament.update({
+      where: { id: tournamentId },
+      data: validation.data,
+    });
+
+    res.status(200).json({ success: true, message: 'Torneo actualizado', data: updatedTournament });
+  } catch (error) {
+    console.error('Error al actualizar el torneo:', error);
+    res.status(500).json({ error: 'Error interno al actualizar el torneo' });
   }
 });
 
@@ -225,7 +283,7 @@ router.get('/:id/participants', async (req, res) => {
           select: { id: true, name: true, surname: true, stats: true },
         },
       },
-      orderBy: { registeredAt: 'asc' }, // Orden de llegada
+      orderBy: { registeredAt: 'asc' },
     });
 
     return res.status(200).json({
@@ -316,6 +374,54 @@ router.get('/:id/classifications', async (req, res) => {
   } catch (error) {
     console.error('Error fetching group classifications:', error);
     return res.status(500).json({ success: false, message: 'Error al obtener la clasificación.' });
+  }
+});
+
+router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const playerId = req.params.playerId as string;
+    const { status } = req.body;
+    const adminClubId = req.user?.clubId;
+
+    console.log('playerID', playerId);
+    console.log('tournamentid', id);
+    console.log('status', status);
+
+    const tournament = await prisma.tournament.findUnique({ where: { id } });
+    if (!tournament || (req.user?.role === 'AdminClub' && tournament.clubId !== adminClubId)) {
+      return res.status(403).json({ error: 'No tienes permisos sobre este torneo' });
+    }
+
+    const currentParticipant = await prisma.tournamentParticipant.findUnique({
+      where: { tournamentId_playerId: { tournamentId: id, playerId } },
+    });
+
+    if (!currentParticipant) {
+      return res.status(404).json({ error: 'Participante no encontrado' });
+    }
+
+    const updatedParticipant = await prisma.tournamentParticipant.update({
+      where: { tournamentId_playerId: { tournamentId: id, playerId } },
+      data: { status },
+    });
+
+    if (status === 'NoPresentado' && currentParticipant.status !== 'NoPresentado') {
+      await prisma.stats.update({
+        where: { userId: playerId },
+        data: { elo: { decrement: 100 } },
+      });
+    } else if (status !== 'NoPresentado' && currentParticipant.status === 'NoPresentado') {
+      await prisma.stats.update({
+        where: { userId: playerId },
+        data: { elo: { increment: 100 } },
+      });
+    }
+
+    res.status(200).json({ success: true, message: `Jugador marcado como ${status}` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al actualizar el estado del participante' });
   }
 });
 

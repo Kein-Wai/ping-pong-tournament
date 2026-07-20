@@ -9,24 +9,72 @@ const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const matches = await prisma.match.findMany({
-      orderBy: { dateStart: 'desc' },
-      include: {
-        playerOne: {
-          select: { id: true, name: true, surname: true, email: true },
-        },
-        playerTwo: {
-          select: { id: true, name: true, surname: true, email: true },
-        },
+    if (req.user) {
+      const clubId = req.user.clubId;
+      const userId = req.user.id;
+      const role = req.user.role;
 
-        tournament: true,
-        league: true,
-        group: true,
-        knockout: true,
-      },
-    });
+      let whereCondition = {};
+      console.log('clubId', clubId);
+      console.log('userId', userId);
+      console.log('role', role);
+      if (role === 'AdminClub' || (role === 'Player' && clubId)) {
+        // Solo partidos organizados por su club o donde juegue su club
+        whereCondition = {
+          OR: [
+            { tournament: { clubId: clubId } },
+            { playerOne: { clubId: clubId } },
+            { playerTwo: { clubId: clubId } },
+          ],
+        };
+      } else if (role === 'Player' && !clubId) {
+        // Player libre: SOLO ve sus propios partidos en los que ha participado
+        whereCondition = {
+          OR: [{ playerOneId: userId }, { playerTwoId: userId }],
+        };
+      }
+      console.log(whereCondition);
 
-    res.status(200).json(matches);
+      const matches = await prisma.match.findMany({
+        where: whereCondition,
+        orderBy: { dateStart: 'desc' },
+        include: {
+          playerOne: {
+            select: {
+              id: true,
+              name: true,
+              surname: true,
+              email: true,
+              club: {
+                select: { id: true, name: true, city: true },
+              },
+            },
+          },
+          playerTwo: {
+            select: {
+              id: true,
+              name: true,
+              surname: true,
+              email: true,
+              club: {
+                select: { id: true, name: true, city: true },
+              },
+            },
+          },
+
+          tournament: true,
+          league: true,
+          group: true,
+          knockout: true,
+        },
+      });
+
+      res.status(200).json(matches);
+    } else {
+      res
+        .status(401)
+        .json({ error: 'Acceso denegado. Usuario no proporcionado o formato incorrecto.' });
+    }
   } catch (error) {
     console.error('Error al obtener los partidos:', error);
     res.status(500).json({ error: 'Error interno al obtener los partidos' });

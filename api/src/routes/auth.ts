@@ -16,20 +16,22 @@ router.post('/register', async (req, res) => {
     const validation = registerSchema.safeParse(req.body);
 
     if (!validation.success) {
+      console.log(validation);
       res.status(400).json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
       return;
     }
 
-    const { email, password, name, surname } = validation.data;
+    const { email, password, name, surname, role } = validation.data;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
+    const userRole = await prisma.userType.findUnique({ where: { name: role } });
+
     if (existingUser) {
       res.status(400).json({ error: 'El email ya está registrado' });
       return;
     }
 
-    const playerRole = await prisma.userType.findUnique({ where: { name: 'Player' } });
-    if (!playerRole) {
+    if (!userRole) {
       res.status(500).json({ error: 'Error interno: Rol de jugador no configurado' });
       return;
     }
@@ -43,7 +45,7 @@ router.post('/register', async (req, res) => {
         name,
         surname,
         authProvider: 'LOCAL',
-        userTypeId: playerRole.id,
+        userTypeId: userRole.id,
         stats: {
           create: {},
         },
@@ -104,6 +106,9 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       {
         id: user.id,
+        name: user.name,
+        surname: user.surname,
+        nickname: user.nickname,
         email: user.email,
         role: user.userType.name,
         clubId: user.clubId,
@@ -124,7 +129,8 @@ router.post('/google', async (req, res) => {
     const validation = loginGoogleSchema.safeParse(req.body);
     if (!validation.success) return res.status(400).json({ error: 'Token requerido' });
 
-    const { credential } = validation.data;
+    const { credential, role } = validation.data;
+    const userRole = await prisma.userType.findUnique({ where: { name: role } });
 
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
@@ -144,9 +150,7 @@ router.post('/google', async (req, res) => {
     });
 
     if (!user) {
-      const playerRole = await prisma.userType.findUnique({ where: { name: 'Player' } });
-
-      if (!playerRole) {
+      if (!userRole) {
         return res
           .status(500)
           .json({ error: 'Configuración de base de datos incompleta (Falta rol Player)' });
@@ -159,7 +163,7 @@ router.post('/google', async (req, res) => {
           surname: family_name,
           authProvider: 'GOOGLE',
           googleId,
-          userTypeId: playerRole.id,
+          userTypeId: userRole.id,
           stats: {
             create: {},
           },
@@ -178,6 +182,9 @@ router.post('/google', async (req, res) => {
       {
         id: user.id,
         email: user.email,
+        name: user.name,
+        surname: user.surname,
+        nickname: user.nickname,
         role: user.userType.name,
         clubId: user.clubId,
         clubStatus: user.clubStatus,

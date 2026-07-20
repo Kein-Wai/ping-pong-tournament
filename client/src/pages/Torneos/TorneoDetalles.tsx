@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
+
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
 import {
   Card,
   Title,
@@ -19,6 +21,9 @@ import {
   ScrollArea,
   Select,
   Modal,
+  ActionIcon,
+  Tooltip,
+  NumberInput,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -31,9 +36,16 @@ import {
   IconCheck,
   IconTrophy,
   IconEdit,
+  IconUserCheck,
+  IconUserX,
+  IconRocket,
+  IconSettings,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { api } from '../../api/axios';
+import { openAppConfirmModal } from '../../utils/modals';
+import { ENDPOINTS } from '../../api/endpoints';
+import { APP_ROUTES } from '../../constants/routes';
 
 // --- INTERFACES ---
 
@@ -60,6 +72,11 @@ interface Tournament {
   status: string | null;
   typeKnockout: string | null;
   participants: Participant[];
+  numGroup?: number | null;
+  numGroupPlayers?: number | null;
+  playersKnockout?: number | null;
+  sortKnockout?: string | null;
+  allPos?: boolean | null;
 }
 
 interface Participant {
@@ -157,11 +174,18 @@ const KNOCKOUT_STAGES = [
 export const TorneoDetalles = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
   // --- ESTADOS BASE ---
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const [editFormatOpened, setEditFormatOpened] = useState(false);
+  const [f_numGroup, setFNumGroup] = useState<number | string>(4);
+  const [f_numGroupPlayers, setFNumGroupPlayers] = useState<number | string>(4);
+  const [f_playersKnockout, setFPlayersKnockout] = useState<number | string>(2);
 
   // --- ESTADOS DE PESTAÑAS (LAZY LOADING) ---
   const [activeTab, setActiveTab] = useState<string | null>('info');
@@ -178,11 +202,13 @@ export const TorneoDetalles = () => {
   // Partido del bracket seleccionado para ver el modal
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
 
+  const confirmedPlayersCount = participants?.filter((p) => p.status === 'Confirmado').length || 0;
+
   // 1. CARGA INICIAL
   const fetchTournamentInfo = async () => {
     try {
       if (!id) return;
-      const res = await api.get(`/tournaments/${id}`);
+      const res = await api.get(ENDPOINTS.TOURNAMENTS.BY_ID(id));
       const tData = res.data.data || res.data;
       setTournament(tData);
 
@@ -208,16 +234,16 @@ export const TorneoDetalles = () => {
     const fetchLazyData = async () => {
       try {
         if (activeTab === 'inscritos' && participants === null) {
-          const res = await api.get(`/tournaments/${id}/participants`);
+          const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
           setParticipants(res.data.data);
         } else if (activeTab === 'resultados' && results === null) {
-          const res = await api.get(`/tournaments/${id}/classifications`);
+          const res = await api.get(ENDPOINTS.TOURNAMENTS.CLASSIFICATION(id));
           setResults(res.data.data);
         } else if (activeTab === 'grupos' && (groupsClas === null || groupMatches === null)) {
           // Cargamos clasificaciones Y partidos al mismo tiempo
           const [resClas, resMatches] = await Promise.all([
-            api.get(`/tournaments/${id}/groups/classifications`),
-            api.get(`/tournaments/${id}/groups/matches`),
+            api.get(ENDPOINTS.TOURNAMENTS.GROUPS(id)),
+            api.get(ENDPOINTS.TOURNAMENTS.GROUPMATCHES(id)),
           ]);
 
           const clasData = resClas.data.data;
@@ -230,7 +256,7 @@ export const TorneoDetalles = () => {
             setSelectedGroup(firstGroupNum);
           }
         } else if (activeTab === 'bracketA' && bracketA === null) {
-          const res = await api.get(`/tournaments/${id}/bracket?type=A`);
+          const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=A`);
           setBracketA(res.data.data);
         }
       } catch (error) {
@@ -355,30 +381,33 @@ export const TorneoDetalles = () => {
   const plazasDisponibles = tournament.numPlayers - currentPlayers.length;
   const isFull = plazasDisponibles <= 0;
 
-  const handleInscribirse = async () => {
-    setIsRegistering(true);
-    try {
-      await api.post(`/tournaments/${id}/register`);
-      notifications.show({
-        title: '¡Inscrito!',
-        message: 'Te has apuntado correctamente.',
-        color: 'green',
-        icon: <IconCheck size={16} />,
-      });
-      await fetchTournamentInfo();
-      if (participants !== null) {
-        const res = await api.get(`/tournaments/${id}/participants`);
-        setParticipants(res.data.data);
-      }
-    } catch (error: any) {
-      notifications.show({
-        title: 'Error',
-        message: error.response?.data?.error || 'No se pudo inscribir',
-        color: 'red',
-      });
-    } finally {
-      setIsRegistering(false);
-    }
+  const handleInscribirse = () => {
+    if (!id) return;
+    openAppConfirmModal({
+      title: 'Inscripción al Torneo',
+      icon: <IconTrophy size={18} />,
+      color: 'green', // 👈 Cambias el color temático
+      description: '¿Confirmas que deseas inscribirte en la siguiente competición?',
+      highlightText: tournament?.name || '',
+      warningText:
+        'Recuerda revisar la fecha de inicio. ¡Asegúrate de estar disponible para jugar! Si no apareces, se te descontaran 100 puntos en tu ELO!',
+      confirmLabel: 'Confirmar e Inscribirme',
+      onConfirm: async () => {
+        setIsRegistering(true);
+        try {
+          await api.post(ENDPOINTS.TOURNAMENTS.REGISTER(id));
+          await fetchTournamentInfo();
+          if (participants !== null) {
+            const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
+            setParticipants(res.data.data);
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setIsRegistering(false);
+        }
+      },
+    });
   };
 
   const getStatusColor = (status: string | null) => {
@@ -389,13 +418,103 @@ export const TorneoDetalles = () => {
     return 'orange';
   };
 
+  const handleParticipantStatus = (playerId: string, playerName: string, newStatus: string) => {
+    if (!id) return;
+    const isNoShow = newStatus === 'NoPresentado';
+
+    openAppConfirmModal({
+      title: isNoShow ? 'Sancionar Jugador' : 'Confirmar Asistencia',
+      icon: isNoShow ? <IconUserX size={18} /> : <IconUserCheck size={18} />,
+      color: isNoShow ? 'red' : 'green',
+      description: isNoShow
+        ? '¿Estás seguro de marcar a este jugador como No Presentado? Se le restarán 100 puntos de ELO como penalización.'
+        : 'Confirmar a este jugador para que el algoritmo de la Serpiente lo incluya en la Fase de Grupos.',
+      highlightText: playerName,
+      confirmLabel: isNoShow ? 'Sí, Sancionar' : 'Confirmar Jugador',
+      onConfirm: async () => {
+        try {
+          await api.put(ENDPOINTS.TOURNAMENTS.UPDATE_PARTICIPANT_STATUS(id, playerId), {
+            status: newStatus,
+          });
+          // Recargamos la lista
+          const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
+          setParticipants(res.data.data);
+        } catch (error) {
+          console.error(error);
+        }
+      },
+    });
+  };
+
+  // Modificada para dar el aviso
+  const handleGenerateTournament = () => {
+    if (!id) return;
+
+    // Calculamos si faltan jugadores
+    const isUnderbooked = confirmedPlayersCount < (tournament?.numPlayers || 0);
+
+    openAppConfirmModal({
+      title: 'Iniciar Competición',
+      icon: <IconRocket size={18} />,
+      color: isUnderbooked ? 'red' : 'orange',
+      description:
+        'Se cerrarán las inscripciones y el algoritmo distribuirá en el cuadro únicamente a los jugadores confirmados.',
+      highlightText: tournament?.name || '',
+      warningText: isUnderbooked
+        ? `🚨 ATENCIÓN: Solo tienes ${confirmedPlayersCount} confirmados de los ${tournament?.numPlayers} esperados. ¡Te sobrarán huecos vacíos! Te recomendamos cancelar y usar "Ajustar Formato".`
+        : 'Esta acción es irreversible. Se generarán los cruces y el torneo pasará a estar activo.',
+      confirmLabel: 'Sí, Iniciar Torneo',
+      onConfirm: async () => {
+        setIsGenerating(true);
+        try {
+          await api.post(ENDPOINTS.TOURNAMENTS.GENERATE_GROUPS(id));
+          await fetchTournamentInfo();
+          setActiveTab(hasGroupsFormat ? 'grupos' : 'bracketA');
+        } catch (error) {
+          console.error('Error al generar el torneo', error);
+        } finally {
+          setIsGenerating(false);
+        }
+      },
+    });
+  };
+
+  // Función para abrir el modal precargado
+  const openEditFormat = () => {
+    setFNumGroup(tournament?.numGroup || 4);
+    setFNumGroupPlayers(tournament?.numGroupPlayers || 4);
+    setFPlayersKnockout(tournament?.playersKnockout || 2);
+    setEditFormatOpened(true);
+  };
+
+  // Función para guardar el formato ajustado
+  const handleSaveFormat = async () => {
+    if (!id) return;
+    try {
+      await api.put(ENDPOINTS.TOURNAMENTS.UPDATE(id), {
+        numGroup: Number(f_numGroup),
+        numGroupPlayers: Number(f_numGroupPlayers),
+        playersKnockout: Number(f_playersKnockout),
+      });
+      setEditFormatOpened(false);
+      notifications.show({
+        title: 'Formato actualizado',
+        message: 'Se han ajustado los grupos.',
+        color: 'green',
+      });
+      await fetchTournamentInfo();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <Stack gap="xl">
       <div>
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(APP_ROUTES.TORNEOS.LIST)}
         >
           Volver a Torneos
         </Button>
@@ -420,17 +539,48 @@ export const TorneoDetalles = () => {
 
           {isProgramado && (
             <Stack align="flex-end" gap="xs">
-              <Button
-                color={isFull ? 'gray' : 'blue'}
-                size="md"
-                disabled={isFull}
-                loading={isRegistering}
-                onClick={handleInscribirse}
-              >
-                {isFull ? 'Torneo Completo' : 'Inscribirme'}
-              </Button>
+              <Group>
+                {/* BOTONES EXCLUSIVOS DEL ADMIN */}
+                {isAdmin && (
+                  <>
+                    <Button
+                      color="gray"
+                      variant="light"
+                      size="md"
+                      onClick={openEditFormat}
+                      leftSection={<IconSettings size={18} />}
+                    >
+                      Ajustar Formato
+                    </Button>
+                    <Button
+                      color={
+                        confirmedPlayersCount < (tournament.numPlayers || 0) ? 'red' : 'orange'
+                      }
+                      size="md"
+                      loading={isGenerating}
+                      onClick={handleGenerateTournament}
+                      leftSection={<IconRocket size={18} />}
+                    >
+                      Iniciar Torneo
+                    </Button>
+                  </>
+                )}
+
+                {/* BOTÓN PARA INSCRIBIRSE */}
+                <Button
+                  color={isFull ? 'gray' : 'blue'}
+                  size="md"
+                  disabled={isFull}
+                  loading={isRegistering}
+                  onClick={handleInscribirse}
+                >
+                  {isFull ? 'Torneo Completo' : 'Inscribirme'}
+                </Button>
+              </Group>
+
               <Text size="xs" c="dimmed">
                 {plazasDisponibles > 0 ? `Quedan ${plazasDisponibles} plazas` : 'Lista de espera'}
+                {isAdmin && ` · Confirmados: ${confirmedPlayersCount}`}
               </Text>
             </Stack>
           )}
@@ -465,41 +615,127 @@ export const TorneoDetalles = () => {
         </Tabs.List>
 
         {/* --- INFO --- */}
+        {/* --- INFO --- */}
         <Tabs.Panel value="info" pt="xl">
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-            <Paper withBorder p="md" radius="md">
-              <Group gap="md">
-                <ThemeIcon size={40} radius="md" variant="light" color="blue">
-                  <IconCalendar size={20} />
-                </ThemeIcon>
-                <div>
-                  <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
-                    Fecha
-                  </Text>
-                  <Text fw={500}>
-                    {new Date(tournament.dateStart).toLocaleDateString('es-ES', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </Text>
-                </div>
-              </Group>
-            </Paper>
-            <Paper withBorder p="md" radius="md">
-              <Group gap="md">
-                <ThemeIcon size={40} radius="md" variant="light" color="teal">
-                  <IconUsers size={20} />
-                </ThemeIcon>
-                <div>
-                  <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
-                    Plazas
-                  </Text>
-                  <Text fw={500}>{tournament.numPlayers} Jugadores</Text>
-                </div>
-              </Group>
-            </Paper>
-          </SimpleGrid>
+          <Stack gap="xl">
+            {/* Resumen Principal */}
+            <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+              <Paper withBorder p="md" radius="md">
+                <Group gap="md">
+                  <ThemeIcon size={40} radius="md" variant="light" color="blue">
+                    <IconCalendar size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
+                      Fecha
+                    </Text>
+                    <Text fw={500}>
+                      {new Date(tournament.dateStart).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </div>
+                </Group>
+              </Paper>
+
+              <Paper withBorder p="md" radius="md">
+                <Group gap="md">
+                  <ThemeIcon size={40} radius="md" variant="light" color="teal">
+                    <IconUsers size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
+                      Plazas Totales
+                    </Text>
+                    <Text fw={500}>{tournament.numPlayers} Jugadores máx.</Text>
+                  </div>
+                </Group>
+              </Paper>
+
+              <Paper withBorder p="md" radius="md">
+                <Group gap="md">
+                  <ThemeIcon size={40} radius="md" variant="light" color="grape">
+                    <IconTrophy size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
+                      Nivel / Acceso
+                    </Text>
+                    <Text fw={500}>
+                      {tournament.levelTournament || 'Mixto'} ·{' '}
+                      {tournament.typeTournament || 'Interno'}
+                    </Text>
+                  </div>
+                </Group>
+              </Paper>
+            </SimpleGrid>
+
+            {/* Detalles de Formato Condicionales */}
+            <Title order={4} mt="md">
+              Formato de Competición
+            </Title>
+            <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+              <Paper withBorder p="md" radius="md">
+                <Group gap="md">
+                  <ThemeIcon size={40} radius="md" variant="light" color="orange">
+                    <IconTournament size={20} />
+                  </ThemeIcon>
+                  <div>
+                    <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
+                      Estructura
+                    </Text>
+                    <Text fw={500}>
+                      {tournament.rounds === 'GruposKnockout'
+                        ? 'Grupos + Eliminatorias'
+                        : tournament.rounds === 'TodosvsTodos'
+                          ? 'Liga (Todos contra Todos)'
+                          : 'Eliminatoria Directa'}
+                    </Text>
+                  </div>
+                </Group>
+              </Paper>
+
+              {(tournament.rounds === 'GruposKnockout' || tournament.rounds === 'TodosvsTodos') && (
+                <Paper withBorder p="md" radius="md">
+                  <Group gap="md">
+                    <ThemeIcon size={40} radius="md" variant="light" color="yellow">
+                      <IconListNumbers size={20} />
+                    </ThemeIcon>
+                    <div>
+                      <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
+                        Fase de Grupos
+                      </Text>
+                      <Text fw={500}>
+                        {tournament.numGroup || '?'} Grupos de {tournament.numGroupPlayers || '?'}{' '}
+                        jug.
+                      </Text>
+                    </div>
+                  </Group>
+                </Paper>
+              )}
+
+              {(tournament.rounds === 'GruposKnockout' || tournament.rounds === 'Knockout') && (
+                <Paper withBorder p="md" radius="md">
+                  <Group gap="md">
+                    <ThemeIcon size={40} radius="md" variant="light" color="red">
+                      <IconMedal size={20} />
+                    </ThemeIcon>
+                    <div>
+                      <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
+                        Cuadro Final (Llaves)
+                      </Text>
+                      <Text fw={500}>
+                        {tournament.typeKnockout === 'LlaveAB' ? 'Llave A y B' : 'Solo Llave A'}
+                        {tournament.playersKnockout ? ` (${tournament.playersKnockout} pasan)` : ''}
+                      </Text>
+                    </div>
+                  </Group>
+                </Paper>
+              )}
+            </SimpleGrid>
+          </Stack>
         </Tabs.Panel>
 
         {/* --- INSCRITOS --- */}
@@ -521,6 +757,8 @@ export const TorneoDetalles = () => {
                       <Table.Th w={50}>#</Table.Th>
                       <Table.Th>Jugador</Table.Th>
                       <Table.Th>ELO</Table.Th>
+                      <Table.Th>Estado</Table.Th>
+                      {isAdmin && isProgramado && <Table.Th>Acciones (Pase de lista)</Table.Th>}
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
@@ -540,6 +778,60 @@ export const TorneoDetalles = () => {
                         <Table.Td>
                           <Badge variant="light">{p.player?.stats?.elo || 500}</Badge>
                         </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            color={
+                              p.status === 'Confirmado'
+                                ? 'green'
+                                : p.status === 'NoPresentado'
+                                  ? 'red'
+                                  : 'yellow'
+                            }
+                            variant="dot"
+                          >
+                            {p.status}
+                          </Badge>
+                        </Table.Td>
+                        {isAdmin && isProgramado && (
+                          <Table.Td>
+                            <Group gap="xs">
+                              {p.status !== 'Confirmado' && (
+                                <Tooltip label="Confirmar Asistencia">
+                                  <ActionIcon
+                                    color="green"
+                                    variant="light"
+                                    onClick={() =>
+                                      handleParticipantStatus(
+                                        p.player.id,
+                                        p.player.name,
+                                        'Confirmado',
+                                      )
+                                    }
+                                  >
+                                    <IconUserCheck size={18} />
+                                  </ActionIcon>
+                                </Tooltip>
+                              )}
+                              {p.status !== 'NoPresentado' && (
+                                <Tooltip label="Sancionar (No Presentado)">
+                                  <ActionIcon
+                                    color="red"
+                                    variant="light"
+                                    onClick={() =>
+                                      handleParticipantStatus(
+                                        p.player.id,
+                                        p.player.name,
+                                        'NoPresentado',
+                                      )
+                                    }
+                                  >
+                                    <IconUserX size={18} />
+                                  </ActionIcon>
+                                </Tooltip>
+                              )}
+                            </Group>
+                          </Table.Td>
+                        )}
                       </Table.Tr>
                     ))}
                   </Table.Tbody>
@@ -887,6 +1179,45 @@ export const TorneoDetalles = () => {
           )}
         </Modal>
       </Tabs>
+      {/* MODAL DE RECONFIGURACIÓN DE GRUPOS */}
+      <Modal
+        opened={editFormatOpened}
+        onClose={() => setEditFormatOpened(false)}
+        title={<Title order={4}>Ajustar Formato del Torneo</Title>}
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Tienes <strong>{confirmedPlayersCount}</strong> jugadores confirmados. Ajusta las
+            matemáticas de los grupos para evitar huecos vacíos antes de iniciar el torneo.
+          </Text>
+          <NumberInput
+            label="Cantidad de Grupos"
+            required
+            min={1}
+            value={f_numGroup}
+            onChange={setFNumGroup}
+          />
+          <NumberInput
+            label="Jugadores por Grupo"
+            required
+            min={2}
+            value={f_numGroupPlayers}
+            onChange={setFNumGroupPlayers}
+          />
+          <NumberInput
+            label="Clasificados por Grupo"
+            description="Asegúrate de que la multiplicación total cuadre con el cuadro (4, 8, 16...)"
+            required
+            min={1}
+            value={f_playersKnockout}
+            onChange={setFPlayersKnockout}
+          />
+          <Button color="blue" onClick={handleSaveFormat} mt="md">
+            Guardar y Recalcular
+          </Button>
+        </Stack>
+      </Modal>
     </Stack>
   );
 };

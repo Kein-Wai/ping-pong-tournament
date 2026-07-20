@@ -48,16 +48,20 @@ async function main() {
   // --- 2. CREACIÓN DE CLUBES ---
   console.log('🏢 Generando Clubes...');
   const clubA = await prisma.club.create({
-    data: { name: 'Club Tenis de Mesa Castellón', status: 'Aprobado' },
+    data: {
+      name: 'Club Tenis de Mesa Castellón',
+      status: 'Aprobado',
+      city: 'Castellon de la Plana',
+    },
   });
 
   const clubB = await prisma.club.create({
-    data: { name: 'PingPong Club Valencia', status: 'Aprobado' },
+    data: { name: 'PingPong Club Valencia', status: 'Aprobado', city: 'Valencia' },
   });
 
   // --- 3. CREACIÓN DE ADMINISTRADORES ---
   const hashedPasswordSuper = await bcrypt.hash('112233cheung', 10);
-  await prisma.user.create({
+  const superAdmin = await prisma.user.create({
     data: {
       email: 'keinwai@hotmail.com',
       name: 'Kein-Wai',
@@ -68,6 +72,7 @@ async function main() {
       authProvider: 'LOCAL',
     },
   });
+  console.log(superAdmin);
 
   const hashedPasswordClub = await bcrypt.hash('112233club', 10);
 

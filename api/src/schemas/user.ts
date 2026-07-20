@@ -8,6 +8,7 @@ export const loginLocalSchema = z.object({
 
 export const loginGoogleSchema = z.object({
   credential: z.string().min(1, 'El token de Google es obligatorio'),
+  role: z.enum(['Player', 'AdminClub']).optional().default('Player'),
 });
 
 export const registerSchema = z
@@ -15,6 +16,7 @@ export const registerSchema = z
     email: z.email('El formato del email no es válido'),
     surname: z.string().min(2, 'El apellido debe tener al menos 2 caracteres').optional(),
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
+    role: z.enum(['Player', 'AdminClub']).optional().default('Player'),
     password: z
       .string()
       .min(8, 'La contraseña debe tener al menos 8 caracteres')

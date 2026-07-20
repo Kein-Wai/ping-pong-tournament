@@ -2,6 +2,8 @@
 export const BYE_USER_ID = '00000000-0000-0000-0000-000000000000';
 export const TBD_USER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
+export const CLUB_STATUS = ['Registrado', 'Pendiente', 'Aprobado', 'Rechazado'];
+
 export const STATUS = {
   SCHEDULE: 'Programado',
   OPEN: 'Abierto',

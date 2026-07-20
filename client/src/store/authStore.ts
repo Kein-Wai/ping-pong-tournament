@@ -1,10 +1,14 @@
 import { create } from 'zustand';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   name: string;
+  surname: string;
+  nickname: string;
   role: string;
+  clubId: string | null;
+  clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
 }
 
 interface AuthState {
@@ -12,6 +16,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   login: (token: string, user: User) => void;
+  updateUserFields: (fields: Partial<Pick<User, 'clubId' | 'clubStatus'>>) => void;
   logout: () => void;
 }
 
@@ -24,6 +29,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.setItem('pingpong_token', token);
     localStorage.setItem('pingpong_user', JSON.stringify(user));
     set({ token, user, isAuthenticated: true });
+  },
+
+  updateUserFields: (fields) => {
+    set((state) => {
+      if (!state.user) return state;
+      const updatedUser = { ...state.user, ...fields };
+      localStorage.setItem('pingpong_user', JSON.stringify(updatedUser));
+      return { user: updatedUser };
+    });
   },
 
   logout: () => {

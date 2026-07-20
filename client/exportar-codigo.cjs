@@ -17,7 +17,12 @@ function scanDirectory(dir) {
     // Ignoramos carpetas que no nos interesan
     if (stat.isDirectory()) {
       scanDirectory(fullPath);
-    } else if (fullPath.endsWith('.tsx') || fullPath.endsWith('.css')) {
+    } else if (
+      fullPath.endsWith('.tsx') ||
+      fullPath.endsWith('.ts') ||
+      fullPath.endsWith('.json') ||
+      fullPath.endsWith('.css')
+    ) {
       output += `\n\n================================================\n`;
       output += `📂 ARCHIVO: ${fullPath}\n`;
       output += `================================================\n\n`;

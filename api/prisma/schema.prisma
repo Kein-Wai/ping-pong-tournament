@@ -113,6 +113,11 @@ model Club {
   id          String     @id @default(uuid())
   name        String     @unique @db.VarChar(255)
   status      ClubStatus @default(Pendiente)
+  
+  city            String         @db.VarChar(255) // Obligatorio
+  address         String?        @db.VarChar(255) // Opcional
+  foundedAt       DateTime?      @map("founded_at") // Opcional (Fecha de fundación)
+
   createdAt   DateTime   @default(now()) @map("created_at")
 
   // Relaciones

@@ -1,454 +1,4329 @@
 
 
 ================================================
-📂 ARCHIVO: src/App.css
-================================================
-
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
-}
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
-  position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
-}
-
-
-================================================
 📂 ARCHIVO: src/App.tsx
 ================================================
 
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { RequireClubSetup } from './components/auth/RequireClubSetup';
+import { MainLayout } from './components/layout/MainLayout';
+import { Login } from './pages/Login';
+import { Dashboard } from './pages/Dashboard';
+import { Jugadores } from './pages/Jugadores/Jugadores';
+import { JugadorPerfil } from './pages/Jugadores/JugadorPerfil';
+import { Torneos } from './pages/Torneos/Torneos';
+import { TorneoDetalles } from './pages/Torneos/TorneoDetalles';
+import { Partidos } from './pages/Partidos/Partidos';
+import { ClubSelection } from './pages/Clubs/ClubSelection';
+import { ModalsProvider } from '@mantine/modals';
+import { ClubSetup } from './pages/Clubs/ClubSetup';
+import { MiClub } from './pages/Clubs/MiClub';
+import { AdminPanel } from './pages/Admin/AdminPanel';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <BrowserRouter>
+      <ModalsProvider>
+        <Routes>
+          {/* Ruta pública */}
+          <Route path="/login" element={<Login />} />
 
-      <div className="ticks"></div>
+          {/* Bloque de seguridad de Rutas Protegidas */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/setup-club" element={<ClubSetup />} />
+            <Route element={<RequireClubSetup />}>
+              <Route element={<MainLayout />}>
+                {/* Todas las páginas cuelgan del layout base sin colisiones */}
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/club-selection" element={<ClubSelection />} />
+                <Route path="/torneos" element={<Torneos />} />
+                <Route path="/torneos/:id" element={<TorneoDetalles />} />
+                <Route path="/jugadores" element={<Jugadores />} />
+                <Route path="/jugadores/:id" element={<JugadorPerfil />} />
+                <Route path="/historial" element={<Partidos />} />
+                <Route path="/estadisticas" element={<div>Página de Estadísticas</div>} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+                {/* Paneles de Control */}
+                <Route path="/mi-club" element={<MiClub />} />
+                <Route path="/admin" element={<AdminPanel />} />
+              </Route>
+            </Route>
+          </Route>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+          {/* Comodín de Redirección Segura */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ModalsProvider>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
+
+
+================================================
+📂 ARCHIVO: src/api/axios.ts
+================================================
+
+import axios from 'axios';
+import { notifications } from '@mantine/notifications';
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('pingpong_token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+api.interceptors.response.use(
+  (response) => {
+    const { method } = response.config;
+
+    // Si la operación modifica datos (POST, PUT, DELETE) y es exitosa
+    if (method && ['post', 'put', 'delete'].includes(method.toLowerCase())) {
+      notifications.show({
+        title: 'Operación exitosa',
+        message: response.data?.message || 'La acción se ha procesado correctamente.',
+        color: 'green',
+      });
+    }
+    return response;
+  },
+  (error) => {
+    if (error.response) {
+      const { status, data, config } = error.response;
+
+      if (status === 401) {
+        console.warn('Sesión caducada. Redirigiendo al Login...');
+        localStorage.removeItem('pingpong_token');
+        localStorage.removeItem('pingpong_user');
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
+
+      // Procesar errores solo para mutaciones (POST, PUT, DELETE) o errores Zod de validación
+      if (config.method && ['post', 'put', 'delete'].includes(config.method.toLowerCase())) {
+        let errorMessage = data?.error || 'Ocurrió un error inesperado.';
+
+        // Si el backend expone los detalles de validación de Zod
+        if (data?.details && Array.isArray(data.details)) {
+          errorMessage = data.details
+            .map((d: any) => `${d.path.join('.')}: ${d.message}`)
+            .join(' | ');
+        } else if (typeof data?.error === 'object') {
+          errorMessage = JSON.stringify(data.error);
+        }
+
+        notifications.show({
+          title: `Error (${status})`,
+          message: errorMessage,
+          color: 'red',
+        });
+      }
+    } else {
+      notifications.show({
+        title: 'Error de red',
+        message: 'No se pudo conectar con el servidor.',
+        color: 'red',
+      });
+    }
+    return Promise.reject(error);
+  },
+);
+
+
+================================================
+📂 ARCHIVO: src/api/endpoints.ts
+================================================
+
+export const ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    GOOGLE: '/auth/google',
+  },
+  USERS: {
+    BASE: '/users',
+    BY_ID: (id: string) => `/users/${id}`, // Corregido de /user/ a /users/ para coincidir con tus rutas express
+    ME: '/users/me',
+  },
+  PLAYERS: {
+    BASE: '/users',
+  },
+  CLUBS: {
+    BASE: '/clubs',
+    ADMIN_ALL: '/clubs/admin/all',
+    BY_ID: (id: string) => `/clubs/${id}`,
+    UPDATE: (id: string) => `/clubs/${id}`,
+    JOIN: (clubId: string) => `/clubs/${clubId}/join`,
+    MEMBERS: (clubId: string) => `/clubs/${clubId}/members`,
+    MEMBER_STATUS: (clubId: string, userId: string) => `/clubs/${clubId}/members/${userId}/status`,
+  },
+  TOURNAMENTS: {
+    BASE: '/tournaments',
+    BY_ID: (id: string) => `/tournaments/${id}`,
+    GENERATE_GROUPS: (id: string) => `/tournaments/${id}/generate-groups`,
+    PARTICIPANTES: (id: string) => `/tournaments/${id}/participants`,
+    GROUPMATCHES: (id: string) => `/tournaments/${id}/groups/matches`, // Ajustado a tus rutas express reales
+    GROUPS: (id: string) => `/tournaments/${id}/groups/classifications`, // Ajustado a tus rutas express reales
+    BRACKETS: (id: string) => `/tournaments/${id}/bracket`,
+    CLASSIFICATION: (id: string) => `/tournaments/${id}/classifications`,
+    REGISTER: (id: string) => `/tournaments/${id}/register`,
+  },
+  MATCHES: {
+    BASE: '/matches',
+    BY_ID: (id: string) => `/matches/${id}`,
+  },
+} as const;
+
+
+================================================
+📂 ARCHIVO: src/components/auth/AdminRoute.tsx
+================================================
+
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
+
+export const AdminRoute = () => {
+  const user = useAuthStore((state) => state.user);
+
+  if (user && user.role !== 'Admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+};
+
+
+================================================
+📂 ARCHIVO: src/components/auth/ProtectedRoute.tsx
+================================================
+
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
+
+export const ProtectedRoute = () => {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+};
+
+
+================================================
+📂 ARCHIVO: src/components/auth/RequireClubSetup.tsx
+================================================
+
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
+
+export const RequireClubSetup = () => {
+  const user = useAuthStore((state) => state.user);
+
+  if (user?.role === 'AdminClub' && !user.clubId) {
+    return <Navigate to="/setup-club" replace />;
+  }
+
+  return <Outlet />;
+};
+
+
+================================================
+📂 ARCHIVO: src/components/layout/MainLayout.tsx
+================================================
+
+import {
+  AppShell,
+  Burger,
+  Group,
+  NavLink,
+  Text,
+  Menu,
+  Avatar,
+  UnstyledButton,
+  useMantineColorScheme,
+} from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
+import {
+  IconHome,
+  IconTrophy,
+  IconUsers,
+  IconHistory,
+  IconChartBar,
+  IconLogout,
+  IconSettings,
+  IconSun,
+  IconMoon,
+  IconBuildingCommunity,
+} from '@tabler/icons-react';
+import DICTIONARY from '../../constants/dictionary.json';
+
+export const MainLayout = () => {
+  const [opened, { toggle }] = useDisclosure();
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const isSuperAdmin = user?.role === 'SuperAdmin';
+  const isAdminClub = user?.role === 'AdminClub';
+  const isPlayer = user?.role === 'Player';
+  const hasApprovedClub = user?.clubStatus === 'Aprobado' && user?.clubId;
+
+  // --- CONSTRUCCIÓN DEL MENÚ SEGÚN TU JERARQUÍA ---
+  const navItems = [
+    { label: 'Inicio', icon: IconHome, path: '/' },
+    { label: 'Torneos', icon: IconTrophy, path: '/torneos' },
+  ];
+
+  // Restricción: Jugadores y Estadísticas solo si tienes club aprobado o eres Admin
+  if (isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub)) {
+    navItems.push(
+      { label: 'Jugadores', icon: IconUsers, path: '/jugadores' },
+      { label: 'Historial', icon: IconHistory, path: '/historial' }, // <-- MOVIDO AQUÍ[cite: 2]
+      { label: 'Estadísticas', icon: IconChartBar, path: '/estadisticas' },
+    );
+  }
+
+  // Pestaña especial: Si eres Player libre, rechazado o pendiente, ves la lista para aplicar
+  if (isPlayer && !hasApprovedClub) {
+    navItems.push({
+      label: 'Unirse a un Club',
+      icon: IconBuildingCommunity,
+      path: '/club-selection',
+    });
+  }
+
+  // Pestañas de gestión exclusivas
+  if (isAdminClub) {
+    navItems.push({ label: 'Mi Club', icon: IconBuildingCommunity, path: '/mi-club' });
+  }
+
+  if (isSuperAdmin) {
+    navItems.push({ label: 'Panel Global', icon: IconSettings, path: '/admin' });
+  }
+
+  return (
+    <AppShell
+      header={{ height: 60 }}
+      navbar={{ width: 250, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+      padding="md"
+    >
+      {/* --- HEADER --- */}
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between">
+          <Group>
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <Text
+              fw={900}
+              size="xl"
+              variant="gradient"
+              gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+            >
+              {DICTIONARY.app_title}
+            </Text>
+          </Group>
+
+          <Menu shadow="md" width={200}>
+            <Menu.Target>
+              <UnstyledButton>
+                <Group gap="xs">
+                  <Avatar color="blue" radius="xl" size="sm">
+                    {user?.name.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Text size="sm" visibleFrom="xs" fw={500}>
+                    {user?.name}
+                  </Text>
+                </Group>
+              </UnstyledButton>
+            </Menu.Target>
+
+            <Menu.Dropdown>
+              <Menu.Label>Opciones</Menu.Label>
+              <Menu.Item
+                leftSection={isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+                onClick={() => toggleColorScheme()}
+              >
+                Modo {isDark ? 'Claro' : 'Oscuro'}
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item color="red" leftSection={<IconLogout size={14} />} onClick={handleLogout}>
+                Cerrar Sesión
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
+      </AppShell.Header>
+
+      {/* --- MENÚ LATERAL --- */}
+      <AppShell.Navbar p="sm">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.label}
+            label={item.label}
+            leftSection={<item.icon size="1.2rem" stroke={1.5} />}
+            active={location.pathname === item.path}
+            onClick={() => {
+              navigate(item.path);
+              if (opened) toggle();
+            }}
+            style={{ borderRadius: 8, marginBottom: 4 }}
+          />
+        ))}
+      </AppShell.Navbar>
+
+      {/* --- CONTENIDO PRINCIPAL --- */}
+      <AppShell.Main>
+        <Outlet />
+      </AppShell.Main>
+    </AppShell>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/constants/constants.ts
+================================================
+
+// api/src/constants.ts
+export const BYE_USER_ID = '00000000-0000-0000-0000-000000000000';
+export const TBD_USER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+
+export const CLUB_STATUS = ['Registrado', 'Pendiente', 'Aprobado', 'Rechazado'];
+
+export const STATUS = {
+  SCHEDULE: 'Programado',
+  OPEN: 'Abierto',
+  STARTED: 'Iniciado',
+  COMPLETED: 'Completado',
+  CANCELLED: 'Cancelado',
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmado',
+  NO_SHOW: 'No presentado',
+} as const;
+
+export const TOURNAMENT_STATUS = {
+  SCHEDULE: 'Programado',
+  STARTED: 'Iniciado',
+  COMPLETED: 'Completado',
+  CANCELLED: 'Cancelado',
+  GROUPS: 'Grupos',
+  R128AVOS: 'R128avos',
+  R64AVOS: 'R64avos',
+  R32AVOS: 'R32avos',
+  R16AVOS: 'R16avos',
+  OCTAVOS: 'Octavos',
+  CUARTOS: 'Cuartos',
+  SEMIFINALES: 'Semifinales',
+  FINAL: 'Final',
+} as const;
+
+export const STATUS_MATCH_VAL = ['Programado', 'Abierto', 'Iniciado', 'Completado', 'Cancelado'];
+
+export const ROUNDS = {
+  GROUPS: 'Grupos',
+  KNOCKOUTS: 'Eliminatorias',
+} as const;
+
+export const KNOWCKOUTS = {
+  FINAL: 'Final',
+  SEMIFINALS: 'Semifinales',
+  QUARTERFINALS: 'Cuartos',
+  LAST16: 'Octavos',
+  LAST32: 'Deciseisavos',
+  LAST64: 'Treintadosavos',
+  LAST128: 'Seseintacuatroavos',
+} as const;
+
+export const KNOWCKOUTS_NUM = {
+  FINAL: 1,
+  SEMIFINALS: 2,
+  QUARTERFINALS: 4,
+  LAST16: 8,
+  LAST32: 16,
+  LAST64: 32,
+  LAST128: 64,
+} as const;
+
+export const POINTS_ROUNDS = {
+  champion: 30,
+  'runner-up': 25,
+  third: 21,
+  'quarter-finals': 17,
+  'round-of-16': 13,
+  'round-of-32': 10,
+  'round-of-64': 8,
+  'round-of-128': 6,
+  'round-of-256': 4,
+} as const;
+
+// En JS/TS las claves de los objetos siempre son strings por debajo,
+// aunque las escribas como números.
+export const POINTS_MATCHES = {
+  '750': [1, 28],
+  '249': [2, 26],
+  '99': [4, 22],
+  '49': [7, 16],
+  '24': [9, 12],
+} as const;
+
+export const SCORE_DEFAULT = 500;
+
+export const GROUP_LOSS_POINTS = -2;
+export const GROUP_WIN_POINTS = 2;
+
+export const KNOCKOUT_TYPE = {
+  A: 'Llave A',
+  AB: 'Llave A y B',
+} as const;
+
+export const KNOCKOUT_QUALIFY_PLAYERS = [2, 3] as const;
+
+export const YES = 'Si';
+export const NO = 'No';
+
+export const KNOCKOUT_DRAW = ['Orden', 'Aleatorio'] as const;
+
+export const MATCH_MATRIX = {
+  2: [[1, 2]], // Por si algún grupo se queda corto
+  3: [
+    [1, 3],
+    [1, 2],
+    [2, 3],
+  ],
+  4: [
+    [1, 3],
+    [2, 4],
+    [1, 2],
+    [3, 4],
+    [1, 4],
+    [2, 3],
+  ],
+  5: [
+    [5, 2],
+    [4, 3],
+    [1, 3],
+    [5, 4],
+    [2, 4],
+    [1, 5],
+    [3, 5],
+    [2, 1],
+    [4, 1],
+    [3, 2],
+  ],
+  6: [
+    [1, 6],
+    [2, 5],
+    [3, 4],
+    [1, 5],
+    [6, 4],
+    [2, 3],
+    [1, 4],
+    [5, 3],
+    [6, 2],
+    [1, 3],
+    [4, 2],
+    [5, 6],
+    [1, 2],
+    [3, 6],
+    [4, 5],
+  ],
+};
+
+
+================================================
+📂 ARCHIVO: src/constants/dictionary.json
+================================================
+
+{
+  "app_title": "TT Tournament App"
+}
+
+
+================================================
+📂 ARCHIVO: src/constants/localizaciones.ts
+================================================
+
+// src/constants/localizaciones.ts
+
+export const LOCALIZACIONES_ESPANA = [
+  // --- PROVINCIA DE CASTELLÓN ---
+  'Castellón de la Plana',
+  'Vila-real',
+  'Burriana',
+  "La Vall d'Uixó",
+  'Vinaròs',
+  'Benicarló',
+  'Almassora',
+  'Onda',
+  'Benicàssim',
+  'Nules',
+  "L'Alcora",
+  'Oropesa del Mar',
+  'Segorbe',
+  'Peñíscola',
+  'Moncofa',
+  'Alcalà de Xivert',
+  'Morella',
+  'Almenara',
+  'Betxí',
+  'Torreblanca',
+
+  // --- PROVINCIA DE VALENCIA ---
+  'Valencia',
+  'Torrent',
+  'Gandia',
+  'Paterna',
+  'Sagunto',
+  'Alzira',
+  'Mislata',
+  'Burjassot',
+  'Ontinyent',
+  'Aldaia',
+  'Manises',
+  'Xàtiva',
+  'Xirivella',
+  'Sueca',
+  'Catarroja',
+  'Algemesí',
+  'Oliva',
+  'Quart de Poblet',
+  'Paiporta',
+  'Alboraya',
+  'La Pobla de Vallbona',
+  'Llíria',
+  'Bétera',
+  'Cullera',
+  'Moncada',
+  'Riba-roja de Túria',
+  'Alfafar',
+  'Requena',
+  'Picassent',
+  'Puçol',
+  'Silla',
+  'Tavernes de la Valldigna',
+  "L'Eliana",
+
+  // --- PROVINCIA DE ALICANTE ---
+  'Alicante',
+  'Elche',
+  'Torrevieja',
+  'Orihuela',
+  'Benidorm',
+  'Alcoy',
+  'San Vicente del Raspeig',
+  'Elda',
+  'Dénia',
+  'Petrer',
+  'Villena',
+  'La Vila Joiosa',
+  'Santa Pola',
+  'Crevillent',
+  'El Campello',
+  'Xàbia',
+  'Novelda',
+  'Mutxamel',
+  'Ibi',
+  "Sant Joan d'Alacant",
+  'Altea',
+  "L'Alfàs del Pi",
+  'Callosa de Segura',
+  'Rojales',
+  'Guardamar del Segura',
+
+  // --- CAPITALES Y CIUDADES PRINCIPALES DE ESPAÑA ---
+  'Madrid',
+  'Barcelona',
+  'Sevilla',
+  'Zaragoza',
+  'Málaga',
+  'Murcia',
+  'Palma de Mallorca',
+  'Las Palmas de Gran Canaria',
+  'Bilbao',
+  'Valladolid',
+  'Córdoba',
+  'Vigo',
+  'Gijón',
+  "L'Hospitalet de Llobregat",
+  'A Coruña',
+  'Vitoria-Gasteiz',
+  'Granada',
+  'Oviedo',
+  'Badalona',
+  'Terrassa',
+  'Cartagena',
+  'Jerez de la Frontera',
+  'Sabadell',
+  'Móstoles',
+  'Santa Cruz de Tenerife',
+  'Alcalá de Henares',
+  'Pamplona',
+  'Almería',
+  'Fuenlabrada',
+  'Leganés',
+  'Donostia-San Sebastián',
+  'Getafe',
+  'Burgos',
+  'Albacete',
+  'Santander',
+  'Logroño',
+  'Badajoz',
+  'Huelva',
+  'Salamanca',
+  'Marbella',
+  'Lleida',
+  'Tarragona',
+  'León',
+  'Cádiz',
+  'Jaén',
+  'Ourense',
+  'Algeciras',
+].sort(); // El .sort() ordena alfabéticamente toda la lista automáticamente
 
 
 ================================================
 📂 ARCHIVO: src/index.css
 ================================================
 
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
-}
 
 
 ================================================
 📂 ARCHIVO: src/main.tsx
 ================================================
 
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App.tsx";
-import { MantineProvider } from "@mantine/core";
-import "@mantine/core/styles.css";
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App.tsx';
+import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <MantineProvider defaultColorScheme="dark">
-      <App />
-    </MantineProvider>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <MantineProvider defaultColorScheme="dark">
+        <Notifications position="top-right" zIndex={1000} />
+        <App />
+      </MantineProvider>
+    </GoogleOAuthProvider>
   </React.StrictMode>,
 );
+
+
+================================================
+📂 ARCHIVO: src/pages/Admin/AdminPanel.tsx
+================================================
+
+import { useEffect, useState } from 'react';
+import {
+  Card,
+  Title,
+  Text,
+  Table,
+  Badge,
+  Group,
+  Center,
+  Loader,
+  Stack,
+  ActionIcon,
+  Tooltip,
+  ThemeIcon,
+  ScrollArea,
+} from '@mantine/core';
+import { IconCheck, IconX, IconShieldCheck, IconBuildingCommunity } from '@tabler/icons-react';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
+import { openAppConfirmModal } from '../../utils/modals';
+
+interface AdminClubUser {
+  name: string;
+  surname: string | null;
+  email: string;
+}
+
+interface ClubAdminData {
+  id: string;
+  name: string;
+  city: string;
+  status: 'Pendiente' | 'Aprobado' | 'Inactivo';
+  createdAt: string;
+  _count: { users: number };
+  users: AdminClubUser[];
+}
+
+export const AdminPanel = () => {
+  const [clubs, setClubs] = useState<ClubAdminData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAllClubs = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(ENDPOINTS.CLUBS.ADMIN_ALL);
+      setClubs(response.data.data);
+    } catch (error) {
+      console.error('Error al cargar la lista de clubes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllClubs();
+  }, []);
+
+  const handleStatusChange = (
+    clubId: string,
+    clubName: string,
+    newStatus: 'Aprobado' | 'Inactivo',
+  ) => {
+    const isApprove = newStatus === 'Aprobado';
+
+    openAppConfirmModal({
+      title: isApprove ? 'Aprobar Nueva Sede' : 'Rechazar / Suspender Sede',
+      icon: isApprove ? <IconCheck size={18} /> : <IconX size={18} />,
+      color: isApprove ? 'green' : 'red',
+      description: isApprove
+        ? 'El club será validado y aparecerá de inmediato en el listado público para que los jugadores puedan unirse.'
+        : 'El club será suspendido. Sus administradores no podrán crear torneos y los jugadores no podrán unirse.',
+      highlightText: clubName,
+      confirmLabel: isApprove ? 'Sí, Aprobar Club' : 'Suspender Club',
+      onConfirm: async () => {
+        try {
+          await api.put(ENDPOINTS.CLUBS.UPDATE(clubId), { status: newStatus });
+          await fetchAllClubs();
+        } catch (error) {
+          console.error('Error cambiando el estado del club', error);
+        }
+      },
+    });
+  };
+
+  if (loading) {
+    return (
+      <Center h={400}>
+        <Loader color="blue" type="bars" />
+      </Center>
+    );
+  }
+
+  const rows = clubs.map((club) => {
+    const admin = club.users[0]; // Extraemos al presidente (el primero que lo creó)
+
+    return (
+      <Table.Tr key={club.id}>
+        <Table.Td>
+          <Group gap="sm">
+            <ThemeIcon
+              color={club.status === 'Pendiente' ? 'yellow' : 'blue'}
+              variant="light"
+              size="lg"
+            >
+              <IconBuildingCommunity size={20} />
+            </ThemeIcon>
+            <div>
+              <Text fw={600} size="sm">
+                {club.name}
+              </Text>
+              <Text size="xs" c="dimmed">
+                📍 {club.city}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+
+        <Table.Td>
+          {admin ? (
+            <div>
+              <Text size="sm" fw={500}>
+                {admin.name} {admin.surname || ''}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {admin.email}
+              </Text>
+            </div>
+          ) : (
+            <Text size="sm" c="dimmed" fs="italic">
+              Sin asignar
+            </Text>
+          )}
+        </Table.Td>
+
+        <Table.Td>
+          <Badge
+            color={
+              club.status === 'Aprobado' ? 'green' : club.status === 'Pendiente' ? 'yellow' : 'red'
+            }
+            variant="dot"
+          >
+            {club.status}
+          </Badge>
+        </Table.Td>
+
+        <Table.Td ta="center">
+          <Text fw={600}>{club._count.users}</Text>
+        </Table.Td>
+
+        <Table.Td>
+          <Group gap="xs">
+            {club.status === 'Pendiente' && (
+              <Tooltip label="Aprobar Sede">
+                <ActionIcon
+                  color="green"
+                  variant="light"
+                  onClick={() => handleStatusChange(club.id, club.name, 'Aprobado')}
+                >
+                  <IconCheck size={18} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+            {club.status !== 'Inactivo' && (
+              <Tooltip label="Suspender / Rechazar Sede">
+                <ActionIcon
+                  color="red"
+                  variant="light"
+                  onClick={() => handleStatusChange(club.id, club.name, 'Inactivo')}
+                >
+                  <IconX size={18} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
+        </Table.Td>
+      </Table.Tr>
+    );
+  });
+
+  return (
+    <Stack gap="lg">
+      <Group gap="sm" align="center">
+        <ThemeIcon size={50} radius="md" color="grape" variant="light">
+          <IconShieldCheck size={28} />
+        </ThemeIcon>
+        <div>
+          <Title order={2}>Panel de Sistema Global</Title>
+          <Text c="dimmed" size="sm">
+            Gestión y auditoría de todas las sedes de la plataforma.
+          </Text>
+        </div>
+      </Group>
+
+      <Card withBorder shadow="sm" radius="md" padding="lg">
+        <Title order={4} mb="md">
+          Auditoría de Clubes
+        </Title>
+        <ScrollArea>
+          <Table striped highlightOnHover verticalSpacing="sm" miw={800}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Sede</Table.Th>
+                <Table.Th>Presidente / Creador</Table.Th>
+                <Table.Th>Estado</Table.Th>
+                <Table.Th ta="center">Miembros</Table.Th>
+                <Table.Th>Acciones</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.length > 0 ? (
+                rows
+              ) : (
+                <Table.Tr>
+                  <Table.Td colSpan={5} ta="center" py="xl">
+                    <Text c="dimmed">No hay clubes registrados en el sistema.</Text>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+      </Card>
+    </Stack>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Clubs/ClubSelection.tsx
+================================================
+
+import { useEffect, useState } from 'react';
+import {
+  Card,
+  Title,
+  Text,
+  SimpleGrid,
+  Button,
+  Center,
+  Loader,
+  Stack,
+  Container,
+  Group,
+  ThemeIcon,
+  Badge,
+} from '@mantine/core';
+import { IconBuildingCommunity, IconCheck, IconX, IconClock, IconUsers } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
+import { api } from '../../api/axios';
+import { useAuthStore } from '../../store/authStore';
+import { openAppConfirmModal } from '../../utils/modals';
+import { ENDPOINTS } from '../../api/endpoints';
+
+interface Club {
+  id: string;
+  name: string;
+  city: string;
+  address?: string;
+  memberCount: number;
+  createdAt: string;
+  foundedAt?: string;
+}
+
+export const ClubSelection = () => {
+  const { user, updateUserFields, logout } = useAuthStore();
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchClubs = async () => {
+      try {
+        const response = await api.get(ENDPOINTS.CLUBS.BASE);
+        if (response.data.success) {
+          setClubs(response.data.data);
+        }
+      } catch (error) {
+        notifications.show({
+          title: 'Error de conexión',
+          message: 'No se pudieron cargar los clubes disponibles.',
+          color: 'red',
+          icon: <IconX size={16} />,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClubs();
+  }, []);
+
+  const handleJoinClub = (clubId: string, clubName: string) => {
+    openAppConfirmModal({
+      title: 'Confirmar solicitud de acceso',
+      icon: <IconBuildingCommunity size={18} />,
+      color: 'blue',
+      description: 'Estás a punto de enviar una solicitud para unirte a:',
+      highlightText: clubName,
+      warningText:
+        'Tu cuenta pasará a estar vinculada a este club una vez aprobada por el administrador.',
+      confirmLabel: 'Enviar solicitud',
+      cancelLabel: 'Volver atrás',
+      onConfirm: async () => {
+        setSubmittingId(clubId);
+        try {
+          const response = await api.post(ENDPOINTS.CLUBS.JOIN(clubId));
+          if (response.data.success) {
+            updateUserFields({ clubId, clubStatus: 'Pendiente' });
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setSubmittingId(null);
+        }
+      },
+    });
+  };
+
+  if (loading) {
+    return (
+      <Center h="100vh">
+        <Loader color="blue" type="bars" />
+      </Center>
+    );
+  }
+
+  return (
+    <Container size="md" py={50}>
+      <Stack gap="xl">
+        {/* Cabecera informativa */}
+        <Card withBorder padding="xl" radius="md" shadow="sm" ta="center">
+          <Title order={2}>
+            <Text
+              component="span"
+              inherit
+              variant="gradient"
+              gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+            >
+              ¡Bienvenido a la comunidad, {user?.name}!
+            </Text>
+          </Title>
+
+          {user?.clubStatus === 'Pendiente' ? (
+            <Stack align="center" gap="xs" mt="md">
+              <Badge color="yellow" size="lg" variant="light" leftSection={<IconClock size={14} />}>
+                Solicitud Pendiente de Aprobación
+              </Badge>
+              <Text c="dimmed" size="sm" maw={500}>
+                Ya has mandado una solicitud. Mientras el administrador de tu club la revisa, los
+                accesos a los torneos privados están pausados.
+              </Text>
+            </Stack>
+          ) : (
+            <Text c="dimmed" mt="sm">
+              Actualmente eres un **jugador libre**. Selecciona un club a continuación para unirte a
+              su ecosistema, competir en sus rankings de ELO y participar en sus torneos internos.
+            </Text>
+          )}
+
+          <Group justify="center" mt="xl">
+            <Button variant="subtle" color="red" size="xs" onClick={logout}>
+              Salir / Cerrar sesión
+            </Button>
+          </Group>
+        </Card>
+
+        <Title order={3} ff="monospace">
+          Clubes Disponibles
+        </Title>
+
+        {/* Grid de Clubes */}
+        {clubs.length === 0 ? (
+          <Card withBorder p="xl" radius="md" ta="center">
+            <Text c="dimmed">No hay clubes registrados o activos en el sistema actualmente.</Text>
+          </Card>
+        ) : (
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+            {clubs.map((club) => {
+              const isCurrentRequest = user?.clubId === club.id;
+              const hasAnyPending = user?.clubStatus === 'Pendiente';
+
+              return (
+                <Card
+                  key={club.id}
+                  shadow="sm"
+                  padding="lg"
+                  radius="md"
+                  withBorder
+                  display="flex"
+                  style={{ flexDirection: 'column' }}
+                >
+                  <Stack gap="xs" style={{ flex: 1 }}>
+                    <Group justify="space-between" wrap="nowrap">
+                      <Group gap="sm">
+                        <ThemeIcon variant="light" size="lg" color="blue">
+                          <IconBuildingCommunity size={20} />
+                        </ThemeIcon>
+                        <Text fw={700} size="lg">
+                          {club.name}
+                        </Text>
+                      </Group>
+                      <Badge color="teal" variant="light" leftSection={<IconUsers size={12} />}>
+                        {club.memberCount} miembros
+                      </Badge>
+                    </Group>
+
+                    {/* Datos de Localización Geográfica */}
+                    <Group gap={6} mt={4}>
+                      <Text size="sm" fw={600} c="dimmed">
+                        📍 {club.city}
+                      </Text>
+                      {club.address && (
+                        <Text size="xs" c="dimmed" fs="italic">
+                          ({club.address})
+                        </Text>
+                      )}
+                    </Group>
+
+                    <Text size="xs" c="dimmed" mt="auto">
+                      Fundado el:{' '}
+                      {club.foundedAt
+                        ? new Date(club.foundedAt).toLocaleDateString()
+                        : new Date(club.createdAt).toLocaleDateString()}
+                    </Text>
+                  </Stack>
+
+                  <Button
+                    fullWidth
+                    mt="md"
+                    color={isCurrentRequest ? 'yellow' : 'blue'}
+                    variant={isCurrentRequest ? 'light' : 'outline'}
+                    loading={submittingId === club.id}
+                    disabled={hasAnyPending && !isCurrentRequest}
+                    leftSection={
+                      isCurrentRequest ? <IconClock size={16} /> : <IconCheck size={16} />
+                    }
+                    onClick={() => handleJoinClub(club.id, club.name)}
+                  >
+                    {isCurrentRequest ? 'Esperando Aprobación' : 'Solicitar Acceso'}
+                  </Button>
+                </Card>
+              );
+            })}
+          </SimpleGrid>
+        )}
+      </Stack>
+    </Container>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Clubs/ClubSetup.tsx
+================================================
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Card,
+  Title,
+  Text,
+  TextInput,
+  Button,
+  Stack,
+  Center,
+  ThemeIcon,
+  Group,
+  Container,
+} from '@mantine/core';
+import { IconBuildingCommunity, IconRocket } from '@tabler/icons-react';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
+import { useAuthStore } from '../../store/authStore';
+import { Autocomplete } from '@mantine/core';
+import { LOCALIZACIONES_ESPANA } from '../../constants/localizaciones';
+
+export const ClubSetup = () => {
+  const navigate = useNavigate();
+  const { updateUserFields } = useAuthStore();
+
+  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState('');
+  const [city, setCity] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await api.post(ENDPOINTS.CLUBS.BASE, { name, city });
+
+      if (response.data.success) {
+        updateUserFields({
+          clubId: response.data.data.id,
+          clubStatus: 'Aprobado',
+        });
+
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Error al registrar la sede:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Center style={{ height: '100vh', backgroundColor: 'var(--mantine-color-gray-0)' }}>
+      <Container size="xs" w="100%" maw={450}>
+        <Card shadow="xl" padding="xl" radius="md" withBorder>
+          <Stack gap="md" align="center" ta="center">
+            <ThemeIcon size={60} radius="xl" color="orange" variant="light">
+              <IconBuildingCommunity size={34} />
+            </ThemeIcon>
+
+            <Title order={2}>Configura tu Sede</Title>
+            <Text c="dimmed" size="sm">
+              ¡Bienvenido! Has registrado una cuenta de administración. Para comenzar a operar,
+              necesitamos los datos de tu club. Esta información será validada por el administrador
+              de la aplicacion.
+            </Text>
+
+            <form onSubmit={handleSubmit} style={{ width: '100%', marginTop: '1rem' }}>
+              <Stack gap="md">
+                <TextInput
+                  label="Nombre Oficial del Club"
+                  placeholder="Ej. Club de Tenis de Mesa Madrid"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.currentTarget.value)}
+                />
+
+                <Autocomplete
+                  label="Ciudad base"
+                  placeholder="Ej. Onda, Vila-real, Castellón..."
+                  required
+                  value={city}
+                  onChange={setCity}
+                  data={LOCALIZACIONES_ESPANA} // 👈 En el futuro, esto se sustituye por una llamada a una API
+                  limit={5}
+                  maxDropdownHeight={200}
+                />
+
+                <Button
+                  type="submit"
+                  color="orange"
+                  size="md"
+                  fullWidth
+                  mt="sm"
+                  loading={loading}
+                  leftSection={<IconRocket size={18} />}
+                >
+                  Registrar Club
+                </Button>
+              </Stack>
+            </form>
+          </Stack>
+        </Card>
+      </Container>
+    </Center>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Clubs/MiClub.tsx
+================================================
+
+import { useEffect, useState } from 'react';
+import {
+  Card,
+  Title,
+  Text,
+  Button,
+  Group,
+  Stack,
+  ThemeIcon,
+  Badge,
+  Center,
+  Loader,
+  TextInput,
+  Autocomplete,
+  SimpleGrid,
+  Paper,
+  ActionIcon,
+} from '@mantine/core';
+import { DateInput } from '@mantine/dates';
+import {
+  IconBuildingCommunity,
+  IconMapPin,
+  IconCalendar,
+  IconUsers,
+  IconEdit,
+  IconDeviceFloppy,
+  IconX,
+} from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
+import { LOCALIZACIONES_ESPANA } from '../../constants/localizaciones';
+import '@mantine/dates/styles.css';
+
+interface ClubDetails {
+  id: string;
+  name: string;
+  city: string;
+  address: string | null;
+  foundedAt: string | null;
+  status: string;
+  _count: {
+    users: number;
+  };
+}
+
+export const MiClub = () => {
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
+
+  const [club, setClub] = useState<ClubDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Estados del formulario
+  const [name, setName] = useState('');
+  const [city, setCity] = useState('');
+  const [address, setAddress] = useState('');
+  const [foundedAt, setFoundedAt] = useState<Date | null>(null);
+
+  const fetchClubDetails = async () => {
+    if (!user?.clubId) return;
+    try {
+      setLoading(true);
+      const res = await api.get(ENDPOINTS.CLUBS.BY_ID(user.clubId));
+      const data = res.data.data;
+      setClub(data);
+
+      // Sincronizar formulario
+      setName(data.name);
+      setCity(data.city);
+      setAddress(data.address || '');
+      setFoundedAt(data.foundedAt ? new Date(data.foundedAt) : null);
+    } catch (error) {
+      console.error('Error cargando los detalles del club:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClubDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.clubId]);
+
+  const handleSave = async () => {
+    if (!user?.clubId) return;
+    setSaving(true);
+    try {
+      const payload = {
+        name,
+        city,
+        address: address || null,
+        foundedAt: foundedAt ? foundedAt.toISOString() : null,
+      };
+
+      await api.put(ENDPOINTS.CLUBS.UPDATE(user.clubId), payload);
+      setIsEditing(false);
+      await fetchClubDetails();
+    } catch (error) {
+      console.error('Error actualizando la sede:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Center h={400}>
+        <Loader color="orange" type="bars" />
+      </Center>
+    );
+  }
+
+  if (!club) {
+    return (
+      <Center h={400}>
+        <Text c="dimmed">No se pudo cargar la información del club.</Text>
+      </Center>
+    );
+  }
+
+  return (
+    <Stack gap="xl" maw={800} mx="auto">
+      <Group justify="space-between" align="center">
+        <Title order={2}>Panel de Administración de Sede</Title>
+        {!isEditing ? (
+          <Button
+            leftSection={<IconEdit size={16} />}
+            color="orange"
+            variant="light"
+            onClick={() => setIsEditing(true)}
+          >
+            Editar Datos
+          </Button>
+        ) : (
+          <Group gap="xs">
+            <ActionIcon color="gray" variant="subtle" size="lg" onClick={() => setIsEditing(false)}>
+              <IconX size={20} />
+            </ActionIcon>
+            <Button
+              leftSection={<IconDeviceFloppy size={16} />}
+              color="green"
+              onClick={handleSave}
+              loading={saving}
+            >
+              Guardar Cambios
+            </Button>
+          </Group>
+        )}
+      </Group>
+
+      <Card shadow="sm" padding="xl" radius="md" withBorder>
+        {!isEditing ? (
+          <Stack gap="lg">
+            <Group wrap="nowrap" align="flex-start">
+              <ThemeIcon size={80} radius="md" color="orange" variant="light">
+                <IconBuildingCommunity size={40} />
+              </ThemeIcon>
+              <div>
+                <Title order={1}>{club.name}</Title>
+                <Badge mt="xs" size="lg" color={club.status === 'Aprobado' ? 'green' : 'yellow'}>
+                  Estado: {club.status}
+                </Badge>
+              </div>
+            </Group>
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg" mt="md">
+              <Paper
+                withBorder
+                p="md"
+                radius="md"
+                bg="var(--mantine-color-gray-0)"
+                style={{ darkHidden: true }}
+              >
+                <Group gap="sm" mb="xs">
+                  <IconMapPin size={20} color="var(--mantine-color-blue-6)" />
+                  <Text fw={700}>Ubicación</Text>
+                </Group>
+                <Text size="sm">{club.city}</Text>
+                <Text size="sm" c="dimmed">
+                  {club.address || 'Sin dirección exacta registrada'}
+                </Text>
+              </Paper>
+
+              <Paper
+                withBorder
+                p="md"
+                radius="md"
+                bg="var(--mantine-color-gray-0)"
+                style={{ darkHidden: true }}
+              >
+                <Group gap="sm" mb="xs">
+                  <IconCalendar size={20} color="var(--mantine-color-teal-6)" />
+                  <Text fw={700}>Fundación</Text>
+                </Group>
+                <Text size="sm">
+                  {club.foundedAt
+                    ? new Date(club.foundedAt).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })
+                    : 'Fecha no registrada'}
+                </Text>
+              </Paper>
+            </SimpleGrid>
+          </Stack>
+        ) : (
+          <Stack gap="md">
+            <TextInput
+              label="Nombre Oficial del Club"
+              required
+              value={name}
+              onChange={(e) => setName(e.currentTarget.value)}
+            />
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <Autocomplete
+                label="Ciudad base"
+                required
+                value={city}
+                onChange={setCity}
+                data={LOCALIZACIONES_ESPANA}
+                limit={6}
+                maxDropdownHeight={200}
+              />
+              <TextInput
+                label="Dirección Completa"
+                placeholder="Ej. Pabellón Municipal, Calle Mayor 12"
+                value={address}
+                onChange={(e) => setAddress(e.currentTarget.value)}
+              />
+            </SimpleGrid>
+            <DateInput
+              label="Fecha de Fundación"
+              placeholder="¿Cuándo se fundó el club?"
+              value={foundedAt}
+              onChange={(val) => setFoundedAt(val ? new Date(val) : null)}
+              clearable
+              maxDate={new Date()}
+            />
+          </Stack>
+        )}
+      </Card>
+
+      <Title order={3} mt="md">
+        Resumen Operativo
+      </Title>
+
+      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+        <Card withBorder padding="lg" radius="md" shadow="sm">
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+              Plantilla de Jugadores
+            </Text>
+            <ThemeIcon color="blue" variant="light" size={38} radius="md">
+              <IconUsers size={24} />
+            </ThemeIcon>
+          </Group>
+          <Group align="flex-end" gap="xs" mt={25}>
+            <Text size="xl" fw={700}>
+              {club._count.users}
+            </Text>
+          </Group>
+          <Text size="sm" c="dimmed" mt={7}>
+            Miembros totales asociados a la sede
+          </Text>
+          <Button
+            variant="light"
+            color="blue"
+            fullWidth
+            mt="md"
+            onClick={() => navigate('/jugadores')}
+          >
+            Gestionar Solicitudes y Plantilla
+          </Button>
+        </Card>
+      </SimpleGrid>
+    </Stack>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Dashboard.tsx
+================================================
+
+import { useEffect, useState } from 'react'; // 👈 Añade useEffect y useState
+import {
+  Title,
+  Text,
+  Button,
+  Card,
+  Stack,
+  Group,
+  Badge,
+  ThemeIcon,
+  Alert,
+  SimpleGrid,
+} from '@mantine/core'; // 👈 Añade Alert
+import { useAuthStore } from '../store/authStore';
+import { useNavigate } from 'react-router-dom';
+import {
+  IconBuildingCommunity,
+  IconClock,
+  IconTrophy,
+  IconUserCheck,
+  IconAlertCircle,
+} from '@tabler/icons-react';
+import { api } from '../api/axios';
+import { ENDPOINTS } from '../api/endpoints';
+
+export const Dashboard = () => {
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+
+  // Atajos de roles y estados
+  const isPlayer = user?.role === 'Player';
+  const isAdminClub = user?.role === 'AdminClub';
+  const hasApprovedClub = user?.clubStatus === 'Aprobado' && user?.clubId;
+  const isPendingClub = user?.clubStatus === 'Pendiente';
+
+  // Estado para guardar los datos de la sede del Admin
+  const [clubDetails, setClubDetails] = useState<any>(null);
+
+  useEffect(() => {
+    // Si es un AdminClub y tiene sede asignada, nos bajamos sus detalles
+    if (isAdminClub && user?.clubId) {
+      api
+        .get(ENDPOINTS.CLUBS.BY_ID(user.clubId))
+        .then((res) => setClubDetails(res.data.data))
+        .catch((err) => console.error('Error obteniendo detalles del club:', err));
+    }
+  }, [isAdminClub, user?.clubId]);
+
+  return (
+    <Stack gap="lg">
+      {/* Tarjeta Principal de Bienvenida */}
+      <Card withBorder padding="xl" radius="md" shadow="sm">
+        <Group justify="space-between" align="center">
+          <Stack gap={4}>
+            <Title order={2}>
+              ¡Bienvenido de nuevo,{' '}
+              {user?.nickname ? user?.nickname : `${user?.name} ${user?.surname || ''}`}!
+            </Title>
+            <Group gap="xs" mt={4}>
+              <Text c="dimmed" size="sm">
+                Rol de sistema:
+              </Text>
+              <Badge variant="light" color={isAdminClub ? 'orange' : 'blue'}>
+                {user?.role}
+              </Badge>
+            </Group>
+          </Stack>
+
+          <Button
+            color="red"
+            variant="subtle"
+            size="sm"
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+          >
+            Cerrar Sesión
+          </Button>
+        </Group>
+      </Card>
+
+      {/* 🔥 NUEVO: BANNER PARA ADMINS CON PERFIL INCOMPLETO */}
+      {isAdminClub && clubDetails && !clubDetails.address && (
+        <Alert
+          variant="light"
+          color="orange"
+          title="Tu sede necesita un toque extra"
+          icon={<IconAlertCircle />}
+          radius="md"
+        >
+          <Text size="sm" mb="sm">
+            Hemos registrado tu club en <strong>{clubDetails.city}</strong>, pero los jugadores
+            agradecerán saber la dirección exacta de las mesas y la fecha de fundación para daros
+            más prestigio.
+          </Text>
+          <Button variant="filled" color="orange" size="xs" onClick={() => navigate('/mi-club')}>
+            Completar perfil del Club
+          </Button>
+        </Alert>
+      )}
+
+      {/* CASO A: Player libre o rechazado */}
+      {isPlayer && !hasApprovedClub && !isPendingClub && (
+        <Card withBorder padding="lg" radius="md" bg="blue.0" c="blue.9">
+          <Group align="flex-start" wrap="nowrap">
+            <ThemeIcon color="blue" size="xl" radius="md" variant="light">
+              <IconBuildingCommunity size={24} />
+            </ThemeIcon>
+            <Stack gap="xs" style={{ flex: 1 }}>
+              <Text fw={700} size="lg">
+                Estatus: Jugador Libre
+              </Text>
+              <Text size="sm">
+                Actualmente no perteneces a ningún club. Puedes navegar por la pestaña de
+                **Torneos** para registrarte en eventos de formato abierto, o buscar un club local
+                para unirte a su ranking interno de ELO y estadísticas.
+              </Text>
+              <Button
+                variant="filled"
+                color="blue"
+                w="max-content"
+                size="sm"
+                mt="xs"
+                onClick={() => navigate('/club-selection')}
+              >
+                Explorar Lista de Clubes
+              </Button>
+            </Stack>
+          </Group>
+        </Card>
+      )}
+
+      {/* CASO B: Player con solicitud pendiente */}
+      {isPlayer && isPendingClub && (
+        <Card withBorder padding="lg" radius="md" bg="yellow.0" c="yellow.9">
+          <Group align="flex-start" wrap="nowrap">
+            <ThemeIcon color="yellow" size="xl" radius="md" variant="light">
+              <IconClock size={24} />
+            </ThemeIcon>
+            <Stack gap="xs" style={{ flex: 1 }}>
+              <Text fw={700} size="lg">
+                Solicitud en revisión
+              </Text>
+              <Text size="sm">
+                Has enviado una petición de unión a un club. El administrador está verificando tus
+                datos. Mientras tanto, puedes explorar el historial de partidas generales o
+                inscribirte en torneos abiertos globales.
+              </Text>
+            </Stack>
+          </Group>
+        </Card>
+      )}
+
+      {/* CASO C: Player verificado, Admin o SuperAdmin */}
+      {(!isPlayer || hasApprovedClub) && (
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg" mt="md">
+          <Card withBorder radius="md" p="lg" shadow="xs">
+            <Group gap="sm">
+              <ThemeIcon variant="light" color="green" size="lg">
+                <IconUserCheck size={20} />
+              </ThemeIcon>
+              <Text fw={600}>Acceso Verificado</Text>
+            </Group>
+            <Text size="sm" c="dimmed" mt="xs">
+              Tu cuenta se encuentra totalmente activa en el ecosistema de competición. Tienes pleno
+              acceso a los listados de jugadores y rankings.
+            </Text>
+          </Card>
+
+          <Card withBorder radius="md" p="lg" shadow="xs">
+            <Group gap="sm">
+              <ThemeIcon variant="light" color="orange" size="lg">
+                <IconTrophy size={20} />
+              </ThemeIcon>
+              <Text fw={600}>Competiciones Activas</Text>
+            </Group>
+            <Text size="sm" c="dimmed" mt="xs">
+              Consulta la cartelera para conocer los torneos que están jugándose en este momento en
+              tu club y no te quedes fuera del cuadro clasificatorio.
+            </Text>
+            <Button
+              size="xs"
+              variant="light"
+              color="orange"
+              mt="md"
+              onClick={() => navigate('/torneos')}
+            >
+              Ir a Torneos
+            </Button>
+          </Card>
+        </SimpleGrid>
+      )}
+    </Stack>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Jugadores/JugadorPerfil.tsx
+================================================
+
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Card,
+  Avatar,
+  Text,
+  Group,
+  Button,
+  SimpleGrid,
+  Title,
+  Center,
+  Loader,
+  Badge,
+  Paper,
+  ThemeIcon,
+  Stack,
+} from '@mantine/core';
+import {
+  IconArrowLeft,
+  IconTrophy,
+  IconPingPong,
+  IconChartBar,
+  IconMathSymbols,
+} from '@tabler/icons-react';
+import { api } from '../../api/axios';
+
+interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  surname?: string;
+  stats?: {
+    elo: number;
+    matchWon: number;
+    matchLost: number;
+    setWon: number;
+    setLost: number;
+    pointWon: number;
+    pointLost: number;
+    tournamentWon: number;
+    tournamentLost: number;
+  };
+}
+
+export const JugadorPerfil = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [player, setPlayer] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPlayerInfo = async () => {
+      try {
+        const response = await api.get(`/users/${id}`);
+
+        const data = response.data.data || response.data;
+        setPlayer(data);
+      } catch (error) {
+        console.error('Error cargando perfil del jugador:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlayerInfo();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <Center h={400}>
+        <Loader color="blue" type="bars" />
+      </Center>
+    );
+  }
+
+  if (!player) {
+    return (
+      <Center h={400}>
+        <Text c="dimmed">Jugador no encontrado.</Text>
+      </Center>
+    );
+  }
+
+  const s = player.stats;
+  const matchWinRate =
+    (s?.matchWon || 0) + (s?.matchLost || 0) > 0
+      ? Math.round(((s?.matchWon || 0) / ((s?.matchWon || 0) + (s?.matchLost || 0))) * 100)
+      : 0;
+
+  return (
+    <Stack gap="xl">
+      {/* Botón para volver atrás */}
+      <div>
+        <Button
+          variant="subtle"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={() => navigate(-1)}
+        >
+          Volver a Jugadores
+        </Button>
+      </div>
+
+      {/* Cabecera del Perfil */}
+      <Card shadow="sm" padding="xl" radius="md" withBorder maw={600}>
+        <Group align="flex-start" justify="space-between">
+          <Group gap="lg">
+            <Avatar size={100} radius={100} color="blue">
+              {player.name.charAt(0).toUpperCase()}
+            </Avatar>
+            <div>
+              <Title order={1}>
+                {player.name} {player.surname}
+              </Title>
+              <Text c="dimmed" size="lg">
+                {player.email}
+              </Text>
+              <Badge
+                mt="sm"
+                size="lg"
+                color={s?.elo && s.elo > 600 ? 'green' : 'blue'}
+                variant="light"
+              >
+                {s?.elo || 500} ELO
+              </Badge>
+            </div>
+          </Group>
+        </Group>
+      </Card>
+
+      <Title order={3}>Estadísticas Completas</Title>
+
+      {/* Grid de Tarjetas de Estadísticas */}
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
+        {/* Tarjeta 1: Partidos */}
+        <Paper withBorder p="md" radius="md" shadow="sm">
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+              Partidos
+            </Text>
+            <ThemeIcon color="blue" variant="light" size={38} radius="md">
+              <IconPingPong size={24} />
+            </ThemeIcon>
+          </Group>
+          <Group align="flex-end" gap="xs" mt={25}>
+            <Text size="xl" fw={700}>
+              {s?.matchWon || 0}V - {s?.matchLost || 0}D
+            </Text>
+          </Group>
+          <Text size="sm" c="dimmed" mt={7}>
+            {matchWinRate}% de Victorias
+          </Text>
+        </Paper>
+
+        {/* Tarjeta 2: Torneos */}
+        <Paper withBorder p="md" radius="md" shadow="sm">
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+              Torneos Jugados
+            </Text>
+            <ThemeIcon color="yellow" variant="light" size={38} radius="md">
+              <IconTrophy size={24} />
+            </ThemeIcon>
+          </Group>
+          <Group align="flex-end" gap="xs" mt={25}>
+            <Text size="xl" fw={700}>
+              {(s?.tournamentWon || 0) + (s?.tournamentLost || 0)}
+            </Text>
+          </Group>
+          <Text size="sm" c="dimmed" mt={7}>
+            <Text component="span" c="green" fw={500}>
+              {s?.tournamentWon || 0} Ganados
+            </Text>
+          </Text>
+        </Paper>
+
+        {/* Tarjeta 3: Sets */}
+        <Paper withBorder p="md" radius="md" shadow="sm">
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+              Balance de Sets
+            </Text>
+            <ThemeIcon color="grape" variant="light" size={38} radius="md">
+              <IconChartBar size={24} />
+            </ThemeIcon>
+          </Group>
+          <Group align="flex-end" gap="xs" mt={25}>
+            <Text size="xl" fw={700}>
+              {s?.setWon || 0} - {s?.setLost || 0}
+            </Text>
+          </Group>
+          <Text size="sm" c="dimmed" mt={7}>
+            Diferencia: {(s?.setWon || 0) - (s?.setLost || 0)}
+          </Text>
+        </Paper>
+
+        {/* Tarjeta 4: Puntos */}
+        <Paper withBorder p="md" radius="md" shadow="sm">
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+              Puntos Totales
+            </Text>
+            <ThemeIcon color="teal" variant="light" size={38} radius="md">
+              <IconMathSymbols size={24} />
+            </ThemeIcon>
+          </Group>
+          <Group align="flex-end" gap="xs" mt={25}>
+            <Text size="xl" fw={700}>
+              <Text component="span" c="green">
+                {s?.pointWon || 0}
+              </Text>{' '}
+              /{' '}
+              <Text component="span" c="red">
+                {s?.pointLost || 0}
+              </Text>
+            </Text>
+          </Group>
+          <Text size="sm" c="dimmed" mt={7}>
+            Ratio: {s?.pointLost ? ((s.pointWon || 0) / s.pointLost).toFixed(2) : 0}
+          </Text>
+        </Paper>
+      </SimpleGrid>
+    </Stack>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Jugadores/Jugadores.tsx
+================================================
+
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Table,
+  Title,
+  Card,
+  Avatar,
+  Group,
+  Text,
+  Badge,
+  Center,
+  Loader,
+  ScrollArea,
+  TextInput,
+  Pagination,
+  Stack,
+  Tooltip,
+  ActionIcon,
+  Select,
+  Modal,
+  NumberInput,
+  Button,
+} from '@mantine/core';
+import {
+  IconSearch,
+  IconEye,
+  IconCheck,
+  IconX,
+  IconFilter,
+  IconUserCheck,
+  IconUserMinus,
+  IconEdit,
+} from '@tabler/icons-react';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
+import { useAuthStore } from '../../store/authStore';
+import { openAppConfirmModal } from '../../utils/modals';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  surname?: string;
+  nickname?: string;
+  clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
+  stats?: {
+    elo: number;
+    matchWon: number;
+    matchLost: number;
+    setWon: number;
+    setLost: number;
+  };
+}
+
+const COLORS = ['red', 'green', 'blue', 'yellow', 'orange'];
+const ITEMS_PER_PAGE = 10;
+
+export const Jugadores = () => {
+  const navigate = useNavigate();
+  const { user: currentUser } = useAuthStore();
+
+  const [players, setPlayers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('Aprobado');
+  const [page, setPage] = useState(1);
+
+  // --- ESTADOS PARA EDICIÓN MANUAL DE ELO ---
+  const [editEloModal, setEditEloModal] = useState<{ opened: boolean; player: User | null }>({
+    opened: false,
+    player: null,
+  });
+  const [newElo, setNewElo] = useState<number | string>(500);
+
+  const isAdminClub = currentUser?.role === 'AdminClub';
+
+  const fetchPlayers = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(ENDPOINTS.PLAYERS.BASE);
+      const data = response.data.data || response.data;
+
+      if (Array.isArray(data)) {
+        setPlayers(data);
+      }
+    } catch (error) {
+      console.error('Error cargando jugadores:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlayers();
+  }, []);
+
+  const handleProcessRequest = (
+    playerId: string,
+    playerName: string,
+    action: 'Aprobado' | 'Rechazado',
+  ) => {
+    const isApprove = action === 'Aprobado';
+    const adminClubId = currentUser?.clubId;
+
+    if (!adminClubId) return;
+
+    openAppConfirmModal({
+      title: isApprove ? 'Aprobar Miembro' : 'Rechazar Solicitud',
+      icon: isApprove ? <IconUserCheck size={18} /> : <IconUserMinus size={18} />,
+      color: isApprove ? 'green' : 'red',
+      description: `Estás a punto de procesar la solicitud de membresía para:`,
+      highlightText: playerName,
+      warningText: isApprove
+        ? 'El jugador ganará acceso completo a los rankings internos, estadísticas e historial privado del club.'
+        : 'La solicitud será denegada. El jugador volverá al estado de Jugador Libre para poder aplicar a otros clubes.',
+      confirmLabel: isApprove ? 'Aprobar Miembro' : 'Rechazar Solicitud',
+      onConfirm: async () => {
+        try {
+          await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(adminClubId, playerId), { status: action });
+          await fetchPlayers();
+        } catch (error) {
+          console.error('Error al procesar la solicitud del miembro:', error);
+        }
+      },
+    });
+  };
+
+  // --- LÓGICA DE EDICIÓN DE ELO ---
+  const openEditElo = (player: User) => {
+    setNewElo(player.stats?.elo || 500);
+    setEditEloModal({ opened: true, player });
+  };
+
+  const handleUpdateElo = async () => {
+    if (!editEloModal.player) return;
+    try {
+      // Invocación a tu PUT genérico de actualización de usuario que ya soporta "elo"
+      await api.put(ENDPOINTS.USERS.BY_ID(editEloModal.player.id), { elo: Number(newElo) });
+      setEditEloModal({ opened: false, player: null });
+      await fetchPlayers();
+    } catch (error) {
+      console.error('Error al actualizar ELO', error);
+    }
+  };
+
+  // --- FILTRADO COMBINADO ---
+  const filteredPlayers = players.filter((player) => {
+    const fullName = `${player.name} ${player.surname || ''}`.toLowerCase();
+    const matchesSearch = fullName.includes(search.toLowerCase());
+    const matchesStatus = player.clubStatus === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalPages = Math.ceil(filteredPlayers.length / ITEMS_PER_PAGE);
+  const paginatedPlayers = filteredPlayers.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE,
+  );
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.currentTarget.value);
+    setPage(1);
+  };
+
+  const handleStatusChange = (value: string | null) => {
+    setStatusFilter(value || 'Aprobado');
+    setPage(1);
+  };
+
+  const returnEloColor = (elo: number) => {
+    if (elo < 500) return 'red';
+    if (elo >= 500 && elo < 750) return 'yellow';
+    if (elo >= 750 && elo < 1000) return 'blue';
+    return 'green';
+  };
+
+  if (loading) {
+    return (
+      <Center h={400}>
+        <Loader color="blue" type="bars" />
+      </Center>
+    );
+  }
+
+  const rows = paginatedPlayers.map((player) => {
+    if (!player) return null;
+
+    const totalMatches = (player.stats?.matchWon || 0) + (player.stats?.matchLost || 0);
+    const winRate =
+      totalMatches > 0 ? Math.round(((player.stats?.matchWon || 0) / totalMatches) * 100) : 0;
+    const fullName = `${player.name} ${player.surname || ''}`;
+
+    return (
+      <Table.Tr key={player.id}>
+        <Table.Td>
+          <Group gap="sm">
+            <Avatar color={COLORS[Math.floor(Math.random() * COLORS.length)]} radius="xl">
+              {player?.name?.charAt(0)?.toUpperCase() || 'U'}
+            </Avatar>
+            <div>
+              <Text fz="sm" fw={500}>
+                {fullName}
+              </Text>
+              <Text fz="xs" c="dimmed">
+                {player?.nickname || 'Sin mote'}
+              </Text>
+              <Text c="dimmed" fz="xs" visibleFrom="sm">
+                {player?.email || 'Sin correo'}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+
+        <Table.Td>
+          <Badge
+            color={player.stats?.elo ? returnEloColor(player.stats?.elo) : 'gray'}
+            variant="light"
+          >
+            {player.stats?.elo || 500} ELO
+          </Badge>
+        </Table.Td>
+
+        <Table.Td visibleFrom="sm">
+          <Badge color={player.clubStatus === 'Aprobado' ? 'green' : 'yellow'} variant="dot">
+            {player.clubStatus || 'Registrado'}
+          </Badge>
+        </Table.Td>
+
+        <Table.Td visibleFrom="sm">
+          <Text fz="sm" fw={500}>
+            <Text component="span" c="green">
+              {player.stats?.matchWon || 0}V
+            </Text>{' '}
+            -{' '}
+            <Text component="span" c="red">
+              {player.stats?.matchLost || 0}D
+            </Text>
+          </Text>
+          <Text fz="xs" c="dimmed">
+            {winRate}% Win Rate
+          </Text>
+        </Table.Td>
+
+        <Table.Td>
+          <Group gap="xs">
+            {player.clubStatus === 'Pendiente' && isAdminClub && (
+              <>
+                <Tooltip label="Aprobar e incorporar al club">
+                  <ActionIcon
+                    variant="light"
+                    color="green"
+                    onClick={() => handleProcessRequest(player.id, fullName, 'Aprobado')}
+                  >
+                    <IconCheck size={16} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Rechazar solicitud">
+                  <ActionIcon
+                    variant="light"
+                    color="red"
+                    onClick={() => handleProcessRequest(player.id, fullName, 'Rechazado')}
+                  >
+                    <IconX size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </>
+            )}
+
+            {/* BOTÓN EDICIÓN MANUAL DE ELO (Solo para miembros del club y si eres admin) */}
+            {player.clubStatus === 'Aprobado' && isAdminClub && (
+              <Tooltip label="Ajustar ELO manualmente">
+                <ActionIcon variant="light" color="orange" onClick={() => openEditElo(player)}>
+                  <IconEdit size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+
+            <Tooltip label="Ver perfil completo">
+              <ActionIcon
+                variant="light"
+                color="blue"
+                onClick={() => navigate(`/jugadores/${player.id}`)}
+              >
+                <IconEye size={18} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        </Table.Td>
+      </Table.Tr>
+    );
+  });
+
+  return (
+    <Stack gap="md">
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Group justify="space-between" mb="md" wrap="wrap" gap="sm">
+          <Title order={2}>Plantilla de Jugadores</Title>
+
+          <Group gap="xs" style={{ flexGrow: 1, justifyRight: 'true', maxWidth: 500 }}>
+            <TextInput
+              placeholder="Buscar jugador..."
+              leftSection={<IconSearch size={16} />}
+              value={search}
+              onChange={handleSearchChange}
+              style={{ flexGrow: 1 }}
+            />
+            <Select
+              leftSection={<IconFilter size={16} />}
+              data={[
+                { value: 'Aprobado', label: 'Miembros Activos' },
+                { value: 'Pendiente', label: 'Solicitudes en Espera' },
+                { value: 'Rechazado', label: 'Rechazados' },
+              ]}
+              value={statusFilter}
+              onChange={handleStatusChange}
+              allowDeselect={false}
+              style={{ width: 190 }}
+            />
+          </Group>
+        </Group>
+
+        <ScrollArea>
+          <Table verticalSpacing="sm" striped highlightOnHover miw={600}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Jugador</Table.Th>
+                <Table.Th>ELO</Table.Th>
+                <Table.Th visibleFrom="sm">Estado Club</Table.Th>
+                <Table.Th visibleFrom="sm">Récord</Table.Th>
+                <Table.Th>Acciones</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.filter(Boolean).length > 0 ? (
+                rows
+              ) : (
+                <Table.Tr>
+                  <Table.Td colSpan={5}>
+                    <Center py="xl">
+                      <Text c="dimmed">No se han encontrado jugadores con este estado.</Text>
+                    </Center>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+
+        {totalPages > 1 && (
+          <Center mt="md">
+            <Pagination total={totalPages} value={page} onChange={setPage} color="blue" withEdges />
+          </Center>
+        )}
+      </Card>
+
+      {/* MODAL PARA CAMBIO DE ELO MANUAL */}
+      <Modal
+        opened={editEloModal.opened}
+        onClose={() => setEditEloModal({ opened: false, player: null })}
+        title={<Title order={4}>Ajuste Manual de ELO</Title>}
+        centered
+        overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
+      >
+        {editEloModal.player && (
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              Estás a punto de modificar la puntuación ELO de{' '}
+              <strong>
+                {editEloModal.player.name} {editEloModal.player.surname || ''}
+              </strong>
+              . Utiliza esta opción con precaución para emparejar niveles procedentes de otras
+              ligas.
+            </Text>
+
+            <NumberInput
+              label="Nueva Puntuación ELO"
+              description="Valor base por defecto: 500"
+              min={0}
+              max={3500}
+              value={newElo}
+              onChange={setNewElo}
+              data-autofocus
+            />
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="subtle"
+                color="gray"
+                onClick={() => setEditEloModal({ opened: false, player: null })}
+              >
+                Cancelar
+              </Button>
+              <Button color="orange" onClick={handleUpdateElo}>
+                Aplicar Nuevo ELO
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
+    </Stack>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Login.tsx
+================================================
+
+import { useState } from 'react';
+import {
+  Button,
+  Title,
+  Center,
+  Stack,
+  TextInput,
+  PasswordInput,
+  Paper,
+  Text,
+  Divider,
+  Tabs,
+  Group,
+  SegmentedControl,
+} from '@mantine/core';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+import { api } from '../api/axios';
+import { ENDPOINTS } from '../api/endpoints';
+import { GoogleLogin } from '@react-oauth/google';
+import { IconLock, IconUserPlus } from '@tabler/icons-react';
+import DICTIONARY from '../constants/dictionary.json';
+
+export const Login = () => {
+  const login = useAuthStore((state) => state.login);
+  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState<string | null>('login');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  // Estados del formulario
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
+  const [secondSurname, setSecondSurname] = useState('');
+
+  // Estado para el rol (Solo se usa en Registro)
+  const [selectedRole, setSelectedRole] = useState<'Player' | 'AdminClub'>('Player');
+
+  const processSuccessfulLogin = (token: string) => {
+    const payloadBase64 = token.split('.')[1];
+    const decodedPayload = JSON.parse(
+      decodeURIComponent(
+        atob(payloadBase64)
+          .split('')
+          .map((c) => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          })
+          .join(''),
+      ),
+    );
+
+    const loggedUser = {
+      id: decodedPayload.id,
+      email: decodedPayload.email,
+      surname: decodedPayload.surname || '',
+      nickname: decodedPayload.nickname,
+      name: decodedPayload.name || 'Jugador',
+      role: decodedPayload.role,
+      clubId: decodedPayload.clubId || null,
+      clubStatus: decodedPayload.clubStatus || null,
+    };
+
+    login(token, loggedUser);
+    navigate('/');
+  };
+
+  const handleLoginError = (error: any) => {
+    if (error.response && error.response.data.error) {
+      setErrorMsg(error.response.data.error);
+    } else {
+      setErrorMsg('Error de conexión con el servidor');
+    }
+  };
+
+  const handleRealLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await api.post(ENDPOINTS.AUTH.LOGIN, { email, password });
+      processSuccessfulLogin(response.data.token);
+    } catch (error: any) {
+      handleLoginError(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      setErrorMsg('Las contraseñas no coinciden');
+      return;
+    }
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await api.post(ENDPOINTS.AUTH.REGISTER, {
+        email,
+        password,
+        confirmPassword,
+        name,
+        surname,
+        secondSurname: secondSurname || null,
+        role: selectedRole, // 👈 Enviamos el rol seleccionado
+      });
+      processSuccessfulLogin(response.data.token);
+    } catch (error: any) {
+      handleLoginError(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await api.post(ENDPOINTS.AUTH.GOOGLE, {
+        credential: credentialResponse.credential,
+        // 👈 Solo mandamos el rol específico si estaban en la pestaña de Registro.
+        // Si estaban en Login, mandamos Player por defecto (el backend lo ignora si ya existen)
+        role: activeTab === 'register' ? selectedRole : 'Player',
+      });
+      processSuccessfulLogin(response.data.token);
+    } catch (error: any) {
+      handleLoginError(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Center style={{ height: '100vh', backgroundColor: 'var(--mantine-color-gray-0)' }}>
+      <Paper radius="md" p="xl" withBorder shadow="md" w={420}>
+        <Title order={2} ta="center" mb="md">
+          {DICTIONARY.app_title}
+        </Title>
+
+        {errorMsg && (
+          <Text c="red" size="sm" ta="center" mb="sm" fw={500}>
+            {errorMsg}
+          </Text>
+        )}
+
+        <Tabs
+          value={activeTab}
+          onChange={(val) => {
+            setActiveTab(val);
+            setErrorMsg('');
+          }}
+          variant="outline"
+        >
+          <Tabs.List grow mb="md">
+            <Tabs.Tab value="login" leftSection={<IconLock size={16} />}>
+              Ingresar
+            </Tabs.Tab>
+            <Tabs.Tab value="register" leftSection={<IconUserPlus size={16} />}>
+              Registrarse
+            </Tabs.Tab>
+          </Tabs.List>
+
+          {/* PANEL DE LOGIN */}
+          <Tabs.Panel value="login">
+            <form onSubmit={handleRealLogin}>
+              <Stack gap="sm">
+                <TextInput
+                  label="Correo electrónico"
+                  placeholder="tu@email.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.currentTarget.value)}
+                />
+                <PasswordInput
+                  label="Contraseña"
+                  placeholder="Tu contraseña"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.currentTarget.value)}
+                />
+                <Button type="submit" fullWidth mt="xs" loading={loading}>
+                  Iniciar Sesión
+                </Button>
+              </Stack>
+            </form>
+          </Tabs.Panel>
+
+          {/* PANEL DE REGISTRO */}
+          <Tabs.Panel value="register">
+            <form onSubmit={handleRegister}>
+              <Stack gap="xs">
+                {/* 👈 Selector de Rol movido exclusivamente aquí */}
+                <SegmentedControl
+                  fullWidth
+                  value={selectedRole}
+                  onChange={(val: string) => setSelectedRole(val as 'Player' | 'AdminClub')}
+                  data={[
+                    { label: 'Jugador Libre', value: 'Player' },
+                    { label: 'Fundar Club', value: 'AdminClub' },
+                  ]}
+                  color={selectedRole === 'AdminClub' ? 'orange' : 'blue'}
+                  mb="xs"
+                />
+
+                <TextInput
+                  label="Nombre"
+                  placeholder="Tu nombre"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.currentTarget.value)}
+                />
+                <Group grow gap="sm">
+                  <TextInput
+                    label="Primer Apellido"
+                    placeholder="Primer apellido"
+                    required
+                    value={surname}
+                    onChange={(e) => setSurname(e.currentTarget.value)}
+                  />
+                  <TextInput
+                    label="Segundo Apellido"
+                    placeholder="Opcional"
+                    value={secondSurname}
+                    onChange={(e) => setSecondSurname(e.currentTarget.value)}
+                  />
+                </Group>
+                <TextInput
+                  label="Correo electrónico"
+                  placeholder="tu@email.com"
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.currentTarget.value)}
+                />
+                <PasswordInput
+                  label="Contraseña"
+                  placeholder="Mínimo 8 caracteres"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.currentTarget.value)}
+                />
+                <PasswordInput
+                  label="Confirmar Contraseña"
+                  placeholder="Repite tu contraseña"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+                />
+                <Button
+                  type="submit"
+                  fullWidth
+                  color={selectedRole === 'AdminClub' ? 'orange' : 'green'}
+                  mt="xs"
+                  loading={loading}
+                >
+                  {selectedRole === 'AdminClub' ? 'Crear Cuenta de Sede' : 'Crear Cuenta Libre'}
+                </Button>
+              </Stack>
+            </form>
+          </Tabs.Panel>
+        </Tabs>
+
+        {/* GOOGLE LOGIN (Compartido, debajo de las pestañas) */}
+        <Divider label="O continuar con" labelPosition="center" my="lg" />
+        <Center>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setErrorMsg('Error interno al conectar con Google')}
+            useOneTap={false}
+          />
+        </Center>
+      </Paper>
+    </Center>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Partidos/Partidos.tsx
+================================================
+
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Table,
+  Title,
+  Card,
+  Avatar,
+  Group,
+  Text,
+  Badge,
+  Center,
+  Loader,
+  ScrollArea,
+  TextInput,
+  Pagination,
+  Stack,
+  Tooltip,
+  ActionIcon,
+} from '@mantine/core';
+import {
+  IconSearch,
+  IconEye,
+  IconTrophy,
+  IconCalendar,
+  IconPencilCheck,
+  IconPingPong,
+  IconUsersGroup,
+} from '@tabler/icons-react';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
+
+interface Tournament {
+  id: string;
+  name: string;
+  dateStart: string;
+  numPlayers: number;
+  typeTournament: string | null;
+  levelTournament: string | null;
+  rounds: string | null;
+  status: string | null;
+  typeKnockout: string | null;
+}
+
+interface Club {
+  id: string;
+  name: string;
+  city: string;
+}
+
+export interface Match {
+  id: string;
+  dateStart: string;
+  tournamentId: string | null;
+  groupId: string | null;
+  knockoutId: string | null;
+  leagueId: string | null;
+  matchOrder: number | null;
+  playerOneId: string;
+  playerTwoId: string;
+
+  setOnePlayerOne: number | null;
+  setOnePlayerTwo: number | null;
+  setTwoPlayerOne: number | null;
+  setTwoPlayerTwo: number | null;
+  setThreePlayerOne: number | null;
+  setThreePlayerTwo: number | null;
+  setFourPlayerOne: number | null;
+  setFourPlayerTwo: number | null;
+  setFivePlayerOne: number | null;
+  setFivePlayerTwo: number | null;
+  setSixPlayerOne: number | null;
+  setSixPlayerTwo: number | null;
+  setSevenPlayerOne: number | null;
+  setSevenPlayerTwo: number | null;
+
+  status: string | null;
+  winnerGoesToMatchId: string | null;
+  loserGoesToMatchId: string | null;
+
+  playerOne?: {
+    id: string;
+    name: string;
+    surname: string | null;
+    club: Club | null;
+  } | null;
+
+  playerTwo?: {
+    id: string;
+    name: string;
+    surname: string | null;
+    club: Club | null;
+  } | null;
+
+  group?: {
+    id: string;
+    group: number;
+  } | null;
+
+  tournament?: Tournament;
+}
+
+const COLORS = ['red', 'green', 'blue', 'yellow', 'orange'];
+
+const ITEMS_PER_PAGE = 10;
+
+export const Partidos = () => {
+  const navigate = useNavigate();
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        const response = await api.get(ENDPOINTS.MATCHES.BASE);
+        const data = response.data.sort((a: Match, b: Match) =>
+          a.dateStart > b.dateStart ? 1 : -1,
+        );
+
+        if (Array.isArray(data)) {
+          setMatches(data);
+        }
+      } catch (error) {
+        console.error('Error cargando jugadores:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlayers();
+  }, []);
+
+  const filteredPlayers = matches.filter((match) => {
+    const fullMatch =
+      `${match.tournament?.name} ${match.playerOne?.name} ${match.playerOne?.surname || ''} ${match.playerTwo?.name} ${match.playerTwo?.surname || ''}`.toLowerCase();
+    return fullMatch.includes(search.toLowerCase());
+  });
+
+  const totalPages = Math.ceil(filteredPlayers.length / ITEMS_PER_PAGE);
+  const paginatedMatches = filteredPlayers.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE,
+  );
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.currentTarget.value);
+    setPage(1);
+  };
+
+  const returnEloColor = (elo: number) => {
+    if (elo < 500) {
+      return 'red';
+    } else if (elo >= 500 && elo < 750) {
+      return 'yellow';
+    } else if (elo >= 750 && elo < 1000) {
+      return 'blue';
+    } else if (elo >= 1000) {
+      return 'green';
+    }
+    console.log('no salgo!');
+  };
+
+  if (loading) {
+    return (
+      <Center h={400}>
+        <Loader color="blue" type="bars" />
+      </Center>
+    );
+  }
+  const rows = paginatedMatches.map((match) => {
+    if (!match) return null;
+
+    return (
+      <Table.Tr key={match.id}>
+        <Table.Td>
+          <Group gap="sm">
+            <IconTrophy size={16} stroke={1.5} color="orange" />
+            <div>
+              <Text fz="sm" fw={500}>
+                {match?.tournament?.name || ''}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+        <Table.Td>
+          <Group gap="sm">
+            <IconCalendar size={16} stroke={1.5} color="blue" />
+            <div>
+              <Text fz="sm" fw={500}>
+                {new Date(match?.dateStart).toLocaleDateString('es-ES', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+        <Table.Td>
+          <Group gap="sm">
+            <IconUsersGroup size={16} stroke={1.5} color="red" />
+            <div>
+              <Text fz="sm" fw={500}>
+                {match?.playerOne?.club?.name}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+        <Table.Td>
+          <Group gap="sm">
+            <div>
+              <Text fz="sm" fw={500}>
+                {match?.playerOne?.name} {match?.playerOne?.surname}
+              </Text>
+            </div>
+            <IconPingPong size={16} stroke={1.5} color="green" />
+          </Group>
+        </Table.Td>
+        <Table.Td> VS </Table.Td>
+        <Table.Td>
+          <Group gap="sm">
+            <IconPingPong size={16} stroke={1.5} color="black" />
+            <div>
+              <Text fz="sm" fw={500}>
+                {match?.playerTwo?.name} {match?.playerTwo?.surname}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+        <Table.Td>
+          <Group gap="sm">
+            <IconUsersGroup size={16} stroke={1.5} color="red" />
+            <div>
+              <Text fz="sm" fw={500}>
+                {match?.playerTwo?.club?.name}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+        <Table.Td></Table.Td>
+        <Table.Td>
+          <Tooltip label="Ver perfil completo">
+            <ActionIcon
+              variant="light"
+              color="blue"
+              onClick={() => navigate(`/matches/${match.id}`)}
+            >
+              <IconPencilCheck size={18} />
+            </ActionIcon>
+          </Tooltip>
+        </Table.Td>
+      </Table.Tr>
+    );
+  });
+
+  return (
+    <Stack gap="md">
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Group justify="space-between" mb="md">
+          <Title order={2}>Historial de Partidas</Title>
+          <TextInput
+            placeholder="Buscar partido..."
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={handleSearchChange}
+            style={{ flexGrow: 1, maxWidth: 300 }}
+          />
+        </Group>
+
+        <ScrollArea>
+          <Table verticalSpacing="sm" striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Torneo</Table.Th>
+                <Table.Th>Dia Partido</Table.Th>
+                <Table.Th visibleFrom="sm">Club Jugador 1</Table.Th>
+                <Table.Th>Jugador 1</Table.Th>
+                <Table.Th></Table.Th>
+                <Table.Th>Jugador 2</Table.Th>
+                <Table.Th visibleFrom="sm">Club Jugador 2</Table.Th>
+                <Table.Th>Acción</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.length > 0 ? (
+                rows
+              ) : (
+                <Table.Tr>
+                  <Table.Td colSpan={4}>
+                    <Center py="xl">
+                      <Text c="dimmed">No se han encontrado jugadores.</Text>
+                    </Center>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+
+        {totalPages > 1 && (
+          <Center mt="md">
+            <Pagination total={totalPages} value={page} onChange={setPage} color="blue" withEdges />
+          </Center>
+        )}
+      </Card>
+    </Stack>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Torneos/TorneoDetalles.tsx
+================================================
+
+import { useEffect, useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Card,
+  Title,
+  Text,
+  Group,
+  Button,
+  Center,
+  Loader,
+  Badge,
+  Stack,
+  Tabs,
+  Paper,
+  SimpleGrid,
+  ThemeIcon,
+  Table,
+  Avatar,
+  ScrollArea,
+  Select,
+  Modal,
+} from '@mantine/core';
+import {
+  IconArrowLeft,
+  IconInfoCircle,
+  IconUsers,
+  IconTournament,
+  IconListNumbers,
+  IconCalendar,
+  IconMedal,
+  IconCheck,
+  IconTrophy,
+  IconEdit,
+} from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
+import { api } from '../../api/axios';
+import { openAppConfirmModal } from '../../utils/modals';
+import { ENDPOINTS } from '../../api/endpoints';
+// --- INTERFACES ---
+
+interface Participant {
+  id: string;
+  registeredAt: string;
+  status: string;
+  player: {
+    id: string;
+    name: string;
+    surname: string | null;
+    stats: { elo: number | null } | null;
+  };
+}
+
+interface Tournament {
+  id: string;
+  name: string;
+  dateStart: string;
+  numPlayers: number;
+  typeTournament: string | null;
+  levelTournament: string | null;
+  rounds: string | null;
+  status: string | null;
+  typeKnockout: string | null;
+  participants: Participant[];
+}
+
+interface Participant {
+  id: string;
+  registeredAt: string;
+  status: string;
+  player: {
+    id: string;
+    name: string;
+    surname: string | null;
+    stats: { elo: number | null } | null;
+  };
+}
+
+interface TournamentClas {
+  id: string;
+  position: number | null;
+  lastRound: string | null;
+  player: { id: string; name: string; surname: string | null };
+}
+
+interface TournamentGroupClas {
+  id: string;
+  position: number;
+  pointsClas: number;
+  played: number;
+  gamesWon: number;
+  gamesLost: number;
+  setsWon: number;
+  setsLost: number;
+  player: { id: string; name: string; surname: string | null };
+  tournamentGroup: { group: number };
+}
+
+interface BracketPlayer {
+  id: string;
+  name: string;
+  surname: string | null;
+}
+
+interface BracketMatch {
+  id: string;
+  status: string;
+  playerOne: BracketPlayer | null;
+  playerTwo: BracketPlayer | null;
+  setOnePlayerOne: number | null;
+  setOnePlayerTwo: number | null;
+  setTwoPlayerOne: number | null;
+  setTwoPlayerTwo: number | null;
+  setThreePlayerOne: number | null;
+  setThreePlayerTwo: number | null;
+  setFourPlayerOne: number | null;
+  setFourPlayerTwo: number | null;
+  setFivePlayerOne: number | null;
+  setFivePlayerTwo: number | null;
+}
+
+interface KnockoutRound {
+  id: string;
+  round: string;
+  type: string;
+  matches: BracketMatch[];
+}
+
+// NUEVAS INTERFACES PARA PARTIDOS DE GRUPOS
+interface GroupMatch {
+  id: string;
+  status: string;
+  setOnePlayerOne: number | null;
+  setOnePlayerTwo: number | null;
+  setTwoPlayerOne: number | null;
+  setTwoPlayerTwo: number | null;
+  setThreePlayerOne: number | null;
+  setThreePlayerTwo: number | null;
+  setFourPlayerOne: number | null;
+  setFourPlayerTwo: number | null;
+  setFivePlayerOne: number | null;
+  setFivePlayerTwo: number | null;
+  playerOne: BracketPlayer | null;
+  playerTwo: BracketPlayer | null;
+  group: { id: string; group: number } | null;
+}
+
+const KNOCKOUT_STAGES = [
+  'R128avos',
+  'R64avos',
+  'R32avos',
+  'R16avos',
+  'Octavos',
+  'Cuartos',
+  'Semifinales',
+  'Final',
+];
+
+export const TorneoDetalles = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  // --- ESTADOS BASE ---
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // --- ESTADOS DE PESTAÑAS (LAZY LOADING) ---
+  const [activeTab, setActiveTab] = useState<string | null>('info');
+
+  const [participants, setParticipants] = useState<Participant[] | null>(null);
+  const [results, setResults] = useState<TournamentClas[] | null>(null);
+  const [bracketA, setBracketA] = useState<KnockoutRound[] | null>(null);
+
+  // Estados para Fase de Grupos
+  const [groupsClas, setGroupsClas] = useState<TournamentGroupClas[] | null>(null);
+  const [groupMatches, setGroupMatches] = useState<GroupMatch[] | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+
+  // Partido del bracket seleccionado para ver el modal
+  const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
+
+  // 1. CARGA INICIAL
+  const fetchTournamentInfo = async () => {
+    try {
+      if (!id) return;
+      const res = await api.get(ENDPOINTS.TOURNAMENTS.BY_ID(id));
+      const tData = res.data.data || res.data;
+      setTournament(tData);
+
+      if (tData.status === 'Completado') {
+        setActiveTab('resultados');
+      }
+    } catch (error) {
+      console.error('Error cargando el torneo:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTournamentInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // 2. EFECTO LAZY LOADING
+  useEffect(() => {
+    if (!id || !activeTab) return;
+
+    const fetchLazyData = async () => {
+      try {
+        if (activeTab === 'inscritos' && participants === null) {
+          const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
+          setParticipants(res.data.data);
+        } else if (activeTab === 'resultados' && results === null) {
+          const res = await api.get(ENDPOINTS.TOURNAMENTS.CLASSIFICATION(id));
+          setResults(res.data.data);
+        } else if (activeTab === 'grupos' && (groupsClas === null || groupMatches === null)) {
+          // Cargamos clasificaciones Y partidos al mismo tiempo
+          const [resClas, resMatches] = await Promise.all([
+            api.get(ENDPOINTS.TOURNAMENTS.GROUPS(id)),
+            api.get(ENDPOINTS.TOURNAMENTS.GROUPMATCHES(id)),
+          ]);
+
+          const clasData = resClas.data.data;
+          setGroupsClas(clasData);
+          setGroupMatches(resMatches.data.data);
+
+          // Si hay grupos, seleccionamos el primero (Grupo 1) por defecto
+          if (clasData.length > 0) {
+            const firstGroupNum = String(clasData[0].tournamentGroup.group);
+            setSelectedGroup(firstGroupNum);
+          }
+        } else if (activeTab === 'bracketA' && bracketA === null) {
+          const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=A`);
+          setBracketA(res.data.data);
+        }
+      } catch (error) {
+        console.error(`Error cargando datos para la pestaña ${activeTab}:`, error);
+      }
+    };
+
+    fetchLazyData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, id]);
+
+  // --- 3. OPTIMIZACIÓN: CÁLCULOS EN CACHÉ (useMemo) ---
+
+  // A. Procesamos el podio y el resto de resultados
+  const { firstPlace, secondPlace, thirdPlace, otherResults } = useMemo<{
+    firstPlace: TournamentClas | null;
+    secondPlace: TournamentClas | null;
+    thirdPlace: TournamentClas | null;
+    otherResults: TournamentClas[];
+  }>(() => {
+    let firstPlace: TournamentClas | null = null;
+    let secondPlace: TournamentClas | null = null;
+    let thirdPlace: TournamentClas | null = null;
+    const otherResults: TournamentClas[] = [];
+
+    if (!results) return { firstPlace, secondPlace, thirdPlace, otherResults };
+
+    results.forEach((p) => {
+      if (p.position === 1) {
+        firstPlace = p;
+      } else if (p.position === 2) {
+        secondPlace = p;
+      } else if (p.position === 3 && !thirdPlace) {
+        thirdPlace = p;
+      } else {
+        otherResults.push(p);
+      }
+    });
+
+    otherResults.sort((a, b) => (a.position || 0) - (b.position || 0));
+    return { firstPlace, secondPlace, thirdPlace, otherResults };
+  }, [results]);
+
+  // B. Opciones del Dropdown de Grupos
+  const groupOptions = useMemo(() => {
+    if (!groupsClas) return [];
+    // Sacamos los números de grupo únicos
+    const uniqueGroups = Array.from(new Set(groupsClas.map((c) => c.tournamentGroup.group))).sort(
+      (a, b) => a - b,
+    );
+    return uniqueGroups.map((g) => ({ value: String(g), label: `Grupo ${g}` }));
+  }, [groupsClas]);
+
+  // C. Datos del grupo actualmente seleccionado (Clasificación y Partidos)
+  const currentGroupClas = useMemo(() => {
+    if (!groupsClas || !selectedGroup) return [];
+    return groupsClas
+      .filter((c) => String(c.tournamentGroup.group) === selectedGroup)
+      .sort((a, b) => a.position - b.position);
+  }, [groupsClas, selectedGroup]);
+
+  const currentGroupMatches = useMemo(() => {
+    if (!groupMatches || !selectedGroup) return [];
+    return groupMatches.filter((m) => String(m.group?.group) === selectedGroup);
+  }, [groupMatches, selectedGroup]);
+
+  // HELPER: Formatear sets de un partido completado
+  const formatSets = (match: GroupMatch) => {
+    if (match.status !== 'Completado')
+      return (
+        <Badge color="gray" variant="light">
+          {match.status}
+        </Badge>
+      );
+
+    const sets = [];
+    if (match.setOnePlayerOne !== null || match.setOnePlayerTwo !== null)
+      sets.push(`${match.setOnePlayerOne}-${match.setOnePlayerTwo}`);
+    if (match.setTwoPlayerOne !== null || match.setTwoPlayerTwo !== null)
+      sets.push(`${match.setTwoPlayerOne}-${match.setTwoPlayerTwo}`);
+    if (match.setThreePlayerOne !== null || match.setThreePlayerTwo !== null)
+      sets.push(`${match.setThreePlayerOne}-${match.setThreePlayerTwo}`);
+    if (match.setFourPlayerOne !== null || match.setFourPlayerTwo !== null)
+      sets.push(`${match.setFourPlayerOne}-${match.setFourPlayerTwo}`);
+    if (match.setFivePlayerOne !== null || match.setFivePlayerTwo !== null)
+      sets.push(`${match.setFivePlayerOne}-${match.setFivePlayerTwo}`);
+
+    // Filtramos los 0-0 por si el backend mandó campos vacíos
+    return (
+      <Text fw={600} size="sm" c="blue.7">
+        {sets.filter((s) => s !== '0-0').join(' | ')}
+      </Text>
+    );
+  };
+
+  // --- LÓGICA DE RENDERIZADO ---
+  if (loading)
+    return (
+      <Center h={400}>
+        <Loader color="blue" type="bars" />
+      </Center>
+    );
+  if (!tournament)
+    return (
+      <Center h={400}>
+        <Text c="dimmed">Torneo no encontrado.</Text>
+      </Center>
+    );
+
+  const currentStatus = tournament.status || '';
+  const isProgramado = currentStatus === 'Programado';
+  const isGrupos = currentStatus === 'Grupos';
+  const isKnockoutPhase = KNOCKOUT_STAGES.includes(currentStatus);
+  const isCompletado = currentStatus === 'Completado';
+
+  const hasGroupsFormat =
+    tournament.rounds === 'GruposKnockout' || tournament.rounds === 'TodosvsTodos';
+  const hasKnockoutFormat =
+    tournament.rounds === 'GruposKnockout' || tournament.rounds === 'Knockout';
+
+  const currentPlayers = tournament.participants || 0;
+  const plazasDisponibles = tournament.numPlayers - currentPlayers.length;
+  const isFull = plazasDisponibles <= 0;
+
+  const handleInscribirse = () => {
+    if (!id) return;
+    openAppConfirmModal({
+      title: 'Inscripción al Torneo',
+      icon: <IconTrophy size={18} />,
+      color: 'green', // 👈 Cambias el color temático
+      description: '¿Confirmas que deseas inscribirte en la siguiente competición?',
+      highlightText: tournament?.name || '',
+      warningText:
+        'Recuerda revisar la fecha de inicio. ¡Asegúrate de estar disponible para jugar! Si no apareces, se te descontaran 100 puntos en tu ELO!',
+      confirmLabel: 'Confirmar e Inscribirme',
+      onConfirm: async () => {
+        setIsRegistering(true);
+        try {
+          await api.post(ENDPOINTS.TOURNAMENTS.REGISTER(id));
+          await fetchTournamentInfo();
+          if (participants !== null) {
+            const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
+            setParticipants(res.data.data);
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setIsRegistering(false);
+        }
+      },
+    });
+  };
+
+  const getStatusColor = (status: string | null) => {
+    if (!status) return 'gray';
+    if (status === 'Programado') return 'blue';
+    if (status === 'Completado') return 'green';
+    if (status === 'Cancelado') return 'red';
+    return 'orange';
+  };
+
+  return (
+    <Stack gap="xl">
+      <div>
+        <Button
+          variant="subtle"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={() => navigate(-1)}
+        >
+          Volver a Torneos
+        </Button>
+      </div>
+
+      <Card shadow="sm" padding="xl" radius="md" withBorder>
+        <Group justify="space-between" align="flex-start">
+          <div>
+            <Title order={1}>{tournament.name}</Title>
+            <Group mt="md" gap="xs">
+              <Badge color={getStatusColor(currentStatus)} size="lg" variant="light">
+                {currentStatus}
+              </Badge>
+              <Badge color="gray" size="lg" variant="outline">
+                {tournament.typeTournament || 'Interno'}
+              </Badge>
+              <Badge color="grape" size="lg" variant="outline">
+                {tournament.levelTournament || 'Mixto'}
+              </Badge>
+            </Group>
+          </div>
+
+          {isProgramado && (
+            <Stack align="flex-end" gap="xs">
+              <Button
+                color={isFull ? 'gray' : 'blue'}
+                size="md"
+                disabled={isFull}
+                loading={isRegistering}
+                onClick={handleInscribirse}
+              >
+                {isFull ? 'Torneo Completo' : 'Inscribirme'}
+              </Button>
+              <Text size="xs" c="dimmed">
+                {plazasDisponibles > 0 ? `Quedan ${plazasDisponibles} plazas` : 'Lista de espera'}
+              </Text>
+            </Stack>
+          )}
+        </Group>
+      </Card>
+
+      <Tabs value={activeTab} onChange={setActiveTab} variant="outline" radius="md">
+        <Tabs.List>
+          <Tabs.Tab value="info" leftSection={<IconInfoCircle size={16} />}>
+            Información
+          </Tabs.Tab>
+          {(isProgramado || isGrupos) && (
+            <Tabs.Tab value="inscritos" leftSection={<IconUsers size={16} />}>
+              Inscritos ({currentPlayers.length})
+            </Tabs.Tab>
+          )}
+          {isCompletado && (
+            <Tabs.Tab value="resultados" leftSection={<IconMedal size={16} />}>
+              Resultados Finales
+            </Tabs.Tab>
+          )}
+          {hasGroupsFormat && (isGrupos || isKnockoutPhase || isCompletado) && (
+            <Tabs.Tab value="grupos" leftSection={<IconListNumbers size={16} />}>
+              Fase de Grupos
+            </Tabs.Tab>
+          )}
+          {hasKnockoutFormat && (isKnockoutPhase || isCompletado) && (
+            <Tabs.Tab value="bracketA" leftSection={<IconTournament size={16} />}>
+              Cuadro Principal
+            </Tabs.Tab>
+          )}
+        </Tabs.List>
+
+        {/* --- INFO --- */}
+        <Tabs.Panel value="info" pt="xl">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+            <Paper withBorder p="md" radius="md">
+              <Group gap="md">
+                <ThemeIcon size={40} radius="md" variant="light" color="blue">
+                  <IconCalendar size={20} />
+                </ThemeIcon>
+                <div>
+                  <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
+                    Fecha
+                  </Text>
+                  <Text fw={500}>
+                    {new Date(tournament.dateStart).toLocaleDateString('es-ES', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </Text>
+                </div>
+              </Group>
+            </Paper>
+            <Paper withBorder p="md" radius="md">
+              <Group gap="md">
+                <ThemeIcon size={40} radius="md" variant="light" color="teal">
+                  <IconUsers size={20} />
+                </ThemeIcon>
+                <div>
+                  <Text c="dimmed" size="xs" tt="uppercase" fw={700}>
+                    Plazas
+                  </Text>
+                  <Text fw={500}>{tournament.numPlayers} Jugadores</Text>
+                </div>
+              </Group>
+            </Paper>
+          </SimpleGrid>
+        </Tabs.Panel>
+
+        {/* --- INSCRITOS --- */}
+        {(isProgramado || isGrupos) && (
+          <Tabs.Panel value="inscritos" pt="xl">
+            {!participants ? (
+              <Center py="xl">
+                <Loader color="blue" />
+              </Center>
+            ) : participants.length === 0 ? (
+              <Center py="xl">
+                <Text c="dimmed">Aún no hay jugadores inscritos.</Text>
+              </Center>
+            ) : (
+              <Paper withBorder radius="md">
+                <Table striped highlightOnHover verticalSpacing="sm">
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th w={50}>#</Table.Th>
+                      <Table.Th>Jugador</Table.Th>
+                      <Table.Th>ELO</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {participants.map((p, index) => (
+                      <Table.Tr key={p.id}>
+                        <Table.Td>{index + 1}</Table.Td>
+                        <Table.Td>
+                          <Group gap="sm">
+                            <Avatar color="blue" radius="xl" size="sm">
+                              {p.player?.name?.charAt(0)}
+                            </Avatar>
+                            <Text size="sm" fw={500}>
+                              {p.player?.name} {p.player?.surname || ''}
+                            </Text>
+                          </Group>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge variant="light">{p.player?.stats?.elo || 500}</Badge>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Paper>
+            )}
+          </Tabs.Panel>
+        )}
+
+        {/* --- RESULTADOS (PODIO) --- */}
+        {isCompletado && (
+          <Tabs.Panel value="resultados" pt="xl">
+            {!results ? (
+              <Center py="xl">
+                <Loader color="yellow" />
+              </Center>
+            ) : (
+              <Stack gap="xl" mt="md">
+                <Group justify="center" align="flex-end" gap="xl" py="xl">
+                  {secondPlace && (
+                    <Stack align="center" gap="xs">
+                      <Avatar size="lg" color="gray" radius="xl" />
+                      <Text fw={600} size="sm">
+                        {secondPlace.player?.name} {secondPlace.player?.surname || ''}
+                      </Text>
+                      <Paper
+                        w={90}
+                        h={90}
+                        radius="md"
+                        style={{ backgroundColor: 'var(--mantine-color-gray-3)' }}
+                      >
+                        <Stack align="center" justify="center" h="100%" gap={0}>
+                          <IconMedal color="var(--mantine-color-gray-7)" size={28} />
+                          <Text fw={900} size="xl" c="gray.7">
+                            2º
+                          </Text>
+                        </Stack>
+                      </Paper>
+                    </Stack>
+                  )}
+                  {firstPlace && (
+                    <Stack align="center" gap="xs">
+                      <IconTrophy
+                        size={40}
+                        color="var(--mantine-color-yellow-5)"
+                        style={{ marginBottom: -10 }}
+                      />
+                      <Avatar size="xl" color="yellow" radius="xl" />
+                      <Text fw={800} size="md">
+                        {firstPlace.player?.name} {firstPlace.player?.surname || ''}
+                      </Text>
+                      <Paper
+                        w={100}
+                        h={130}
+                        radius="md"
+                        style={{ backgroundColor: 'var(--mantine-color-yellow-5)' }}
+                      >
+                        <Stack align="center" justify="center" h="100%" gap={0}>
+                          <Text fw={900} size="h1" c="white">
+                            1º
+                          </Text>
+                        </Stack>
+                      </Paper>
+                    </Stack>
+                  )}
+                  {thirdPlace && (
+                    <Stack align="center" gap="xs">
+                      <Avatar size="lg" color="orange" radius="xl" />
+                      <Text fw={600} size="sm">
+                        {thirdPlace.player?.name} {thirdPlace.player?.surname || ''}
+                      </Text>
+                      <Paper
+                        w={90}
+                        h={60}
+                        radius="md"
+                        style={{ backgroundColor: 'var(--mantine-color-orange-4)' }}
+                      >
+                        <Stack align="center" justify="center" h="100%" gap={0}>
+                          <IconMedal color="var(--mantine-color-orange-8)" size={24} />
+                          <Text fw={900} size="lg" c="orange.8">
+                            3º
+                          </Text>
+                        </Stack>
+                      </Paper>
+                    </Stack>
+                  )}
+                </Group>
+
+                {otherResults.length > 0 && (
+                  <Card withBorder radius="md" shadow="sm">
+                    <Title order={4} mb="md">
+                      Clasificación General
+                    </Title>
+                    <Table striped highlightOnHover verticalSpacing="sm">
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th w={80}>Puesto</Table.Th>
+                          <Table.Th>Jugador</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {otherResults.map((p) => (
+                          <Table.Tr key={p.id}>
+                            <Table.Td>
+                              <Badge color="gray" variant="light" size="lg">
+                                {p.position}º
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              {p.player?.name} {p.player?.surname || ''}
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </Card>
+                )}
+              </Stack>
+            )}
+          </Tabs.Panel>
+        )}
+
+        {/* --- GRUPOS (NUEVO DISEÑO CON DROPDOWN Y PARTIDOS) --- */}
+        {hasGroupsFormat && (isGrupos || isKnockoutPhase || isCompletado) && (
+          <Tabs.Panel value="grupos" pt="xl">
+            {!groupsClas || !groupMatches ? (
+              <Center py="xl">
+                <Loader color="blue" />
+              </Center>
+            ) : (
+              <Stack gap="xl">
+                {/* Selector de Grupo */}
+                <Group>
+                  <Select
+                    label="Selecciona un grupo"
+                    data={groupOptions}
+                    value={selectedGroup}
+                    onChange={(val) => setSelectedGroup(val)}
+                    allowDeselect={false}
+                    w={{ base: '100%', sm: 250 }}
+                  />
+                </Group>
+
+                {/* Tabla de Clasificación del Grupo Seleccionado */}
+                <Card withBorder shadow="sm" radius="md" padding="md">
+                  <Title order={4} mb="md">
+                    Clasificación
+                  </Title>
+                  <ScrollArea>
+                    <Table striped verticalSpacing="sm" miw={400}>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th w={40}>Pos</Table.Th>
+                          <Table.Th>Jugador</Table.Th>
+                          <Table.Th>Pts</Table.Th>
+                          <Table.Th>V-D</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {currentGroupClas.map((clas) => (
+                          <Table.Tr key={clas.id}>
+                            <Table.Td>
+                              <Badge color={clas.position <= 2 ? 'green' : 'gray'} variant="filled">
+                                {clas.position}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              {clas.player?.name} {clas.player?.surname || ''}
+                            </Table.Td>
+                            <Table.Td fw={700}>{clas.pointsClas}</Table.Td>
+                            <Table.Td>
+                              {clas.gamesWon}-{clas.gamesLost}
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                        {currentGroupClas.length === 0 && (
+                          <Table.Tr>
+                            <Table.Td colSpan={4} ta="center">
+                              <Text c="dimmed">No hay datos para este grupo.</Text>
+                            </Table.Td>
+                          </Table.Tr>
+                        )}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                </Card>
+
+                {/* Lista de Partidos del Grupo Seleccionado */}
+                <Title order={4} mt="sm">
+                  Partidos del Grupo
+                </Title>
+                <Stack gap="sm">
+                  {currentGroupMatches.length === 0 ? (
+                    <Text c="dimmed">No hay partidos generados aún.</Text>
+                  ) : (
+                    currentGroupMatches.map((match) => (
+                      <Card key={match.id} withBorder shadow="sm" radius="md" p="md">
+                        <Group justify="space-between" align="center" wrap="nowrap">
+                          <Stack gap={4}>
+                            <Text fw={500} size="sm">
+                              {match.playerOne?.name} {match.playerOne?.surname || ''}{' '}
+                              <Text span c="dimmed" mx={5}>
+                                vs
+                              </Text>{' '}
+                              {match.playerTwo?.name} {match.playerTwo?.surname || ''}
+                            </Text>
+                            {formatSets(match)}
+                          </Stack>
+
+                          {/* BOTÓN PREPARADO PARA EL FUTURO ROL DE ADMIN */}
+                          <Button
+                            variant="light"
+                            size="xs"
+                            leftSection={<IconEdit size={14} />}
+                            onClick={() => {
+                              console.log(`Abrir modal para actualizar partido ${match.id}`);
+                              notifications.show({
+                                title: 'En desarrollo',
+                                message: 'Pronto podrás editar los resultados desde aquí.',
+                                color: 'blue',
+                              });
+                            }}
+                          >
+                            Actualizar
+                          </Button>
+                        </Group>
+                      </Card>
+                    ))
+                  )}
+                </Stack>
+              </Stack>
+            )}
+          </Tabs.Panel>
+        )}
+
+        {/* --- BRACKET --- */}
+        {hasKnockoutFormat && (isKnockoutPhase || isCompletado) && (
+          <Tabs.Panel value="bracketA" pt="xl">
+            {!bracketA ? (
+              <Center py="xl">
+                <Loader color="blue" />
+              </Center>
+            ) : (
+              <ScrollArea type="always" offsetScrollbars pb="xl">
+                <Group align="center" wrap="nowrap" gap={50} p="md">
+                  {bracketA.map((round) => (
+                    <Stack key={round.id} gap="xl" justify="space-around" style={{ minWidth: 250 }}>
+                      <Title order={5} ta="center" c="dimmed" tt="uppercase" mb="md">
+                        {round.round}
+                      </Title>
+                      {round.matches.map((match) => (
+                        <Paper
+                          key={match.id}
+                          withBorder
+                          shadow="sm"
+                          radius="md"
+                          p={0}
+                          style={{
+                            overflow: 'hidden',
+                            cursor: match.status === 'Completado' ? 'pointer' : 'default',
+                          }}
+                          onClick={() => {
+                            if (match.status === 'Completado') setSelectedMatch(match);
+                          }}
+                        >
+                          <Group
+                            justify="space-between"
+                            p="xs"
+                            style={{
+                              borderBottom: '1px solid var(--mantine-color-default-border)',
+                            }}
+                          >
+                            <Text size="sm">
+                              {match.playerOne?.name || 'TBD'} {match.playerOne?.surname || ''}
+                            </Text>
+                          </Group>
+                          <Group justify="space-between" p="xs">
+                            <Text size="sm">
+                              {match.playerTwo?.name || 'TBD'} {match.playerTwo?.surname || ''}
+                            </Text>
+                          </Group>
+                          <Center p={4} bg="gray.1">
+                            <Text size="xs" c="dimmed">
+                              {match.status}
+                            </Text>
+                          </Center>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  ))}
+                </Group>
+              </ScrollArea>
+            )}
+          </Tabs.Panel>
+        )}
+
+        <Modal
+          opened={!!selectedMatch}
+          onClose={() => setSelectedMatch(null)}
+          title={<Text fw={700}>Resultado del Partido</Text>}
+          centered
+        >
+          {selectedMatch && (
+            <Stack align="center" gap="md">
+              <Group w="100%" justify="space-between">
+                <Text fw={600} size="lg">
+                  {selectedMatch.playerOne?.name} {selectedMatch.playerOne?.surname || ''}
+                </Text>
+                <Text c="dimmed">vs</Text>
+                <Text fw={600} size="lg">
+                  {selectedMatch.playerTwo?.name} {selectedMatch.playerTwo?.surname || ''}
+                </Text>
+              </Group>
+
+              <Stack gap="xs" align="center" w="100%">
+                {selectedMatch.setOnePlayerOne !== null && (
+                  <Badge size="lg" variant="light" color="blue">
+                    Set 1: {selectedMatch.setOnePlayerOne} - {selectedMatch.setOnePlayerTwo}
+                  </Badge>
+                )}
+                {selectedMatch.setTwoPlayerOne !== null && (
+                  <Badge size="lg" variant="light" color="blue">
+                    Set 2: {selectedMatch.setTwoPlayerOne} - {selectedMatch.setTwoPlayerTwo}
+                  </Badge>
+                )}
+                {selectedMatch.setThreePlayerOne !== null && (
+                  <Badge size="lg" variant="light" color="blue">
+                    Set 3: {selectedMatch.setThreePlayerOne} - {selectedMatch.setThreePlayerTwo}
+                  </Badge>
+                )}
+                {selectedMatch.setFourPlayerOne !== null &&
+                  selectedMatch.setFourPlayerOne !== 0 && (
+                    <Badge size="lg" variant="light" color="blue">
+                      Set 4: {selectedMatch.setFourPlayerOne} - {selectedMatch.setFourPlayerTwo}
+                    </Badge>
+                  )}
+                {selectedMatch.setFivePlayerOne !== null &&
+                  selectedMatch.setFivePlayerOne !== 0 && (
+                    <Badge size="lg" variant="light" color="blue">
+                      Set 5: {selectedMatch.setFivePlayerOne} - {selectedMatch.setFivePlayerTwo}
+                    </Badge>
+                  )}
+              </Stack>
+            </Stack>
+          )}
+        </Modal>
+      </Tabs>
+    </Stack>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/pages/Torneos/Torneos.tsx
+================================================
+
+import { useEffect, useState } from 'react';
+import {
+  Card,
+  SimpleGrid,
+  Title,
+  Text,
+  Badge,
+  Button,
+  Group,
+  Center,
+  Loader,
+  Stack,
+  TextInput,
+  Pagination,
+  Select,
+  ThemeIcon,
+} from '@mantine/core';
+import {
+  IconCalendar,
+  IconUsers,
+  IconTrophy,
+  IconSearch,
+  IconFilter,
+  IconTournament,
+  IconBuildingCommunity,
+  IconPlus,
+} from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../../api/axios';
+import { useAuthStore } from '../../store/authStore';
+import { ENDPOINTS } from '../../api/endpoints';
+
+// Interfaz actualizada con soporte Multi-tenant
+interface Tournament {
+  id: string;
+  name: string;
+  dateStart: string;
+  numPlayers: number;
+  typeTournament: string | null;
+  levelTournament: string | null;
+  rounds: string | null;
+  status: string | null;
+  clubId: string | null;
+  club?: {
+    name: string;
+  } | null;
+}
+
+const ITEMS_PER_PAGE = 10;
+
+export const Torneos = () => {
+  const { user } = useAuthStore();
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('Todos');
+  const [page, setPage] = useState(1);
+
+  // Comprobación de rol para permisos de creación
+  const canCreateTournament = user?.role === 'SuperAdmin' || user?.role === 'AdminClub';
+
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      try {
+        const response = await api.get(ENDPOINTS.TOURNAMENTS.BASE);
+        const data = response.data.data || response.data;
+        if (Array.isArray(data)) {
+          setTournaments(data);
+        }
+      } catch (error) {
+        console.error('Error cargando torneos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTournaments();
+  }, []);
+
+  // 1. Filtrado Combinado (Búsqueda + Estado)
+  const filteredTournaments = tournaments.filter((t) => {
+    const matchesSearch = t.name.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'Todos' || t.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // 2. Paginación
+  const totalPages = Math.ceil(filteredTournaments.length / ITEMS_PER_PAGE);
+  const paginatedTournaments = filteredTournaments.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE,
+  );
+
+  const availableStatuses = [
+    'Todos',
+    ...Array.from(new Set(tournaments.map((t) => t.status).filter(Boolean))),
+  ];
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.currentTarget.value);
+    setPage(1);
+  };
+
+  const handleStatusChange = (value: string | null) => {
+    setStatusFilter(value || 'Todos');
+    setPage(1);
+  };
+
+  if (loading) {
+    return (
+      <Center h={400}>
+        <Loader color="blue" type="bars" />
+      </Center>
+    );
+  }
+
+  const getStatusColor = (status: string | null) => {
+    if (!status) return 'gray';
+    if (status === 'Programado') return 'blue';
+    if (status === 'Completado') return 'green';
+    if (status === 'Cancelado') return 'red';
+    return 'orange';
+  };
+
+  return (
+    <Stack gap="lg">
+      {/* Cabecera Adaptativa con botón condicional */}
+      <Group justify="space-between" align="center">
+        <Title order={2}>Torneos</Title>
+        {canCreateTournament && (
+          <Button
+            leftSection={<IconPlus size={16} />}
+            color="blue"
+            onClick={() => navigate('/torneos/nuevo')}
+          >
+            Crear Torneo
+          </Button>
+        )}
+      </Group>
+
+      {/* Barra de Búsqueda y Filtros */}
+      <Group gap="md" align="flex-end">
+        <TextInput
+          placeholder="Buscar por nombre..."
+          leftSection={<IconSearch size={16} />}
+          value={search}
+          onChange={handleSearchChange}
+          style={{ flexGrow: 1, maxWidth: 400 }}
+        />
+        <Select
+          leftSection={<IconFilter size={16} />}
+          data={availableStatuses as string[]}
+          value={statusFilter}
+          onChange={handleStatusChange}
+          style={{ width: 180 }}
+        />
+      </Group>
+
+      {/* Cuadrícula de Torneos */}
+      {paginatedTournaments.length === 0 ? (
+        <Center py="xl">
+          <Text c="dimmed">No se han encontrado torneos con estos filtros.</Text>
+        </Center>
+      ) : (
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
+          {paginatedTournaments.map((t) => (
+            <Card
+              key={t.id}
+              shadow="sm"
+              padding="lg"
+              radius="md"
+              withBorder
+              display="flex"
+              style={{ flexDirection: 'column' }}
+            >
+              <Card.Section withBorder inheritPadding py="xs">
+                <Group justify="space-between" wrap="nowrap">
+                  <Text fw={500} truncate title={t.name} style={{ flex: 1 }}>
+                    {t.name}
+                  </Text>
+                  <Badge color={getStatusColor(t.status)} variant="light">
+                    {t.status || 'Desconocido'}
+                  </Badge>
+                </Group>
+              </Card.Section>
+
+              <Stack gap="xs" mt="md" mb="md" style={{ flex: 1 }}>
+                {/* Organizado por Club (Inyección Visual Multi-tenant) */}
+                <Group gap="xs">
+                  <IconBuildingCommunity
+                    size={16}
+                    stroke={1.5}
+                    color="var(--mantine-color-blue-filled)"
+                  />
+                  <Text size="sm" fw={600} c="blue.6" truncate>
+                    {t.club?.name || 'Torneo Global / SaaS'}
+                  </Text>
+                </Group>
+
+                <Group gap="xs">
+                  <IconCalendar size={16} stroke={1.5} color="var(--mantine-color-dimmed)" />
+                  <Text size="sm" c="dimmed">
+                    {new Date(t.dateStart).toLocaleDateString('es-ES', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </Text>
+                </Group>
+                <Group gap="xs">
+                  <IconUsers size={16} stroke={1.5} color="var(--mantine-color-dimmed)" />
+                  <Text size="sm" c="dimmed">
+                    Plazas: {t.numPlayers} max.
+                  </Text>
+                </Group>
+                <Group gap="xs">
+                  <IconTrophy size={16} stroke={1.5} color="var(--mantine-color-dimmed)" />
+                  <Text size="sm" c="dimmed">
+                    {t.levelTournament || 'Mixto'} · {t.typeTournament || 'Interno'}
+                  </Text>
+                </Group>
+                <Group gap="xs">
+                  <IconTournament size={16} stroke={1.5} color="var(--mantine-color-dimmed)" />
+                  <Text size="sm" c="dimmed">
+                    {t.rounds === 'GruposKnockout' ? 'Grupos + Elim.' : t.rounds || 'Por definir'}
+                  </Text>
+                </Group>
+              </Stack>
+
+              <Button
+                variant="light"
+                color="blue"
+                fullWidth
+                mt="auto"
+                onClick={() => navigate(`/torneos/${t.id}`)}
+              >
+                Ver Detalles
+              </Button>
+            </Card>
+          ))}
+        </SimpleGrid>
+      )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <Center mt="md">
+          <Pagination total={totalPages} value={page} onChange={setPage} color="blue" withEdges />
+        </Center>
+      )}
+    </Stack>
+  );
+};
+
+
+================================================
+📂 ARCHIVO: src/store/authStore.ts
+================================================
+
+import { create } from 'zustand';
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  surname: string;
+  nickname: string;
+  role: string;
+  clubId: string | null;
+  clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
+}
+
+interface AuthState {
+  token: string | null;
+  user: User | null;
+  isAuthenticated: boolean;
+  login: (token: string, user: User) => void;
+  updateUserFields: (fields: Partial<Pick<User, 'clubId' | 'clubStatus'>>) => void;
+  logout: () => void;
+}
+
+export const useAuthStore = create<AuthState>((set) => ({
+  token: localStorage.getItem('pingpong_token'),
+  user: JSON.parse(localStorage.getItem('pingpong_user') || 'null'),
+  isAuthenticated: !!localStorage.getItem('pingpong_token'),
+
+  login: (token, user) => {
+    localStorage.setItem('pingpong_token', token);
+    localStorage.setItem('pingpong_user', JSON.stringify(user));
+    set({ token, user, isAuthenticated: true });
+  },
+
+  updateUserFields: (fields) => {
+    set((state) => {
+      if (!state.user) return state;
+      const updatedUser = { ...state.user, ...fields };
+      localStorage.setItem('pingpong_user', JSON.stringify(updatedUser));
+      return { user: updatedUser };
+    });
+  },
+
+  logout: () => {
+    localStorage.removeItem('pingpong_token');
+    localStorage.removeItem('pingpong_user');
+    set({ token: null, user: null, isAuthenticated: false });
+  },
+}));
+
+
+================================================
+📂 ARCHIVO: src/utils/modals.tsx
+================================================
+
+import React from 'react';
+import { openConfirmModal } from '@mantine/modals';
+import { Text, Stack, Paper, Group, ThemeIcon } from '@mantine/core';
+
+interface AppConfirmModalProps {
+  title: string;
+  icon: React.ReactNode;
+  color?: string;
+  description: string;
+  highlightText: string;
+  warningText?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: () => void | Promise<void>;
+}
+
+export const openAppConfirmModal = ({
+  title,
+  icon,
+  color = 'blue',
+  description,
+  highlightText,
+  warningText,
+  confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
+  onConfirm,
+}: AppConfirmModalProps) => {
+  openConfirmModal({
+    title: (
+      <Group gap="xs">
+        <ThemeIcon size="md" radius="md" color={color} variant="light">
+          {icon}
+        </ThemeIcon>
+        <Text fw={700} size="md">
+          {title}
+        </Text>
+      </Group>
+    ),
+    centered: true,
+    radius: 'md',
+    shadow: 'xl',
+    overlayProps: {
+      backgroundOpacity: 0.6,
+      blur: 4, // El blur premium globalizado
+    },
+    withCloseButton: false,
+    children: (
+      <Stack gap="xs" py="md">
+        <Text size="sm" c="dimmed">
+          {description}
+        </Text>
+        <Paper
+          withBorder
+          p="sm"
+          radius="sm"
+          style={{ backgroundColor: `var(--mantine-color-${color}-light)` }}
+        >
+          <Text fw={700} size="md" c={`${color}.9`} ta="center">
+            {highlightText}
+          </Text>
+        </Paper>
+        {warningText && (
+          <Text size="xs" c="dimmed" mt="xs">
+            ⚠️ {warningText}
+          </Text>
+        )}
+      </Stack>
+    ),
+    labels: { confirm: confirmLabel, cancel: cancelLabel },
+    confirmProps: { color, radius: 'sm' },
+    cancelProps: { variant: 'subtle', color: 'gray', radius: 'sm' },
+    onConfirm,
+  });
+};

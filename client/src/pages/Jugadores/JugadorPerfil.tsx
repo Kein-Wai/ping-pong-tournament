@@ -23,6 +23,7 @@ import {
   IconMathSymbols,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
+import { APP_ROUTES } from '../../constants/routes';
 
 interface UserProfile {
   id: string;
@@ -95,7 +96,7 @@ export const JugadorPerfil = () => {
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(APP_ROUTES.JUGADORES.LIST)}
         >
           Volver a Jugadores
         </Button>
