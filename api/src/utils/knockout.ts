@@ -61,9 +61,15 @@ const generateStandardSeedPattern = (size: number): number[] => {
   let seeds = [1, 2];
   for (let currentSize = 4; currentSize <= size; currentSize *= 2) {
     const nextSeeds: number[] = [];
-    for (const seed of seeds) {
-      nextSeeds.push(seed);
-      nextSeeds.push(currentSize - seed + 1);
+    for (let i = 0; i < seeds.length; i++) {
+      const seed = seeds[i];
+      if (i % 2 === 0) {
+        nextSeeds.push(seed);
+        nextSeeds.push(currentSize - seed + 1);
+      } else {
+        nextSeeds.push(currentSize - seed + 1);
+        nextSeeds.push(seed);
+      }
     }
     seeds = nextSeeds;
   }
@@ -341,9 +347,10 @@ export const saveKnockoutBracket = async (
     }
 
     if (type === KnockoutType.A) {
+      // ✅ Usamos initialRoundIndex, que se calculó al principio de la función
       await tx.tournament.update({
         where: { id: tournamentId },
-        data: { status: TournamentStatus.R128avos },
+        data: { status: ROUND_PROGRESSION[initialRoundIndex] as any },
       });
     }
   });
@@ -373,13 +380,20 @@ const recordTournamentClassification = async (
 
   const round = match.knockout.round;
   const type = match.knockout.type;
+  const positions = match.knockout.positions;
   let position = 0;
 
   // Cálculo de posiciones estándar para la Llave A (Campeón, Subcampeón, Semifinalistas=3, Cuartos=5...)
   if (type === 'A') {
-    if (isWinner && round === 'Final') position = 1;
-    else if (!isWinner && round === 'Final') position = 2;
-    else if (!isWinner) {
+    if (round === 'Final') {
+      if (positions === '1-2') {
+        position = isWinner ? 1 : 2;
+      } else if (positions === '3-4') {
+        position = isWinner ? 3 : 4;
+      } else {
+        position = isWinner ? 1 : 2; // Fallback por seguridad
+      }
+    } else if (!isWinner) {
       switch (round) {
         case 'Semifinales':
           position = 3;
@@ -418,7 +432,6 @@ const recordTournamentClassification = async (
 };
 
 export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: string) => {
-  // AÑADIDO: include { knockout: true } para tener los datos de la ronda
   const completedMatch = await prisma.match.findUnique({
     where: { id: matchId },
     include: { knockout: true },
@@ -449,16 +462,8 @@ export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: 
         data: isSlotOne ? { playerOneId: winnerId } : { playerTwoId: winnerId },
       });
     } else {
-      // Si el ganador no va a ningún otro partido, ¡HA TERMINADO SU TORNEO! (Ej: Ganó la final)
+      // Si el ganador no va a ningún otro partido, ha conseguido su medalla
       await recordTournamentClassification(tx, completedMatch, winnerId, true);
-
-      // Si es la Final de la Llave A, el torneo ha terminado oficialmente
-      if (completedMatch.knockout?.round === 'Final' && completedMatch.knockout?.type === 'A') {
-        await tx.tournament.update({
-          where: { id: completedMatch.tournamentId! },
-          data: { status: TournamentStatus.Completado },
-        });
-      }
     }
 
     // --- LÓGICA DEL PERDEDOR ---
@@ -471,6 +476,22 @@ export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: 
     } else {
       // Si el perdedor no va a ningún otro partido, ESTÁ ELIMINADO
       await recordTournamentClassification(tx, completedMatch, loserId, false);
+    }
+
+    // --- 🚨 COMPROBACIÓN DE FIN DE TORNEO 🚨 ---
+    // Contamos si queda algún partido sin completar en TODO el torneo
+    const pendingMatchesCount = await tx.match.count({
+      where: {
+        tournamentId: completedMatch.tournamentId,
+        status: { not: 'Completado' },
+      },
+    });
+
+    if (pendingMatchesCount === 0) {
+      await tx.tournament.update({
+        where: { id: completedMatch.tournamentId! },
+        data: { status: 'Completado' }, // 👈 Solo termina cuando se ha jugado HASTA EL ÚLTIMO partido
+      });
     }
   });
 };
@@ -492,14 +513,35 @@ export const fetchTournamentBracket = async (
         },
         include: {
           playerOne: {
-            select: { id: true, name: true, surname: true },
+            select: { id: true, name: true, surname: true, stats: true },
           },
           playerTwo: {
-            select: { id: true, name: true, surname: true },
+            select: { id: true, name: true, surname: true, stats: true },
           },
         },
       },
     },
+  });
+  const roundOrder: Record<string, number> = {
+    R128avos: 1,
+    R64avos: 2,
+    R32avos: 3,
+    R16avos: 4,
+    Octavos: 5,
+    Cuartos: 6,
+    Semifinales: 7,
+    Final: 8,
+  };
+
+  knockouts.sort((a, b) => {
+    const diff = roundOrder[a.round] - roundOrder[b.round];
+    if (diff !== 0) return diff;
+
+    // Si ambas son "Final", el 3er Puesto (posiciones 3-4) va después de la Gran Final (1-2)
+    if (a.positions && b.positions) {
+      return parseInt(a.positions.split('-')[0]) - parseInt(b.positions.split('-')[0]);
+    }
+    return 0;
   });
 
   return knockouts;

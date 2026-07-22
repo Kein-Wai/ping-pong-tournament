@@ -237,7 +237,8 @@ model Tournament {
   allPos           Boolean?             @map("all_pos")
   groupsCreated    Boolean?             @map("groups_created") @default(false)
   knockoutCreated  Boolean?             @map("knockout_created") @default(false)
-  
+  setsToWinGroup    Int? @default(2) @map("sets_to_win_group")
+  setsToWinKnockout Int? @default(3) @map("sets_to_win_knockout")
   // Relaciones
   matches          Match[]
   groups           TournamentGroup[]

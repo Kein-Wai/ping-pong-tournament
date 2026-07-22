@@ -34,6 +34,12 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
             );
 
             try {
+              const allGroups = await prisma.tournamentGroup.findMany({
+                where: { tournamentId: tournament.id },
+              });
+              for (const g of allGroups) {
+                await updateGroupStandings(prisma, g.id);
+              }
               const harvest = await harvestKnockoutPlayers(prisma, tournament.id);
 
               if (harvest.bracketA.length > 0) {

@@ -53,6 +53,8 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
 
     for (const [scoreP1, scoreP2] of allSets) {
       if (scoreP1 !== null && scoreP2 !== null && scoreP1 !== undefined && scoreP2 !== undefined) {
+        if (scoreP1 === 0 && scoreP2 === 0) continue;
+
         p1Points += scoreP1;
         p2Points += scoreP2;
 
@@ -61,28 +63,30 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
       }
     }
 
+    // ✅ NOMBRES CORREGIDOS SINCRO CON LA ESTRUCTURA INITIAL Y PRISMA
     statsTracker[p1].played++;
-    statsTracker[p1].setsFor += p1Sets;
-    statsTracker[p1].setsAgainst += p2Sets;
-    statsTracker[p1].pointsFor += p1Points;
-    statsTracker[p1].pointsAgainst += p2Points;
+    statsTracker[p1].setsWon += p1Sets;
+    statsTracker[p1].setsLost += p2Sets;
+    statsTracker[p1].pointsWon += p1Points;
+    statsTracker[p1].pointsLost += p2Points;
 
     statsTracker[p2].played++;
-    statsTracker[p2].setsFor += p2Sets;
-    statsTracker[p2].setsAgainst += p1Sets;
-    statsTracker[p2].pointsFor += p2Points;
-    statsTracker[p2].pointsAgainst += p1Points;
+    statsTracker[p2].setsWon += p2Sets;
+    statsTracker[p2].setsLost += p1Sets;
+    statsTracker[p2].pointsWon += p2Points;
+    statsTracker[p2].pointsLost += p1Points;
 
+    // Asignación de Puntos de Clasificación (2 por ganar partido, 1 por jugar/perder)
     if (p1Sets > p2Sets) {
-      statsTracker[p1].won++;
-      statsTracker[p1].classificationPoints += 2;
-      statsTracker[p2].lost++;
-      statsTracker[p2].classificationPoints += 1;
+      statsTracker[p1].gamesWon++;
+      statsTracker[p1].pointsClas += 2;
+      statsTracker[p2].gamesLost++;
+      statsTracker[p2].pointsClas += 1;
     } else if (p2Sets > p1Sets) {
-      statsTracker[p2].won++;
-      statsTracker[p2].classificationPoints += 2;
-      statsTracker[p1].lost++;
-      statsTracker[p1].classificationPoints += 1;
+      statsTracker[p2].gamesWon++;
+      statsTracker[p2].pointsClas += 2;
+      statsTracker[p1].gamesLost++;
+      statsTracker[p1].pointsClas += 1;
     }
   }
 
@@ -92,17 +96,21 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
     ...statsTracker[clas.playerId],
   }));
 
+  // Criterios de Desempate Oficiales de Tenis de Mesa
   playersToSort.sort((a, b) => {
+    // 1. Puntos de clasificación
     if (b.pointsClas !== a.pointsClas) {
       return b.pointsClas - a.pointsClas;
     }
 
+    // 2. Diferencia de Sets (Ganados - Perdidos)
     const diffSetsA = a.setsWon - a.setsLost;
     const diffSetsB = b.setsWon - b.setsLost;
     if (diffSetsB !== diffSetsA) {
       return diffSetsB - diffSetsA;
     }
 
+    // 3. Diferencia de Puntos Totales (Puntos Favor - Puntos En Contra)
     const diffPointsA = a.pointsWon - a.pointsLost;
     const diffPointsB = b.pointsWon - b.pointsLost;
     if (diffPointsB !== diffPointsA) {
@@ -117,6 +125,7 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
     position: index + 1,
   }));
 
+  // Guardamos las métricas recalculadas en la base de datos
   await prisma.$transaction(
     playersWithPosition.map((player) => {
       return prisma.tournamentGroupClas.update({
@@ -147,7 +156,7 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
     where: {
       tournamentId: groupInfo.tournamentId,
       groupId: { not: null },
-      status: { not: 'Completado' },
+      status: { not: MatchStatus.Completado },
     },
   });
 

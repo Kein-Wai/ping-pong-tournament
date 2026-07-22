@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import prisma from '../db';
-import { createMatchSchema } from '../schemas/match';
+import { createMatchSchema, baseMatchObject, validateMatchBusinessRules } from '../schemas/match';
 import { z } from 'zod';
 import { MatchStatus } from '@prisma/client';
-import { updateMatchStats } from '../utils/stats';
+import { handleMatchStatsUpdate } from '../utils/stats';
 import { processMatchResult } from '../utils/match-processor';
+import { updateGroupStandings } from '../utils/standings';
+
 const router = Router();
 
 router.get('/', async (req, res) => {
@@ -15,11 +17,7 @@ router.get('/', async (req, res) => {
       const role = req.user.role;
 
       let whereCondition = {};
-      console.log('clubId', clubId);
-      console.log('userId', userId);
-      console.log('role', role);
       if (role === 'AdminClub' || (role === 'Player' && clubId)) {
-        // Solo partidos organizados por su club o donde juegue su club
         whereCondition = {
           OR: [
             { tournament: { clubId: clubId } },
@@ -28,12 +26,10 @@ router.get('/', async (req, res) => {
           ],
         };
       } else if (role === 'Player' && !clubId) {
-        // Player libre: SOLO ve sus propios partidos en los que ha participado
         whereCondition = {
           OR: [{ playerOneId: userId }, { playerTwoId: userId }],
         };
       }
-      console.log(whereCondition);
 
       const matches = await prisma.match.findMany({
         where: whereCondition,
@@ -151,7 +147,7 @@ router.post('/', async (req, res) => {
       },
     });
 
-    await updateMatchStats(prisma, newMatch);
+    await handleMatchStatsUpdate(prisma, null, newMatch);
 
     await processMatchResult(prisma, newMatch);
 
@@ -169,7 +165,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const validation = createMatchSchema.partial().safeParse(req.body);
+    const validation = baseMatchObject.partial().safeParse(req.body);
 
     if (!validation.success) {
       res.status(400).json({
@@ -179,8 +175,6 @@ router.put('/:id', async (req, res) => {
       return;
     }
 
-    const data = validation.data;
-
     const existingMatch = await prisma.match.findUnique({
       where: { id },
     });
@@ -189,6 +183,30 @@ router.put('/:id', async (req, res) => {
       res.status(404).json({ error: 'Partido no encontrado' });
       return;
     }
+
+    const mergedData = {
+      ...existingMatch,
+      ...validation.data,
+      dateStart:
+        existingMatch.dateStart instanceof Date
+          ? existingMatch.dateStart.toISOString()
+          : existingMatch.dateStart,
+    };
+
+    const businessValidation = baseMatchObject
+      .superRefine(validateMatchBusinessRules)
+      .safeParse(mergedData);
+
+    if (!businessValidation.success) {
+      res.status(400).json({
+        error: 'El marcador no cumple las reglas del partido',
+        details: z.treeifyError(businessValidation.error),
+      });
+      return;
+    }
+
+    const data = validation.data;
+    delete (data as any).setsToWin;
 
     const matchStatus = data.status ? data.status : existingMatch.status;
 
@@ -200,11 +218,10 @@ router.put('/:id', async (req, res) => {
       },
     });
 
-    if (
-      updatedMatch.status === MatchStatus.Completado &&
-      existingMatch.status !== MatchStatus.Completado
-    ) {
-      await updateMatchStats(prisma, updatedMatch);
+    await handleMatchStatsUpdate(prisma, existingMatch, updatedMatch);
+
+    if (updatedMatch.groupId) {
+      await updateGroupStandings(prisma, updatedMatch.groupId);
     }
 
     await processMatchResult(prisma, updatedMatch);

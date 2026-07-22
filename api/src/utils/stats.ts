@@ -1,21 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, MatchStatus } from '@prisma/client';
 import { POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
 import { calculateMatchResults } from './match';
-import { MatchStatus } from '@prisma/client';
 
-export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
-  if (match.status !== MatchStatus.Completado) {
-    return;
-  }
-
-  const { p1Sets, p2Sets, p1Points, p2Points, p1WinsMatch } = calculateMatchResults(match);
-
-  const p1Stats = await prisma.stats.findFirst({ where: { userId: match.playerOneId } });
-  const p2Stats = await prisma.stats.findFirst({ where: { userId: match.playerTwoId } });
-
-  let p1Score = p1Stats?.elo && p1Stats.elo > 0 ? p1Stats.elo : SCORE_DEFAULT;
-  let p2Score = p2Stats?.elo && p2Stats.elo > 0 ? p2Stats.elo : SCORE_DEFAULT;
-
+// Función auxiliar para calcular la variación de ELO de un partido
+const calculateEloDeltas = (p1Score: number, p2Score: number, p1WinsMatch: boolean) => {
   const diff = Math.abs(p1Score - p2Score);
 
   let bucket: readonly [number, number];
@@ -39,69 +27,146 @@ export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
     p1ScoreDelta = -Math.min(pointsExchanged, p1Score - 1);
   }
 
-  const savePlayerStats = async (
-    userId: string,
-    statsId: string | undefined,
-    scoreDelta: number,
-    wonMatch: number,
-    lostMatch: number,
-    wonSets: number,
-    lostSet: number,
-    wonPoints: number,
-    lostPoints: number,
-  ) => {
-    if (statsId) {
+  return { p1ScoreDelta, p2ScoreDelta };
+};
+
+// Función principal que soporta edición/reversión de partidos
+export const handleMatchStatsUpdate = async (
+  prisma: PrismaClient,
+  previousMatch: any,
+  newMatch: any,
+) => {
+  const wasCompleted = previousMatch?.status === MatchStatus.Completado;
+  const isCompletedNow = newMatch.status === MatchStatus.Completado;
+
+  // Si no estaba completado antes ni lo está ahora, no hay nada que calcular
+  if (!wasCompleted && !isCompletedNow) {
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // 1. PASO 1: REVERTIR MARCADOR ANTIGUO (Si el partido ya estaba completado)
+  // ------------------------------------------------------------------
+  if (wasCompleted) {
+    const prevRes = calculateMatchResults(previousMatch);
+    const p1Stats = await prisma.stats.findFirst({ where: { userId: previousMatch.playerOneId } });
+    const p2Stats = await prisma.stats.findFirst({ where: { userId: previousMatch.playerTwoId } });
+
+    if (p1Stats && p2Stats) {
+      const p1Score = p1Stats.elo || SCORE_DEFAULT;
+      const p2Score = p2Stats.elo || SCORE_DEFAULT;
+      const { p1ScoreDelta, p2ScoreDelta } = calculateEloDeltas(
+        p1Score,
+        p2Score,
+        prevRes.p1WinsMatch,
+      );
+
+      // Deshacemos (restamos) los stats antiguos
       await prisma.stats.update({
-        where: { id: statsId },
+        where: { id: p1Stats.id },
         data: {
-          elo: { increment: scoreDelta },
-          matchWon: { increment: wonMatch },
-          matchLost: { increment: lostMatch },
-          setWon: { increment: wonSets },
-          setLost: { increment: lostSet },
-          pointWon: { increment: wonPoints },
-          pointLost: { increment: lostPoints },
+          elo: { decrement: p1ScoreDelta },
+          matchWon: { decrement: prevRes.p1WinsMatch ? 1 : 0 },
+          matchLost: { decrement: prevRes.p1WinsMatch ? 0 : 1 },
+          setWon: { decrement: prevRes.p1Sets },
+          setLost: { decrement: prevRes.p2Sets },
+          pointWon: { decrement: prevRes.p1Points },
+          pointLost: { decrement: prevRes.p2Points },
         },
       });
-    } else {
-      await prisma.stats.create({
+
+      await prisma.stats.update({
+        where: { id: p2Stats.id },
         data: {
-          userId,
-          elo: 500 + scoreDelta,
-          matchWon: wonMatch,
-          matchLost: lostMatch,
-          setWon: wonSets,
-          setLost: lostSet,
-          pointWon: wonPoints,
-          pointLost: lostPoints,
-          tournamentWon: 0,
-          tournamentLost: 0,
+          elo: { decrement: p2ScoreDelta },
+          matchWon: { decrement: prevRes.p1WinsMatch ? 0 : 1 },
+          matchLost: { decrement: prevRes.p1WinsMatch ? 1 : 0 },
+          setWon: { decrement: prevRes.p2Sets },
+          setLost: { decrement: prevRes.p1Sets },
+          pointWon: { decrement: prevRes.p2Points },
+          pointLost: { decrement: prevRes.p1Points },
         },
       });
     }
-  };
+  }
 
-  await savePlayerStats(
-    match.playerOneId,
-    p1Stats?.id,
-    p1ScoreDelta,
-    p1WinsMatch ? 1 : 0,
-    p1WinsMatch ? 0 : 1,
-    p1Sets,
-    p2Sets,
-    p1Points,
-    p2Points,
-  );
+  // ------------------------------------------------------------------
+  // 2. PASO 2: APLICAR MARCADOR NUEVO (Si el estado actual es Completado)
+  // ------------------------------------------------------------------
+  if (isCompletedNow) {
+    const newRes = calculateMatchResults(newMatch);
+    const p1Stats = await prisma.stats.findFirst({ where: { userId: newMatch.playerOneId } });
+    const p2Stats = await prisma.stats.findFirst({ where: { userId: newMatch.playerTwoId } });
 
-  await savePlayerStats(
-    match.playerTwoId,
-    p2Stats?.id,
-    p2ScoreDelta,
-    p1WinsMatch ? 0 : 1,
-    p1WinsMatch ? 1 : 0,
-    p2Sets,
-    p1Sets,
-    p2Points,
-    p1Points,
-  );
+    let p1Score = p1Stats?.elo && p1Stats.elo > 0 ? p1Stats.elo : SCORE_DEFAULT;
+    let p2Score = p2Stats?.elo && p2Stats.elo > 0 ? p2Stats.elo : SCORE_DEFAULT;
+
+    const { p1ScoreDelta, p2ScoreDelta } = calculateEloDeltas(p1Score, p2Score, newRes.p1WinsMatch);
+
+    const saveOrUpdate = async (
+      userId: string,
+      statsId: string | undefined,
+      scoreDelta: number,
+      wonMatch: number,
+      lostMatch: number,
+      wonSets: number,
+      lostSets: number,
+      wonPoints: number,
+      lostPoints: number,
+    ) => {
+      if (statsId) {
+        await prisma.stats.update({
+          where: { id: statsId },
+          data: {
+            elo: { increment: scoreDelta },
+            matchWon: { increment: wonMatch },
+            matchLost: { increment: lostMatch },
+            setWon: { increment: wonSets },
+            setLost: { increment: lostSets },
+            pointWon: { increment: wonPoints },
+            pointLost: { increment: lostPoints },
+          },
+        });
+      } else {
+        await prisma.stats.create({
+          data: {
+            userId,
+            elo: SCORE_DEFAULT + scoreDelta,
+            matchWon: wonMatch,
+            matchLost: lostMatch,
+            setWon: wonSets,
+            setLost: lostSets,
+            pointWon: wonPoints,
+            pointLost: lostPoints,
+            tournamentWon: 0,
+            tournamentLost: 0,
+          },
+        });
+      }
+    };
+
+    await saveOrUpdate(
+      newMatch.playerOneId,
+      p1Stats?.id,
+      p1ScoreDelta,
+      newRes.p1WinsMatch ? 1 : 0,
+      newRes.p1WinsMatch ? 0 : 1,
+      newRes.p1Sets,
+      newRes.p2Sets,
+      newRes.p1Points,
+      newRes.p2Points,
+    );
+
+    await saveOrUpdate(
+      newMatch.playerTwoId,
+      p2Stats?.id,
+      p2ScoreDelta,
+      newRes.p1WinsMatch ? 0 : 1,
+      newRes.p1WinsMatch ? 1 : 0,
+      newRes.p2Sets,
+      newRes.p1Sets,
+      newRes.p2Points,
+      newRes.p1Points,
+    );
+  }
 };

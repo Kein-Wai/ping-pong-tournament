@@ -37,6 +37,8 @@ export const TorneoNuevo = () => {
   // Estados condicionales (Grupos)
   const [numGroup, setNumGroup] = useState<number | string>(4);
   const [numGroupPlayers, setNumGroupPlayers] = useState<number | string>(4);
+  const [setsToWinGroup, setSetsToWinGroup] = useState<number | string>(2);
+  const [setsToWinKnockout, setSetsToWinKnockout] = useState<number | string>(3);
 
   // Estados condicionales (Eliminatorias)
   const [typeKnockout, setTypeKnockout] = useState<string>('LlaveA');
@@ -71,10 +73,16 @@ export const TorneoNuevo = () => {
         payload.sortKnockout = sortKnockout;
         payload.allPos = allPos;
         payload.sortGroups = 'Snake'; // Algoritmo por defecto para grupos
+        payload.setsToWinGroup = setsToWinGroup;
+        payload.setsToWinKnockout = setsToWinKnockout;
       } else if (rounds === 'Knockout') {
+        payload.numGroup = null;
+        payload.numGroupPlayers = null;
+        payload.playersKnockout = null;
         payload.typeKnockout = typeKnockout;
         payload.sortKnockout = sortKnockout;
         payload.allPos = allPos;
+        payload.setsToWinKnockout = setsToWinKnockout;
       }
 
       // 3. Enviamos al backend
@@ -206,6 +214,21 @@ export const TorneoNuevo = () => {
                     onChange={setNumGroupPlayers}
                   />
                 </SimpleGrid>
+                <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                  {rounds === 'GruposKnockout' && (
+                    <Select
+                      label="Sets para ganar en Grupos"
+                      data={[
+                        { value: '2', label: '2 Sets (Al mejor de 3 sets)' },
+                        { value: '3', label: '3 Sets (Al mejor de 5 sets)' },
+                        { value: '4', label: '4 Sets (Al mejor de 7 sets)' },
+                      ]}
+                      value={String(setsToWinGroup)}
+                      onChange={(val) => setSetsToWinGroup(Number(val))}
+                      allowDeselect={false}
+                    />
+                  )}
+                </SimpleGrid>
               </Card>
             )}
 
@@ -248,7 +271,19 @@ export const TorneoNuevo = () => {
                     allowDeselect={false}
                   />
                 </SimpleGrid>
-
+                <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md">
+                  <Select
+                    label="Sets para ganar en Eliminatorias"
+                    data={[
+                      { value: '2', label: '2 Sets (Al mejor de 3 sets)' },
+                      { value: '3', label: '3 Sets (Al mejor de 5 sets)' },
+                      { value: '4', label: '4 Sets (Al mejor de 7 sets)' },
+                    ]}
+                    value={String(setsToWinKnockout)}
+                    onChange={(val) => setSetsToWinKnockout(Number(val))}
+                    allowDeselect={false}
+                  />
+                </SimpleGrid>
                 <Switch
                   label="Jugar todos los puestos (Full Bracket)"
                   description="Si está activo, los perdedores seguirán jugando para definir su posición final exacta (ej. 3º, 5º, 9º)."

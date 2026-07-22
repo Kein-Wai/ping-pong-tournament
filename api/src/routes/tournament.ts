@@ -55,9 +55,10 @@ router.post('/', requireAdminClub, async (req, res) => {
     if (role === 'AdminClub' && !userClubId) {
       return res.status(403).json({ error: 'No perteneces a ningún club para crear torneos' });
     }
-
+    console.log(req.body);
     const validation = createTournamentSchema.safeParse(req.body);
 
+    console.log(validation);
     if (!validation.success) {
       res.status(400).json({
         error: 'Datos inválidos',
@@ -162,13 +163,10 @@ router.put('/:id', requireAdminClub, async (req, res) => {
           ? tournament.dateStart.toISOString()
           : tournament.dateStart,
     };
-    console.log(mergedData);
 
     const businessValidation = baseTournamentObject
       .superRefine(validateTournamentBusinessRules)
       .safeParse(mergedData);
-
-    console.log(businessValidation);
 
     if (!businessValidation.success) {
       return res.status(400).json({
@@ -422,6 +420,46 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, r
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al actualizar el estado del participante' });
+  }
+});
+
+// DELETE: Borrar un torneo (Solo si está en estado 'Programado')
+router.delete('/:id', requireAdminClub, async (req, res) => {
+  try {
+    const tournamentId = req.params.id as string;
+    const adminClubId = req.user?.clubId;
+    const role = req.user?.role;
+
+    // 1. Buscamos el torneo
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Torneo no encontrado' });
+    }
+
+    // 2. Seguridad Multi-tenant: El AdminClub solo borra torneos de su club
+    if (role === 'AdminClub' && tournament.clubId !== adminClubId) {
+      return res.status(403).json({ error: 'No tienes permiso para borrar este torneo' });
+    }
+
+    // 3. Regla de negocio: Solo se puede borrar si no se ha iniciado
+    if (tournament.status !== 'Programado') {
+      return res.status(400).json({
+        error: 'No se puede eliminar un torneo que ya ha sido iniciado o finalizado.',
+      });
+    }
+
+    // 4. Eliminación en cascada (Prisma borrará las inscripciones asociadas si las hay)
+    await prisma.tournament.delete({
+      where: { id: tournamentId },
+    });
+
+    res.status(200).json({ success: true, message: 'Torneo eliminado con éxito' });
+  } catch (error) {
+    console.error('Error al eliminar el torneo:', error);
+    res.status(500).json({ error: 'Error interno del servidor al eliminar el torneo' });
   }
 });
 

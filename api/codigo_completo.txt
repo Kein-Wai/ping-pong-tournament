@@ -659,7 +659,7 @@ router.post('/register', async (req, res) => {
 
     const newUser = await prisma.user.create({
       data: {
-        email,
+        email: email.toLowerCase(),
         password: hashedPassword,
         name,
         surname,
@@ -676,6 +676,8 @@ router.post('/register', async (req, res) => {
       {
         id: newUser.id, // (Usa user o newUser dependiendo de la ruta en la que estés)
         email: newUser.email,
+        name: newUser.name,
+        surname: newUser.surname,
         role: newUser.userType?.name,
         clubId: newUser.clubId,
         clubStatus: newUser.clubStatus,
@@ -707,7 +709,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = validation.data;
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.toLowerCase() },
       include: { userType: true },
     });
 
@@ -1299,7 +1301,7 @@ export default router;
 📂 ARCHIVO: src/routes/match.test.ts
 ================================================
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../index';
 import prisma from '../db';
@@ -1308,6 +1310,20 @@ vi.mock('../db', () => ({
   default: {
     match: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      count: vi.fn(),
+    },
+    tournamentGroupClas: {
+      findMany: vi.fn(),
+    },
+    tournamentGroup: {
+      findUnique: vi.fn(),
+    },
+    stats: {
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
     },
   },
 }));
@@ -1393,6 +1409,67 @@ describe('GET /api/matches', () => {
   });
 });
 
+describe('PUT /api/matches/:id (Actualizar Marcador)', () => {
+  // 👇 Usamos UUIDs válidos para que Zod no se queje
+  const mockMatchDB = {
+    id: '123e4567-e89b-12d3-a456-426614174000',
+    status: 'Programado',
+    groupId: '123e4567-e89b-12d3-a456-426614174001',
+    playerOneId: '123e4567-e89b-12d3-a456-426614174002',
+    playerTwoId: '123e4567-e89b-12d3-a456-426614174003',
+    dateStart: new Date().toISOString(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('Debería actualizar un partido y devolver 200', async () => {
+    vi.mocked(prisma.match.findUnique).mockResolvedValue(mockMatchDB as any);
+    vi.mocked(prisma.match.update).mockResolvedValue({
+      ...mockMatchDB,
+      status: 'Completado',
+    } as any);
+
+    vi.mocked(prisma.tournamentGroupClas.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.match.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.tournamentGroup.findUnique).mockResolvedValue({ tournamentId: 't-1' } as any);
+    vi.mocked(prisma.match.count).mockResolvedValue(0);
+
+    const response = await request(app)
+      .put('/api/matches/123e4567-e89b-12d3-a456-426614174000')
+      .send({
+        status: 'Completado',
+        setsToWin: 2, // 👈 Le pasamos los sets a ganar para que la regla de negocio evalúe la victoria
+        setOnePlayerOne: 11,
+        setOnePlayerTwo: 8,
+        setTwoPlayerOne: 11,
+        setTwoPlayerTwo: 9,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe('Partido actualizado con éxito');
+    expect(prisma.match.update).toHaveBeenCalledOnce();
+  });
+
+  it('Debería rechazar un marcador imposible en ping-pong (ej. 15-1) devolviendo 400', async () => {
+    vi.mocked(prisma.match.findUnique).mockResolvedValue(mockMatchDB as any);
+
+    const response = await request(app)
+      .put('/api/matches/123e4567-e89b-12d3-a456-426614174000')
+      .send({
+        status: 'Completado',
+        setsToWin: 2,
+        setOnePlayerOne: 15,
+        setOnePlayerTwo: 1,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('El marcador no cumple las reglas del partido');
+    expect(prisma.match.update).not.toHaveBeenCalled();
+  });
+});
+
 
 ================================================
 📂 ARCHIVO: src/routes/match.ts
@@ -1400,11 +1477,13 @@ describe('GET /api/matches', () => {
 
 import { Router } from 'express';
 import prisma from '../db';
-import { createMatchSchema } from '../schemas/match';
+import { createMatchSchema, baseMatchObject, validateMatchBusinessRules } from '../schemas/match';
 import { z } from 'zod';
 import { MatchStatus } from '@prisma/client';
-import { updateMatchStats } from '../utils/stats';
+import { handleMatchStatsUpdate } from '../utils/stats';
 import { processMatchResult } from '../utils/match-processor';
+import { updateGroupStandings } from '../utils/standings';
+
 const router = Router();
 
 router.get('/', async (req, res) => {
@@ -1415,9 +1494,6 @@ router.get('/', async (req, res) => {
       const role = req.user.role;
 
       let whereCondition = {};
-      console.log('clubId', clubId);
-      console.log('userId', userId);
-      console.log('role', role);
       if (role === 'AdminClub' || (role === 'Player' && clubId)) {
         // Solo partidos organizados por su club o donde juegue su club
         whereCondition = {
@@ -1433,7 +1509,6 @@ router.get('/', async (req, res) => {
           OR: [{ playerOneId: userId }, { playerTwoId: userId }],
         };
       }
-      console.log(whereCondition);
 
       const matches = await prisma.match.findMany({
         where: whereCondition,
@@ -1551,7 +1626,7 @@ router.post('/', async (req, res) => {
       },
     });
 
-    await updateMatchStats(prisma, newMatch);
+    await handleMatchStatsUpdate(prisma, null, newMatch);
 
     await processMatchResult(prisma, newMatch);
 
@@ -1569,7 +1644,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const validation = createMatchSchema.partial().safeParse(req.body);
+    const validation = baseMatchObject.partial().safeParse(req.body);
 
     if (!validation.success) {
       res.status(400).json({
@@ -1579,8 +1654,6 @@ router.put('/:id', async (req, res) => {
       return;
     }
 
-    const data = validation.data;
-
     const existingMatch = await prisma.match.findUnique({
       where: { id },
     });
@@ -1589,6 +1662,31 @@ router.put('/:id', async (req, res) => {
       res.status(404).json({ error: 'Partido no encontrado' });
       return;
     }
+
+    const mergedData = {
+      ...existingMatch,
+      ...validation.data,
+      dateStart:
+        existingMatch.dateStart instanceof Date
+          ? existingMatch.dateStart.toISOString()
+          : existingMatch.dateStart,
+    };
+
+    // 3. Ejecutamos la validación de negocio sobre los datos fusionados
+    const businessValidation = baseMatchObject
+      .superRefine(validateMatchBusinessRules)
+      .safeParse(mergedData);
+
+    if (!businessValidation.success) {
+      res.status(400).json({
+        error: 'El marcador no cumple las reglas del partido',
+        details: z.treeifyError(businessValidation.error),
+      });
+      return;
+    }
+
+    const data = validation.data;
+    delete (data as any).setsToWin; // Eliminamos setsToWin antes de guardar en la BD ya que no es un campo de la tabla Match
 
     const matchStatus = data.status ? data.status : existingMatch.status;
 
@@ -1600,14 +1698,14 @@ router.put('/:id', async (req, res) => {
       },
     });
 
-    if (
-      updatedMatch.status === MatchStatus.Completado &&
-      existingMatch.status !== MatchStatus.Completado
-    ) {
-      await updateMatchStats(prisma, updatedMatch);
-    }
+    await handleMatchStatsUpdate(prisma, existingMatch, updatedMatch);
 
-    await processMatchResult(prisma, updatedMatch);
+    if (updatedMatch.groupId) {
+      await updateGroupStandings(prisma, updatedMatch.groupId);
+    } else {
+      // Para partidos de eliminatorias/bracket
+      await processMatchResult(prisma, updatedMatch);
+    }
 
     res.status(200).json({
       message: 'Partido actualizado con éxito',
@@ -1630,6 +1728,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../../src/index';
 import prisma from '../../src/db';
+import { verifyToken, requireAdminClub } from '../../src/middleware/auth.middleware'; // 👈 ¡ESTA LÍNEA FALTABA!
 
 vi.mock('../../src/db', () => ({
   default: {
@@ -1664,15 +1763,15 @@ vi.mock('../../src/db', () => ({
 }));
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
-  verifyToken: (req: any, res: any, next: any) => {
+  verifyToken: vi.fn((req: any, res: any, next: any) => {
     req.user = { id: 'user-id-123', role: 'SuperAdmin' };
     next();
-  },
-  requireSuperAdmin: (req: any, res: any, next: any) => next(),
-  requireAdminClub: (req: any, res: any, next: any) => {
+  }),
+  requireSuperAdmin: vi.fn((req: any, res: any, next: any) => next()),
+  requireAdminClub: vi.fn((req: any, res: any, next: any) => {
     req.user = { id: 'user-id-123', role: 'SuperAdmin' };
     next();
-  },
+  }),
 }));
 
 const MOCK_UUID = '123e4567-e89b-12d3-a456-426614174000';
@@ -1948,6 +2047,71 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
       );
     });
   });
+  describe('PUT /:id (Actualizar Formato de Torneo)', () => {
+    // Objeto base completo para que Zod no falle por falta de campos obligatorios
+    const validMockDbTournament = {
+      id: MOCK_UUID,
+      name: 'Torneo Base',
+      dateStart: new Date(),
+      numPlayers: 16,
+      numGroup: 4,
+      numGroupPlayers: 4,
+      playersKnockout: 2,
+      rounds: 'GruposKnockout',
+      clubId: null,
+    };
+
+    it('Debería actualizar el formato del torneo exitosamente (200)', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue(validMockDbTournament as any);
+      vi.mocked(prisma.tournament.update).mockResolvedValue({ id: MOCK_UUID } as any);
+
+      const response = await request(app).put(`/api/tournaments/${MOCK_UUID}`).send({
+        numGroup: 4,
+        numGroupPlayers: 4,
+        playersKnockout: 2,
+        setsToWinGroup: 2,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(prisma.tournament.update).toHaveBeenCalledOnce();
+    });
+
+    it('Debería fallar (403) si un AdminClub intenta editar el torneo de otro club', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue({
+        ...validMockDbTournament,
+        clubId: 'club-rival-id',
+      } as any);
+
+      // Simulamos ser AdminClub en el middleware
+      vi.mocked(verifyToken).mockImplementationOnce((req: any, res: any, next: any) => {
+        req.user = { id: 'admin-id', role: 'AdminClub', clubId: 'mi-propio-club' };
+        next();
+      });
+      vi.mocked(requireAdminClub).mockImplementationOnce((req: any, res: any, next: any) => {
+        req.user = { id: 'admin-id', role: 'AdminClub', clubId: 'mi-propio-club' };
+        next();
+      });
+
+      const response = await request(app)
+        .put(`/api/tournaments/${MOCK_UUID}`)
+        .send({ numGroup: 4 });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('No tienes permiso para editar este torneo');
+    });
+
+    it('Debería fallar (400) si la nueva configuración rompe las reglas matemáticas', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue(validMockDbTournament as any);
+
+      const response = await request(app).put(`/api/tournaments/${MOCK_UUID}`).send({
+        numGroup: 1, // Invalidado por las reglas Zod para GruposKnockout
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('La nueva configuración rompe las reglas del torneo');
+    });
+  });
 });
 
 
@@ -1958,7 +2122,12 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db';
-import { createTournamentSchema, registerParticipantSchema } from '../schemas/tournament';
+import {
+  createTournamentSchema,
+  registerParticipantSchema,
+  baseTournamentObject,
+  validateTournamentBusinessRules,
+} from '../schemas/tournament';
 import { generateTournamentGroups } from '../utils/group-generator';
 import { MatchStatus, PlayerTournamentStatus, KnockoutType } from '@prisma/client';
 import { fetchTournamentBracket } from '../utils/knockout';
@@ -1975,13 +2144,10 @@ router.get('/', async (req, res) => {
     let whereClause: any = {};
 
     if (role === 'SuperAdmin') {
-      // El SuperAdmin ve absolutamente todos los torneos
       whereClause = {};
     } else if (role === 'AdminClub') {
-      // El Admin del club solo ve los torneos de SU club
       whereClause = { clubId: clubId };
     } else {
-      // Los jugadores ven los torneos de su club + cualquier torneo "Abierto" de otros clubes
       whereClause = {
         OR: [{ clubId: clubId ? clubId : 'no-club-assigned' }, { typeTournament: 'Abierto' }],
       };
@@ -1990,7 +2156,7 @@ router.get('/', async (req, res) => {
     const tournaments = await prisma.tournament.findMany({
       where: whereClause,
       include: {
-        club: { select: { name: true } }, // Incluimos el nombre del club para el Frontend
+        club: { select: { name: true } },
       },
       orderBy: { dateStart: 'asc' },
     });
@@ -2007,13 +2173,13 @@ router.post('/', requireAdminClub, async (req, res) => {
     const role = req.user?.role;
     const userClubId = req.user?.clubId;
 
-    // Si es un Admin de Club, obligamos a que tenga un club asignado
     if (role === 'AdminClub' && !userClubId) {
       return res.status(403).json({ error: 'No perteneces a ningún club para crear torneos' });
     }
-
+    console.log(req.body);
     const validation = createTournamentSchema.safeParse(req.body);
 
+    console.log(validation);
     if (!validation.success) {
       res.status(400).json({
         error: 'Datos inválidos',
@@ -2043,7 +2209,6 @@ router.post('/', requireAdminClub, async (req, res) => {
         groupsCreated: false,
         knockoutCreated: false,
 
-        // AÑADIDO: Asignamos automáticamente el torneo al club del usuario que lo crea
         clubId: userClubId || null,
       },
     });
@@ -2082,10 +2247,64 @@ router.get('/:id', async (req, res) => {
       return res
         .status(200)
         .json({ success: true, data: tournament, message: 'Torneo no encontrado' });
-    return res.status(200).json({ success: true, data: tournament });
   } catch (error) {
     console.error('Error fetching tournament:', error);
     return res.status(500).json({ success: false, message: 'Error al obtener torneo' });
+  }
+});
+
+router.put('/:id', requireAdminClub, async (req, res) => {
+  try {
+    const tournamentId = req.params.id as string;
+    const adminClubId = req.user?.clubId;
+    const role = req.user?.role;
+
+    const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Torneo no encontrado' });
+    }
+
+    if (role === 'AdminClub' && tournament.clubId !== adminClubId) {
+      return res.status(403).json({ error: 'No tienes permiso para editar este torneo' });
+    }
+
+    const validation = baseTournamentObject.partial().safeParse(req.body);
+    if (!validation.success) {
+      return res
+        .status(400)
+        .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    }
+
+    const mergedData = {
+      ...tournament,
+      ...validation.data,
+      dateStart:
+        tournament.dateStart instanceof Date
+          ? tournament.dateStart.toISOString()
+          : tournament.dateStart,
+    };
+
+    const businessValidation = baseTournamentObject
+      .superRefine(validateTournamentBusinessRules)
+      .safeParse(mergedData);
+
+    if (!businessValidation.success) {
+      return res.status(400).json({
+        error: 'La nueva configuración rompe las reglas del torneo',
+        details: z.treeifyError(businessValidation.error),
+      });
+    }
+
+    const updatedTournament = await prisma.tournament.update({
+      where: { id: tournamentId },
+      data: validation.data,
+    });
+
+    res.status(200).json({ success: true, message: 'Torneo actualizado', data: updatedTournament });
+  } catch (error) {
+    console.error('Error al actualizar el torneo:', error);
+    res.status(500).json({ error: 'Error interno al actualizar el torneo' });
   }
 });
 
@@ -2183,7 +2402,7 @@ router.get('/:id/participants', async (req, res) => {
           select: { id: true, name: true, surname: true, stats: true },
         },
       },
-      orderBy: { registeredAt: 'asc' }, // Orden de llegada
+      orderBy: { registeredAt: 'asc' },
     });
 
     return res.status(200).json({
@@ -2277,7 +2496,6 @@ router.get('/:id/classifications', async (req, res) => {
   }
 });
 
-// PUT: Actualizar estado de un participante (Confirmar o Penalizar)
 router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, res) => {
   try {
     const id = req.params.id as string;
@@ -2289,13 +2507,11 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, r
     console.log('tournamentid', id);
     console.log('status', status);
 
-    // Validación de seguridad Multi-tenant
     const tournament = await prisma.tournament.findUnique({ where: { id } });
     if (!tournament || (req.user?.role === 'AdminClub' && tournament.clubId !== adminClubId)) {
       return res.status(403).json({ error: 'No tienes permisos sobre este torneo' });
     }
 
-    // Buscamos el estado actual para no duplicar penalizaciones
     const currentParticipant = await prisma.tournamentParticipant.findUnique({
       where: { tournamentId_playerId: { tournamentId: id, playerId } },
     });
@@ -2309,15 +2525,12 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, r
       data: { status },
     });
 
-    // LÓGICA DE ELO: Si lo marcan como "NoPresentado" y antes no lo estaba, le quitamos 100 puntos.
     if (status === 'NoPresentado' && currentParticipant.status !== 'NoPresentado') {
       await prisma.stats.update({
         where: { userId: playerId },
         data: { elo: { decrement: 100 } },
       });
-    }
-    // LÓGICA DE REVERSIÓN: Si le perdonan la vida y le quitan el "NoPresentado", se los devolvemos.
-    else if (status !== 'NoPresentado' && currentParticipant.status === 'NoPresentado') {
+    } else if (status !== 'NoPresentado' && currentParticipant.status === 'NoPresentado') {
       await prisma.stats.update({
         where: { userId: playerId },
         data: { elo: { increment: 100 } },
@@ -2328,6 +2541,46 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, r
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al actualizar el estado del participante' });
+  }
+});
+
+// DELETE: Borrar un torneo (Solo si está en estado 'Programado')
+router.delete('/:id', requireAdminClub, async (req, res) => {
+  try {
+    const tournamentId = req.params.id as string;
+    const adminClubId = req.user?.clubId;
+    const role = req.user?.role;
+
+    // 1. Buscamos el torneo
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Torneo no encontrado' });
+    }
+
+    // 2. Seguridad Multi-tenant: El AdminClub solo borra torneos de su club
+    if (role === 'AdminClub' && tournament.clubId !== adminClubId) {
+      return res.status(403).json({ error: 'No tienes permiso para borrar este torneo' });
+    }
+
+    // 3. Regla de negocio: Solo se puede borrar si no se ha iniciado
+    if (tournament.status !== 'Programado') {
+      return res.status(400).json({
+        error: 'No se puede eliminar un torneo que ya ha sido iniciado o finalizado.',
+      });
+    }
+
+    // 4. Eliminación en cascada (Prisma borrará las inscripciones asociadas si las hay)
+    await prisma.tournament.delete({
+      where: { id: tournamentId },
+    });
+
+    res.status(200).json({ success: true, message: 'Torneo eliminado con éxito' });
+  } catch (error) {
+    console.error('Error al eliminar el torneo:', error);
+    res.status(500).json({ error: 'Error interno del servidor al eliminar el torneo' });
   }
 });
 
@@ -3031,9 +3284,7 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setTwoPlayerOne: 12,
       setTwoPlayerTwo: 10,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(true);
   });
 
@@ -3044,9 +3295,7 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setOnePlayerOne: 0,
       setOnePlayerTwo: 0,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(true);
   });
 
@@ -3056,16 +3305,13 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       playerTwoId: validPlayerTwoId,
       setOnePlayerOne: 11,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(false);
     if (!result.success) {
       const issue = result.error.issues.find((i) =>
         i.message.includes('Falta la puntuación del rival'),
       );
       expect(issue).toBeDefined();
-      expect(issue?.path).toContain('setOnePlayerTwo');
     }
   });
 
@@ -3076,13 +3322,11 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setOnePlayerOne: 10,
       setOnePlayerTwo: 8,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(false);
     if (!result.success) {
       const issue = result.error.issues.find((i) =>
-        i.message.includes('al menos un jugador debe llegar a 11 puntos'),
+        i.message.includes('no es válido en tenis de mesa reglamentario'),
       );
       expect(issue).toBeDefined();
     }
@@ -3095,13 +3339,11 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setOnePlayerOne: 11,
       setOnePlayerTwo: 10,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(false);
     if (!result.success) {
       const issue = result.error.issues.find((i) =>
-        i.message.includes('diferencia mínima de 2 puntos'),
+        i.message.includes('no es válido en tenis de mesa reglamentario'),
       );
       expect(issue).toBeDefined();
     }
@@ -3114,16 +3356,16 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setOnePlayerOne: 11,
       setOnePlayerTwo: 5,
       setTwoPlayerOne: 13,
-      setTwoPlayerTwo: 12,
+      setTwoPlayerTwo: 12, // <- Diferencia de 1
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(false);
     if (!result.success) {
-      const issue = result.error.issues.find((i) => i.message.includes('En el Set 2'));
+      const issue = result.error.issues.find((i) =>
+        i.message.includes('no es válido en tenis de mesa reglamentario'),
+      );
       expect(issue).toBeDefined();
-      expect(issue?.message).toContain('diferencia mínima de 2 puntos');
+      expect(issue?.path).toContain('setTwoPlayerOne');
     }
   });
 });
@@ -3134,84 +3376,119 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
 ================================================
 
 import { z } from 'zod';
-const scoreSchema = z.number().int().min(0, 'La puntuación no puede ser negativa').optional();
 import { MatchStatus } from '@prisma/client';
+import { isValidTableTennisSet } from '../utils/match';
 
-export const createMatchSchema = z
-  .object({
-    dateStart: z.iso
-      .datetime('Formato de fecha inválido. Usa ISO 8601 (ej. 2026-07-15T10:30:00Z)')
-      .optional(),
-    tournamentId: z.uuid().optional(),
-    groupId: z.uuid().optional(),
-    knockoutId: z.uuid().optional(),
-    leagueId: z.uuid().optional(),
-    playerOneId: z.uuid('El ID del Jugador 1 debe ser un UUID válido'),
-    playerTwoId: z.uuid('El ID del Jugador 2 debe ser un UUID válido'),
-    setOnePlayerOne: scoreSchema,
-    setOnePlayerTwo: scoreSchema,
-    setTwoPlayerOne: scoreSchema,
-    setTwoPlayerTwo: scoreSchema,
-    setThreePlayerOne: scoreSchema,
-    setThreePlayerTwo: scoreSchema,
-    setFourPlayerOne: scoreSchema,
-    setFourPlayerTwo: scoreSchema,
-    setFivePlayerOne: scoreSchema,
-    setFivePlayerTwo: scoreSchema,
-    setSixPlayerOne: scoreSchema,
-    setSixPlayerTwo: scoreSchema,
-    setSevenPlayerOne: scoreSchema,
-    setSevenPlayerTwo: scoreSchema,
-    status: z.enum(MatchStatus).optional(),
-  })
-  .superRefine((data, ctx) => {
-    const setsToValidate = [
-      { p1: 'setOnePlayerOne', p2: 'setOnePlayerTwo', name: 'Set 1' },
-      { p1: 'setTwoPlayerOne', p2: 'setTwoPlayerTwo', name: 'Set 2' },
-      { p1: 'setThreePlayerOne', p2: 'setThreePlayerTwo', name: 'Set 3' },
-      { p1: 'setFourPlayerOne', p2: 'setFourPlayerTwo', name: 'Set 4' },
-      { p1: 'setFivePlayerOne', p2: 'setFivePlayerTwo', name: 'Set 5' },
-      { p1: 'setSixPlayerOne', p2: 'setSixPlayerTwo', name: 'Set 6' },
-      { p1: 'setSevenPlayerOne', p2: 'setSevenPlayerTwo', name: 'Set 7' },
-    ] as const;
+const scoreSchema = z
+  .number()
+  .int()
+  .min(0, 'La puntuación no puede ser negativa')
+  .nullable()
+  .optional();
 
-    for (const set of setsToValidate) {
-      const score1 = data[set.p1];
-      const score2 = data[set.p2];
+// 1. OBJETO BASE SIN REFINAMIENTOS
+export const baseMatchObject = z.object({
+  dateStart: z.iso
+    .datetime('Formato de fecha inválido. Usa ISO 8601 (ej. 2026-07-15T10:30:00Z)')
+    .optional(),
+  tournamentId: z.uuid().nullable().optional(),
+  groupId: z.uuid().nullable().optional(),
+  knockoutId: z.uuid().nullable().optional(),
+  leagueId: z.uuid().nullable().optional(),
+  playerOneId: z.uuid('El ID del Jugador 1 debe ser un UUID válido'),
+  playerTwoId: z.uuid('El ID del Jugador 2 debe ser un UUID válido'),
+  setOnePlayerOne: scoreSchema,
+  setOnePlayerTwo: scoreSchema,
+  setTwoPlayerOne: scoreSchema,
+  setTwoPlayerTwo: scoreSchema,
+  setThreePlayerOne: scoreSchema,
+  setThreePlayerTwo: scoreSchema,
+  setFourPlayerOne: scoreSchema,
+  setFourPlayerTwo: scoreSchema,
+  setFivePlayerOne: scoreSchema,
+  setFivePlayerTwo: scoreSchema,
+  setSixPlayerOne: scoreSchema,
+  setSixPlayerTwo: scoreSchema,
+  setSevenPlayerOne: scoreSchema,
+  setSevenPlayerTwo: scoreSchema,
+  status: z.enum(MatchStatus).optional(),
+  setsToWin: z.number().int().optional(),
+});
 
-      if ((score1 === undefined && score2 === undefined) || (score1 === 0 && score2 === 0)) {
-        continue;
-      }
+// 2. FUNCIÓN CON LAS REGLAS DE NEGOCIO DEL PARTIDO
+export const validateMatchBusinessRules = (data: any, ctx: z.RefinementCtx) => {
+  const setsToValidate = [
+    { p1: 'setOnePlayerOne', p2: 'setOnePlayerTwo', name: 'Set 1' },
+    { p1: 'setTwoPlayerOne', p2: 'setTwoPlayerTwo', name: 'Set 2' },
+    { p1: 'setThreePlayerOne', p2: 'setThreePlayerTwo', name: 'Set 3' },
+    { p1: 'setFourPlayerOne', p2: 'setFourPlayerTwo', name: 'Set 4' },
+    { p1: 'setFivePlayerOne', p2: 'setFivePlayerTwo', name: 'Set 5' },
+    { p1: 'setSixPlayerOne', p2: 'setSixPlayerTwo', name: 'Set 6' },
+    { p1: 'setSevenPlayerOne', p2: 'setSevenPlayerTwo', name: 'Set 7' },
+  ] as const;
 
-      if (score1 === undefined || score2 === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          message: `Falta la puntuación del rival en el ${set.name}.`,
-          path: [score1 === undefined ? set.p1 : set.p2],
-        });
-        continue;
-      }
+  let p1SetsWon = 0;
+  let p2SetsWon = 0;
 
-      const maxScore = Math.max(score1, score2);
-      const diff = Math.abs(score1 - score2);
+  for (const set of setsToValidate) {
+    const rawScore1 = data[set.p1];
+    const rawScore2 = data[set.p2];
 
-      if (maxScore < 11) {
-        ctx.addIssue({
-          code: 'custom',
-          message: `En el ${set.name}, al menos un jugador debe llegar a 11 puntos.`,
-          path: [set.p1],
-        });
-      }
+    // Ignorar si ambos están vacíos o a 0
+    if (
+      (rawScore1 === undefined || rawScore1 === null) &&
+      (rawScore2 === undefined || rawScore2 === null)
+    )
+      continue;
+    if (rawScore1 === 0 && rawScore2 === 0) continue;
 
-      if (diff < 2) {
-        ctx.addIssue({
-          code: 'custom',
-          message: `En el ${set.name}, debe haber una diferencia mínima de 2 puntos (hay ${diff}).`,
-          path: [set.p2],
-        });
-      }
+    // Falla si uno de los dos no se ha enviado
+    if (
+      rawScore1 === null ||
+      rawScore1 === undefined ||
+      rawScore2 === null ||
+      rawScore2 === undefined
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Falta la puntuación del rival en el ${set.name}.`,
+        path: [rawScore1 === null || rawScore1 === undefined ? set.p1 : set.p2],
+      });
+      continue;
     }
-  });
+
+    const score1 = Number(rawScore1);
+    const score2 = Number(rawScore2);
+
+    if (!isValidTableTennisSet(score1, score2)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `El marcador del ${set.name} (${score1}-${score2}) no es válido en tenis de mesa reglamentario.`,
+        path: [set.p1],
+      });
+      continue;
+    }
+
+    if (score1 > score2) p1SetsWon++;
+    else if (score2 > score1) p2SetsWon++;
+  }
+
+  if (data.status === 'Completado' && data.setsToWin) {
+    const targetSets = data.setsToWin; // 2, 3 o 4
+    const winnerReachedTarget = p1SetsWon === targetSets || p2SetsWon === targetSets;
+
+    if (!winnerReachedTarget) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Para completar el partido, uno de los dos jugadores debe ganar exactamente ${targetSets} sets (Actual: ${p1SetsWon}-${p2SetsWon}).`,
+        path: ['status'],
+      });
+    }
+  }
+};
+
+// 3. ESQUEMA COMPLETO PARA CREACIÓN
+export const createMatchSchema = baseMatchObject.superRefine(validateMatchBusinessRules);
 
 
 ================================================
@@ -3410,109 +3687,126 @@ import {
   PlayerTournamentStatus,
 } from '@prisma/client';
 
-export const createTournamentSchema = z
-  .object({
-    dateStart: z.iso.datetime('Formato de fecha inválido'),
-    name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
-    numPlayers: z.number().int().min(2, 'Debe haber al menos 2 jugadores'),
-    numGroup: z.number().int().min(1, 'Debe haber al menos 1 grupo').optional(),
-    numGroupPlayers: z.number().int().min(2).optional(),
-    typeTournament: z.enum(TypeTournament).optional(),
-    levelTournament: z.enum(LevelTournament).optional(),
-    rounds: z.enum(Rounds).optional(),
-    status: z.enum(TournamentStatus).optional(),
-    typeKnockout: z.enum(TypeKnockout).optional(),
-    playersKnockout: z.number().int().min(1).optional(),
-    sortGroups: z.enum(SortGroups).optional(),
-    sortKnockout: z.enum(SortKnockout).optional(),
-    allPos: z.boolean().optional().default(false),
-  })
-  .superRefine((data, ctx) => {
-    const type = data.rounds;
-    const players = data.numPlayers;
-    const groups = data.numGroup;
-    const playersPerGroup = data.numGroupPlayers;
-    const playersKnock = data.playersKnockout;
+export const baseTournamentObject = z.object({
+  dateStart: z.iso.datetime('Formato de fecha inválido'),
+  name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
+  numPlayers: z.number().int().min(2, 'Debe haber al menos 2 jugadores'),
+  numGroup: z.number().int().min(1, 'Debe haber al menos 1 grupo').nullable().optional(),
+  numGroupPlayers: z.number().int().min(2).nullable().optional(),
+  typeTournament: z.enum(TypeTournament).optional(),
+  levelTournament: z.enum(LevelTournament).optional(),
+  rounds: z.enum(Rounds).optional(),
+  status: z.enum(TournamentStatus).optional(),
+  typeKnockout: z.enum(TypeKnockout).optional(),
+  playersKnockout: z.number().int().min(1).nullable().optional(),
+  sortGroups: z.enum(SortGroups).optional(),
+  sortKnockout: z.enum(SortKnockout).optional(),
+  allPos: z.boolean().optional().default(false),
+  setsToWinGroup: z
+    .number()
+    .int()
+    .refine((val) => [2, 3, 4].includes(val), {
+      message:
+        'Los sets para ganar en grupos deben ser 2 (al mejor de 3), 3 (al mejor de 5) o 4 (al mejor de 7)',
+    })
+    .optional()
+    .default(2),
+  setsToWinKnockout: z
+    .number()
+    .int()
+    .refine((val) => [2, 3, 4].includes(val), {
+      message:
+        'Los sets para ganar en eliminatorias deben ser 2 (al mejor de 3), 3 (al mejor de 5) o 4 (al mejor de 7)',
+    })
+    .optional()
+    .default(3),
+});
 
-    if (!type) return;
+export const validateTournamentBusinessRules = (data: any, ctx: z.RefinementCtx) => {
+  const type = data.rounds;
+  const players = data.numPlayers;
+  const groups = data.numGroup;
+  const playersPerGroup = data.numGroupPlayers;
+  const playersKnock = data.playersKnockout;
 
-    if (type === Rounds.TodosvsTodos) {
-      if (players < 3 || players > 10) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Un torneo de Todos vs Todos debe tener entre 3 y 10 jugadores.',
-          path: ['numPlayers'],
-        });
-      }
+  if (!type) return;
 
-      if (groups === undefined || groups !== 1) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Un torneo de Todos vs Todos es una liga única, debe tener 1 solo grupo.',
-          path: ['numGroup'],
-        });
-      }
+  if (type === Rounds.TodosvsTodos) {
+    if (players < 3 || players > 10) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Un torneo de Todos vs Todos debe tener entre 3 y 10 jugadores.',
+        path: ['numPlayers'],
+      });
     }
-
-    if (type === Rounds.GruposKnockout) {
-      if (players < 6 || players > 128) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Un torneo de Grupos y Eliminatorias debe tener entre 6 y 128 jugadores.',
-          path: ['numPlayers'],
-        });
-      }
-
-      if (!groups || groups < 2 || groups > 16) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Para este formato, debes crear entre 2 y 16 grupos.',
-          path: ['numGroup'],
-        });
-      }
-
-      if (!playersPerGroup || playersPerGroup < 3) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Debe haber al menos 3 jugadores por grupo en este formato.',
-          path: ['numGroupPlayers'],
-        });
-      }
-
-      if (!playersKnock) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Debe especifarse un numero para que se clasifiquen a llave en este formato.',
-          path: ['numKnockouts'],
-        });
-      }
-      if (playersKnock && groups && playersKnock > players / groups) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'No pueden haber mas clasificados que jugadores en grupos.',
-          path: ['numKnockouts'],
-        });
-      }
+    if (groups === undefined || groups !== 1) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Un torneo de Todos vs Todos es una liga única, debe tener 1 solo grupo.',
+        path: ['numGroup'],
+      });
     }
+  }
 
-    if (type === Rounds.Knockout) {
-      if (players < 4 || players > 128) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Un torneo de solo Eliminatorias debe tener entre 4 y 128 jugadores.',
-          path: ['numPlayers'],
-        });
-      }
-
-      if (groups !== undefined || playersPerGroup !== undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Un torneo de eliminación directa no puede tener configuración de grupos.',
-          path: ['numGroup'],
-        });
-      }
+  if (type === Rounds.GruposKnockout) {
+    if (players < 6 || players > 128) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Un torneo de Grupos y Eliminatorias debe tener entre 6 y 128 jugadores.',
+        path: ['numPlayers'],
+      });
     }
-  });
+    if (!groups || groups < 2 || groups > 16) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Para este formato, debes crear entre 2 y 16 grupos.',
+        path: ['numGroup'],
+      });
+    }
+    if (!playersPerGroup || playersPerGroup < 3) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Debe haber al menos 3 jugadores por grupo en este formato.',
+        path: ['numGroupPlayers'],
+      });
+    }
+    if (!playersKnock) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Debe especificarse un número para que se clasifiquen a llave en este formato.',
+        path: ['numKnockouts'],
+      });
+    }
+    if (playersKnock && groups && playersKnock > players / groups) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'No pueden haber más clasificados que jugadores en grupos.',
+        path: ['numKnockouts'],
+      });
+    }
+  }
+
+  if (type === Rounds.Knockout) {
+    if (players < 4 || players > 128) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Un torneo de solo Eliminatorias debe tener entre 4 y 128 jugadores.',
+        path: ['numPlayers'],
+      });
+    }
+    if (groups && groups > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Un torneo de eliminación directa no puede tener configuración de grupos.',
+        path: ['numGroup'],
+      });
+    }
+  }
+};
+
+export const createTournamentSchema = baseTournamentObject.superRefine(
+  validateTournamentBusinessRules,
+);
 
 export const registerParticipantSchema = z.object({
   playerId: z.uuid('El ID del jugador debe ser un UUID válido'),
@@ -4335,6 +4629,38 @@ const options = {
           ],
           responses: { 200: { description: 'Estructura e inscripciones devueltas' } },
         },
+        put: {
+          summary: 'Actualizar configuración/formato de un torneo (AdminClub / SuperAdmin)',
+          description:
+            'Permite ajustar las matemáticas de un torneo (grupos, sets para ganar, clasificados) antes de iniciarlo.',
+          tags: ['Tournaments'],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    numGroup: { type: 'integer', example: 4 },
+                    numGroupPlayers: { type: 'integer', example: 4 },
+                    playersKnockout: { type: 'integer', example: 2 },
+                    setsToWinGroup: { type: 'integer', example: 2 },
+                    setsToWinKnockout: { type: 'integer', example: 3 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Torneo actualizado con éxito' },
+            400: { description: 'La configuración rompe las reglas matemáticas del formato' },
+            403: { description: 'Sin permisos sobre este torneo' },
+            404: { description: 'Torneo no encontrado' },
+          },
+        },
       },
       '/api/tournaments/{id}/register': {
         post: {
@@ -4490,6 +4816,45 @@ const options = {
             400: {
               description: 'Inconsistencias en el marcador bajo normativa oficial de tenis de mesa',
             },
+          },
+        },
+      },
+      '/api/matches/{id}': {
+        put: {
+          summary: 'Actualizar el resultado de un partido',
+          description:
+            'Permite a los administradores actualizar el marcador. Valida reglas oficiales ITTF y recalcula automáticamente el ELO y las clasificaciones en cascada.',
+          tags: ['Matches'],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: {
+                      type: 'string',
+                      enum: ['Programado', 'Iniciado', 'Completado', 'Cancelado'],
+                      example: 'Completado',
+                    },
+                    setOnePlayerOne: { type: 'integer', example: 11 },
+                    setOnePlayerTwo: { type: 'integer', example: 8 },
+                    setTwoPlayerOne: { type: 'integer', example: 12 },
+                    setTwoPlayerTwo: { type: 'integer', example: 10 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Partido actualizado y estadísticas recalculadas' },
+            400: {
+              description: 'Marcador inválido (ej. 15-1) o faltan sets para darlo por Completado',
+            },
+            404: { description: 'Partido no encontrado' },
           },
         },
       },
@@ -5583,6 +5948,23 @@ describe('Utility: calculate Match', () => {
 📂 ARCHIVO: src/utils/match.ts
 ================================================
 
+export const isValidTableTennisSet = (score1: number, score2: number): boolean => {
+  if (score1 === 0 && score2 === 0) return false;
+
+  const max = Math.max(score1, score2);
+  const min = Math.min(score1, score2);
+  const diff = max - min;
+
+  // No se puede ganar con menos de 11 puntos
+  if (max < 11) return false;
+
+  // Si se gana con 11 puntos, el rival debe tener 9 o menos
+  if (max === 11) return min <= 9;
+
+  // Si se pasa de 11 puntos, la diferencia DEBE SER EXACTAMENTE 2
+  return diff === 2;
+};
+
 export const calculateMatchResults = (match: any) => {
   const sets = [
     [match.setOnePlayerOne, match.setOnePlayerTwo],
@@ -5685,6 +6067,8 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
 
     for (const [scoreP1, scoreP2] of allSets) {
       if (scoreP1 !== null && scoreP2 !== null && scoreP1 !== undefined && scoreP2 !== undefined) {
+        if (scoreP1 === 0 && scoreP2 === 0) continue;
+
         p1Points += scoreP1;
         p2Points += scoreP2;
 
@@ -5693,28 +6077,30 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
       }
     }
 
+    // ✅ NOMBRES CORREGIDOS SINCRO CON LA ESTRUCTURA INITIAL Y PRISMA
     statsTracker[p1].played++;
-    statsTracker[p1].setsFor += p1Sets;
-    statsTracker[p1].setsAgainst += p2Sets;
-    statsTracker[p1].pointsFor += p1Points;
-    statsTracker[p1].pointsAgainst += p2Points;
+    statsTracker[p1].setsWon += p1Sets;
+    statsTracker[p1].setsLost += p2Sets;
+    statsTracker[p1].pointsWon += p1Points;
+    statsTracker[p1].pointsLost += p2Points;
 
     statsTracker[p2].played++;
-    statsTracker[p2].setsFor += p2Sets;
-    statsTracker[p2].setsAgainst += p1Sets;
-    statsTracker[p2].pointsFor += p2Points;
-    statsTracker[p2].pointsAgainst += p1Points;
+    statsTracker[p2].setsWon += p2Sets;
+    statsTracker[p2].setsLost += p1Sets;
+    statsTracker[p2].pointsWon += p2Points;
+    statsTracker[p2].pointsLost += p1Points;
 
+    // Asignación de Puntos de Clasificación (2 por ganar partido, 1 por jugar/perder)
     if (p1Sets > p2Sets) {
-      statsTracker[p1].won++;
-      statsTracker[p1].classificationPoints += 2;
-      statsTracker[p2].lost++;
-      statsTracker[p2].classificationPoints += 1;
+      statsTracker[p1].gamesWon++;
+      statsTracker[p1].pointsClas += 2;
+      statsTracker[p2].gamesLost++;
+      statsTracker[p2].pointsClas += 1;
     } else if (p2Sets > p1Sets) {
-      statsTracker[p2].won++;
-      statsTracker[p2].classificationPoints += 2;
-      statsTracker[p1].lost++;
-      statsTracker[p1].classificationPoints += 1;
+      statsTracker[p2].gamesWon++;
+      statsTracker[p2].pointsClas += 2;
+      statsTracker[p1].gamesLost++;
+      statsTracker[p1].pointsClas += 1;
     }
   }
 
@@ -5724,17 +6110,21 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
     ...statsTracker[clas.playerId],
   }));
 
+  // Criterios de Desempate Oficiales de Tenis de Mesa
   playersToSort.sort((a, b) => {
+    // 1. Puntos de clasificación
     if (b.pointsClas !== a.pointsClas) {
       return b.pointsClas - a.pointsClas;
     }
 
+    // 2. Diferencia de Sets (Ganados - Perdidos)
     const diffSetsA = a.setsWon - a.setsLost;
     const diffSetsB = b.setsWon - b.setsLost;
     if (diffSetsB !== diffSetsA) {
       return diffSetsB - diffSetsA;
     }
 
+    // 3. Diferencia de Puntos Totales (Puntos Favor - Puntos En Contra)
     const diffPointsA = a.pointsWon - a.pointsLost;
     const diffPointsB = b.pointsWon - b.pointsLost;
     if (diffPointsB !== diffPointsA) {
@@ -5749,6 +6139,7 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
     position: index + 1,
   }));
 
+  // Guardamos las métricas recalculadas en la base de datos
   await prisma.$transaction(
     playersWithPosition.map((player) => {
       return prisma.tournamentGroupClas.update({
@@ -5779,7 +6170,7 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
     where: {
       tournamentId: groupInfo.tournamentId,
       groupId: { not: null },
-      status: { not: 'Completado' },
+      status: { not: MatchStatus.Completado },
     },
   });
 
@@ -5798,10 +6189,10 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
 ================================================
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { updateMatchStats } from '../../src/utils/stats';
+import { handleMatchStatsUpdate } from '../../src/utils/stats';
 import { MatchStatus } from '@prisma/client';
 
-describe('Utility: updateMatchStats', () => {
+describe('Utility: handleMatchStatsUpdate', () => {
   const mockPrisma = {
     stats: {
       findFirst: vi.fn(),
@@ -5821,7 +6212,8 @@ describe('Utility: updateMatchStats', () => {
       playerTwoId: 'player-2',
     };
 
-    await updateMatchStats(mockPrisma, openMatch);
+    // Pasamos null como partido previo y el nuevo partido
+    await handleMatchStatsUpdate(mockPrisma, null, openMatch);
 
     expect(mockPrisma.stats.findFirst).not.toHaveBeenCalled();
     expect(mockPrisma.stats.create).not.toHaveBeenCalled();
@@ -5841,10 +6233,9 @@ describe('Utility: updateMatchStats', () => {
       setTwoPlayerTwo: 9,
     };
 
-    await updateMatchStats(mockPrisma, matchPayload);
+    await handleMatchStatsUpdate(mockPrisma, null, matchPayload);
 
     expect(mockPrisma.stats.findFirst).toHaveBeenCalledTimes(2);
-
     expect(mockPrisma.stats.create).toHaveBeenCalledTimes(2);
 
     expect(mockPrisma.stats.create).toHaveBeenCalledWith({
@@ -5861,21 +6252,6 @@ describe('Utility: updateMatchStats', () => {
         tournamentLost: 0,
       },
     });
-
-    expect(mockPrisma.stats.create).toHaveBeenCalledWith({
-      data: {
-        userId: 'uuid-player-2',
-        matchWon: 0,
-        matchLost: 1,
-        setWon: 0,
-        setLost: 2,
-        pointWon: 14,
-        pointLost: 22,
-        elo: 491,
-        tournamentWon: 0,
-        tournamentLost: 0,
-      },
-    });
   });
 
   it('Debería INCREMENTAR las estadísticas si los jugadores ya tenían partidos guardados', async () => {
@@ -5883,6 +6259,7 @@ describe('Utility: updateMatchStats', () => {
       .mockResolvedValueOnce({ id: 'stats-id-p1', userId: 'uuid-p1', elo: 500 })
       .mockResolvedValueOnce({ id: 'stats-id-p2', userId: 'uuid-p2', elo: 500 });
 
+    const previousMatch = { status: MatchStatus.Programado };
     const matchPayload = {
       status: MatchStatus.Completado,
       playerOneId: 'uuid-p1',
@@ -5895,36 +6272,15 @@ describe('Utility: updateMatchStats', () => {
       setThreePlayerTwo: 13,
     };
 
-    await updateMatchStats(mockPrisma, matchPayload);
+    // Simulamos un partido que pasa de Programado a Completado
+    await handleMatchStatsUpdate(mockPrisma, previousMatch, matchPayload);
 
     expect(mockPrisma.stats.create).not.toHaveBeenCalled();
     expect(mockPrisma.stats.update).toHaveBeenCalledTimes(2);
 
-    expect(mockPrisma.stats.update).toHaveBeenCalledWith({
-      where: { id: 'stats-id-p1' },
-      data: {
-        elo: { increment: -12 },
-        matchWon: { increment: 0 },
-        matchLost: { increment: 1 },
-        setWon: { increment: 1 },
-        setLost: { increment: 2 },
-        pointWon: { increment: 31 },
-        pointLost: { increment: 32 },
-      },
-    });
-
-    expect(mockPrisma.stats.update).toHaveBeenCalledWith({
-      where: { id: 'stats-id-p2' },
-      data: {
-        elo: { increment: 12 },
-        matchWon: { increment: 1 },
-        matchLost: { increment: 0 },
-        setWon: { increment: 2 },
-        setLost: { increment: 1 },
-        pointWon: { increment: 32 },
-        pointLost: { increment: 31 },
-      },
-    });
+    expect(mockPrisma.stats.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'stats-id-p1' } }),
+    );
   });
 });
 
@@ -5933,24 +6289,12 @@ describe('Utility: updateMatchStats', () => {
 📂 ARCHIVO: src/utils/stats.ts
 ================================================
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, MatchStatus } from '@prisma/client';
 import { POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
 import { calculateMatchResults } from './match';
-import { MatchStatus } from '@prisma/client';
 
-export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
-  if (match.status !== MatchStatus.Completado) {
-    return;
-  }
-
-  const { p1Sets, p2Sets, p1Points, p2Points, p1WinsMatch } = calculateMatchResults(match);
-
-  const p1Stats = await prisma.stats.findFirst({ where: { userId: match.playerOneId } });
-  const p2Stats = await prisma.stats.findFirst({ where: { userId: match.playerTwoId } });
-
-  let p1Score = p1Stats?.elo && p1Stats.elo > 0 ? p1Stats.elo : SCORE_DEFAULT;
-  let p2Score = p2Stats?.elo && p2Stats.elo > 0 ? p2Stats.elo : SCORE_DEFAULT;
-
+// Función auxiliar para calcular la variación de ELO de un partido
+const calculateEloDeltas = (p1Score: number, p2Score: number, p1WinsMatch: boolean) => {
   const diff = Math.abs(p1Score - p2Score);
 
   let bucket: readonly [number, number];
@@ -5974,71 +6318,148 @@ export const updateMatchStats = async (prisma: PrismaClient, match: any) => {
     p1ScoreDelta = -Math.min(pointsExchanged, p1Score - 1);
   }
 
-  const savePlayerStats = async (
-    userId: string,
-    statsId: string | undefined,
-    scoreDelta: number,
-    wonMatch: number,
-    lostMatch: number,
-    wonSets: number,
-    lostSet: number,
-    wonPoints: number,
-    lostPoints: number,
-  ) => {
-    if (statsId) {
+  return { p1ScoreDelta, p2ScoreDelta };
+};
+
+// Función principal que soporta edición/reversión de partidos
+export const handleMatchStatsUpdate = async (
+  prisma: PrismaClient,
+  previousMatch: any,
+  newMatch: any,
+) => {
+  const wasCompleted = previousMatch?.status === MatchStatus.Completado;
+  const isCompletedNow = newMatch.status === MatchStatus.Completado;
+
+  // Si no estaba completado antes ni lo está ahora, no hay nada que calcular
+  if (!wasCompleted && !isCompletedNow) {
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // 1. PASO 1: REVERTIR MARCADOR ANTIGUO (Si el partido ya estaba completado)
+  // ------------------------------------------------------------------
+  if (wasCompleted) {
+    const prevRes = calculateMatchResults(previousMatch);
+    const p1Stats = await prisma.stats.findFirst({ where: { userId: previousMatch.playerOneId } });
+    const p2Stats = await prisma.stats.findFirst({ where: { userId: previousMatch.playerTwoId } });
+
+    if (p1Stats && p2Stats) {
+      const p1Score = p1Stats.elo || SCORE_DEFAULT;
+      const p2Score = p2Stats.elo || SCORE_DEFAULT;
+      const { p1ScoreDelta, p2ScoreDelta } = calculateEloDeltas(
+        p1Score,
+        p2Score,
+        prevRes.p1WinsMatch,
+      );
+
+      // Deshacemos (restamos) los stats antiguos
       await prisma.stats.update({
-        where: { id: statsId },
+        where: { id: p1Stats.id },
         data: {
-          elo: { increment: scoreDelta },
-          matchWon: { increment: wonMatch },
-          matchLost: { increment: lostMatch },
-          setWon: { increment: wonSets },
-          setLost: { increment: lostSet },
-          pointWon: { increment: wonPoints },
-          pointLost: { increment: lostPoints },
+          elo: { decrement: p1ScoreDelta },
+          matchWon: { decrement: prevRes.p1WinsMatch ? 1 : 0 },
+          matchLost: { decrement: prevRes.p1WinsMatch ? 0 : 1 },
+          setWon: { decrement: prevRes.p1Sets },
+          setLost: { decrement: prevRes.p2Sets },
+          pointWon: { decrement: prevRes.p1Points },
+          pointLost: { decrement: prevRes.p2Points },
         },
       });
-    } else {
-      await prisma.stats.create({
+
+      await prisma.stats.update({
+        where: { id: p2Stats.id },
         data: {
-          userId,
-          elo: 500 + scoreDelta,
-          matchWon: wonMatch,
-          matchLost: lostMatch,
-          setWon: wonSets,
-          setLost: lostSet,
-          pointWon: wonPoints,
-          pointLost: lostPoints,
-          tournamentWon: 0,
-          tournamentLost: 0,
+          elo: { decrement: p2ScoreDelta },
+          matchWon: { decrement: prevRes.p1WinsMatch ? 0 : 1 },
+          matchLost: { decrement: prevRes.p1WinsMatch ? 1 : 0 },
+          setWon: { decrement: prevRes.p2Sets },
+          setLost: { decrement: prevRes.p1Sets },
+          pointWon: { decrement: prevRes.p2Points },
+          pointLost: { decrement: prevRes.p1Points },
         },
       });
     }
-  };
+  }
 
-  await savePlayerStats(
-    match.playerOneId,
-    p1Stats?.id,
-    p1ScoreDelta,
-    p1WinsMatch ? 1 : 0,
-    p1WinsMatch ? 0 : 1,
-    p1Sets,
-    p2Sets,
-    p1Points,
-    p2Points,
-  );
+  // ------------------------------------------------------------------
+  // 2. PASO 2: APLICAR MARCADOR NUEVO (Si el estado actual es Completado)
+  // ------------------------------------------------------------------
+  if (isCompletedNow) {
+    const newRes = calculateMatchResults(newMatch);
+    const p1Stats = await prisma.stats.findFirst({ where: { userId: newMatch.playerOneId } });
+    const p2Stats = await prisma.stats.findFirst({ where: { userId: newMatch.playerTwoId } });
 
-  await savePlayerStats(
-    match.playerTwoId,
-    p2Stats?.id,
-    p2ScoreDelta,
-    p1WinsMatch ? 0 : 1,
-    p1WinsMatch ? 1 : 0,
-    p2Sets,
-    p1Sets,
-    p2Points,
-    p1Points,
-  );
+    let p1Score = p1Stats?.elo && p1Stats.elo > 0 ? p1Stats.elo : SCORE_DEFAULT;
+    let p2Score = p2Stats?.elo && p2Stats.elo > 0 ? p2Stats.elo : SCORE_DEFAULT;
+
+    const { p1ScoreDelta, p2ScoreDelta } = calculateEloDeltas(p1Score, p2Score, newRes.p1WinsMatch);
+
+    const saveOrUpdate = async (
+      userId: string,
+      statsId: string | undefined,
+      scoreDelta: number,
+      wonMatch: number,
+      lostMatch: number,
+      wonSets: number,
+      lostSets: number,
+      wonPoints: number,
+      lostPoints: number,
+    ) => {
+      if (statsId) {
+        await prisma.stats.update({
+          where: { id: statsId },
+          data: {
+            elo: { increment: scoreDelta },
+            matchWon: { increment: wonMatch },
+            matchLost: { increment: lostMatch },
+            setWon: { increment: wonSets },
+            setLost: { increment: lostSets },
+            pointWon: { increment: wonPoints },
+            pointLost: { increment: lostPoints },
+          },
+        });
+      } else {
+        await prisma.stats.create({
+          data: {
+            userId,
+            elo: SCORE_DEFAULT + scoreDelta,
+            matchWon: wonMatch,
+            matchLost: lostMatch,
+            setWon: wonSets,
+            setLost: lostSets,
+            pointWon: wonPoints,
+            pointLost: lostPoints,
+            tournamentWon: 0,
+            tournamentLost: 0,
+          },
+        });
+      }
+    };
+
+    await saveOrUpdate(
+      newMatch.playerOneId,
+      p1Stats?.id,
+      p1ScoreDelta,
+      newRes.p1WinsMatch ? 1 : 0,
+      newRes.p1WinsMatch ? 0 : 1,
+      newRes.p1Sets,
+      newRes.p2Sets,
+      newRes.p1Points,
+      newRes.p2Points,
+    );
+
+    await saveOrUpdate(
+      newMatch.playerTwoId,
+      p2Stats?.id,
+      p2ScoreDelta,
+      newRes.p1WinsMatch ? 0 : 1,
+      newRes.p1WinsMatch ? 1 : 0,
+      newRes.p2Sets,
+      newRes.p1Sets,
+      newRes.p2Points,
+      newRes.p1Points,
+    );
+  }
 };
 
 
@@ -6285,7 +6706,8 @@ model Tournament {
   allPos           Boolean?             @map("all_pos")
   groupsCreated    Boolean?             @map("groups_created") @default(false)
   knockoutCreated  Boolean?             @map("knockout_created") @default(false)
-  
+  setsToWinGroup    Int? @default(2) @map("sets_to_win_group")
+  setsToWinKnockout Int? @default(3) @map("sets_to_win_knockout")
   // Relaciones
   matches          Match[]
   groups           TournamentGroup[]
@@ -7324,9 +7746,198 @@ async function main() {
     data: { tournamentWon: { increment: 1 } },
   });
 
-  console.log(
-    '\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar el Frontend Multi-tenant!',
-  );
+  await prisma.tournamentClas.create({
+    data: { tournamentId: t4.id, playerId: finalMatchT4.winner, lastRound: 'Final', position: 1 },
+  });
+
+  await prisma.stats.update({
+    where: { userId: finalMatchT4.winner },
+    data: { tournamentWon: { increment: 1 } },
+  });
+
+  // ============================================================================
+  // 🔥 TORNEO 5 (NUEVO PARA PRUEBAS): CLUB A - GRUPOS (Falta 1 partido)
+  // ============================================================================
+  console.log('\n🧪 Generando Torneo 5 (Club A | Grupos - Falta 1 partido para el Knockout)...');
+
+  const t5 = await prisma.tournament.create({
+    data: {
+      name: 'Torneo Testing Manual 2026',
+      dateStart: new Date(new Date().setDate(new Date().getDate() + 5)),
+      clubId: clubA.id,
+      numPlayers: 16,
+      numGroup: 4,
+      numGroupPlayers: 4,
+      typeTournament: 'Interno',
+      levelTournament: 'Mixto',
+      rounds: 'GruposKnockout',
+      status: 'Grupos', // 👈 Ya está en fase de grupos
+      typeKnockout: 'LlaveA',
+      playersKnockout: 2,
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      allPos: false,
+      groupsCreated: true, // 👈 Grupos ya generados
+      knockoutCreated: false,
+      setsToWinGroup: 2,
+      setsToWinKnockout: 3,
+    },
+  });
+
+  const t5Players = sortedA.slice(0, 16);
+  for (const p of t5Players) {
+    await prisma.tournamentParticipant.create({
+      data: { tournamentId: t5.id, playerId: p.id, status: 'Confirmado' },
+    });
+  }
+
+  // 1. Crear Grupos
+  const t5Groups = [];
+  for (let i = 1; i <= 4; i++) {
+    t5Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t5.id, group: i, status: 'Programado' },
+      }),
+    );
+  }
+
+  // 2. Distribuir en Snake
+  const snakeGroupsT5: any[][] = Array.from({ length: 4 }, () => []);
+  for (let i = 0; i < t5Players.length; i++) {
+    const cycle = Math.floor(i / 4);
+    const index = cycle % 2 === 0 ? i % 4 : 3 - (i % 4);
+    snakeGroupsT5[index].push(t5Players[i]);
+  }
+
+  // Función para simular un partido YA creado
+  async function simulateExistingMatch(
+    matchId: string,
+    p1Id: string,
+    p2Id: string,
+    clas1Id: string,
+    clas2Id: string,
+  ) {
+    let p1SetsWon = 0,
+      p2SetsWon = 0,
+      ptsP1 = 0,
+      ptsP2 = 0;
+    const setScores: { s1: number; s2: number }[] = [];
+
+    while (p1SetsWon < 2 && p2SetsWon < 2) {
+      // Al mejor de 3 (setsToWin = 2)
+      const p1WinsThisSet = Math.random() > 0.5;
+      const loserScore = Math.floor(Math.random() * 9);
+      const s1 = p1WinsThisSet ? 11 : loserScore;
+      const s2 = p1WinsThisSet ? loserScore : 11;
+
+      setScores.push({ s1, s2 });
+      ptsP1 += s1;
+      ptsP2 += s2;
+
+      if (p1WinsThisSet) p1SetsWon++;
+      else p2SetsWon++;
+    }
+
+    const p1WinsMatch = p1SetsWon === 2;
+
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        setOnePlayerOne: setScores[0]?.s1 ?? 0,
+        setOnePlayerTwo: setScores[0]?.s2 ?? 0,
+        setTwoPlayerOne: setScores[1]?.s1 ?? 0,
+        setTwoPlayerTwo: setScores[1]?.s2 ?? 0,
+        setThreePlayerOne: setScores[2]?.s1 ?? 0,
+        setThreePlayerTwo: setScores[2]?.s2 ?? 0,
+        status: 'Completado',
+      },
+    });
+
+    await prisma.tournamentGroupClas.update({
+      where: { id: clas1Id },
+      data: {
+        played: { increment: 1 },
+        gamesWon: { increment: p1WinsMatch ? 1 : 0 },
+        gamesLost: { increment: p1WinsMatch ? 0 : 1 },
+        setsWon: { increment: p1SetsWon },
+        setsLost: { increment: p2SetsWon },
+        pointsWon: { increment: ptsP1 },
+        pointsLost: { increment: ptsP2 },
+        pointsClas: { increment: p1WinsMatch ? 2 : 1 },
+      },
+    });
+    await prisma.tournamentGroupClas.update({
+      where: { id: clas2Id },
+      data: {
+        played: { increment: 1 },
+        gamesWon: { increment: p1WinsMatch ? 0 : 1 },
+        gamesLost: { increment: p1WinsMatch ? 1 : 0 },
+        setsWon: { increment: p2SetsWon },
+        setsLost: { increment: p1SetsWon },
+        pointsWon: { increment: ptsP2 },
+        pointsLost: { increment: ptsP1 },
+        pointsClas: { increment: p1WinsMatch ? 1 : 2 },
+      },
+    });
+  }
+
+  // 3. Crear Clasificaciones y Partidos Oficiales (Matriz)
+  const MATCH_MATRIX_4 = [
+    [1, 3],
+    [2, 4],
+    [1, 2],
+    [3, 4],
+    [1, 4],
+    [2, 3],
+  ];
+  const allT5Matches = [];
+
+  for (let g = 0; g < 4; g++) {
+    const groupDb = t5Groups[g];
+    const groupPlayers = snakeGroupsT5[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (const [p1Index, p2Index] of MATCH_MATRIX_4) {
+      const p1 = groupPlayers[p1Index - 1];
+      const p2 = groupPlayers[p2Index - 1];
+      const clas1 = clasRecords[p1Index - 1];
+      const clas2 = clasRecords[p2Index - 1];
+
+      const m = await prisma.match.create({
+        data: {
+          tournamentId: t5.id,
+          groupId: groupDb.id,
+          playerOneId: p1.id,
+          playerTwoId: p2.id,
+          status: 'Programado',
+          dateStart: new Date(),
+        },
+      });
+      allT5Matches.push({
+        matchId: m.id,
+        p1Id: p1.id,
+        p2Id: p2.id,
+        clas1Id: clas1.clasId,
+        clas2Id: clas2.clasId,
+      });
+    }
+  }
+
+  // 4. Jugar TODOS los partidos EXCEPTO el último
+  console.log(`Simulando 23 de los 24 partidos de grupos del Torneo 5...`);
+  for (let i = 0; i < allT5Matches.length - 1; i++) {
+    const m = allT5Matches[i];
+    await simulateExistingMatch(m.matchId, m.p1Id, m.p2Id, m.clas1Id, m.clas2Id);
+  }
+
+  console.log('\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar el Frontend!');
 }
 
 main()

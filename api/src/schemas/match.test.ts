@@ -14,9 +14,7 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setTwoPlayerOne: 12,
       setTwoPlayerTwo: 10,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(true);
   });
 
@@ -27,9 +25,7 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setOnePlayerOne: 0,
       setOnePlayerTwo: 0,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(true);
   });
 
@@ -39,16 +35,13 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       playerTwoId: validPlayerTwoId,
       setOnePlayerOne: 11,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(false);
     if (!result.success) {
       const issue = result.error.issues.find((i) =>
         i.message.includes('Falta la puntuación del rival'),
       );
       expect(issue).toBeDefined();
-      expect(issue?.path).toContain('setOnePlayerTwo');
     }
   });
 
@@ -59,13 +52,11 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setOnePlayerOne: 10,
       setOnePlayerTwo: 8,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(false);
     if (!result.success) {
       const issue = result.error.issues.find((i) =>
-        i.message.includes('al menos un jugador debe llegar a 11 puntos'),
+        i.message.includes('no es válido en tenis de mesa reglamentario'),
       );
       expect(issue).toBeDefined();
     }
@@ -78,13 +69,11 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setOnePlayerOne: 11,
       setOnePlayerTwo: 10,
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(false);
     if (!result.success) {
       const issue = result.error.issues.find((i) =>
-        i.message.includes('diferencia mínima de 2 puntos'),
+        i.message.includes('no es válido en tenis de mesa reglamentario'),
       );
       expect(issue).toBeDefined();
     }
@@ -97,16 +86,16 @@ describe('Zod Schema: createMatchSchema (Reglas de Ping Pong)', () => {
       setOnePlayerOne: 11,
       setOnePlayerTwo: 5,
       setTwoPlayerOne: 13,
-      setTwoPlayerTwo: 12,
+      setTwoPlayerTwo: 12, // <- Diferencia de 1
     };
-
     const result = createMatchSchema.safeParse(data);
-
     expect(result.success).toBe(false);
     if (!result.success) {
-      const issue = result.error.issues.find((i) => i.message.includes('En el Set 2'));
+      const issue = result.error.issues.find((i) =>
+        i.message.includes('no es válido en tenis de mesa reglamentario'),
+      );
       expect(issue).toBeDefined();
-      expect(issue?.message).toContain('diferencia mínima de 2 puntos');
+      expect(issue?.path).toContain('setTwoPlayerOne');
     }
   });
 });

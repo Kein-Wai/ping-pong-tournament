@@ -583,6 +583,38 @@ const options = {
           ],
           responses: { 200: { description: 'Estructura e inscripciones devueltas' } },
         },
+        put: {
+          summary: 'Actualizar configuración/formato de un torneo (AdminClub / SuperAdmin)',
+          description:
+            'Permite ajustar las matemáticas de un torneo (grupos, sets para ganar, clasificados) antes de iniciarlo.',
+          tags: ['Tournaments'],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    numGroup: { type: 'integer', example: 4 },
+                    numGroupPlayers: { type: 'integer', example: 4 },
+                    playersKnockout: { type: 'integer', example: 2 },
+                    setsToWinGroup: { type: 'integer', example: 2 },
+                    setsToWinKnockout: { type: 'integer', example: 3 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Torneo actualizado con éxito' },
+            400: { description: 'La configuración rompe las reglas matemáticas del formato' },
+            403: { description: 'Sin permisos sobre este torneo' },
+            404: { description: 'Torneo no encontrado' },
+          },
+        },
       },
       '/api/tournaments/{id}/register': {
         post: {
@@ -738,6 +770,45 @@ const options = {
             400: {
               description: 'Inconsistencias en el marcador bajo normativa oficial de tenis de mesa',
             },
+          },
+        },
+      },
+      '/api/matches/{id}': {
+        put: {
+          summary: 'Actualizar el resultado de un partido',
+          description:
+            'Permite a los administradores actualizar el marcador. Valida reglas oficiales ITTF y recalcula automáticamente el ELO y las clasificaciones en cascada.',
+          tags: ['Matches'],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: {
+                      type: 'string',
+                      enum: ['Programado', 'Iniciado', 'Completado', 'Cancelado'],
+                      example: 'Completado',
+                    },
+                    setOnePlayerOne: { type: 'integer', example: 11 },
+                    setOnePlayerTwo: { type: 'integer', example: 8 },
+                    setTwoPlayerOne: { type: 'integer', example: 12 },
+                    setTwoPlayerTwo: { type: 'integer', example: 10 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Partido actualizado y estadísticas recalculadas' },
+            400: {
+              description: 'Marcador inválido (ej. 15-1) o faltan sets para darlo por Completado',
+            },
+            404: { description: 'Partido no encontrado' },
           },
         },
       },

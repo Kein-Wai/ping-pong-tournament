@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../../src/index';
 import prisma from '../../src/db';
+import { verifyToken, requireAdminClub } from '../../src/middleware/auth.middleware'; // 👈 ¡ESTA LÍNEA FALTABA!
 
 vi.mock('../../src/db', () => ({
   default: {
@@ -36,15 +37,15 @@ vi.mock('../../src/db', () => ({
 }));
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
-  verifyToken: (req: any, res: any, next: any) => {
+  verifyToken: vi.fn((req: any, res: any, next: any) => {
     req.user = { id: 'user-id-123', role: 'SuperAdmin' };
     next();
-  },
-  requireSuperAdmin: (req: any, res: any, next: any) => next(),
-  requireAdminClub: (req: any, res: any, next: any) => {
+  }),
+  requireSuperAdmin: vi.fn((req: any, res: any, next: any) => next()),
+  requireAdminClub: vi.fn((req: any, res: any, next: any) => {
     req.user = { id: 'user-id-123', role: 'SuperAdmin' };
     next();
-  },
+  }),
 }));
 
 const MOCK_UUID = '123e4567-e89b-12d3-a456-426614174000';
@@ -318,6 +319,71 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
           where: expect.objectContaining({ type: 'B' }),
         }),
       );
+    });
+  });
+  describe('PUT /:id (Actualizar Formato de Torneo)', () => {
+    // Objeto base completo para que Zod no falle por falta de campos obligatorios
+    const validMockDbTournament = {
+      id: MOCK_UUID,
+      name: 'Torneo Base',
+      dateStart: new Date(),
+      numPlayers: 16,
+      numGroup: 4,
+      numGroupPlayers: 4,
+      playersKnockout: 2,
+      rounds: 'GruposKnockout',
+      clubId: null,
+    };
+
+    it('Debería actualizar el formato del torneo exitosamente (200)', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue(validMockDbTournament as any);
+      vi.mocked(prisma.tournament.update).mockResolvedValue({ id: MOCK_UUID } as any);
+
+      const response = await request(app).put(`/api/tournaments/${MOCK_UUID}`).send({
+        numGroup: 4,
+        numGroupPlayers: 4,
+        playersKnockout: 2,
+        setsToWinGroup: 2,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(prisma.tournament.update).toHaveBeenCalledOnce();
+    });
+
+    it('Debería fallar (403) si un AdminClub intenta editar el torneo de otro club', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue({
+        ...validMockDbTournament,
+        clubId: 'club-rival-id',
+      } as any);
+
+      // Simulamos ser AdminClub en el middleware
+      vi.mocked(verifyToken).mockImplementationOnce((req: any, res: any, next: any) => {
+        req.user = { id: 'admin-id', role: 'AdminClub', clubId: 'mi-propio-club' };
+        next();
+      });
+      vi.mocked(requireAdminClub).mockImplementationOnce((req: any, res: any, next: any) => {
+        req.user = { id: 'admin-id', role: 'AdminClub', clubId: 'mi-propio-club' };
+        next();
+      });
+
+      const response = await request(app)
+        .put(`/api/tournaments/${MOCK_UUID}`)
+        .send({ numGroup: 4 });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('No tienes permiso para editar este torneo');
+    });
+
+    it('Debería fallar (400) si la nueva configuración rompe las reglas matemáticas', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue(validMockDbTournament as any);
+
+      const response = await request(app).put(`/api/tournaments/${MOCK_UUID}`).send({
+        numGroup: 1, // Invalidado por las reglas Zod para GruposKnockout
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('La nueva configuración rompe las reglas del torneo');
     });
   });
 });

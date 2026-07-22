@@ -14,17 +14,35 @@ export const baseTournamentObject = z.object({
   dateStart: z.iso.datetime('Formato de fecha inválido'),
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
   numPlayers: z.number().int().min(2, 'Debe haber al menos 2 jugadores'),
-  numGroup: z.number().int().min(1, 'Debe haber al menos 1 grupo').optional(),
-  numGroupPlayers: z.number().int().min(2).optional(),
+  numGroup: z.number().int().min(1, 'Debe haber al menos 1 grupo').nullable().optional(),
+  numGroupPlayers: z.number().int().min(2).nullable().optional(),
   typeTournament: z.enum(TypeTournament).optional(),
   levelTournament: z.enum(LevelTournament).optional(),
   rounds: z.enum(Rounds).optional(),
   status: z.enum(TournamentStatus).optional(),
   typeKnockout: z.enum(TypeKnockout).optional(),
-  playersKnockout: z.number().int().min(1).optional(),
+  playersKnockout: z.number().int().min(1).nullable().optional(),
   sortGroups: z.enum(SortGroups).optional(),
   sortKnockout: z.enum(SortKnockout).optional(),
   allPos: z.boolean().optional().default(false),
+  setsToWinGroup: z
+    .number()
+    .int()
+    .refine((val) => [2, 3, 4].includes(val), {
+      message:
+        'Los sets para ganar en grupos deben ser 2 (al mejor de 3), 3 (al mejor de 5) o 4 (al mejor de 7)',
+    })
+    .optional()
+    .default(2),
+  setsToWinKnockout: z
+    .number()
+    .int()
+    .refine((val) => [2, 3, 4].includes(val), {
+      message:
+        'Los sets para ganar en eliminatorias deben ser 2 (al mejor de 3), 3 (al mejor de 5) o 4 (al mejor de 7)',
+    })
+    .optional()
+    .default(3),
 });
 
 export const validateTournamentBusinessRules = (data: any, ctx: z.RefinementCtx) => {
@@ -99,7 +117,7 @@ export const validateTournamentBusinessRules = (data: any, ctx: z.RefinementCtx)
         path: ['numPlayers'],
       });
     }
-    if (groups !== undefined || playersPerGroup !== undefined) {
+    if (groups && groups > 0) {
       ctx.addIssue({
         code: 'custom',
         message: 'Un torneo de eliminación directa no puede tener configuración de grupos.',

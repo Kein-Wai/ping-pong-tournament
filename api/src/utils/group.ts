@@ -41,7 +41,7 @@ export const fetchGroupClassifications = async (
   return await prisma.tournamentGroupClas.findMany({
     where: whereClause,
     include: {
-      player: { select: { id: true, name: true, surname: true } },
+      player: { select: { id: true, name: true, surname: true, stats: true } },
       tournamentGroup: { select: { group: true } },
     },
     orderBy: [{ tournamentGroup: { group: 'asc' } }, { position: 'asc' }],

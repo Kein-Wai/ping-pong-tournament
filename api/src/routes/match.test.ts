@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../index';
 import prisma from '../db';
@@ -7,6 +7,20 @@ vi.mock('../db', () => ({
   default: {
     match: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      count: vi.fn(),
+    },
+    tournamentGroupClas: {
+      findMany: vi.fn(),
+    },
+    tournamentGroup: {
+      findUnique: vi.fn(),
+    },
+    stats: {
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
     },
   },
 }));
@@ -89,5 +103,66 @@ describe('GET /api/matches', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toHaveProperty('error', 'Error interno al obtener los partidos');
+  });
+});
+
+describe('PUT /api/matches/:id (Actualizar Marcador)', () => {
+  // 👇 Usamos UUIDs válidos para que Zod no se queje
+  const mockMatchDB = {
+    id: '123e4567-e89b-12d3-a456-426614174000',
+    status: 'Programado',
+    groupId: '123e4567-e89b-12d3-a456-426614174001',
+    playerOneId: '123e4567-e89b-12d3-a456-426614174002',
+    playerTwoId: '123e4567-e89b-12d3-a456-426614174003',
+    dateStart: new Date().toISOString(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('Debería actualizar un partido y devolver 200', async () => {
+    vi.mocked(prisma.match.findUnique).mockResolvedValue(mockMatchDB as any);
+    vi.mocked(prisma.match.update).mockResolvedValue({
+      ...mockMatchDB,
+      status: 'Completado',
+    } as any);
+
+    vi.mocked(prisma.tournamentGroupClas.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.match.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.tournamentGroup.findUnique).mockResolvedValue({ tournamentId: 't-1' } as any);
+    vi.mocked(prisma.match.count).mockResolvedValue(0);
+
+    const response = await request(app)
+      .put('/api/matches/123e4567-e89b-12d3-a456-426614174000')
+      .send({
+        status: 'Completado',
+        setsToWin: 2, // 👈 Le pasamos los sets a ganar para que la regla de negocio evalúe la victoria
+        setOnePlayerOne: 11,
+        setOnePlayerTwo: 8,
+        setTwoPlayerOne: 11,
+        setTwoPlayerTwo: 9,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe('Partido actualizado con éxito');
+    expect(prisma.match.update).toHaveBeenCalledOnce();
+  });
+
+  it('Debería rechazar un marcador imposible en ping-pong (ej. 15-1) devolviendo 400', async () => {
+    vi.mocked(prisma.match.findUnique).mockResolvedValue(mockMatchDB as any);
+
+    const response = await request(app)
+      .put('/api/matches/123e4567-e89b-12d3-a456-426614174000')
+      .send({
+        status: 'Completado',
+        setsToWin: 2,
+        setOnePlayerOne: 15,
+        setOnePlayerTwo: 1,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('El marcador no cumple las reglas del partido');
+    expect(prisma.match.update).not.toHaveBeenCalled();
   });
 });

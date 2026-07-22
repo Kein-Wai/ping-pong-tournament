@@ -895,9 +895,198 @@ async function main() {
     data: { tournamentWon: { increment: 1 } },
   });
 
-  console.log(
-    '\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar el Frontend Multi-tenant!',
-  );
+  await prisma.tournamentClas.create({
+    data: { tournamentId: t4.id, playerId: finalMatchT4.winner, lastRound: 'Final', position: 1 },
+  });
+
+  await prisma.stats.update({
+    where: { userId: finalMatchT4.winner },
+    data: { tournamentWon: { increment: 1 } },
+  });
+
+  // ============================================================================
+  // 🔥 TORNEO 5 (NUEVO PARA PRUEBAS): CLUB A - GRUPOS (Falta 1 partido)
+  // ============================================================================
+  console.log('\n🧪 Generando Torneo 5 (Club A | Grupos - Falta 1 partido para el Knockout)...');
+
+  const t5 = await prisma.tournament.create({
+    data: {
+      name: 'Torneo Testing Manual 2026',
+      dateStart: new Date(new Date().setDate(new Date().getDate() + 5)),
+      clubId: clubA.id,
+      numPlayers: 16,
+      numGroup: 4,
+      numGroupPlayers: 4,
+      typeTournament: 'Interno',
+      levelTournament: 'Mixto',
+      rounds: 'GruposKnockout',
+      status: 'Grupos', // 👈 Ya está en fase de grupos
+      typeKnockout: 'LlaveA',
+      playersKnockout: 2,
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      allPos: false,
+      groupsCreated: true, // 👈 Grupos ya generados
+      knockoutCreated: false,
+      setsToWinGroup: 2,
+      setsToWinKnockout: 3,
+    },
+  });
+
+  const t5Players = sortedA.slice(0, 16);
+  for (const p of t5Players) {
+    await prisma.tournamentParticipant.create({
+      data: { tournamentId: t5.id, playerId: p.id, status: 'Confirmado' },
+    });
+  }
+
+  // 1. Crear Grupos
+  const t5Groups = [];
+  for (let i = 1; i <= 4; i++) {
+    t5Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t5.id, group: i, status: 'Programado' },
+      }),
+    );
+  }
+
+  // 2. Distribuir en Snake
+  const snakeGroupsT5: any[][] = Array.from({ length: 4 }, () => []);
+  for (let i = 0; i < t5Players.length; i++) {
+    const cycle = Math.floor(i / 4);
+    const index = cycle % 2 === 0 ? i % 4 : 3 - (i % 4);
+    snakeGroupsT5[index].push(t5Players[i]);
+  }
+
+  // Función para simular un partido YA creado
+  async function simulateExistingMatch(
+    matchId: string,
+    p1Id: string,
+    p2Id: string,
+    clas1Id: string,
+    clas2Id: string,
+  ) {
+    let p1SetsWon = 0,
+      p2SetsWon = 0,
+      ptsP1 = 0,
+      ptsP2 = 0;
+    const setScores: { s1: number; s2: number }[] = [];
+
+    while (p1SetsWon < 2 && p2SetsWon < 2) {
+      // Al mejor de 3 (setsToWin = 2)
+      const p1WinsThisSet = Math.random() > 0.5;
+      const loserScore = Math.floor(Math.random() * 9);
+      const s1 = p1WinsThisSet ? 11 : loserScore;
+      const s2 = p1WinsThisSet ? loserScore : 11;
+
+      setScores.push({ s1, s2 });
+      ptsP1 += s1;
+      ptsP2 += s2;
+
+      if (p1WinsThisSet) p1SetsWon++;
+      else p2SetsWon++;
+    }
+
+    const p1WinsMatch = p1SetsWon === 2;
+
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        setOnePlayerOne: setScores[0]?.s1 ?? 0,
+        setOnePlayerTwo: setScores[0]?.s2 ?? 0,
+        setTwoPlayerOne: setScores[1]?.s1 ?? 0,
+        setTwoPlayerTwo: setScores[1]?.s2 ?? 0,
+        setThreePlayerOne: setScores[2]?.s1 ?? 0,
+        setThreePlayerTwo: setScores[2]?.s2 ?? 0,
+        status: 'Completado',
+      },
+    });
+
+    await prisma.tournamentGroupClas.update({
+      where: { id: clas1Id },
+      data: {
+        played: { increment: 1 },
+        gamesWon: { increment: p1WinsMatch ? 1 : 0 },
+        gamesLost: { increment: p1WinsMatch ? 0 : 1 },
+        setsWon: { increment: p1SetsWon },
+        setsLost: { increment: p2SetsWon },
+        pointsWon: { increment: ptsP1 },
+        pointsLost: { increment: ptsP2 },
+        pointsClas: { increment: p1WinsMatch ? 2 : 1 },
+      },
+    });
+    await prisma.tournamentGroupClas.update({
+      where: { id: clas2Id },
+      data: {
+        played: { increment: 1 },
+        gamesWon: { increment: p1WinsMatch ? 0 : 1 },
+        gamesLost: { increment: p1WinsMatch ? 1 : 0 },
+        setsWon: { increment: p2SetsWon },
+        setsLost: { increment: p1SetsWon },
+        pointsWon: { increment: ptsP2 },
+        pointsLost: { increment: ptsP1 },
+        pointsClas: { increment: p1WinsMatch ? 1 : 2 },
+      },
+    });
+  }
+
+  // 3. Crear Clasificaciones y Partidos Oficiales (Matriz)
+  const MATCH_MATRIX_4 = [
+    [1, 3],
+    [2, 4],
+    [1, 2],
+    [3, 4],
+    [1, 4],
+    [2, 3],
+  ];
+  const allT5Matches = [];
+
+  for (let g = 0; g < 4; g++) {
+    const groupDb = t5Groups[g];
+    const groupPlayers = snakeGroupsT5[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (const [p1Index, p2Index] of MATCH_MATRIX_4) {
+      const p1 = groupPlayers[p1Index - 1];
+      const p2 = groupPlayers[p2Index - 1];
+      const clas1 = clasRecords[p1Index - 1];
+      const clas2 = clasRecords[p2Index - 1];
+
+      const m = await prisma.match.create({
+        data: {
+          tournamentId: t5.id,
+          groupId: groupDb.id,
+          playerOneId: p1.id,
+          playerTwoId: p2.id,
+          status: 'Programado',
+          dateStart: new Date(),
+        },
+      });
+      allT5Matches.push({
+        matchId: m.id,
+        p1Id: p1.id,
+        p2Id: p2.id,
+        clas1Id: clas1.clasId,
+        clas2Id: clas2.clasId,
+      });
+    }
+  }
+
+  // 4. Jugar TODOS los partidos EXCEPTO el último
+  console.log(`Simulando 23 de los 24 partidos de grupos del Torneo 5...`);
+  for (let i = 0; i < allT5Matches.length - 1; i++) {
+    const m = allT5Matches[i];
+    await simulateExistingMatch(m.matchId, m.p1Id, m.p2Id, m.clas1Id, m.clas2Id);
+  }
+
+  console.log('\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar el Frontend!');
 }
 
 main()

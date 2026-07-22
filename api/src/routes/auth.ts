@@ -40,7 +40,7 @@ router.post('/register', async (req, res) => {
 
     const newUser = await prisma.user.create({
       data: {
-        email,
+        email: email.toLowerCase(),
         password: hashedPassword,
         name,
         surname,
@@ -57,6 +57,8 @@ router.post('/register', async (req, res) => {
       {
         id: newUser.id, // (Usa user o newUser dependiendo de la ruta en la que estés)
         email: newUser.email,
+        name: newUser.name,
+        surname: newUser.surname,
         role: newUser.userType?.name,
         clubId: newUser.clubId,
         clubStatus: newUser.clubStatus,
@@ -88,7 +90,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = validation.data;
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.toLowerCase() },
       include: { userType: true },
     });
 
