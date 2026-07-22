@@ -9,7 +9,6 @@ import {
   Stack,
   Center,
   ThemeIcon,
-  Group,
   Container,
 } from '@mantine/core';
 import { IconBuildingCommunity, IconRocket } from '@tabler/icons-react';

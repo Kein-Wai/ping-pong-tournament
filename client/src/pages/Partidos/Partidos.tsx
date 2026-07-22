@@ -4,10 +4,8 @@ import {
   Table,
   Title,
   Card,
-  Avatar,
   Group,
   Text,
-  Badge,
   Center,
   Loader,
   ScrollArea,
@@ -19,7 +17,6 @@ import {
 } from '@mantine/core';
 import {
   IconSearch,
-  IconEye,
   IconTrophy,
   IconCalendar,
   IconPencilCheck,
@@ -99,8 +96,6 @@ export interface Match {
   tournament?: Tournament;
 }
 
-const COLORS = ['red', 'green', 'blue', 'yellow', 'orange'];
-
 const ITEMS_PER_PAGE = 10;
 
 export const Partidos = () => {
@@ -147,19 +142,6 @@ export const Partidos = () => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.currentTarget.value);
     setPage(1);
-  };
-
-  const returnEloColor = (elo: number) => {
-    if (elo < 500) {
-      return 'red';
-    } else if (elo >= 500 && elo < 750) {
-      return 'yellow';
-    } else if (elo >= 750 && elo < 1000) {
-      return 'blue';
-    } else if (elo >= 1000) {
-      return 'green';
-    }
-    console.log('no salgo!');
   };
 
   if (loading) {

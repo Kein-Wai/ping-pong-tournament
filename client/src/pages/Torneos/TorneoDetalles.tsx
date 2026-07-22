@@ -1832,7 +1832,6 @@ export const TorneoDetalles = () => {
                       value={editMatch[fieldP1] as number}
                       onChange={(val) => {
                         const newP1Val = Number(val || 0);
-                        const currentP2Val = Number(editMatch[fieldP2] || 0);
 
                         const updatedMatchState = { ...editMatch, [fieldP1]: newP1Val };
 

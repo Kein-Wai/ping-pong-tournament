@@ -13,7 +13,6 @@ import {
   TextInput,
   Pagination,
   Select,
-  ThemeIcon,
 } from '@mantine/core';
 import {
   IconCalendar,
