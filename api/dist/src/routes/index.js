@@ -1,0 +1,21 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const user_type_1 = __importDefault(require("./user-type"));
+const user_1 = __importDefault(require("./user"));
+const auth_1 = __importDefault(require("./auth"));
+const match_1 = __importDefault(require("./match"));
+const tournament_1 = __importDefault(require("./tournament"));
+const club_1 = __importDefault(require("./club"));
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+router.use('/auth', auth_1.default);
+router.use('/clubs', club_1.default);
+router.use('/user-types', auth_middleware_1.verifyToken, user_type_1.default);
+router.use('/users', auth_middleware_1.verifyToken, user_1.default);
+router.use('/matches', auth_middleware_1.verifyToken, match_1.default);
+router.use('/tournaments', auth_middleware_1.verifyToken, tournament_1.default);
+exports.default = router;

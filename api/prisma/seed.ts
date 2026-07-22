@@ -63,7 +63,7 @@ async function main() {
   const hashedPasswordSuper = await bcrypt.hash('112233cheung', 10);
   const superAdmin = await prisma.user.create({
     data: {
-      email: 'keinwai@hotmail.com',
+      email: 'keinwaisuperadmin@hotmail.com',
       name: 'Kein-Wai',
       surname: 'Cheung',
       nickname: 'Quinguaichun',
@@ -137,15 +137,133 @@ async function main() {
   const playersClubA = [];
   const playersClubB = [];
 
+  const nombres = [
+    'Alejandro',
+    'Lucía',
+    'Mateo',
+    'Sofía',
+    'Hugo',
+    'Martina',
+    'Martín',
+    'María',
+    'Lucas',
+    'Julia',
+    'Leo',
+    'Paula',
+    'Daniel',
+    'Valeria',
+    'Pablo',
+    'Emma',
+    'Álvaro',
+    'Daniela',
+    'Adrián',
+    'Carla',
+    'Joaquín',
+    'Alba',
+    'Diego',
+    'Noa',
+    'Carlos',
+    'Carmen',
+    'Javier',
+    'Elena',
+    'Marcos',
+    'Sara',
+  ];
+
+  // Lista de 30 apellidos españoles
+  const apellidos = [
+    'García',
+    'Rodríguez',
+    'González',
+    'Fernández',
+    'López',
+    'Martínez',
+    'Sánchez',
+    'Pérez',
+    'Gómez',
+    'Martín',
+    'Ruiz',
+    'Hernández',
+    'Jiménez',
+    'Díaz',
+    'Álvarez',
+    'Moreno',
+    'Muñoz',
+    'Alonso',
+    'Romero',
+    'Navarro',
+    'Gutiérrez',
+    'Torres',
+    'Domínguez',
+    'Gil',
+    'Vázquez',
+    'Serrano',
+    'Ramos',
+    'Blanco',
+    'Castro',
+    'Suárez',
+  ];
+
+  await prisma.user.create({
+    data: {
+      email: `keinwai@hotmail.com`,
+      name: `Kein-Wai`,
+      surname: `Cheung`,
+      userTypeId: playerRoleId,
+      clubId: clubA.id,
+      clubStatus: 'Aprobado',
+      stats: {
+        create: {
+          elo: 1200,
+          matchWon: 0,
+          matchLost: 0,
+          setWon: 0,
+          setLost: 0,
+          pointWon: 0,
+          pointLost: 0,
+          tournamentWon: 0,
+          tournamentLost: 0,
+        },
+      },
+    },
+    include: { stats: true },
+  });
+
+  await prisma.user.create({
+    data: {
+      email: `jlevin@hotmail.com`,
+      name: `Julian`,
+      surname: `Levin`,
+      userTypeId: playerRoleId,
+      clubId: clubA.id,
+      clubStatus: 'Aprobado',
+      stats: {
+        create: {
+          elo: 1200,
+          matchWon: 0,
+          matchLost: 0,
+          setWon: 0,
+          setLost: 0,
+          pointWon: 0,
+          pointLost: 0,
+          tournamentWon: 0,
+          tournamentLost: 0,
+        },
+      },
+    },
+    include: { stats: true },
+  });
+
   for (let i = 1; i <= 60; i++) {
     const startingElo = Math.floor(400 + i * 20);
     const assignedClub = i <= 40 ? clubA.id : clubB.id;
-
+    const nombre = nombres[Math.floor(Math.random() * nombres.length)];
+    const apellido = apellidos[Math.floor(Math.random() * apellidos.length)];
     const p = await prisma.user.create({
       data: {
-        email: `jugador${i}@pingpong.local`,
-        name: `Jugador`,
-        surname: `${i}`,
+        email: `${nombre}${i}-${apellido}@pingpong.local`,
+        name: nombre,
+        surname: apellido,
         userTypeId: playerRoleId,
         clubId: assignedClub,
         clubStatus: 'Aprobado',

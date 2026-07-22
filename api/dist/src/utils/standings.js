@@ -1,0 +1,151 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.updateGroupStandings = void 0;
+const client_1 = require("@prisma/client");
+const updateGroupStandings = async (prisma, groupId) => {
+    const groupClasifications = await prisma.tournamentGroupClas.findMany({
+        where: { tournamentGroupId: groupId },
+    });
+    if (groupClasifications.length === 0)
+        return;
+    const completedMatches = await prisma.match.findMany({
+        where: {
+            groupId: groupId,
+            status: client_1.MatchStatus.Completado,
+        },
+    });
+    const statsTracker = {};
+    for (const clas of groupClasifications) {
+        statsTracker[clas.playerId] = {
+            played: 0,
+            gamesWon: 0,
+            gamesLost: 0,
+            setsWon: 0,
+            setsLost: 0,
+            pointsWon: 0,
+            pointsLost: 0,
+            pointsClas: 0,
+        };
+    }
+    for (const match of completedMatches) {
+        const p1 = match.playerOneId;
+        const p2 = match.playerTwoId;
+        if (!statsTracker[p1] || !statsTracker[p2])
+            continue;
+        let p1Sets = 0;
+        let p2Sets = 0;
+        let p1Points = 0;
+        let p2Points = 0;
+        const allSets = [
+            [match.setOnePlayerOne, match.setOnePlayerTwo],
+            [match.setTwoPlayerOne, match.setTwoPlayerTwo],
+            [match.setThreePlayerOne, match.setThreePlayerTwo],
+            [match.setFourPlayerOne, match.setFourPlayerTwo],
+            [match.setFivePlayerOne, match.setFivePlayerTwo],
+            [match.setSixPlayerOne, match.setSixPlayerTwo],
+            [match.setSevenPlayerOne, match.setSevenPlayerTwo],
+        ];
+        for (const [scoreP1, scoreP2] of allSets) {
+            if (scoreP1 !== null && scoreP2 !== null && scoreP1 !== undefined && scoreP2 !== undefined) {
+                if (scoreP1 === 0 && scoreP2 === 0)
+                    continue;
+                p1Points += scoreP1;
+                p2Points += scoreP2;
+                if (scoreP1 > scoreP2)
+                    p1Sets++;
+                else if (scoreP2 > scoreP1)
+                    p2Sets++;
+            }
+        }
+        // ✅ NOMBRES CORREGIDOS SINCRO CON LA ESTRUCTURA INITIAL Y PRISMA
+        statsTracker[p1].played++;
+        statsTracker[p1].setsWon += p1Sets;
+        statsTracker[p1].setsLost += p2Sets;
+        statsTracker[p1].pointsWon += p1Points;
+        statsTracker[p1].pointsLost += p2Points;
+        statsTracker[p2].played++;
+        statsTracker[p2].setsWon += p2Sets;
+        statsTracker[p2].setsLost += p1Sets;
+        statsTracker[p2].pointsWon += p2Points;
+        statsTracker[p2].pointsLost += p1Points;
+        // Asignación de Puntos de Clasificación (2 por ganar partido, 1 por jugar/perder)
+        if (p1Sets > p2Sets) {
+            statsTracker[p1].gamesWon++;
+            statsTracker[p1].pointsClas += 2;
+            statsTracker[p2].gamesLost++;
+            statsTracker[p2].pointsClas += 1;
+        }
+        else if (p2Sets > p1Sets) {
+            statsTracker[p2].gamesWon++;
+            statsTracker[p2].pointsClas += 2;
+            statsTracker[p1].gamesLost++;
+            statsTracker[p1].pointsClas += 1;
+        }
+    }
+    const playersToSort = groupClasifications.map((clas) => ({
+        id: clas.id,
+        playerId: clas.playerId,
+        ...statsTracker[clas.playerId],
+    }));
+    // Criterios de Desempate Oficiales de Tenis de Mesa
+    playersToSort.sort((a, b) => {
+        // 1. Puntos de clasificación
+        if (b.pointsClas !== a.pointsClas) {
+            return b.pointsClas - a.pointsClas;
+        }
+        // 2. Diferencia de Sets (Ganados - Perdidos)
+        const diffSetsA = a.setsWon - a.setsLost;
+        const diffSetsB = b.setsWon - b.setsLost;
+        if (diffSetsB !== diffSetsA) {
+            return diffSetsB - diffSetsA;
+        }
+        // 3. Diferencia de Puntos Totales (Puntos Favor - Puntos En Contra)
+        const diffPointsA = a.pointsWon - a.pointsLost;
+        const diffPointsB = b.pointsWon - b.pointsLost;
+        if (diffPointsB !== diffPointsA) {
+            return diffPointsB - diffPointsA;
+        }
+        return 0;
+    });
+    const playersWithPosition = playersToSort.map((player, index) => ({
+        ...player,
+        position: index + 1,
+    }));
+    // Guardamos las métricas recalculadas en la base de datos
+    await prisma.$transaction(playersWithPosition.map((player) => {
+        return prisma.tournamentGroupClas.update({
+            where: { id: player.id },
+            data: {
+                played: player.played,
+                gamesWon: player.gamesWon,
+                gamesLost: player.gamesLost,
+                setsWon: player.setsWon,
+                setsLost: player.setsLost,
+                pointsWon: player.pointsWon,
+                pointsLost: player.pointsLost,
+                pointsClas: player.pointsClas,
+                position: player.position,
+            },
+        });
+    }));
+    const groupInfo = await prisma.tournamentGroup.findUnique({
+        where: { id: groupId },
+        select: { tournamentId: true },
+    });
+    if (!groupInfo)
+        throw new Error('Grupo no encontrado');
+    const pendingMatches = await prisma.match.count({
+        where: {
+            tournamentId: groupInfo.tournamentId,
+            groupId: { not: null },
+            status: { not: client_1.MatchStatus.Completado },
+        },
+    });
+    const isGroupPhaseFinished = pendingMatches === 0;
+    return {
+        success: true,
+        isGroupPhaseFinished,
+        tournamentId: groupInfo.tournamentId,
+    };
+};
+exports.updateGroupStandings = updateGroupStandings;
