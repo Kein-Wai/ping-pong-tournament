@@ -15,6 +15,7 @@ import { ModalsProvider } from '@mantine/modals';
 import { ClubSetup } from './pages/Clubs/ClubSetup';
 import { MiClub } from './pages/Clubs/MiClub';
 import { AdminPanel } from './pages/Admin/AdminPanel';
+import { Estadisticas } from './pages/Estadisticas/Estadisticas';
 
 import { APP_ROUTES } from './constants/routes'; // 👈 IMPORTADO
 
@@ -44,7 +45,7 @@ function App() {
                 <Route path={APP_ROUTES.JUGADORES.PROFILE_PATH} element={<JugadorPerfil />} />
 
                 <Route path={APP_ROUTES.PARTIDOS} element={<Partidos />} />
-                <Route path={APP_ROUTES.ESTADISTICAS} element={<div>Página de Estadísticas</div>} />
+                <Route path={APP_ROUTES.ESTADISTICAS} element={<Estadisticas />} />
 
                 {/* Paneles de Control */}
                 <Route path={APP_ROUTES.MI_CLUB} element={<MiClub />} />

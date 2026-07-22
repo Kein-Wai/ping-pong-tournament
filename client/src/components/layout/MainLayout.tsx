@@ -23,6 +23,7 @@ import {
   IconSun,
   IconMoon,
   IconBuildingCommunity,
+  IconUser,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes'; // 👈 IMPORTADO
@@ -48,8 +49,17 @@ export const MainLayout = () => {
   // --- CONSTRUCCIÓN DEL MENÚ SEGÚN TU JERARQUÍA ---
   const navItems: { label: string; icon: any; path: string }[] = [
     { label: 'Inicio', icon: IconHome, path: APP_ROUTES.HOME },
-    { label: 'Torneos', icon: IconTrophy, path: APP_ROUTES.TORNEOS.LIST },
   ];
+
+  if (user?.id && isPlayer) {
+    navItems.push({
+      label: 'Mi Perfil',
+      icon: IconUser,
+      path: APP_ROUTES.JUGADORES.PROFILE(user.id),
+    });
+  }
+
+  navItems.push({ label: 'Torneos', icon: IconTrophy, path: APP_ROUTES.TORNEOS.LIST });
 
   // Restricción: Jugadores y Estadísticas solo si tienes club aprobado o eres Admin
   if (isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub)) {
@@ -115,6 +125,14 @@ export const MainLayout = () => {
 
             <Menu.Dropdown>
               <Menu.Label>Opciones</Menu.Label>
+              {isPlayer && (
+                <Menu.Item
+                  leftSection={<IconUser size={16} />}
+                  onClick={() => navigate(APP_ROUTES.JUGADORES.PROFILE(user?.id || ''))}
+                >
+                  Mi Perfil
+                </Menu.Item>
+              )}
               <Menu.Item
                 leftSection={isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
                 onClick={() => toggleColorScheme()}

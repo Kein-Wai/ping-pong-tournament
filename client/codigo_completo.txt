@@ -3135,6 +3135,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import confetti from 'canvas-confetti';
 import { api } from '../../api/axios';
 import { openAppConfirmModal } from '../../utils/modals';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -3203,7 +3204,7 @@ interface TournamentClas {
   id: string;
   position: number | null;
   lastRound: string | null;
-  player: { id: string; name: string; surname: string | null };
+  player: { id: string; name: string; surname: string | null; stats: { elo: number | null } };
 }
 
 interface TournamentGroupClas {
@@ -3217,7 +3218,7 @@ interface TournamentGroupClas {
   setsLost: number;
   pointsWon: number;
   pointsLost: number;
-  player: { id: string; name: string; surname: string | null };
+  player: { id: string; name: string; surname: string | null; stats: { elo: number | null } };
   tournamentGroup: { group: number };
 }
 
@@ -3225,6 +3226,11 @@ interface BracketPlayer {
   id: string;
   name: string;
   surname: string | null;
+  stats?: {
+    elo: number;
+    matchWon: number;
+    matchLost: number;
+  };
 }
 
 interface BracketMatch {
@@ -3319,10 +3325,45 @@ export const TorneoDetalles = () => {
       if (!id) return;
       const res = await api.get(ENDPOINTS.TOURNAMENTS.BY_ID(id));
       const tData = res.data.data || res.data;
-      setTournament(tData);
+
+      setTournament((prev) => {
+        if (prev && prev.status !== 'Completado' && tData.status === 'Completado') {
+          const duration = 3 * 1000;
+          const animationEnd = Date.now() + duration;
+          const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
+          const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+          const interval: any = setInterval(function () {
+            const timeLeft = animationEnd - Date.now();
+
+            if (timeLeft <= 0) {
+              return clearInterval(interval);
+            }
+
+            const particleCount = 50 * (timeLeft / duration);
+
+            confetti({
+              ...defaults,
+              particleCount,
+              origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+            });
+
+            confetti({
+              ...defaults,
+              particleCount,
+              origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+            });
+          }, 250);
+        }
+
+        return tData;
+      });
 
       if (tData.status === 'Completado') {
         setActiveTab('resultados');
+      } else if (KNOCKOUT_STAGES.includes(tData.status)) {
+        setActiveTab('bracketA');
       }
     } catch (error) {
       console.error('Error cargando el torneo:', error);
@@ -4348,12 +4389,21 @@ export const TorneoDetalles = () => {
                         <Table.Tr>
                           <Table.Th w={40}>Pos</Table.Th>
                           <Table.Th>Jugador</Table.Th>
+                          <Table.Th>Ranking</Table.Th>
                           <Table.Th ta="center">Pts Clas.</Table.Th>
                           <Table.Th ta="center">V - D</Table.Th>
-                          <Table.Th ta="center">Sets Ganados</Table.Th>
-                          <Table.Th ta="center">Sets Perdidos</Table.Th>
-                          <Table.Th ta="center">Puntos Ganados</Table.Th>
-                          <Table.Th ta="center">Puntos Perdidos</Table.Th>
+                          <Table.Th ta="center" visibleFrom="sm">
+                            Sets Ganados
+                          </Table.Th>
+                          <Table.Th ta="center" visibleFrom="sm">
+                            Sets Perdidos
+                          </Table.Th>
+                          <Table.Th ta="center" visibleFrom="sm">
+                            Puntos Ganados
+                          </Table.Th>
+                          <Table.Th ta="center" visibleFrom="sm">
+                            Puntos Perdidos
+                          </Table.Th>
                           <Table.Th ta="center">Diferencia Puntos</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
@@ -4375,30 +4425,35 @@ export const TorneoDetalles = () => {
                             <Table.Td fw={500}>
                               {clas.player?.name} {clas.player?.surname || ''}
                             </Table.Td>
-                            <Table.Td ta="center" fw={700}>
+                            <Table.Td fw={500}>
                               <Badge color="blue" variant="light" size="lg">
+                                {clas.player?.stats.elo}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td ta="center" fw={700}>
+                              <Badge color="green" variant="light" size="lg">
                                 {clas.pointsClas} pts
                               </Badge>
                             </Table.Td>
                             <Table.Td ta="center">
                               {clas.gamesWon}-{clas.gamesLost}
                             </Table.Td>
-                            <Table.Td ta="center" fw={600}>
+                            <Table.Td ta="center" fw={600} visibleFrom="sm">
                               <Text size="sm" c="teal.6">
                                 {clas.setsWon}
                               </Text>
                             </Table.Td>
-                            <Table.Td ta="center" fw={600}>
+                            <Table.Td ta="center" fw={600} visibleFrom="sm">
                               <Text size="sm" c="red.6">
                                 {clas.setsLost}
                               </Text>
                             </Table.Td>
-                            <Table.Td ta="center" fw={600}>
+                            <Table.Td ta="center" fw={600} visibleFrom="sm">
                               <Text size="sm" c="blue.6">
                                 {clas.pointsWon}
                               </Text>
                             </Table.Td>
-                            <Table.Td ta="center" fw={600}>
+                            <Table.Td ta="center" fw={600} visibleFrom="sm">
                               <Text size="sm" c="red.6">
                                 {clas.pointsLost}
                               </Text>
@@ -4571,11 +4626,21 @@ export const TorneoDetalles = () => {
                               <Text size="sm">
                                 {match.playerOne?.name || 'TBD'} {match.playerOne?.surname || ''}
                               </Text>
+                              {match.playerOne?.stats?.elo && (
+                                <Badge size="lg" variant="light" color="blue">
+                                  {match.playerOne?.stats?.elo}
+                                </Badge>
+                              )}
                             </Group>
                             <Group justify="space-between" p="xs">
                               <Text size="sm">
                                 {match.playerTwo?.name || 'TBD'} {match.playerTwo?.surname || ''}
                               </Text>
+                              {match.playerTwo?.stats?.elo && (
+                                <Badge size="lg" variant="light" color="blue">
+                                  {match.playerTwo?.stats?.elo}
+                                </Badge>
+                              )}
                             </Group>
                             <Center p={4} bg="gray.1">
                               <Stack key={match.id} justify="space-around" align="center" gap="xs">

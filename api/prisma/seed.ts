@@ -1002,6 +1002,30 @@ async function main() {
       },
     });
 
+    await prisma.stats.update({
+      where: { userId: p1Id },
+      data: {
+        matchWon: { increment: p1WinsMatch ? 1 : 0 },
+        matchLost: { increment: p1WinsMatch ? 0 : 1 },
+        setWon: { increment: p1SetsWon },
+        setLost: { increment: p2SetsWon },
+        pointWon: { increment: ptsP1 },
+        pointLost: { increment: ptsP2 },
+      },
+    });
+
+    await prisma.stats.update({
+      where: { userId: p2Id },
+      data: {
+        matchWon: { increment: p1WinsMatch ? 0 : 1 },
+        matchLost: { increment: p1WinsMatch ? 1 : 0 },
+        setWon: { increment: p2SetsWon },
+        setLost: { increment: p1SetsWon },
+        pointWon: { increment: ptsP2 },
+        pointLost: { increment: ptsP1 },
+      },
+    });
+
     await prisma.tournamentGroupClas.update({
       where: { id: clas1Id },
       data: {

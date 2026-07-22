@@ -14,7 +14,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 router.post('/register', async (req, res) => {
   try {
     const validation = registerSchema.safeParse(req.body);
-
+    console.log('body', req.body);
     if (!validation.success) {
       console.log(validation);
       res.status(400).json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
@@ -23,6 +23,7 @@ router.post('/register', async (req, res) => {
 
     const { email, password, name, surname, role } = validation.data;
 
+    console.log('validation', validation.data);
     const existingUser = await prisma.user.findUnique({ where: { email } });
     const userRole = await prisma.userType.findUnique({ where: { name: role } });
 
