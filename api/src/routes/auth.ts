@@ -177,7 +177,7 @@ router.post('/google', async (req, res) => {
         },
         include: { userType: true },
       });
-    } else if (!user.googleId) {
+    } else {
       user = await prisma.user.update({
         where: { email },
         data: { googleId, authProvider: 'GOOGLE', avatarUrl: picture },
