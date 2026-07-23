@@ -162,11 +162,11 @@ export const Estadisticas = () => {
                     <Table.Td ta="center">
                       <Text size="sm">
                         <Text component="span" c="green" fw={600}>
-                          {p.stats.matchWon}
+                          {p.stats.matchWon || 0}
                         </Text>{' '}
                         -{' '}
                         <Text component="span" c="red" fw={600}>
-                          {p.stats.matchLost}
+                          {p.stats.matchLost || 0}
                         </Text>
                       </Text>
                     </Table.Td>
