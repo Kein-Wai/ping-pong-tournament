@@ -141,6 +141,7 @@ model User {
   googleId        String?  @unique
   secondSurname   String?  @map("secondsurname") @db.VarChar(255)
   nickname        String?  @db.VarChar(255)
+  avatarUrl       String?
   email           String   @unique @db.VarChar(255)
   
   // Relaciones

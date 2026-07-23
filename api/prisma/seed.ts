@@ -212,6 +212,8 @@ async function main() {
       userTypeId: playerRoleId,
       clubId: clubA.id,
       clubStatus: 'Aprobado',
+      password: hashedPasswordSuper,
+      authProvider: 'LOCAL',
       stats: {
         create: {
           elo: 1200,
@@ -229,6 +231,7 @@ async function main() {
     include: { stats: true },
   });
 
+  const hashedPasswordJ = await bcrypt.hash('pechofrioygay', 10);
   await prisma.user.create({
     data: {
       email: `jlevin@hotmail.com`,
@@ -237,6 +240,8 @@ async function main() {
       userTypeId: playerRoleId,
       clubId: clubA.id,
       clubStatus: 'Aprobado',
+      password: hashedPasswordJ,
+      authProvider: 'LOCAL',
       stats: {
         create: {
           elo: 1200,

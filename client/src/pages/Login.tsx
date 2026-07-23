@@ -12,6 +12,8 @@ import {
   Tabs,
   Group,
   SegmentedControl,
+  Box,
+  Overlay,
 } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -20,6 +22,24 @@ import { ENDPOINTS } from '../api/endpoints';
 import { GoogleLogin } from '@react-oauth/google';
 import { IconLock, IconUserPlus } from '@tabler/icons-react';
 import DICTIONARY from '../constants/dictionary.json';
+const inputStyles = {
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    color: '#000',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    '&::placeholder': {
+      color: '#666',
+    },
+  },
+  label: {
+    color: '#fff',
+    fontWeight: 600,
+  },
+};
+
+// Imagen HD de tenis de mesa (Unsplash)
+const LOGIN_BG =
+  'https://images.unsplash.com/photo-1534158914592-062992fbe900?q=80&w=1920&auto=format&fit=crop';
 
 export const Login = () => {
   const login = useAuthStore((state) => state.login);
@@ -58,6 +78,7 @@ export const Login = () => {
       email: decodedPayload.email,
       surname: decodedPayload.surname || '',
       nickname: decodedPayload.nickname,
+      avatarUrl: decodedPayload.avatarUrl || null,
       name: decodedPayload.name || 'Jugador',
       role: decodedPayload.role,
       clubId: decodedPayload.clubId || null,
@@ -106,7 +127,7 @@ export const Login = () => {
         name,
         surname,
         secondSurname: secondSurname || null,
-        role: selectedRole, // 👈 Enviamos el rol seleccionado
+        role: selectedRole,
       });
       processSuccessfulLogin(response.data.token);
     } catch (error: any) {
@@ -122,8 +143,6 @@ export const Login = () => {
     try {
       const response = await api.post(ENDPOINTS.AUTH.GOOGLE, {
         credential: credentialResponse.credential,
-        // 👈 Solo mandamos el rol específico si estaban en la pestaña de Registro.
-        // Si estaban en Login, mandamos Player por defecto (el backend lo ignora si ya existen)
         role: activeTab === 'register' ? selectedRole : 'Player',
       });
       processSuccessfulLogin(response.data.token);
@@ -135,11 +154,53 @@ export const Login = () => {
   };
 
   return (
-    <Center style={{ height: '100vh', backgroundColor: 'var(--mantine-color-gray-0)' }}>
-      <Paper radius="md" p="xl" withBorder shadow="md" w={420}>
-        <Title order={2} ta="center" mb="md">
-          {DICTIONARY.app_title}
+    <Box
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        backgroundImage: `url(${LOGIN_BG})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      {/* Capa oscura translúcida sobre la imagen */}
+      <Overlay color="#000" opacity={0.65} zIndex={1} />
+
+      {/* Tarjeta con efecto Glassmorphism */}
+      <Paper
+        radius="lg"
+        p="xl"
+        withBorder
+        shadow="2xl"
+        data-mantine-color-scheme="dark"
+        w={{ base: '100%', sm: 440 }}
+        style={{
+          position: 'relative',
+          zIndex: 2,
+          backdropFilter: 'blur(12px)',
+          backgroundColor: 'rgba(26, 27, 30, 0.82)',
+          borderColor: 'rgba(255, 255, 255, 0.15)',
+          color: '#fff',
+        }}
+      >
+        <Title order={2} ta="center" mb="md" style={{ letterSpacing: 1 }}>
+          <Text
+            component="span"
+            inherit
+            variant="gradient"
+            gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+          >
+            {DICTIONARY.app_title}
+          </Text>
         </Title>
+
+        <Text size="xs" c="dimmed" ta="center" mb="lg">
+          Gestión de torneos y rankings de tenis de mesa
+        </Text>
 
         {errorMsg && (
           <Text c="red" size="sm" ta="center" mb="sm" fw={500}>
@@ -173,6 +234,7 @@ export const Login = () => {
                   placeholder="tu@email.com"
                   required
                   value={email}
+                  styles={inputStyles}
                   onChange={(e) => setEmail(e.currentTarget.value)}
                 />
                 <PasswordInput
@@ -180,9 +242,10 @@ export const Login = () => {
                   placeholder="Tu contraseña"
                   required
                   value={password}
+                  styles={inputStyles}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                 />
-                <Button type="submit" fullWidth mt="xs" loading={loading}>
+                <Button type="submit" fullWidth mt="xs" loading={loading} color="blue">
                   Iniciar Sesión
                 </Button>
               </Stack>
@@ -193,7 +256,6 @@ export const Login = () => {
           <Tabs.Panel value="register">
             <form onSubmit={handleRegister}>
               <Stack gap="xs">
-                {/* 👈 Selector de Rol movido exclusivamente aquí */}
                 <SegmentedControl
                   fullWidth
                   value={selectedRole}
@@ -211,6 +273,7 @@ export const Login = () => {
                   placeholder="Tu nombre"
                   required
                   value={name}
+                  styles={inputStyles}
                   onChange={(e) => setName(e.currentTarget.value)}
                 />
                 <Group grow gap="sm">
@@ -219,12 +282,14 @@ export const Login = () => {
                     placeholder="Primer apellido"
                     required
                     value={surname}
+                    styles={inputStyles}
                     onChange={(e) => setSurname(e.currentTarget.value)}
                   />
                   <TextInput
                     label="Segundo Apellido"
                     placeholder="Opcional"
                     value={secondSurname}
+                    styles={inputStyles}
                     onChange={(e) => setSecondSurname(e.currentTarget.value)}
                   />
                 </Group>
@@ -234,6 +299,7 @@ export const Login = () => {
                   required
                   type="email"
                   value={email}
+                  styles={inputStyles}
                   onChange={(e) => setEmail(e.currentTarget.value)}
                 />
                 <PasswordInput
@@ -241,6 +307,7 @@ export const Login = () => {
                   placeholder="Mínimo 8 caracteres"
                   required
                   value={password}
+                  styles={inputStyles}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                 />
                 <PasswordInput
@@ -248,6 +315,7 @@ export const Login = () => {
                   placeholder="Repite tu contraseña"
                   required
                   value={confirmPassword}
+                  styles={inputStyles}
                   onChange={(e) => setConfirmPassword(e.currentTarget.value)}
                 />
                 <Button
@@ -264,7 +332,7 @@ export const Login = () => {
           </Tabs.Panel>
         </Tabs>
 
-        {/* GOOGLE LOGIN (Compartido, debajo de las pestañas) */}
+        {/* GOOGLE LOGIN */}
         <Divider label="O continuar con" labelPosition="center" my="lg" />
         <Center>
           <GoogleLogin
@@ -274,6 +342,6 @@ export const Login = () => {
           />
         </Center>
       </Paper>
-    </Center>
+    </Box>
   );
 };

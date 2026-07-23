@@ -17,7 +17,7 @@ import {
   Table,
   ScrollArea,
   Modal,
-  TextInput, // 👈 Añadido para el formulario
+  TextInput, 
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -26,19 +26,21 @@ import {
   IconChartBar,
   IconMathSymbols,
   IconHistory,
-  IconEdit, // 👈 Añadido icono
+  IconEdit, 
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
-import { useAuthStore } from '../../store/authStore'; // 👈 Añadido para verificar identidad
+import { useAuthStore } from '../../store/authStore';
+import { getPlayerAvatar } from '../../utils/avatar';
 
 interface UserProfile {
   id: string;
   email: string;
   name: string;
   surname?: string;
-  nickname?: string; // 👈 Añadido nickname
+  nickname?: string;
+  avatarUrl?: string | null;
   stats?: {
     elo: number;
     matchWon: number;
@@ -55,16 +57,16 @@ interface UserProfile {
 export const JugadorPerfil = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuthStore(); // Para saber si es nuestro propio perfil
+  const { user: currentUser, updateUserFields  } = useAuthStore(); 
 
   const [player, setPlayer] = useState<UserProfile | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados de edición
+  
   const [editModalOpened, setEditModalOpened] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editData, setEditData] = useState({ name: '', surname: '', nickname: '' });
+  const [editData, setEditData] = useState({ name: '', surname: '', nickname: '', avatarUrl: '' });
 
   const isOwnProfile = currentUser?.id === id;
 
@@ -105,6 +107,7 @@ export const JugadorPerfil = () => {
         name: player.name || '',
         surname: player.surname || '',
         nickname: player.nickname || '',
+        avatarUrl: player.avatarUrl || '',
       });
       setEditModalOpened(true);
     }
@@ -115,7 +118,13 @@ export const JugadorPerfil = () => {
     try {
       await api.put(ENDPOINTS.USERS.ME, editData);
       setEditModalOpened(false);
-      await fetchPlayerInfo(); // Recargamos para ver los cambios
+      updateUserFields({
+        name: editData.name,
+        surname: editData.surname,
+        nickname: editData.nickname,
+        avatarUrl: editData.avatarUrl,
+      });
+      await fetchPlayerInfo(); 
     } catch (error) {
       console.error('Error actualizando el perfil:', error);
     } finally {
@@ -161,9 +170,12 @@ export const JugadorPerfil = () => {
       <Card shadow="sm" padding="xl" radius="md" withBorder>
         <Group align="flex-start" justify="space-between">
           <Group gap="lg">
-            <Avatar size={100} radius={100} color="blue">
-              {player.name.charAt(0).toUpperCase()}
-            </Avatar>
+            <Avatar
+              src={getPlayerAvatar(player.name, player.avatarUrl)}
+              size={100}
+              radius={100}
+              color="blue"
+            />
             <div>
               <Title order={1}>
                 {player.name} {player.surname}
@@ -354,9 +366,11 @@ export const JugadorPerfil = () => {
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs">
-                        <Avatar color="gray" radius="xl" size="xs">
-                          {opponent?.name?.charAt(0)}
-                        </Avatar>
+                        <Avatar
+                          src={getPlayerAvatar(opponent.name, opponent.avatarUrl)}
+                          radius="xl"
+                          size="sm"
+                        />
                         <Text size="sm">
                           {opponent?.name} {opponent?.surname || ''}
                         </Text>
@@ -408,6 +422,12 @@ export const JugadorPerfil = () => {
             placeholder="Ej. El Muro"
             value={editData.nickname}
             onChange={(e) => setEditData({ ...editData, nickname: e.currentTarget.value })}
+          />
+          <TextInput
+            label="URL de Foto de Perfil (Opcional)"
+            placeholder="https:
+            value={editData.avatarUrl || ''}
+            onChange={(e) => setEditData({ ...editData, avatarUrl: e.currentTarget.value })}
           />
           <Button color="blue" fullWidth mt="md" loading={saving} onClick={handleSaveProfile}>
             Guardar Cambios

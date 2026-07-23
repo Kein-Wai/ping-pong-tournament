@@ -60,6 +60,8 @@ router.post('/register', async (req, res) => {
         email: newUser.email,
         name: newUser.name,
         surname: newUser.surname,
+        nickname: newUser.nickname,
+        avatarUrl: newUser.avatarUrl,
         role: newUser.userType?.name,
         clubId: newUser.clubId,
         clubStatus: newUser.clubStatus,
@@ -112,6 +114,7 @@ router.post('/login', async (req, res) => {
         name: user.name,
         surname: user.surname,
         nickname: user.nickname,
+        avatarUrl: user.avatarUrl,
         email: user.email,
         role: user.userType.name,
         clubId: user.clubId,
@@ -145,7 +148,7 @@ router.post('/google', async (req, res) => {
       return res.status(401).json({ error: 'Token de Google inválido' });
     }
 
-    const { email, given_name, family_name, sub: googleId } = payload;
+    const { email, given_name, family_name, sub: googleId, picture } = payload;
 
     let user = await prisma.user.findUnique({
       where: { email },
@@ -166,6 +169,7 @@ router.post('/google', async (req, res) => {
           surname: family_name,
           authProvider: 'GOOGLE',
           googleId,
+          avatarUrl: picture,
           userTypeId: userRole.id,
           stats: {
             create: {},
@@ -176,7 +180,7 @@ router.post('/google', async (req, res) => {
     } else if (!user.googleId) {
       user = await prisma.user.update({
         where: { email },
-        data: { googleId, authProvider: 'GOOGLE' },
+        data: { googleId, authProvider: 'GOOGLE', avatarUrl: picture },
         include: { userType: true },
       });
     }
@@ -188,6 +192,7 @@ router.post('/google', async (req, res) => {
         name: user.name,
         surname: user.surname,
         nickname: user.nickname,
+        avatarUrl: user.avatarUrl,
         role: user.userType.name,
         clubId: user.clubId,
         clubStatus: user.clubStatus,

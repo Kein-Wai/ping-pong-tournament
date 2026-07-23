@@ -35,6 +35,7 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { useAuthStore } from '../../store/authStore';
 import { openAppConfirmModal } from '../../utils/modals';
+import { getPlayerAvatar } from '../../utils/avatar';
 
 interface User {
   id: string;
@@ -42,6 +43,7 @@ interface User {
   name: string;
   surname?: string;
   nickname?: string;
+  avatarUrl?: string;
   clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
   stats?: {
     elo: number;
@@ -52,7 +54,6 @@ interface User {
   };
 }
 
-const COLORS = ['red', 'green', 'blue', 'yellow', 'orange'];
 const ITEMS_PER_PAGE = 10;
 
 export const Jugadores = () => {
@@ -195,9 +196,7 @@ export const Jugadores = () => {
       <Table.Tr key={player.id}>
         <Table.Td>
           <Group gap="sm">
-            <Avatar color={COLORS[Math.floor(Math.random() * COLORS.length)]} radius="xl">
-              {player?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </Avatar>
+            <Avatar src={getPlayerAvatar(player.name, player.avatarUrl)} radius="xl" size="sm" />
             <div>
               <Text fz="sm" fw={500}>
                 {fullName}

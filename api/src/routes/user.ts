@@ -156,6 +156,7 @@ router.put('/me', async (req, res) => {
     if (data.surname) updateData.surname = data.surname;
     if (req.body.secondSurname) updateData.secondSurname = req.body.secondSurname;
     if (req.body.nickname) updateData.nickname = req.body.nickname;
+    if (req.body.avatarUrl) updateData.avatarUrl = req.body.avatarUrl;
 
     if (data.newPassword) {
       if (user.password) {

@@ -21,6 +21,7 @@ import { ModalsProvider } from '@mantine/modals';
 import { ClubSetup } from './pages/Clubs/ClubSetup';
 import { MiClub } from './pages/Clubs/MiClub';
 import { AdminPanel } from './pages/Admin/AdminPanel';
+import { Estadisticas } from './pages/Estadisticas/Estadisticas';
 
 import { APP_ROUTES } from './constants/routes'; // 👈 IMPORTADO
 
@@ -50,7 +51,7 @@ function App() {
                 <Route path={APP_ROUTES.JUGADORES.PROFILE_PATH} element={<JugadorPerfil />} />
 
                 <Route path={APP_ROUTES.PARTIDOS} element={<Partidos />} />
-                <Route path={APP_ROUTES.ESTADISTICAS} element={<div>Página de Estadísticas</div>} />
+                <Route path={APP_ROUTES.ESTADISTICAS} element={<Estadisticas />} />
 
                 {/* Paneles de Control */}
                 <Route path={APP_ROUTES.MI_CLUB} element={<MiClub />} />
@@ -285,9 +286,11 @@ import {
   IconSun,
   IconMoon,
   IconBuildingCommunity,
+  IconUser,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes'; // 👈 IMPORTADO
+import { getPlayerAvatar } from '../../utils/avatar';
 
 export const MainLayout = () => {
   const [opened, { toggle }] = useDisclosure();
@@ -310,8 +313,17 @@ export const MainLayout = () => {
   // --- CONSTRUCCIÓN DEL MENÚ SEGÚN TU JERARQUÍA ---
   const navItems: { label: string; icon: any; path: string }[] = [
     { label: 'Inicio', icon: IconHome, path: APP_ROUTES.HOME },
-    { label: 'Torneos', icon: IconTrophy, path: APP_ROUTES.TORNEOS.LIST },
   ];
+
+  if (user?.id && isPlayer) {
+    navItems.push({
+      label: 'Mi Perfil',
+      icon: IconUser,
+      path: APP_ROUTES.JUGADORES.PROFILE(user.id),
+    });
+  }
+
+  navItems.push({ label: 'Torneos', icon: IconTrophy, path: APP_ROUTES.TORNEOS.LIST });
 
   // Restricción: Jugadores y Estadísticas solo si tienes club aprobado o eres Admin
   if (isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub)) {
@@ -365,9 +377,11 @@ export const MainLayout = () => {
             <Menu.Target>
               <UnstyledButton>
                 <Group gap="xs">
-                  <Avatar color="blue" radius="xl" size="sm">
-                    {user?.name.charAt(0).toUpperCase()}
-                  </Avatar>
+                  <Avatar
+                    src={getPlayerAvatar(user?.name || 'U', user?.avatarUrl)}
+                    radius="xl"
+                    size="sm"
+                  />
                   <Text size="sm" visibleFrom="xs" fw={500}>
                     {user?.name}
                   </Text>
@@ -377,6 +391,14 @@ export const MainLayout = () => {
 
             <Menu.Dropdown>
               <Menu.Label>Opciones</Menu.Label>
+              {isPlayer && (
+                <Menu.Item
+                  leftSection={<IconUser size={16} />}
+                  onClick={() => navigate(APP_ROUTES.JUGADORES.PROFILE(user?.id || ''))}
+                >
+                  Mi Perfil
+                </Menu.Item>
+              )}
               <Menu.Item
                 leftSection={isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
                 onClick={() => toggleColorScheme()}
@@ -1256,7 +1278,6 @@ import {
   Stack,
   Center,
   ThemeIcon,
-  Group,
   Container,
 } from '@mantine/core';
 import { IconBuildingCommunity, IconRocket } from '@tabler/icons-react';
@@ -1846,6 +1867,206 @@ export const Dashboard = () => {
 
 
 ================================================
+📂 ARCHIVO: src/pages/Estadisticas/Estadisticas.tsx
+================================================
+
+import { useEffect, useState } from 'react';
+import {
+  Card,
+  Title,
+  Table,
+  Badge,
+  Center,
+  Loader,
+  Stack,
+  Avatar,
+  Group,
+  Text,
+  ThemeIcon,
+  ScrollArea,
+} from '@mantine/core';
+import { IconMedal, IconTrophy, IconChartBar } from '@tabler/icons-react';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
+import { getPlayerAvatar } from '../../utils/avatar';
+
+interface PlayerStats {
+  id: string;
+  name: string;
+  surname: string | null;
+  avatarUrl: string | null;
+  clubStatus: string;
+  stats: {
+    elo: number;
+    matchWon: number;
+    matchLost: number;
+    setWon: number;
+    setLost: number;
+  };
+}
+
+const COLORS = ['red', 'green', 'blue', 'yellow', 'orange'];
+
+export const Estadisticas = () => {
+  const [players, setPlayers] = useState<PlayerStats[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRanking = async () => {
+      try {
+        const response = await api.get(ENDPOINTS.USERS.BASE);
+        let data: PlayerStats[] = response.data.data || response.data;
+
+        // Filtramos solo los jugadores con estadísticas y los ordenamos por ELO
+        data = data
+          .filter((p) => p.stats !== null)
+          .sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
+
+        setPlayers(data);
+      } catch (error) {
+        console.error('Error cargando estadísticas:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRanking();
+  }, []);
+
+  if (loading) {
+    return (
+      <Center h={400}>
+        <Loader color="blue" type="bars" />
+      </Center>
+    );
+  }
+
+  const getRankBadge = (index: number) => {
+    if (index === 0)
+      return (
+        <ThemeIcon color="yellow" size="lg" radius="xl">
+          <IconTrophy size={16} />
+        </ThemeIcon>
+      );
+    if (index === 1)
+      return (
+        <ThemeIcon color="gray" size="lg" radius="xl">
+          <IconMedal size={16} />
+        </ThemeIcon>
+      );
+    if (index === 2)
+      return (
+        <ThemeIcon color="orange" size="lg" radius="xl">
+          <IconMedal size={16} />
+        </ThemeIcon>
+      );
+    return (
+      <Badge color="gray" variant="light" size="lg">
+        {index + 1}º
+      </Badge>
+    );
+  };
+
+  return (
+    <Stack gap="lg">
+      <Group gap="sm" align="center">
+        <ThemeIcon size={50} radius="md" color="blue" variant="light">
+          <IconChartBar size={28} />
+        </ThemeIcon>
+        <div>
+          <Title order={2}>Ranking Global (ELO)</Title>
+          <Text c="dimmed" size="sm">
+            Clasificación oficial basada en el rendimiento histórico.
+          </Text>
+        </div>
+      </Group>
+
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <ScrollArea>
+          <Table striped highlightOnHover verticalSpacing="md" miw={700}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={80}>Rank</Table.Th>
+                <Table.Th>Jugador</Table.Th>
+                <Table.Th>Puntuación ELO</Table.Th>
+                <Table.Th ta="center">Win Rate</Table.Th>
+                <Table.Th ta="center">Partidos (V-D)</Table.Th>
+                <Table.Th ta="center">Dif. Sets</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {players.map((p, index) => {
+                const totalMatches = (p.stats.matchWon || 0) + (p.stats.matchLost || 0);
+                const winRate =
+                  totalMatches > 0 ? Math.round(((p.stats.matchWon || 0) / totalMatches) * 100) : 0;
+                const setDiff = (p.stats.setWon || 0) - (p.stats.setLost || 0);
+
+                return (
+                  <Table.Tr key={p.id}>
+                    <Table.Td>{getRankBadge(index)}</Table.Td>
+                    <Table.Td>
+                      <Group gap="sm">
+                        <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="sm" />
+                        <Text fw={index < 3 ? 700 : 500} size={index < 3 ? 'md' : 'sm'}>
+                          {p.name} {p.surname || ''}
+                        </Text>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        size={index < 3 ? 'lg' : 'md'}
+                        color={p.stats.elo >= 1000 ? 'green' : p.stats.elo >= 750 ? 'blue' : 'gray'}
+                        variant={index < 3 ? 'filled' : 'light'}
+                      >
+                        {p.stats.elo}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td ta="center">
+                      <Text fw={600} c={winRate >= 50 ? 'green.6' : 'red.6'}>
+                        {winRate}%
+                      </Text>
+                    </Table.Td>
+                    <Table.Td ta="center">
+                      <Text size="sm">
+                        <Text component="span" c="green" fw={600}>
+                          {p.stats.matchWon}
+                        </Text>{' '}
+                        -{' '}
+                        <Text component="span" c="red" fw={600}>
+                          {p.stats.matchLost}
+                        </Text>
+                      </Text>
+                    </Table.Td>
+                    <Table.Td ta="center">
+                      <Badge
+                        color={setDiff > 0 ? 'teal' : setDiff < 0 ? 'red' : 'gray'}
+                        variant="dot"
+                      >
+                        {setDiff > 0 ? `+${setDiff}` : setDiff}
+                      </Badge>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+              {players.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={6}>
+                    <Center py="xl">
+                      <Text c="dimmed">No hay jugadores con estadísticas registradas.</Text>
+                    </Center>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+      </Card>
+    </Stack>
+  );
+};
+
+
+================================================
 📂 ARCHIVO: src/pages/Jugadores/JugadorPerfil.tsx
 ================================================
 
@@ -1865,6 +2086,10 @@ import {
   Paper,
   ThemeIcon,
   Stack,
+  Table,
+  ScrollArea,
+  Modal,
+  TextInput, // 👈 Añadido para el formulario
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -1872,15 +2097,22 @@ import {
   IconPingPong,
   IconChartBar,
   IconMathSymbols,
+  IconHistory,
+  IconEdit, // 👈 Añadido icono
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
+import { useAuthStore } from '../../store/authStore';
+import { getPlayerAvatar } from '../../utils/avatar';
 
 interface UserProfile {
   id: string;
   email: string;
   name: string;
   surname?: string;
+  nickname?: string;
+  avatarUrl?: string | null;
   stats?: {
     elo: number;
     matchWon: number;
@@ -1897,26 +2129,74 @@ interface UserProfile {
 export const JugadorPerfil = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuthStore(); // Para saber si es nuestro propio perfil
 
   const [player, setPlayer] = useState<UserProfile | null>(null);
+  const [recentMatches, setRecentMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Estados de edición
+  const [editModalOpened, setEditModalOpened] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editData, setEditData] = useState({ name: '', surname: '', nickname: '', avatarUrl: '' });
+
+  const isOwnProfile = currentUser?.id === id;
+
+  const fetchPlayerInfo = async () => {
+    try {
+      const [playerRes, matchesRes] = await Promise.all([
+        api.get(ENDPOINTS.USERS.BY_ID(id!)),
+        api.get(ENDPOINTS.MATCHES.BASE),
+      ]);
+
+      const playerData = playerRes.data.data || playerRes.data;
+      setPlayer(playerData);
+
+      const allMatches = matchesRes.data;
+      const userMatches = allMatches
+        .filter(
+          (m: any) => (m.playerOneId === id || m.playerTwoId === id) && m.status === 'Completado',
+        )
+        .sort(
+          (a: any, b: any) => new Date(b.dateStart).getTime() - new Date(a.dateStart).getTime(),
+        );
+
+      setRecentMatches(userMatches.slice(0, 10));
+    } catch (error) {
+      console.error('Error cargando perfil del jugador:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchPlayerInfo = async () => {
-      try {
-        const response = await api.get(`/users/${id}`);
-
-        const data = response.data.data || response.data;
-        setPlayer(data);
-      } catch (error) {
-        console.error('Error cargando perfil del jugador:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchPlayerInfo();
   }, [id]);
+
+  const handleOpenEdit = () => {
+    if (player) {
+      setEditData({
+        name: player.name || '',
+        surname: player.surname || '',
+        nickname: player.nickname || '',
+        avatarUrl: player.avatarUrl || '',
+      });
+      setEditModalOpened(true);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      await api.put(ENDPOINTS.USERS.ME, editData);
+      setEditModalOpened(false);
+      await fetchPlayerInfo(); // Recargamos para ver los cambios
+    } catch (error) {
+      console.error('Error actualizando el perfil:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -1942,7 +2222,6 @@ export const JugadorPerfil = () => {
 
   return (
     <Stack gap="xl">
-      {/* Botón para volver atrás */}
       <div>
         <Button
           variant="subtle"
@@ -1954,29 +2233,49 @@ export const JugadorPerfil = () => {
       </div>
 
       {/* Cabecera del Perfil */}
-      <Card shadow="sm" padding="xl" radius="md" withBorder maw={600}>
+      <Card shadow="sm" padding="xl" radius="md" withBorder>
         <Group align="flex-start" justify="space-between">
           <Group gap="lg">
-            <Avatar size={100} radius={100} color="blue">
-              {player.name.charAt(0).toUpperCase()}
-            </Avatar>
+            <Avatar
+              src={getPlayerAvatar(player.name, player.avatarUrl)}
+              size={100}
+              radius={100}
+              color="blue"
+            />
             <div>
               <Title order={1}>
                 {player.name} {player.surname}
               </Title>
+              {player.nickname && (
+                <Text c="dimmed" size="md" fs="italic">
+                  "{player.nickname}"
+                </Text>
+              )}
               <Text c="dimmed" size="lg">
                 {player.email}
               </Text>
               <Badge
                 mt="sm"
                 size="lg"
-                color={s?.elo && s.elo > 600 ? 'green' : 'blue'}
-                variant="light"
+                color={s?.elo && s.elo >= 1000 ? 'green' : s?.elo && s.elo >= 750 ? 'blue' : 'gray'}
+                variant="filled"
               >
                 {s?.elo || 500} ELO
               </Badge>
             </div>
           </Group>
+
+          {/* Botón condicional si eres el dueño de la cuenta */}
+          {isOwnProfile && (
+            <Button
+              variant="light"
+              color="blue"
+              leftSection={<IconEdit size={16} />}
+              onClick={handleOpenEdit}
+            >
+              Editar Perfil
+            </Button>
+          )}
         </Group>
       </Card>
 
@@ -1984,7 +2283,6 @@ export const JugadorPerfil = () => {
 
       {/* Grid de Tarjetas de Estadísticas */}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
-        {/* Tarjeta 1: Partidos */}
         <Paper withBorder p="md" radius="md" shadow="sm">
           <Group justify="space-between">
             <Text size="xs" c="dimmed" fw={700} tt="uppercase">
@@ -2004,7 +2302,6 @@ export const JugadorPerfil = () => {
           </Text>
         </Paper>
 
-        {/* Tarjeta 2: Torneos */}
         <Paper withBorder p="md" radius="md" shadow="sm">
           <Group justify="space-between">
             <Text size="xs" c="dimmed" fw={700} tt="uppercase">
@@ -2026,7 +2323,6 @@ export const JugadorPerfil = () => {
           </Text>
         </Paper>
 
-        {/* Tarjeta 3: Sets */}
         <Paper withBorder p="md" radius="md" shadow="sm">
           <Group justify="space-between">
             <Text size="xs" c="dimmed" fw={700} tt="uppercase">
@@ -2046,7 +2342,6 @@ export const JugadorPerfil = () => {
           </Text>
         </Paper>
 
-        {/* Tarjeta 4: Puntos */}
         <Paper withBorder p="md" radius="md" shadow="sm">
           <Group justify="space-between">
             <Text size="xs" c="dimmed" fw={700} tt="uppercase">
@@ -2072,6 +2367,139 @@ export const JugadorPerfil = () => {
           </Text>
         </Paper>
       </SimpleGrid>
+
+      {/* Historial de Partidos */}
+      <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
+        <Group gap="sm" mb="md">
+          <IconHistory size={20} color="var(--mantine-color-blue-6)" />
+          <Title order={4}>Últimos Partidos Jugados</Title>
+        </Group>
+
+        <ScrollArea>
+          <Table striped highlightOnHover verticalSpacing="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Fecha</Table.Th>
+                <Table.Th>Torneo</Table.Th>
+                <Table.Th>Resultado</Table.Th>
+                <Table.Th>Oponente</Table.Th>
+                <Table.Th>Marcador (Sets)</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {recentMatches.map((m) => {
+                const isPlayerOne = m.playerOneId === id;
+                const opponent = isPlayerOne ? m.playerTwo : m.playerOne;
+
+                let p1Sets = 0;
+                let p2Sets = 0;
+                const sets = [
+                  [m.setOnePlayerOne, m.setOnePlayerTwo],
+                  [m.setTwoPlayerOne, m.setTwoPlayerTwo],
+                  [m.setThreePlayerOne, m.setThreePlayerTwo],
+                  [m.setFourPlayerOne, m.setFourPlayerTwo],
+                  [m.setFivePlayerOne, m.setFivePlayerTwo],
+                ];
+
+                sets.forEach(([s1, s2]) => {
+                  if (s1 !== null && s2 !== null && !(s1 === 0 && s2 === 0)) {
+                    if (s1 > s2) p1Sets++;
+                    else if (s2 > s1) p2Sets++;
+                  }
+                });
+
+                const didWin = isPlayerOne ? p1Sets > p2Sets : p2Sets > p1Sets;
+                const setScore = isPlayerOne ? `${p1Sets} - ${p2Sets}` : `${p2Sets} - ${p1Sets}`;
+
+                return (
+                  <Table.Tr key={m.id}>
+                    <Table.Td>
+                      {new Date(m.dateStart).toLocaleDateString('es-ES', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" fw={500} truncate w={150}>
+                        {m.tournament?.name || 'Amistoso'}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge color={didWin ? 'green' : 'red'} variant="light">
+                        {didWin ? 'Victoria' : 'Derrota'}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <Avatar
+                          src={getPlayerAvatar(opponent.name, opponent.avatarUrl)}
+                          radius="xl"
+                          size="sm"
+                        />
+                        <Text size="sm">
+                          {opponent?.name} {opponent?.surname || ''}
+                        </Text>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text fw={700} size="sm" c="dimmed">
+                        {setScore}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+              {recentMatches.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={5}>
+                    <Center py="md">
+                      <Text c="dimmed">No hay historial de partidos registrados.</Text>
+                    </Center>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+      </Card>
+
+      {/* MODAL DE EDICIÓN */}
+      <Modal
+        opened={editModalOpened}
+        onClose={() => setEditModalOpened(false)}
+        title={<Title order={4}>Editar Mis Datos</Title>}
+        centered
+      >
+        <Stack gap="md">
+          <TextInput
+            label="Nombre"
+            required
+            value={editData.name}
+            onChange={(e) => setEditData({ ...editData, name: e.currentTarget.value })}
+          />
+          <TextInput
+            label="Apellidos"
+            value={editData.surname}
+            onChange={(e) => setEditData({ ...editData, surname: e.currentTarget.value })}
+          />
+          <TextInput
+            label="Nickname / Mote (Opcional)"
+            placeholder="Ej. El Muro"
+            value={editData.nickname}
+            onChange={(e) => setEditData({ ...editData, nickname: e.currentTarget.value })}
+          />
+          <TextInput
+            label="URL de Foto de Perfil (Opcional)"
+            placeholder="https://ejemplo.com/mi-foto.jpg"
+            value={editData.avatarUrl || ''}
+            onChange={(e) => setEditData({ ...editData, avatarUrl: e.currentTarget.value })}
+          />
+          <Button color="blue" fullWidth mt="md" loading={saving} onClick={handleSaveProfile}>
+            Guardar Cambios
+          </Button>
+        </Stack>
+      </Modal>
     </Stack>
   );
 };
@@ -2118,6 +2546,7 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { useAuthStore } from '../../store/authStore';
 import { openAppConfirmModal } from '../../utils/modals';
+import { getPlayerAvatar } from '../../utils/avatar';
 
 interface User {
   id: string;
@@ -2125,6 +2554,7 @@ interface User {
   name: string;
   surname?: string;
   nickname?: string;
+  avatarUrl?: string;
   clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
   stats?: {
     elo: number;
@@ -2135,7 +2565,6 @@ interface User {
   };
 }
 
-const COLORS = ['red', 'green', 'blue', 'yellow', 'orange'];
 const ITEMS_PER_PAGE = 10;
 
 export const Jugadores = () => {
@@ -2278,9 +2707,7 @@ export const Jugadores = () => {
       <Table.Tr key={player.id}>
         <Table.Td>
           <Group gap="sm">
-            <Avatar color={COLORS[Math.floor(Math.random() * COLORS.length)]} radius="xl">
-              {player?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </Avatar>
+            <Avatar src={getPlayerAvatar(player.name, player.avatarUrl)} radius="xl" size="sm" />
             <div>
               <Text fz="sm" fw={500}>
                 {fullName}
@@ -2504,6 +2931,8 @@ import {
   Tabs,
   Group,
   SegmentedControl,
+  Box,
+  Overlay,
 } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -2512,6 +2941,24 @@ import { ENDPOINTS } from '../api/endpoints';
 import { GoogleLogin } from '@react-oauth/google';
 import { IconLock, IconUserPlus } from '@tabler/icons-react';
 import DICTIONARY from '../constants/dictionary.json';
+const inputStyles = {
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    color: '#000',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    '&::placeholder': {
+      color: '#666',
+    },
+  },
+  label: {
+    color: '#fff',
+    fontWeight: 600,
+  },
+};
+
+// Imagen HD de tenis de mesa (Unsplash)
+const LOGIN_BG =
+  'https://images.unsplash.com/photo-1534158914592-062992fbe900?q=80&w=1920&auto=format&fit=crop';
 
 export const Login = () => {
   const login = useAuthStore((state) => state.login);
@@ -2550,6 +2997,7 @@ export const Login = () => {
       email: decodedPayload.email,
       surname: decodedPayload.surname || '',
       nickname: decodedPayload.nickname,
+      avatarUrl: decodedPayload.avatarUrl || null,
       name: decodedPayload.name || 'Jugador',
       role: decodedPayload.role,
       clubId: decodedPayload.clubId || null,
@@ -2598,7 +3046,7 @@ export const Login = () => {
         name,
         surname,
         secondSurname: secondSurname || null,
-        role: selectedRole, // 👈 Enviamos el rol seleccionado
+        role: selectedRole,
       });
       processSuccessfulLogin(response.data.token);
     } catch (error: any) {
@@ -2614,8 +3062,6 @@ export const Login = () => {
     try {
       const response = await api.post(ENDPOINTS.AUTH.GOOGLE, {
         credential: credentialResponse.credential,
-        // 👈 Solo mandamos el rol específico si estaban en la pestaña de Registro.
-        // Si estaban en Login, mandamos Player por defecto (el backend lo ignora si ya existen)
         role: activeTab === 'register' ? selectedRole : 'Player',
       });
       processSuccessfulLogin(response.data.token);
@@ -2627,11 +3073,53 @@ export const Login = () => {
   };
 
   return (
-    <Center style={{ height: '100vh', backgroundColor: 'var(--mantine-color-gray-0)' }}>
-      <Paper radius="md" p="xl" withBorder shadow="md" w={420}>
-        <Title order={2} ta="center" mb="md">
-          {DICTIONARY.app_title}
+    <Box
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        backgroundImage: `url(${LOGIN_BG})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      {/* Capa oscura translúcida sobre la imagen */}
+      <Overlay color="#000" opacity={0.65} zIndex={1} />
+
+      {/* Tarjeta con efecto Glassmorphism */}
+      <Paper
+        radius="lg"
+        p="xl"
+        withBorder
+        shadow="2xl"
+        data-mantine-color-scheme="dark"
+        w={{ base: '100%', sm: 440 }}
+        style={{
+          position: 'relative',
+          zIndex: 2,
+          backdropFilter: 'blur(12px)',
+          backgroundColor: 'rgba(26, 27, 30, 0.82)',
+          borderColor: 'rgba(255, 255, 255, 0.15)',
+          color: '#fff',
+        }}
+      >
+        <Title order={2} ta="center" mb="md" style={{ letterSpacing: 1 }}>
+          <Text
+            component="span"
+            inherit
+            variant="gradient"
+            gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+          >
+            {DICTIONARY.app_title}
+          </Text>
         </Title>
+
+        <Text size="xs" c="dimmed" ta="center" mb="lg">
+          Gestión de torneos y rankings de tenis de mesa
+        </Text>
 
         {errorMsg && (
           <Text c="red" size="sm" ta="center" mb="sm" fw={500}>
@@ -2665,6 +3153,7 @@ export const Login = () => {
                   placeholder="tu@email.com"
                   required
                   value={email}
+                  styles={inputStyles}
                   onChange={(e) => setEmail(e.currentTarget.value)}
                 />
                 <PasswordInput
@@ -2672,9 +3161,10 @@ export const Login = () => {
                   placeholder="Tu contraseña"
                   required
                   value={password}
+                  styles={inputStyles}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                 />
-                <Button type="submit" fullWidth mt="xs" loading={loading}>
+                <Button type="submit" fullWidth mt="xs" loading={loading} color="blue">
                   Iniciar Sesión
                 </Button>
               </Stack>
@@ -2685,7 +3175,6 @@ export const Login = () => {
           <Tabs.Panel value="register">
             <form onSubmit={handleRegister}>
               <Stack gap="xs">
-                {/* 👈 Selector de Rol movido exclusivamente aquí */}
                 <SegmentedControl
                   fullWidth
                   value={selectedRole}
@@ -2703,6 +3192,7 @@ export const Login = () => {
                   placeholder="Tu nombre"
                   required
                   value={name}
+                  styles={inputStyles}
                   onChange={(e) => setName(e.currentTarget.value)}
                 />
                 <Group grow gap="sm">
@@ -2711,12 +3201,14 @@ export const Login = () => {
                     placeholder="Primer apellido"
                     required
                     value={surname}
+                    styles={inputStyles}
                     onChange={(e) => setSurname(e.currentTarget.value)}
                   />
                   <TextInput
                     label="Segundo Apellido"
                     placeholder="Opcional"
                     value={secondSurname}
+                    styles={inputStyles}
                     onChange={(e) => setSecondSurname(e.currentTarget.value)}
                   />
                 </Group>
@@ -2726,6 +3218,7 @@ export const Login = () => {
                   required
                   type="email"
                   value={email}
+                  styles={inputStyles}
                   onChange={(e) => setEmail(e.currentTarget.value)}
                 />
                 <PasswordInput
@@ -2733,6 +3226,7 @@ export const Login = () => {
                   placeholder="Mínimo 8 caracteres"
                   required
                   value={password}
+                  styles={inputStyles}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                 />
                 <PasswordInput
@@ -2740,6 +3234,7 @@ export const Login = () => {
                   placeholder="Repite tu contraseña"
                   required
                   value={confirmPassword}
+                  styles={inputStyles}
                   onChange={(e) => setConfirmPassword(e.currentTarget.value)}
                 />
                 <Button
@@ -2756,7 +3251,7 @@ export const Login = () => {
           </Tabs.Panel>
         </Tabs>
 
-        {/* GOOGLE LOGIN (Compartido, debajo de las pestañas) */}
+        {/* GOOGLE LOGIN */}
         <Divider label="O continuar con" labelPosition="center" my="lg" />
         <Center>
           <GoogleLogin
@@ -2766,7 +3261,7 @@ export const Login = () => {
           />
         </Center>
       </Paper>
-    </Center>
+    </Box>
   );
 };
 
@@ -2781,10 +3276,8 @@ import {
   Table,
   Title,
   Card,
-  Avatar,
   Group,
   Text,
-  Badge,
   Center,
   Loader,
   ScrollArea,
@@ -2796,7 +3289,6 @@ import {
 } from '@mantine/core';
 import {
   IconSearch,
-  IconEye,
   IconTrophy,
   IconCalendar,
   IconPencilCheck,
@@ -2876,8 +3368,6 @@ export interface Match {
   tournament?: Tournament;
 }
 
-const COLORS = ['red', 'green', 'blue', 'yellow', 'orange'];
-
 const ITEMS_PER_PAGE = 10;
 
 export const Partidos = () => {
@@ -2924,19 +3414,6 @@ export const Partidos = () => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.currentTarget.value);
     setPage(1);
-  };
-
-  const returnEloColor = (elo: number) => {
-    if (elo < 500) {
-      return 'red';
-    } else if (elo >= 500 && elo < 750) {
-      return 'yellow';
-    } else if (elo >= 750 && elo < 1000) {
-      return 'blue';
-    } else if (elo >= 1000) {
-      return 'green';
-    }
-    console.log('no salgo!');
   };
 
   if (loading) {
@@ -3141,6 +3618,7 @@ import { openAppConfirmModal } from '../../utils/modals';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { isValidTableTennisSet } from '../../utils/matchValidation';
+import { getPlayerAvatar } from '../../utils/avatar';
 
 interface MatchToEdit {
   id: string;
@@ -3176,6 +3654,7 @@ interface Participant {
     id: string;
     name: string;
     surname: string | null;
+    avatarUrl: string | null;
     stats: { elo: number | null } | null;
   };
 }
@@ -3204,7 +3683,13 @@ interface TournamentClas {
   id: string;
   position: number | null;
   lastRound: string | null;
-  player: { id: string; name: string; surname: string | null; stats: { elo: number | null } };
+  player: {
+    id: string;
+    name: string;
+    surname: string | null;
+    stats: { elo: number | null };
+    avatarUrl: string | null;
+  };
 }
 
 interface TournamentGroupClas {
@@ -4172,9 +4657,11 @@ export const TorneoDetalles = () => {
                         <Table.Td>{index + 1}</Table.Td>
                         <Table.Td>
                           <Group gap="sm">
-                            <Avatar color="blue" radius="xl" size="sm">
-                              {p.player?.name?.charAt(0)}
-                            </Avatar>
+                            <Avatar
+                              src={getPlayerAvatar(p.player?.name, p.player?.avatarUrl)}
+                              radius="xl"
+                              size="sm"
+                            />
                             <Text size="sm" fw={500}>
                               {p.player?.name} {p.player?.surname || ''}
                             </Text>
@@ -4258,7 +4745,14 @@ export const TorneoDetalles = () => {
                 <Group justify="center" align="flex-end" gap="xl" py="xl">
                   {secondPlace && (
                     <Stack align="center" gap="xs">
-                      <Avatar size="lg" color="gray" radius="xl" />
+                      <Avatar
+                        src={getPlayerAvatar(
+                          secondPlace.player?.name,
+                          secondPlace.player?.avatarUrl,
+                        )}
+                        radius="xl"
+                        size="lg"
+                      />
                       <Text fw={600} size="sm">
                         {secondPlace.player?.name} {secondPlace.player?.surname || ''}
                       </Text>
@@ -4284,7 +4778,11 @@ export const TorneoDetalles = () => {
                         color="var(--mantine-color-yellow-5)"
                         style={{ marginBottom: -10 }}
                       />
-                      <Avatar size="xl" color="yellow" radius="xl" />
+                      <Avatar
+                        src={getPlayerAvatar(firstPlace.player?.name, firstPlace.player?.avatarUrl)}
+                        radius="xl"
+                        size="xl"
+                      />
                       <Text fw={800} size="md">
                         {firstPlace.player?.name} {firstPlace.player?.surname || ''}
                       </Text>
@@ -4304,7 +4802,11 @@ export const TorneoDetalles = () => {
                   )}
                   {thirdPlace && (
                     <Stack align="center" gap="xs">
-                      <Avatar size="lg" color="orange" radius="xl" />
+                      <Avatar
+                        src={getPlayerAvatar(thirdPlace.player?.name, thirdPlace.player?.avatarUrl)}
+                        radius="xl"
+                        size="lg"
+                      />
                       <Text fw={600} size="sm">
                         {thirdPlace.player?.name} {thirdPlace.player?.surname || ''}
                       </Text>
@@ -4925,7 +5427,6 @@ export const TorneoDetalles = () => {
                       value={editMatch[fieldP1] as number}
                       onChange={(val) => {
                         const newP1Val = Number(val || 0);
-                        const currentP2Val = Number(editMatch[fieldP2] || 0);
 
                         const updatedMatchState = { ...editMatch, [fieldP1]: newP1Val };
 
@@ -5318,7 +5819,6 @@ import {
   TextInput,
   Pagination,
   Select,
-  ThemeIcon,
 } from '@mantine/core';
 import {
   IconCalendar,
@@ -5571,6 +6071,7 @@ export interface User {
   name: string;
   surname: string;
   nickname: string;
+  avatarUrl: string | null;
   role: string;
   clubId: string | null;
   clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
@@ -5611,6 +6112,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ token: null, user: null, isAuthenticated: false });
   },
 }));
+
+
+================================================
+📂 ARCHIVO: src/utils/avatar.ts
+================================================
+
+export const getPlayerAvatar = (name: string, avatarUrl?: string | null) => {
+  console.log(avatarUrl);
+  if (avatarUrl && avatarUrl.trim() !== '') {
+    console.log('aqui');
+    return avatarUrl;
+  }
+  const cleanName = encodeURIComponent(name || 'Jugador');
+  return `https://api.dicebear.com/10.x/open-peeps/svg?seed=${cleanName}`;
+};
 
 
 ================================================

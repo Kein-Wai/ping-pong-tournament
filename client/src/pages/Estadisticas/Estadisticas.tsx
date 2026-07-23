@@ -16,11 +16,13 @@ import {
 import { IconMedal, IconTrophy, IconChartBar } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
+import { getPlayerAvatar } from '../../utils/avatar';
 
 interface PlayerStats {
   id: string;
   name: string;
   surname: string | null;
+  avatarUrl: string | null;
   clubStatus: string;
   stats: {
     elo: number;
@@ -132,9 +134,7 @@ export const Estadisticas = () => {
                     <Table.Td>{getRankBadge(index)}</Table.Td>
                     <Table.Td>
                       <Group gap="sm">
-                        <Avatar color={COLORS[index % COLORS.length]} radius="xl" size="sm">
-                          {p.name.charAt(0).toUpperCase()}
-                        </Avatar>
+                        <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="sm" />
                         <Text fw={index < 3 ? 700 : 500} size={index < 3 ? 'md' : 'sm'}>
                           {p.name} {p.surname || ''}
                         </Text>

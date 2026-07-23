@@ -6,6 +6,7 @@ export interface User {
   name: string;
   surname: string;
   nickname: string;
+  avatarUrl: string | null;
   role: string;
   clubId: string | null;
   clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;

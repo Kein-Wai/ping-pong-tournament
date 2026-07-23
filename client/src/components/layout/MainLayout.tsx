@@ -27,6 +27,7 @@ import {
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes'; // 👈 IMPORTADO
+import { getPlayerAvatar } from '../../utils/avatar';
 
 export const MainLayout = () => {
   const [opened, { toggle }] = useDisclosure();
@@ -113,9 +114,11 @@ export const MainLayout = () => {
             <Menu.Target>
               <UnstyledButton>
                 <Group gap="xs">
-                  <Avatar color="blue" radius="xl" size="sm">
-                    {user?.name.charAt(0).toUpperCase()}
-                  </Avatar>
+                  <Avatar
+                    src={getPlayerAvatar(user?.name || 'U', user?.avatarUrl)}
+                    radius="xl"
+                    size="sm"
+                  />
                   <Text size="sm" visibleFrom="xs" fw={500}>
                     {user?.name}
                   </Text>

@@ -48,6 +48,7 @@ import { openAppConfirmModal } from '../../utils/modals';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { isValidTableTennisSet } from '../../utils/matchValidation';
+import { getPlayerAvatar } from '../../utils/avatar';
 
 interface MatchToEdit {
   id: string;
@@ -83,6 +84,7 @@ interface Participant {
     id: string;
     name: string;
     surname: string | null;
+    avatarUrl: string | null;
     stats: { elo: number | null } | null;
   };
 }
@@ -111,7 +113,13 @@ interface TournamentClas {
   id: string;
   position: number | null;
   lastRound: string | null;
-  player: { id: string; name: string; surname: string | null; stats: { elo: number | null } };
+  player: {
+    id: string;
+    name: string;
+    surname: string | null;
+    stats: { elo: number | null };
+    avatarUrl: string | null;
+  };
 }
 
 interface TournamentGroupClas {
@@ -1079,9 +1087,11 @@ export const TorneoDetalles = () => {
                         <Table.Td>{index + 1}</Table.Td>
                         <Table.Td>
                           <Group gap="sm">
-                            <Avatar color="blue" radius="xl" size="sm">
-                              {p.player?.name?.charAt(0)}
-                            </Avatar>
+                            <Avatar
+                              src={getPlayerAvatar(p.player?.name, p.player?.avatarUrl)}
+                              radius="xl"
+                              size="sm"
+                            />
                             <Text size="sm" fw={500}>
                               {p.player?.name} {p.player?.surname || ''}
                             </Text>
@@ -1165,7 +1175,14 @@ export const TorneoDetalles = () => {
                 <Group justify="center" align="flex-end" gap="xl" py="xl">
                   {secondPlace && (
                     <Stack align="center" gap="xs">
-                      <Avatar size="lg" color="gray" radius="xl" />
+                      <Avatar
+                        src={getPlayerAvatar(
+                          secondPlace.player?.name,
+                          secondPlace.player?.avatarUrl,
+                        )}
+                        radius="xl"
+                        size="lg"
+                      />
                       <Text fw={600} size="sm">
                         {secondPlace.player?.name} {secondPlace.player?.surname || ''}
                       </Text>
@@ -1191,7 +1208,11 @@ export const TorneoDetalles = () => {
                         color="var(--mantine-color-yellow-5)"
                         style={{ marginBottom: -10 }}
                       />
-                      <Avatar size="xl" color="yellow" radius="xl" />
+                      <Avatar
+                        src={getPlayerAvatar(firstPlace.player?.name, firstPlace.player?.avatarUrl)}
+                        radius="xl"
+                        size="xl"
+                      />
                       <Text fw={800} size="md">
                         {firstPlace.player?.name} {firstPlace.player?.surname || ''}
                       </Text>
@@ -1211,7 +1232,11 @@ export const TorneoDetalles = () => {
                   )}
                   {thirdPlace && (
                     <Stack align="center" gap="xs">
-                      <Avatar size="lg" color="orange" radius="xl" />
+                      <Avatar
+                        src={getPlayerAvatar(thirdPlace.player?.name, thirdPlace.player?.avatarUrl)}
+                        radius="xl"
+                        size="lg"
+                      />
                       <Text fw={600} size="sm">
                         {thirdPlace.player?.name} {thirdPlace.player?.surname || ''}
                       </Text>
