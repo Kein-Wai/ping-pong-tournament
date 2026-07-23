@@ -12,6 +12,7 @@ import {
   Text,
   ThemeIcon,
   ScrollArea,
+  Pagination,
 } from '@mantine/core';
 import { IconMedal, IconTrophy, IconChartBar } from '@tabler/icons-react';
 import { api } from '../../api/axios';
@@ -33,12 +34,12 @@ interface PlayerStats {
   };
 }
 
-const COLORS = ['red', 'green', 'blue', 'yellow', 'orange'];
+const ITEMS_PER_PAGE = 10;
 
 export const Estadisticas = () => {
   const [players, setPlayers] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [page, setPage] = useState(1);
   useEffect(() => {
     const fetchRanking = async () => {
       try {
@@ -61,6 +62,8 @@ export const Estadisticas = () => {
     fetchRanking();
   }, []);
 
+  const totalPages = Math.ceil(players.length / ITEMS_PER_PAGE);
+  const paginatedPlayers = players.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   if (loading) {
     return (
       <Center h={400}>
@@ -69,28 +72,30 @@ export const Estadisticas = () => {
     );
   }
 
-  const getRankBadge = (index: number) => {
-    if (index === 0)
-      return (
-        <ThemeIcon color="yellow" size="lg" radius="xl">
-          <IconTrophy size={16} />
-        </ThemeIcon>
-      );
-    if (index === 1)
-      return (
-        <ThemeIcon color="gray" size="lg" radius="xl">
-          <IconMedal size={16} />
-        </ThemeIcon>
-      );
-    if (index === 2)
-      return (
-        <ThemeIcon color="orange" size="lg" radius="xl">
-          <IconMedal size={16} />
-        </ThemeIcon>
-      );
+  const getRankBadge = (index: number, page: number) => {
+    if (page == 1) {
+      if (index === 0)
+        return (
+          <ThemeIcon color="yellow" size="lg" radius="xl">
+            <IconTrophy size={16} />
+          </ThemeIcon>
+        );
+      if (index === 1)
+        return (
+          <ThemeIcon color="gray" size="lg" radius="xl">
+            <IconMedal size={16} />
+          </ThemeIcon>
+        );
+      if (index === 2)
+        return (
+          <ThemeIcon color="orange" size="lg" radius="xl">
+            <IconMedal size={16} />
+          </ThemeIcon>
+        );
+    }
     return (
       <Badge color="gray" variant="light" size="lg">
-        {index + 1}º
+        {(page - 1) * 10 + index + 1}º
       </Badge>
     );
   };
@@ -123,7 +128,7 @@ export const Estadisticas = () => {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {players.map((p, index) => {
+              {paginatedPlayers.map((p, index) => {
                 const totalMatches = (p.stats.matchWon || 0) + (p.stats.matchLost || 0);
                 const winRate =
                   totalMatches > 0 ? Math.round(((p.stats.matchWon || 0) / totalMatches) * 100) : 0;
@@ -131,7 +136,7 @@ export const Estadisticas = () => {
 
                 return (
                   <Table.Tr key={p.id}>
-                    <Table.Td>{getRankBadge(index)}</Table.Td>
+                    <Table.Td>{getRankBadge(index, page)}</Table.Td>
                     <Table.Td>
                       <Group gap="sm">
                         <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="sm" />
@@ -188,6 +193,11 @@ export const Estadisticas = () => {
             </Table.Tbody>
           </Table>
         </ScrollArea>
+        {totalPages > 1 && (
+          <Center mt="md">
+            <Pagination total={totalPages} value={page} onChange={setPage} color="blue" withEdges />
+          </Center>
+        )}
       </Card>
     </Stack>
   );
