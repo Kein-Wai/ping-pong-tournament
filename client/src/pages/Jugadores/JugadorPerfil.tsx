@@ -17,7 +17,7 @@ import {
   Table,
   ScrollArea,
   Modal,
-  TextInput, 
+  TextInput, // 👈 Añadido para el formulario
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -26,7 +26,7 @@ import {
   IconChartBar,
   IconMathSymbols,
   IconHistory,
-  IconEdit, 
+  IconEdit, // 👈 Añadido icono
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -57,13 +57,13 @@ interface UserProfile {
 export const JugadorPerfil = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser, updateUserFields  } = useAuthStore(); 
+  const { user: currentUser, updateUserFields } = useAuthStore(); // Para saber si es nuestro propio perfil
 
   const [player, setPlayer] = useState<UserProfile | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  
+  // Estados de edición
   const [editModalOpened, setEditModalOpened] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState({ name: '', surname: '', nickname: '', avatarUrl: '' });
@@ -124,7 +124,7 @@ export const JugadorPerfil = () => {
         nickname: editData.nickname,
         avatarUrl: editData.avatarUrl,
       });
-      await fetchPlayerInfo(); 
+      await fetchPlayerInfo(); // Recargamos para ver los cambios
     } catch (error) {
       console.error('Error actualizando el perfil:', error);
     } finally {
@@ -425,7 +425,7 @@ export const JugadorPerfil = () => {
           />
           <TextInput
             label="URL de Foto de Perfil (Opcional)"
-            placeholder="https:
+            placeholder="https://ejemplo.com/mi-foto.jpg"
             value={editData.avatarUrl || ''}
             onChange={(e) => setEditData({ ...editData, avatarUrl: e.currentTarget.value })}
           />

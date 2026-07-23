@@ -17,7 +17,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   login: (token: string, user: User) => void;
-  updateUserFields: (fields: Partial<Pick<User, 'clubId' | 'clubStatus'>>) => void;
+  updateUserFields: (fields: Partial<User>) => void;
   logout: () => void;
 }
 
