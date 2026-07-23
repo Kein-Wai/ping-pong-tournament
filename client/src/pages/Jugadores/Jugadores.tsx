@@ -80,7 +80,6 @@ export const Jugadores = () => {
       setLoading(true);
       const response = await api.get(ENDPOINTS.PLAYERS.BASE);
       const data = response.data.data || response.data;
-
       if (Array.isArray(data)) {
         setPlayers(data);
       }

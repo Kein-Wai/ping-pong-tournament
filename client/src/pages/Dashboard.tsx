@@ -45,7 +45,6 @@ export const Dashboard = () => {
         .catch((err) => console.error('Error obteniendo detalles del club:', err));
     }
   }, [isAdminClub, user?.clubId]);
-  console.log(user);
   return (
     <Stack gap="lg">
       {/* Tarjeta Principal de Bienvenida */}

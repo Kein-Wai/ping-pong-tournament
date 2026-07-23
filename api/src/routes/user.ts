@@ -46,6 +46,8 @@ router.get('/', async (req, res) => {
         id: true,
         email: true,
         name: true,
+        nickname: true,
+        avatarUrl: true,
         surname: true,
         userTypeId: true,
         clubId: true,
