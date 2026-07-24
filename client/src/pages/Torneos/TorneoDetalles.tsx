@@ -225,6 +225,9 @@ export const TorneoDetalles = () => {
   const [participants, setParticipants] = useState<Participant[] | null>(null);
   const [results, setResults] = useState<TournamentClas[] | null>(null);
   const [bracketA, setBracketA] = useState<KnockoutRound[] | null>(null);
+  const [bracketB, setBracketB] = useState<KnockoutRound[] | null>(null);
+  const [subBracketA, setSubBracketA] = useState<string | null>(null);
+  const [subBracketB, setSubBracketB] = useState<string | null>(null);
 
   const [groupsClas, setGroupsClas] = useState<TournamentGroupClas[] | null>(null);
   const [groupMatches, setGroupMatches] = useState<GroupMatch[] | null>(null);
@@ -275,11 +278,11 @@ export const TorneoDetalles = () => {
         return tData;
       });
 
-      if (tData.status === 'Completado') {
-        setActiveTab('resultados');
-      } else if (KNOCKOUT_STAGES.includes(tData.status)) {
-        setActiveTab('bracketA');
-      }
+      setActiveTab((prevTab) => {
+        if (tData.status === 'Completado') return 'resultados';
+        if (KNOCKOUT_STAGES.includes(tData.status) && prevTab !== 'bracketB') return 'bracketA';
+        return prevTab;
+      });
     } catch (error) {
       console.error('Error cargando el torneo:', error);
     } finally {
@@ -319,6 +322,9 @@ export const TorneoDetalles = () => {
         } else if (activeTab === 'bracketA' && bracketA === null) {
           const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=A`);
           setBracketA(res.data.data);
+        } else if (activeTab === 'bracketB' && bracketB === null) {
+          const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=B`);
+          setBracketB(res.data.data);
         }
       } catch (error) {
         console.error(`Error cargando datos para la pestaña ${activeTab}:`, error);
@@ -711,6 +717,9 @@ export const TorneoDetalles = () => {
       } else if (activeTab === 'bracketA') {
         const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=A`);
         setBracketA(res.data.data);
+      } else if (activeTab === 'bracketB') {
+        const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=B`);
+        setBracketB(res.data.data);
       }
 
       await fetchTournamentInfo();
@@ -786,6 +795,213 @@ export const TorneoDetalles = () => {
   const currentPlayers = tournament.participants || [];
   const plazasDisponibles = tournament.numPlayers - currentPlayers.length;
   const isFull = plazasDisponibles <= 0;
+
+  const getBracketGroups = (data: any[]) => {
+    const groups: Record<number, { label: string; rounds: any[] }> = {};
+
+    data.forEach((round) => {
+      if (!round.positions) return;
+
+      let posStart = parseInt(round.positions.split('-')[0]);
+      const posEnd = parseInt(round.positions.split('-')[1]);
+
+      if (posEnd - posStart === 1 && posStart % 4 === 3) {
+        posStart = posStart - 2;
+      }
+
+      if (!groups[posStart]) {
+        groups[posStart] = { label: '', rounds: [] };
+      }
+      groups[posStart].rounds.push(round);
+    });
+
+    // Encontrar dinámicamente cuál es el primer puesto en juego en este árbol de datos
+    const groupKeys = Object.keys(groups).map(Number);
+    const mainBracketKey = Math.min(...groupKeys); // 👈 ¡ADIÓS NÚMEROS MÁGICOS!
+
+    // Generar nombres elegantes para el menú desplegable
+    groupKeys.forEach((numKey) => {
+      const rounds = groups[numKey].rounds;
+
+      let maxPosEnd = numKey;
+      rounds.forEach((r) => {
+        if (r.positions) {
+          const end = parseInt(r.positions.split('-')[1]);
+          if (end > maxPosEnd) maxPosEnd = end;
+        }
+      });
+
+      // Si es la llave más alta (ej. 1 en Llave A, o 13 en Llave B), es la principal de su pestaña
+      if (numKey === mainBracketKey) {
+        groups[numKey].label = `Cuadro Principal (Puestos ${numKey} al ${maxPosEnd})`;
+      } else {
+        groups[numKey].label = `Cuadro Consolación (Puestos ${numKey} al ${maxPosEnd})`;
+      }
+    });
+
+    return groups;
+  };
+
+  const renderBracket = (
+    bracketData: any[] | null,
+    activeSubKey: string | null,
+    setActiveSubKey: (val: string | null) => void,
+  ) => {
+    if (!bracketData) {
+      return (
+        <Center py="xl">
+          <Loader color="blue" />
+        </Center>
+      );
+    }
+    if (bracketData.length === 0) {
+      return (
+        <Center py="xl">
+          <Text c="dimmed">El cuadro aún no ha sido generado.</Text>
+        </Center>
+      );
+    }
+
+    const groups = getBracketGroups(bracketData);
+    const groupKeys = Object.keys(groups).sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Si no hay ninguno seleccionado, mostramos el cuadro principal por defecto
+    const selectedKey =
+      activeSubKey && groups[parseInt(activeSubKey)] ? activeSubKey : groupKeys[0];
+
+    const selectOptions = groupKeys.map((key) => ({
+      value: key,
+      label: groups[parseInt(key)].label,
+    }));
+
+    const activeRounds = groups[parseInt(selectedKey)]?.rounds || [];
+
+    return (
+      <Stack>
+        {/* Solo mostramos el desplegable si hay más de 1 sub-cuadro (Compass Draw activado) */}
+        {groupKeys.length > 1 && (
+          <Group px="md" mt="sm">
+            <Select
+              data={selectOptions}
+              value={selectedKey}
+              onChange={(val) => setActiveSubKey(val)}
+              label="Selecciona la Fase del Cuadro a visualizar:"
+              style={{ width: 350 }}
+              allowDeselect={false}
+            />
+          </Group>
+        )}
+
+        <ScrollArea type="always" offsetScrollbars pb="xl">
+          <Group align="center" wrap="nowrap" gap={50} p="md">
+            {activeRounds.map((round) => {
+              let isThirdPlace = false;
+              let roundTitle = round.round;
+
+              // Títulos dinámicos basados en la posición real en juego
+              if (round.positions) {
+                const pStart = parseInt(round.positions.split('-')[0]);
+                const pEnd = parseInt(round.positions.split('-')[1]);
+
+                if (pEnd - pStart === 1 && pStart > 1 && pStart % 2 !== 0) {
+                  isThirdPlace = true;
+                  roundTitle = `Puestos ${pStart} y ${pEnd}`;
+                } else if (round.round === 'Final') {
+                  roundTitle = `Final (${pStart} y ${pEnd})`;
+                }
+              }
+
+              return (
+                <Stack key={round.id} gap="xl" justify="space-around" style={{ minWidth: 250 }}>
+                  <Title
+                    order={5}
+                    ta="center"
+                    c={isThirdPlace ? 'orange.6' : 'dimmed'}
+                    tt="uppercase"
+                    mb="md"
+                  >
+                    {roundTitle}
+                  </Title>
+                  {round.matches.map((match: any) => (
+                    <Paper
+                      key={match.id}
+                      withBorder
+                      shadow="sm"
+                      radius="md"
+                      p={0}
+                      style={{ overflow: 'hidden', cursor: 'pointer' }}
+                      onClick={() => {
+                        const isTBD =
+                          match.playerOne?.name === 'Por' || match.playerTwo?.name === 'Por';
+                        const isBye =
+                          match.playerOne?.name === 'EXENTO' || match.playerTwo?.name === 'EXENTO';
+
+                        if (isBye) {
+                          notifications.show({
+                            title: 'Pase Directo (Bye)',
+                            message: 'Este jugador no tiene contrincante.',
+                            color: 'blue',
+                          });
+                          return;
+                        }
+                        if (isTBD) {
+                          notifications.show({
+                            title: 'Partido Bloqueado',
+                            message: 'Faltan jugadores por clasificarse.',
+                            color: 'orange',
+                          });
+                          return;
+                        }
+                        if (match.status === 'Completado') {
+                          if (isAdmin) {
+                            openEditMatchModal(match, true);
+                          } else {
+                            setSelectedMatch(match);
+                          }
+                          return;
+                        }
+                        if (isAdmin) openEditMatchModal(match, true);
+                      }}
+                    >
+                      <Group
+                        justify="space-between"
+                        p="xs"
+                        style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
+                      >
+                        <Text size="sm">
+                          {match.playerOne?.name || 'TBD'} {match.playerOne?.surname || ''}
+                        </Text>
+                        {match.playerOne?.stats?.elo && (
+                          <Badge size="sm" variant="light" color="blue">
+                            {match.playerOne.stats.elo}
+                          </Badge>
+                        )}
+                      </Group>
+                      <Group justify="space-between" p="xs">
+                        <Text size="sm">
+                          {match.playerTwo?.name || 'TBD'} {match.playerTwo?.surname || ''}
+                        </Text>
+                        {match.playerTwo?.stats?.elo && (
+                          <Badge size="sm" variant="light" color="blue">
+                            {match.playerTwo.stats.elo}
+                          </Badge>
+                        )}
+                      </Group>
+                      <Center p={4} bg="gray.1" style={{ darkHidden: true }}>
+                        <Stack justify="space-around" align="center" gap="xs">
+                          {formatSets(match)}
+                        </Stack>
+                      </Center>
+                    </Paper>
+                  ))}
+                </Stack>
+              );
+            })}
+          </Group>
+        </ScrollArea>
+      </Stack>
+    );
+  };
 
   return (
     <Stack gap="xl">
@@ -897,9 +1113,16 @@ export const TorneoDetalles = () => {
           )}
           {hasKnockoutFormat && (isKnockoutPhase || isCompletado) && (
             <Tabs.Tab value="bracketA" leftSection={<IconTournament size={16} />}>
-              Cuadro Principal
+              Cuadro Llave A
             </Tabs.Tab>
           )}
+          {hasKnockoutFormat &&
+            (isKnockoutPhase || isCompletado) &&
+            tournament.typeKnockout === 'LlaveAB' && (
+              <Tabs.Tab value="bracketB" leftSection={<IconMedal size={16} />}>
+                Cuadro Llave B
+              </Tabs.Tab>
+            )}
         </Tabs.List>
 
         {/* --- INFO --- */}
@@ -1469,129 +1692,18 @@ export const TorneoDetalles = () => {
         {/* --- BRACKET --- */}
         {hasKnockoutFormat && (isKnockoutPhase || isCompletado) && (
           <Tabs.Panel value="bracketA" pt="xl">
-            {!bracketA ? (
-              <Center py="xl">
-                <Loader color="blue" />
-              </Center>
-            ) : (
-              <ScrollArea type="always" offsetScrollbars pb="xl">
-                <Group align="center" wrap="nowrap" gap={50} p="md">
-                  {bracketA.map((round) => {
-                    const isThirdPlace = round.round === 'Final' && round.positions === '3-4';
-                    return (
-                      <Stack
-                        key={round.id}
-                        gap="xl"
-                        justify="space-around"
-                        style={{ minWidth: 250 }}
-                      >
-                        <Title
-                          order={5}
-                          ta="center"
-                          c={isThirdPlace ? 'orange.6' : 'dimmed'}
-                          tt="uppercase"
-                          mb="md"
-                        >
-                          {isThirdPlace ? '3º y 4º Puesto' : round.round}
-                        </Title>
-                        {round.matches.map((match) => (
-                          <Paper
-                            key={match.id}
-                            withBorder
-                            shadow="sm"
-                            radius="md"
-                            p={0}
-                            style={{
-                              overflow: 'hidden',
-                              cursor: 'pointer',
-                            }}
-                            onClick={() => {
-                              const isTBD =
-                                match.playerOne?.name === 'Por' || match.playerTwo?.name === 'Por';
-                              const isBye =
-                                match.playerOne?.name === 'EXENTO' ||
-                                match.playerTwo?.name === 'EXENTO';
-
-                              if (isBye) {
-                                notifications.show({
-                                  title: 'Pase Directo (Bye)',
-                                  message:
-                                    'Este jugador no tiene contrincante en esta ronda y ha avanzado automáticamente.',
-                                  color: 'blue',
-                                  icon: <IconInfoCircle />,
-                                });
-                                return;
-                              }
-                              if (isTBD) {
-                                notifications.show({
-                                  title: 'Partido Bloqueado',
-                                  message:
-                                    'Faltan jugadores por clasificarse en las rondas previas para disputar este encuentro.',
-                                  color: 'orange',
-                                  icon: <IconInfoCircle />,
-                                });
-                                return;
-                              }
-                              if (match.status === 'Completado') {
-                                notifications.show({
-                                  title: 'Partido Terminado',
-                                  message: 'No puedes actualizar un partido ya completado',
-                                  color: 'red',
-                                  icon: <IconInfoCircle />,
-                                });
-                                return;
-                              }
-                              if (isAdmin) {
-                                openEditMatchModal(match, true);
-                              } else if (match.status === 'Completado') {
-                                setSelectedMatch(match);
-                              }
-                            }}
-                          >
-                            <Group
-                              justify="space-between"
-                              p="xs"
-                              style={{
-                                borderBottom: '1px solid var(--mantine-color-default-border)',
-                              }}
-                            >
-                              <Text size="sm">
-                                {match.playerOne?.name || 'TBD'} {match.playerOne?.surname || ''}
-                              </Text>
-                              {match.playerOne?.stats?.elo && (
-                                <Badge size="lg" variant="light" color="blue">
-                                  {match.playerOne?.stats?.elo}
-                                </Badge>
-                              )}
-                            </Group>
-                            <Group justify="space-between" p="xs">
-                              <Text size="sm">
-                                {match.playerTwo?.name || 'TBD'} {match.playerTwo?.surname || ''}
-                              </Text>
-                              {match.playerTwo?.stats?.elo && (
-                                <Badge size="lg" variant="light" color="blue">
-                                  {match.playerTwo?.stats?.elo}
-                                </Badge>
-                              )}
-                            </Group>
-                            <Center p={4} bg="gray.1">
-                              <Stack key={match.id} justify="space-around" align="center" gap="xs">
-                                {/* <Text size="xs" c="dimmed">
-                                  {match.status}
-                                </Text> */}
-                                {formatSets(match)}
-                              </Stack>
-                            </Center>
-                          </Paper>
-                        ))}
-                      </Stack>
-                    );
-                  })}
-                </Group>
-              </ScrollArea>
-            )}
+            {renderBracket(bracketA, subBracketA, setSubBracketA)}
           </Tabs.Panel>
         )}
+
+        {/* --- BRACKET B (CONSOLACIÓN) --- */}
+        {hasKnockoutFormat &&
+          (isKnockoutPhase || isCompletado) &&
+          tournament.typeKnockout === 'LlaveAB' && (
+            <Tabs.Panel value="bracketB" pt="xl">
+              {renderBracket(bracketB, subBracketB, setSubBracketB)}
+            </Tabs.Panel>
+          )}
 
         {/* MODAL SOLO LECTURA JUGADORES */}
         <Modal

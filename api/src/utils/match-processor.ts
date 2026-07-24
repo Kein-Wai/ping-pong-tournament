@@ -55,6 +55,7 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
                   KnockoutType.A,
                   matchesA,
                   new Date(),
+                  tournament.allPos || false,
                 );
               }
 
@@ -70,6 +71,7 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
                   KnockoutType.B,
                   matchesB,
                   new Date(),
+                  tournament.allPos || false,
                 );
               }
 

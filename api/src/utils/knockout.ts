@@ -372,55 +372,71 @@ const recordTournamentClassification = async (
   // Evitamos registrar a fantasmas o TBDs
   if (playerId === BYE_USER_ID || playerId === TBD_USER_ID) return;
 
-  // Verificamos si ya está clasificado para no duplicar (ej. si hubo un recálculo)
+  // Verificamos si ya está clasificado para no duplicar
   const existing = await tx.tournamentClas.findFirst({
     where: { tournamentId: match.tournamentId, playerId },
   });
   if (existing) return;
 
   const round = match.knockout.round;
-  const type = match.knockout.type;
+  const type = match.knockout.type; // Puede ser 'A' o 'B'
   const positions = match.knockout.positions;
   let position = 0;
 
-  // Cálculo de posiciones estándar para la Llave A (Campeón, Subcampeón, Semifinalistas=3, Cuartos=5...)
-  if (type === 'A') {
-    if (round === 'Final') {
-      if (positions === '1-2') {
-        position = isWinner ? 1 : 2;
-      } else if (positions === '3-4') {
-        position = isWinner ? 3 : 4;
-      } else {
-        position = isWinner ? 1 : 2; // Fallback por seguridad
-      }
-    } else if (!isWinner) {
-      switch (round) {
-        case 'Semifinales':
-          position = 3;
-          break;
-        case 'Cuartos':
-          position = 5;
-          break;
-        case 'Octavos':
-          position = 9;
-          break;
-        case 'R16avos':
-          position = 17;
-          break;
-        case 'R32avos':
-          position = 33;
-          break;
-        case 'R64avos':
-          position = 65;
-          break;
-        case 'R128avos':
-          position = 129;
-          break;
-      }
+  // 1. Calcular el "Offset" si estamos en la Llave B
+  let offset = 0;
+  if (type === 'B') {
+    const tournament = await tx.tournament.findUnique({
+      where: { id: match.tournamentId },
+      select: { numGroup: true, playersKnockout: true },
+    });
+    // Si pasan 2 por grupo y hay 4 grupos, la llave A ocupa del 1 al 8. La Llave B empieza en el 9.
+    offset = (tournament?.numGroup || 0) * (tournament?.playersKnockout || 0);
+  }
+
+  // 2. Cálculo de posiciones base (1º, 2º, 3º, 5º, 9º...)
+  let basePosition = 0;
+
+  if (round === 'Final') {
+    if (positions && positions.includes('-')) {
+      const pStart = parseInt(positions.split('-')[0]);
+      const pEnd = parseInt(positions.split('-')[1]);
+      basePosition = isWinner ? pStart : pEnd;
+    } else {
+      basePosition = isWinner ? 1 : 2;
+    }
+  } else if (!isWinner) {
+    switch (round) {
+      case 'Semifinales':
+        basePosition = 3;
+        break;
+      case 'Cuartos':
+        basePosition = 5;
+        break;
+      case 'Octavos':
+        basePosition = 9;
+        break;
+      case 'R16avos':
+        basePosition = 17;
+        break;
+      case 'R32avos':
+        basePosition = 33;
+        break;
+      case 'R64avos':
+        basePosition = 65;
+        break;
+      case 'R128avos':
+        basePosition = 129;
+        break;
     }
   }
 
-  // Guardamos la clasificación final en la nueva tabla
+  // 3. Aplicamos el offset si el jugador obtuvo una posición
+  if (basePosition > 0) {
+    position = basePosition + offset;
+  }
+
+  // 4. Guardamos la clasificación final
   await tx.tournamentClas.create({
     data: {
       tournamentId: match.tournamentId,
