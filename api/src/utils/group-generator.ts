@@ -41,20 +41,26 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
   let currentGroupIndex = 0;
   let direction = 1;
 
-  for (const player of playersWithElo) {
-    snakeGroups[currentGroupIndex].push(player.playerId);
+  if (tournament.numGroup === 1) {
+    for (const player of playersWithElo) {
+      snakeGroups[0].push(player.playerId);
+    }
+  } else {
+    for (const player of playersWithElo) {
+      snakeGroups[currentGroupIndex].push(player.playerId);
 
-    if (direction === 1) {
-      if (currentGroupIndex === tournament.numGroup - 1) {
-        direction = -1;
+      if (direction === 1) {
+        if (currentGroupIndex === tournament.numGroup - 1) {
+          direction = -1;
+        } else {
+          currentGroupIndex++;
+        }
       } else {
-        currentGroupIndex++;
-      }
-    } else {
-      if (currentGroupIndex === 0) {
-        direction = 1;
-      } else {
-        currentGroupIndex--;
+        if (currentGroupIndex === 0) {
+          direction = 1;
+        } else {
+          currentGroupIndex--;
+        }
       }
     }
   }

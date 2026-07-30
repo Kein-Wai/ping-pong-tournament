@@ -65,6 +65,13 @@ export const TorneoNuevo = () => {
       if (rounds === 'TodosvsTodos') {
         payload.numGroup = 1;
         payload.numGroupPlayers = Number(numPlayers);
+        payload.setsToWinGroup = setsToWinGroup;
+        payload.playersKnockout = null;
+        payload.typeKnockout = null;
+        payload.sortKnockout = null;
+        payload.allPos = null;
+        payload.sortGroups = null; // Algoritmo por defecto para grupos
+        payload.setsToWinKnockout = null;
       } else if (rounds === 'GruposKnockout') {
         payload.numGroup = Number(numGroup);
         payload.numGroupPlayers = Number(numGroupPlayers);
@@ -98,6 +105,23 @@ export const TorneoNuevo = () => {
       setLoading(false);
     }
   };
+
+  // Lógica dinámica para los límites de jugadores según el formato
+  const getPlayerLimits = (roundType: string) => {
+    switch (roundType) {
+      case 'TodosvsTodos':
+        return { min: 3, max: 10 };
+      case 'GruposKnockout':
+        return { min: 6, max: 128 };
+      case 'Knockout':
+        return { min: 4, max: 128 };
+      default:
+        return { min: 2, max: 128 };
+    }
+  };
+
+  // Extraemos los límites basados en el valor actual del formulario
+  const playerLimits = getPlayerLimits(rounds);
 
   return (
     <Stack gap="xl" maw={800} mx="auto">
@@ -164,8 +188,8 @@ export const TorneoNuevo = () => {
               <NumberInput
                 label="Total Jugadores Máx."
                 required
-                min={2}
-                max={128}
+                min={playerLimits.min}
+                max={playerLimits.max}
                 value={numPlayers}
                 onChange={setNumPlayers}
               />
@@ -184,38 +208,44 @@ export const TorneoNuevo = () => {
                 { value: 'Knockout', label: 'Eliminatoria Directa (Knockout)' },
               ]}
               value={rounds}
-              onChange={(val) => setRounds(val || 'GruposKnockout')}
+              onChange={(val) => {
+                setRounds(val || 'GruposKnockout');
+                if (val == 'TodosvsTodos') setNumPlayers(10);
+                else setNumPlayers(16);
+              }}
               allowDeselect={false}
               required
             />
 
             {/* CAMPOS CONDICIONALES: FASE DE GRUPOS */}
-            {rounds === 'GruposKnockout' && (
+            {['GruposKnockout', 'TodosvsTodos'].includes(rounds) && (
               <Card withBorder bg="var(--mantine-color-gray-0)" style={{ darkHidden: true }}>
                 <Title order={5} mb="sm">
                   Configuración de Grupos
                 </Title>
+                {rounds === 'GruposKnockout' && (
+                  <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                    <NumberInput
+                      label="Cantidad de Grupos"
+                      description="Entre 2 y 16 grupos"
+                      required
+                      min={2}
+                      max={16}
+                      value={numGroup}
+                      onChange={setNumGroup}
+                    />
+                    <NumberInput
+                      label="Jugadores por Grupo"
+                      description="Mínimo 3 jugadores"
+                      required
+                      min={3}
+                      value={numGroupPlayers}
+                      onChange={setNumGroupPlayers}
+                    />
+                  </SimpleGrid>
+                )}
                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                  <NumberInput
-                    label="Cantidad de Grupos"
-                    description="Entre 2 y 16 grupos"
-                    required
-                    min={2}
-                    max={16}
-                    value={numGroup}
-                    onChange={setNumGroup}
-                  />
-                  <NumberInput
-                    label="Jugadores por Grupo"
-                    description="Mínimo 3 jugadores"
-                    required
-                    min={3}
-                    value={numGroupPlayers}
-                    onChange={setNumGroupPlayers}
-                  />
-                </SimpleGrid>
-                <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                  {rounds === 'GruposKnockout' && (
+                  {['GruposKnockout', 'TodosvsTodos'].includes(rounds) && (
                     <Select
                       label="Sets para ganar en Grupos"
                       data={[

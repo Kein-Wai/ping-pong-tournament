@@ -32,57 +32,102 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
             console.log(
               `🏆 Fase de grupos terminada para el torneo ${tournament.id}. Generando eliminatorias...`,
             );
+            if (tournament.rounds === 'TodosvsTodos') {
+              console.log(
+                `🏆 Torneo Todos vs Todos terminado (${tournament.id}). Guardando posiciones finales...`,
+              );
 
-            try {
-              const allGroups = await prisma.tournamentGroup.findMany({
-                where: { tournamentId: tournament.id },
-              });
-              for (const g of allGroups) {
-                await updateGroupStandings(prisma, g.id);
+              try {
+                const finalStandings = await prisma.tournamentGroupClas.findMany({
+                  where: { tournamentGroupId: group.id },
+                  orderBy: { position: 'asc' },
+                });
+
+                await prisma.$transaction(async (tx) => {
+                  for (const standing of finalStandings) {
+                    await tx.tournamentClas.create({
+                      data: {
+                        tournamentId: tournament.id,
+                        playerId: standing.playerId,
+                        position: standing.position,
+                        lastRound: 'Final',
+                      },
+                    });
+
+                    if (standing.position === 1) {
+                      await tx.stats.update({
+                        where: { userId: standing.playerId },
+                        data: { tournamentWon: { increment: 1 } },
+                      });
+                    }
+                  }
+
+                  await tx.tournament.update({
+                    where: { id: tournament.id },
+                    data: { status: 'Completado' },
+                  });
+                });
+
+                console.log('✅ Torneo Todos vs Todos completado y cerrado con éxito.');
+              } catch (error) {
+                console.error('❌ Error al cerrar el torneo Todos vs Todos:', error);
               }
-              const harvest = await harvestKnockoutPlayers(prisma, tournament.id);
+            } else {
+              console.log(
+                `🏆 Fase de grupos terminada para el torneo ${tournament.id}. Generando eliminatorias...`,
+              );
 
-              if (harvest.bracketA.length > 0) {
-                const matchesA = createKnockoutDraw(
-                  harvest.bracketA,
-                  tournament.sortKnockout || 'Siembra',
-                  tournament.allPos || false,
-                );
+              try {
+                const allGroups = await prisma.tournamentGroup.findMany({
+                  where: { tournamentId: tournament.id },
+                });
+                for (const g of allGroups) {
+                  await updateGroupStandings(prisma, g.id);
+                }
+                const harvest = await harvestKnockoutPlayers(prisma, tournament.id);
 
-                await saveKnockoutBracket(
-                  prisma,
-                  tournament.id,
-                  KnockoutType.A,
-                  matchesA,
-                  new Date(),
-                  tournament.allPos || false,
-                );
+                if (harvest.bracketA.length > 0) {
+                  const matchesA = createKnockoutDraw(
+                    harvest.bracketA,
+                    tournament.sortKnockout || 'Siembra',
+                    tournament.allPos || false,
+                  );
+
+                  await saveKnockoutBracket(
+                    prisma,
+                    tournament.id,
+                    KnockoutType.A,
+                    matchesA,
+                    new Date(),
+                    tournament.allPos || false,
+                  );
+                }
+
+                if (harvest.typeKnockout === 'LlaveAB' && harvest.bracketB.length > 0) {
+                  const matchesB = createKnockoutDraw(
+                    harvest.bracketB,
+                    tournament.sortKnockout || 'Siembra',
+                    tournament.allPos || false,
+                  );
+                  await saveKnockoutBracket(
+                    prisma,
+                    tournament.id,
+                    KnockoutType.B,
+                    matchesB,
+                    new Date(),
+                    tournament.allPos || false,
+                  );
+                }
+
+                await prisma.tournament.update({
+                  where: { id: tournament.id },
+                  data: { knockoutCreated: true },
+                });
+
+                console.log('✅ Cuadro de eliminatorias generado y guardado exitosamente.');
+              } catch (error) {
+                console.error('❌ Error crítico al generar el cuadro automáticamente:', error);
               }
-
-              if (harvest.typeKnockout === 'LlaveAB' && harvest.bracketB.length > 0) {
-                const matchesB = createKnockoutDraw(
-                  harvest.bracketB,
-                  tournament.sortKnockout || 'Siembra',
-                  tournament.allPos || false,
-                );
-                await saveKnockoutBracket(
-                  prisma,
-                  tournament.id,
-                  KnockoutType.B,
-                  matchesB,
-                  new Date(),
-                  tournament.allPos || false,
-                );
-              }
-
-              await prisma.tournament.update({
-                where: { id: tournament.id },
-                data: { knockoutCreated: true },
-              });
-
-              console.log('✅ Cuadro de eliminatorias generado y guardado exitosamente.');
-            } catch (error) {
-              console.error('❌ Error crítico al generar el cuadro automáticamente:', error);
             }
           }
         }

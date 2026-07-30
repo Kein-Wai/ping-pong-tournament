@@ -1628,6 +1628,141 @@ async function main() {
 
   console.log(`¡Torneo 8 completado al 100%! Se han repartido todas las posiciones del 1 al 24.`);
 
+  // ============================================================================
+  // 🔥 TORNEO 9: TODOS VS TODOS (LIGA ÚNICA DE 8 JUGADORES)
+  // ============================================================================
+  console.log('\n🏆 Generando Torneo 9 (Todos vs Todos | 8 Jugadores - Falta 1 partido)...');
+
+  const t9 = await prisma.tournament.create({
+    data: {
+      name: 'Liga Master Todos vs Todos',
+      dateStart: new Date(new Date().setDate(new Date().getDate() + 14)),
+      clubId: clubA.id,
+      numPlayers: 8,
+      numGroup: 1, // 👈 Obligatorio 1 para liga
+      numGroupPlayers: 8,
+      typeTournament: 'Interno',
+      levelTournament: 'Avanzado',
+      rounds: 'TodosvsTodos', // 👈 El formato que estamos probando
+      status: 'Grupos', // Está en fase de liga
+      typeKnockout: 'LlaveA', // No se usará
+      playersKnockout: 0, // No hay clasificados a eliminatorias
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      allPos: false,
+      groupsCreated: true, // 👈 Fase iniciada
+      knockoutCreated: false,
+      setsToWinGroup: 2,
+      setsToWinKnockout: 3,
+    },
+  });
+
+  const t9Players = sortedB.slice(0, 8); // Cogemos 8 jugadores del Club B
+  for (const p of t9Players) {
+    await prisma.tournamentParticipant.create({
+      data: { tournamentId: t9.id, playerId: p.id, status: 'Confirmado' },
+    });
+  }
+
+  // 1. Crear el único grupo
+  const t9Group = await prisma.tournamentGroup.create({
+    data: { tournamentId: t9.id, group: 1, status: 'Programado' },
+  });
+
+  // 2. Crear clasificaciones en blanco
+  const clasRecordsT9 = [];
+  for (const p of t9Players) {
+    const c = await prisma.tournamentGroupClas.create({
+      data: { tournamentGroupId: t9Group.id, playerId: p.id, position: 0 },
+    });
+    clasRecordsT9.push({ playerId: p.id, clasId: c.id });
+  }
+
+  // 3. Matriz para 8 jugadores (28 partidos en total)
+  const MATCH_MATRIX_8 = [
+    [1, 8],
+    [2, 7],
+    [3, 6],
+    [4, 5],
+    [1, 7],
+    [8, 6],
+    [2, 5],
+    [3, 4],
+    [1, 6],
+    [7, 5],
+    [8, 4],
+    [2, 3],
+    [1, 5],
+    [6, 4],
+    [7, 3],
+    [8, 2],
+    [1, 4],
+    [5, 3],
+    [6, 2],
+    [7, 8],
+    [1, 3],
+    [4, 2],
+    [5, 8],
+    [6, 7],
+    [1, 2],
+    [3, 8],
+    [4, 7],
+    [5, 6],
+  ];
+
+  const allT9Matches = [];
+  for (const [p1Index, p2Index] of MATCH_MATRIX_8) {
+    const p1 = t9Players[p1Index - 1];
+    const p2 = t9Players[p2Index - 1];
+    const clas1 = clasRecordsT9[p1Index - 1];
+    const clas2 = clasRecordsT9[p2Index - 1];
+
+    const m = await prisma.match.create({
+      data: {
+        tournamentId: t9.id,
+        groupId: t9Group.id,
+        playerOneId: p1.id,
+        playerTwoId: p2.id,
+        status: 'Programado',
+        dateStart: new Date(),
+      },
+    });
+    allT9Matches.push({
+      matchId: m.id,
+      p1Id: p1.id,
+      p2Id: p2.id,
+      clas1Id: clas1.clasId,
+      clas2Id: clas2.clasId,
+    });
+  }
+
+  // 4. Simulamos 27 de los 28 partidos para dejar 1 pendiente
+  console.log(`Simulando 27 de los 28 partidos de la Liga Todos vs Todos...`);
+  for (let i = 0; i < allT9Matches.length - 1; i++) {
+    const m = allT9Matches[i];
+    await simulateExistingMatch(m.matchId, m.p1Id, m.p2Id, m.clas1Id, m.clas2Id);
+  }
+
+  // 5. Ordenamos la tabla visualmente para la interfaz
+  const clasT9 = await prisma.tournamentGroupClas.findMany({
+    where: { tournamentGroupId: t9Group.id },
+  });
+
+  clasT9.sort((a, b) => {
+    if (b.pointsClas !== a.pointsClas) return (b.pointsClas || 0) - (a.pointsClas || 0);
+    const diffA = (a.setsWon || 0) - (a.setsLost || 0);
+    const diffB = (b.setsWon || 0) - (b.setsLost || 0);
+    if (diffA !== diffB) return diffB - diffA;
+    return (b.pointsWon || 0) - (b.pointsLost || 0) - ((a.pointsWon || 0) - (a.pointsLost || 0));
+  });
+
+  for (let pos = 0; pos < clasT9.length; pos++) {
+    await prisma.tournamentGroupClas.update({
+      where: { id: clasT9[pos].id },
+      data: { position: pos + 1 },
+    });
+  }
+
   console.log('\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar el Frontend!');
 }
 

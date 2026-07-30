@@ -20,11 +20,11 @@ export const baseTournamentObject = z.object({
   levelTournament: z.enum(LevelTournament).optional(),
   rounds: z.enum(Rounds).optional(),
   status: z.enum(TournamentStatus).optional(),
-  typeKnockout: z.enum(TypeKnockout).optional(),
+  typeKnockout: z.enum(TypeKnockout).nullable().optional(),
   playersKnockout: z.number().int().min(1).nullable().optional(),
-  sortGroups: z.enum(SortGroups).optional(),
-  sortKnockout: z.enum(SortKnockout).optional(),
-  allPos: z.boolean().optional().default(false),
+  sortGroups: z.enum(SortGroups).nullable().optional(),
+  sortKnockout: z.enum(SortKnockout).nullable().optional(),
+  allPos: z.boolean().nullable().optional().default(false),
   setsToWinGroup: z
     .number()
     .int()
@@ -32,6 +32,7 @@ export const baseTournamentObject = z.object({
       message:
         'Los sets para ganar en grupos deben ser 2 (al mejor de 3), 3 (al mejor de 5) o 4 (al mejor de 7)',
     })
+    .nullable()
     .optional()
     .default(2),
   setsToWinKnockout: z
@@ -41,6 +42,7 @@ export const baseTournamentObject = z.object({
       message:
         'Los sets para ganar en eliminatorias deben ser 2 (al mejor de 3), 3 (al mejor de 5) o 4 (al mejor de 7)',
     })
+    .nullable()
     .optional()
     .default(3),
 });

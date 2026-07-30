@@ -243,7 +243,7 @@ export const TorneoDetalles = () => {
       if (!id) return;
       const res = await api.get(ENDPOINTS.TOURNAMENTS.BY_ID(id));
       const tData = res.data.data || res.data;
-
+      console.log(tData);
       setTournament((prev) => {
         if (prev && prev.status !== 'Completado' && tData.status === 'Completado') {
           const duration = 3 * 1000;
@@ -1108,15 +1108,18 @@ export const TorneoDetalles = () => {
           )}
           {hasGroupsFormat && (isGrupos || isKnockoutPhase || isCompletado) && (
             <Tabs.Tab value="grupos" leftSection={<IconListNumbers size={16} />}>
-              Fase de Grupos
+              {tournament.rounds === 'TodosvsTodos' ? 'Clasificación y Partidos' : 'Fase de Grupos'}
             </Tabs.Tab>
           )}
-          {hasKnockoutFormat && (isKnockoutPhase || isCompletado) && (
-            <Tabs.Tab value="bracketA" leftSection={<IconTournament size={16} />}>
-              Cuadro Llave A
-            </Tabs.Tab>
-          )}
-          {hasKnockoutFormat &&
+          {tournament.rounds !== 'TodosvsTodos' &&
+            hasKnockoutFormat &&
+            (isKnockoutPhase || isCompletado) && (
+              <Tabs.Tab value="bracketA" leftSection={<IconTournament size={16} />}>
+                Cuadro Llave A
+              </Tabs.Tab>
+            )}
+          {tournament.rounds !== 'TodosvsTodos' &&
+            hasKnockoutFormat &&
             (isKnockoutPhase || isCompletado) &&
             tournament.typeKnockout === 'LlaveAB' && (
               <Tabs.Tab value="bracketB" leftSection={<IconMedal size={16} />}>
@@ -1690,14 +1693,17 @@ export const TorneoDetalles = () => {
         )}
 
         {/* --- BRACKET --- */}
-        {hasKnockoutFormat && (isKnockoutPhase || isCompletado) && (
-          <Tabs.Panel value="bracketA" pt="xl">
-            {renderBracket(bracketA, subBracketA, setSubBracketA)}
-          </Tabs.Panel>
-        )}
+        {tournament.rounds !== 'TodosvsTodos' &&
+          hasKnockoutFormat &&
+          (isKnockoutPhase || isCompletado) && (
+            <Tabs.Panel value="bracketA" pt="xl">
+              {renderBracket(bracketA, subBracketA, setSubBracketA)}
+            </Tabs.Panel>
+          )}
 
         {/* --- BRACKET B (CONSOLACIÓN) --- */}
-        {hasKnockoutFormat &&
+        {tournament.rounds !== 'TodosvsTodos' &&
+          hasKnockoutFormat &&
           (isKnockoutPhase || isCompletado) &&
           tournament.typeKnockout === 'LlaveAB' && (
             <Tabs.Panel value="bracketB" pt="xl">

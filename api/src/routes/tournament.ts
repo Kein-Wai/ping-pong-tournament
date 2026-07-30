@@ -83,7 +83,8 @@ router.post('/', requireAdminClub, async (req, res) => {
         playersKnockout: data.playersKnockout,
         sortKnockout: data.sortKnockout,
         allPos: data.allPos,
-
+        setsToWinGroup: data.setsToWinGroup,
+        setsToWinKnockout: data.setsToWinKnockout,
         status: MatchStatus.Programado,
         groupsCreated: false,
         knockoutCreated: false,
