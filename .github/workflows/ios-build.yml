@@ -37,4 +37,4 @@ jobs:
         run: |
           cd ios/App
           # 👈 CAMBIO CLAVE: Usamos -project App.xcodeproj porque ya no hay Workspace ni Podfile
-          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 15' build
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17' build
