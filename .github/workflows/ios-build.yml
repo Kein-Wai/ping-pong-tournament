@@ -36,7 +36,7 @@ jobs:
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-          # 2. Descodificar Base64 usando openssl para garantizar la integridad binaria
+          # 2. Descodificar Base64 binario
           echo "$BUILD_CERTIFICATE_BASE64" | openssl base64 -d -A -out $CERTIFICATE_PATH
           echo "$BUILD_PROVISION_PROFILE_BASE64" | openssl base64 -d -A -out $PP_PATH
 
@@ -45,16 +45,18 @@ jobs:
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 4. Importar archivo .p12
+          # 4. Importar certificado
           security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12
-
-          # 5. Configurar permisos del llavero
           security list-keychains -s $KEYCHAIN_PATH
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 6. Copiar Provisioning Profile
+          # 5. Extraer automáticamente el UUID del Provisioning Profile
+          PROFILE_UUID=$(security cms -D -i $PP_PATH | plutil -extract UUID raw -)
+          echo "PROVISIONING_PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+
+          # 6. Registrar el perfil en el sistema con el nombre de su UUID (Formato estándar de Apple)
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
 
       - name: 📦 Instalar dependencias web
         run: npm install
@@ -70,6 +72,7 @@ jobs:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd ios/App
+          # Usamos el PROVISIONING_PROFILE_SPECIFIER que extrajimos automáticamente
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
@@ -77,6 +80,7 @@ jobs:
             DEVELOPMENT_TEAM=$TEAM_ID \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_UUID" \
             archive
 
       - name: 📱 Exportar .IPA firmado
@@ -85,7 +89,6 @@ jobs:
         run: |
           cd ios/App
 
-          # Crear archivo temporal de opciones de exportación incluyendo el Team ID
           cat <<EOF > $RUNNER_TEMP/ExportOptions.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -95,6 +98,8 @@ jobs:
               <string>app-store</string>
               <key>teamID</key>
               <string>$TEAM_ID</string>
+              <key>signingStyle</key>
+              <string>manual</string>
               <key>uploadSymbols</key>
               <true/>
           </dict>
