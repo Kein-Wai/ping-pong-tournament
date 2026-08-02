@@ -66,19 +66,26 @@ jobs:
         run: npx cap sync ios
 
       - name: 🛠️ Compilar Archivo de Producción (Archive)
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd ios/App
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
             -archivePath $RUNNER_TEMP/App.xcarchive \
+            DEVELOPMENT_TEAM=$TEAM_ID \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             archive
 
       - name: 📱 Exportar .IPA firmado
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd ios/App
 
-          # Crear archivo temporal de opciones de exportación
+          # Crear archivo temporal de opciones de exportación incluyendo el Team ID
           cat <<EOF > $RUNNER_TEMP/ExportOptions.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -86,6 +93,8 @@ jobs:
           <dict>
               <key>method</key>
               <string>app-store</string>
+              <key>teamID</key>
+              <string>$TEAM_ID</string>
               <key>uploadSymbols</key>
               <true/>
           </dict>
