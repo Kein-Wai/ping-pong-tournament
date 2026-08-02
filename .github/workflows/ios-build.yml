@@ -67,6 +67,9 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: 🏗️ Compilar Frontend (Vite)
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: 🔄 Sincronizar Capacitor (SPM)
