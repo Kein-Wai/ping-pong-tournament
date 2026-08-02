@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">tttournamentapp</string>
+    <string name="title_activity_main">tttournamentapp</string>
+    <string name="package_name">com.keinwaicheung.tttournamentapp</string>
+    <string name="custom_url_scheme">com.keinwaicheung.tttournamentapp</string>
+</resources>

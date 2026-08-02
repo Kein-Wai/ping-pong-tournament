@@ -8,7 +8,12 @@ const PORT = process.env.PORT || 3000;
 
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'https://tt-app-5mdc.onrender.com'], // La URL de tu Frontend Vite
+    origin: [
+      'http://localhost:5173',
+      'https://tt-app-5mdc.onrender.com',
+      'http://localhost',
+      'capacitor://localhost',
+    ], // La URL de tu Frontend Vite
     credentials: true,
   }),
 );

@@ -1,0 +1,45 @@
+name: iOS Build
+
+on:
+  push:
+    branches: ["main"] # Cambia "main" por tu rama principal si usas otra
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-ios:
+    name: Build iOS App
+    # ¡Importante! Usamos un servidor Mac
+    runs-on: macos-latest
+
+    defaults:
+      run:
+        working-directory: ./client
+
+    steps:
+      - name: 📥 Checkout del código
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18" # Puedes poner '20' si usas esa versión
+
+      - name: 📦 Instalar dependencias
+        run: npm install
+
+      - name: 🏗️ Compilar Frontend (Vite)
+        run: npm run build
+
+      - name: 🔄 Sincronizar Capacitor (iOS)
+        run: npx cap sync ios
+
+      - name: 🍎 Instalar dependencias nativas (CocoaPods)
+        run: |
+          cd ios/App
+          pod install
+
+      - name: 🛠️ Compilar App de iOS (Modo Simulador/Test)
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 15' build
