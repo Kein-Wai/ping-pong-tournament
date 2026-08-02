@@ -91,12 +91,11 @@ export const MainLayout = () => {
 
   return (
     <AppShell
-      header={{ height: 60 }}
+      header={{ height: 'calc(60px + env(safe-area-inset-top))' }}
       navbar={{ width: 250, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="md"
     >
-      {/* --- HEADER --- */}
-      <AppShell.Header>
+      <AppShell.Header style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <Group h="100%" px="md" justify="space-between">
           <Group>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
