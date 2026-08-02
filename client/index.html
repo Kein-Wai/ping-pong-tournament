@@ -4,8 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="referrer" content="no-referrer" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>TT Tournament App</title>
+    <style>
+      html,
+      body {
+        /* Evita el rebote (rubber-banding) */
+        overscroll-behavior-y: none;
+
+        /* Previene zooms por toques rápidos */
+        touch-action: manipulation;
+
+        /* Evita seleccionar texto por accidente al mantener pulsado */
+        -webkit-user-select: none;
+        user-select: none;
+
+        /* Quita el sombreado azul feo que sale en iOS al tocar un botón */
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* Excepción: Los campos de texto DEBEN poder seleccionarse para escribir */
+      input,
+      textarea {
+        -webkit-user-select: auto;
+        user-select: auto;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

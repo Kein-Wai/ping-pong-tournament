@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>tttournamentapp</string>
+        <string>TT Tournament App</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -63,5 +63,7 @@
       </array>
     </dict>
   </array>
+  <key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
