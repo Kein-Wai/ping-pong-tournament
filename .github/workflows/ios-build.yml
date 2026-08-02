@@ -50,11 +50,16 @@ jobs:
           security list-keychains -s $KEYCHAIN_PATH
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 5. Extraer automáticamente el UUID del Provisioning Profile
+          # 5. Extraer UUID y Bundle ID directamente del Provisioning Profile
           PROFILE_UUID=$(security cms -D -i $PP_PATH | plutil -extract UUID raw -)
-          echo "PROVISIONING_PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+          APP_ID=$(security cms -D -i $PP_PATH | plutil -extract Entitlements.application-identifier raw -)
+          BUNDLE_ID=${APP_ID#*.}
 
-          # 6. Registrar el perfil en el sistema con el nombre de su UUID (Formato estándar de Apple)
+          # 6. Guardar en variables globales de GitHub Actions
+          echo "PROVISIONING_PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+          echo "BUNDLE_ID=$BUNDLE_ID" >> $GITHUB_ENV
+
+          # 7. Registrar perfil
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
 
@@ -72,7 +77,6 @@ jobs:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd ios/App
-          # Usamos el PROVISIONING_PROFILE_SPECIFIER que extrajimos automáticamente
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
@@ -89,17 +93,23 @@ jobs:
         run: |
           cd ios/App
 
+          # Generar el ExportOptions.plist con la clave provisioningProfiles requerida
           cat <<EOF > $RUNNER_TEMP/ExportOptions.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>app-store</string>
+              <string>app-store-connect</string>
               <key>teamID</key>
               <string>$TEAM_ID</string>
               <key>signingStyle</key>
               <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>$BUNDLE_ID</key>
+                  <string>$PROVISIONING_PROFILE_UUID</string>
+              </dict>
               <key>uploadSymbols</key>
               <true/>
           </dict>
