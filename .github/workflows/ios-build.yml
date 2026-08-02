@@ -23,7 +23,7 @@ jobs:
       - name: ⚙️ Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18" # Puedes poner '20' si usas esa versión
+          node-version: "24" # Puedes poner '20' si usas esa versión
 
       - name: 📦 Instalar dependencias
         run: npm install
