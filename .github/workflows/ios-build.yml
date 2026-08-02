@@ -36,23 +36,23 @@ jobs:
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-          # 2. Descodificar Base64
-          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > $CERTIFICATE_PATH
-          echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > $PP_PATH
+          # 2. Descodificar Base64 usando openssl para garantizar la integridad binaria
+          echo "$BUILD_CERTIFICATE_BASE64" | openssl base64 -d -A -out $CERTIFICATE_PATH
+          echo "$BUILD_PROVISION_PROFILE_BASE64" | openssl base64 -d -A -out $PP_PATH
 
           # 3. Crear Llavero Temporal
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 4. Importar archivo .p12 con sintaxis estricta
+          # 4. Importar archivo .p12
           security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12
 
           # 5. Configurar permisos del llavero
           security list-keychains -s $KEYCHAIN_PATH
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 6. Copiar Provisioning Profile a la carpeta de Apple
+          # 6. Copiar Provisioning Profile
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
