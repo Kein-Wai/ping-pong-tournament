@@ -72,6 +72,12 @@ jobs:
       - name: 🔄 Sincronizar Capacitor (SPM)
         run: npx cap sync ios
 
+      - name: 🔢 Incremento Automático del Número de Build
+        run: |
+          cd ios/App
+          # Asigna el número de ejecución de GitHub como número de Build de la App
+          plutil -replace CFBundleVersion -string "${{ github.run_number }}" App/Info.plist
+
       - name: 🛠️ Compilar Archivo de Producción (Archive)
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
