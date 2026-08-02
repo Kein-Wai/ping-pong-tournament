@@ -34,11 +34,6 @@ jobs:
       - name: 🔄 Sincronizar Capacitor (iOS)
         run: npx cap sync ios
 
-      - name: 🍎 Instalar dependencias nativas (CocoaPods)
-        run: |
-          cd ios/App
-          pod install
-
       - name: 🛠️ Compilar App de iOS (Modo Simulador/Test)
         run: |
           cd ios/App
