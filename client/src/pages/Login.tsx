@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Button,
   Title,
@@ -20,8 +20,13 @@ import { useAuthStore } from '../store/authStore';
 import { api } from '../api/axios';
 import { ENDPOINTS } from '../api/endpoints';
 import { GoogleLogin } from '@react-oauth/google';
-import { IconLock, IconUserPlus } from '@tabler/icons-react';
+import { IconLock, IconUserPlus, IconBrandGoogle } from '@tabler/icons-react';
 import DICTIONARY from '../constants/dictionary.json';
+
+// 1. IMPORTAR CAPACITOR Y GOOGLE AUTH NATIVO
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+
 const inputStyles = {
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -37,7 +42,6 @@ const inputStyles = {
   },
 };
 
-// Imagen HD de tenis de mesa (Unsplash)
 const LOGIN_BG =
   'https://images.unsplash.com/photo-1534158914592-062992fbe900?q=80&w=1920&auto=format&fit=crop';
 
@@ -57,8 +61,14 @@ export const Login = () => {
   const [surname, setSurname] = useState('');
   const [secondSurname, setSecondSurname] = useState('');
 
-  // Estado para el rol (Solo se usa en Registro)
   const [selectedRole, setSelectedRole] = useState<'Player' | 'AdminClub'>('Player');
+
+  // 2. INICIALIZAR GOOGLE AUTH EN CAPACITOR
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      GoogleAuth.initialize();
+    }
+  }, []);
 
   const processSuccessfulLogin = (token: string) => {
     const payloadBase64 = token.split('.')[1];
@@ -137,7 +147,8 @@ export const Login = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  // Handler para la versión Web
+  const handleGoogleSuccessWeb = async (credentialResponse: any) => {
     setLoading(true);
     setErrorMsg('');
     try {
@@ -148,6 +159,27 @@ export const Login = () => {
       processSuccessfulLogin(response.data.token);
     } catch (error: any) {
       handleLoginError(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. HANDLER PARA LA VERSIÓN NATIVA (iOS / Android)
+  const handleGoogleNativeLogin = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const googleUser = await GoogleAuth.signIn();
+      // idToken contiene el JWT que enviamos exactamente igual al backend
+      const response = await api.post(ENDPOINTS.AUTH.GOOGLE, {
+        credential: googleUser.authentication.idToken,
+        role: activeTab === 'register' ? selectedRole : 'Player',
+      });
+      processSuccessfulLogin(response.data.token);
+    } catch (error: any) {
+      if (error?.message !== 'user canceled') {
+        setErrorMsg('Error al iniciar sesión con Google');
+      }
     } finally {
       setLoading(false);
     }
@@ -167,10 +199,8 @@ export const Login = () => {
         padding: '20px',
       }}
     >
-      {/* Capa oscura translúcida sobre la imagen */}
       <Overlay color="#000" opacity={0.65} zIndex={1} />
 
-      {/* Tarjeta con efecto Glassmorphism */}
       <Paper
         radius="lg"
         p="xl"
@@ -225,7 +255,6 @@ export const Login = () => {
             </Tabs.Tab>
           </Tabs.List>
 
-          {/* PANEL DE LOGIN */}
           <Tabs.Panel value="login">
             <form onSubmit={handleRealLogin}>
               <Stack gap="sm">
@@ -252,7 +281,6 @@ export const Login = () => {
             </form>
           </Tabs.Panel>
 
-          {/* PANEL DE REGISTRO */}
           <Tabs.Panel value="register">
             <form onSubmit={handleRegister}>
               <Stack gap="xs">
@@ -332,14 +360,33 @@ export const Login = () => {
           </Tabs.Panel>
         </Tabs>
 
-        {/* GOOGLE LOGIN */}
+        {/* 4. RENDERIZADO CONDICIONAL DE GOOGLE LOGIN */}
         <Divider label="O continuar con" labelPosition="center" my="lg" />
         <Center>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => setErrorMsg('Error interno al conectar con Google')}
-            useOneTap={false}
-          />
+          {Capacitor.isNativePlatform() ? (
+            /* Botón nativo para iOS y Android */
+            <Button
+              variant="default"
+              fullWidth
+              leftSection={<IconBrandGoogle size={18} />}
+              onClick={handleGoogleNativeLogin}
+              loading={loading}
+              style={{
+                backgroundColor: '#ffffff',
+                color: '#000000',
+                borderColor: '#dadce0',
+              }}
+            >
+              Continuar con Google
+            </Button>
+          ) : (
+            /* Componente oficial de Google para Web */
+            <GoogleLogin
+              onSuccess={handleGoogleSuccessWeb}
+              onError={() => setErrorMsg('Error interno al conectar con Google')}
+              useOneTap={false}
+            />
+          )}
         </Center>
       </Paper>
     </Box>
