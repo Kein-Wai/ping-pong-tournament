@@ -48,7 +48,7 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
   <key>GIDClientID</key>
-  <string>442254764143-qojegrvkpmdn336hsqbkru35mafq9dh2.apps.googleusercontent.com</string>
+  <string>867880972431-o7c0k6l2b782gc4h2e97uu073erff8rr.apps.googleusercontent.com</string>
 
   <!-- Esquema de URL invertido -->
   <key>CFBundleURLTypes</key>
@@ -59,7 +59,7 @@
       <key>CFBundleURLSchemes</key>
       <array>
         <!-- Tu iOS Client ID pero al revés (ejemplo: com.googleusercontent.apps.xxxxxxx) -->
-        <string>com.googleusercontent.apps.2hd9qfam53urkbqsh633ndmpkvrgejoq-341467452244</string>
+        <string>com.googleusercontent.apps.867880972431-o7c0k6l2b782gc4h2e97uu073erff8rr</string>
       </array>
     </dict>
   </array>

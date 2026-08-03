@@ -11,8 +11,13 @@ const config: CapacitorConfig = {
   plugins: {
     GoogleAuth: {
       scopes: ['profile', 'email'],
-      serverClientId: 'TU_WEB_CLIENT_ID.apps.googleusercontent.com', // El Client ID de Tipo Web
+      serverClientId: '867880972431-ttqe2fdhj8nj1bu000f7h60ipnoa283i.apps.googleusercontent.com',
+      iosClientId: '867880972431-ttqe2fdhj8nj1bu000f7h60ipnoa283i.apps.googleusercontent.com',
+      androidClientId: '867880972431-ttqe2fdhj8nj1bu000f7h60ipnoa283i.apps.googleusercontent.com',
       forceCodeForRefreshToken: true,
+    },
+    SplashScreen: {
+      backgroundColor: '#000000',
     },
   },
 };

@@ -4,4 +4,5 @@
     <string name="title_activity_main">tttournamentapp</string>
     <string name="package_name">com.keinwaicheung.tttournamentapp</string>
     <string name="custom_url_scheme">com.keinwaicheung.tttournamentapp</string>
+    <string name="server_client_id">867880972431-ttqe2fdhj8nj1bu000f7h60ipnoa283i.apps.googleusercontent.com</string>
 </resources>
