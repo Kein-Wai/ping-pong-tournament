@@ -194,6 +194,10 @@ export const Login = () => {
     } catch (error: any) {
       if (error?.message !== 'user canceled' && error?.message !== 'User cancelled login') {
         console.error('ERROR GOOGLE NATIVO:', error);
+
+        const backendError =
+          error.response?.data?.error || error.response?.data?.message || error.message;
+        alert('DETALLE DEL ERROR: ' + JSON.stringify(backendError));
         setErrorMsg('Error al iniciar sesión con Google');
       }
     } finally {

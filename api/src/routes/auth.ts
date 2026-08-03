@@ -138,9 +138,14 @@ router.post('/google', async (req, res) => {
     const { credential, role } = validation.data;
     const userRole = await prisma.userType.findUnique({ where: { name: role } });
 
+    const allowedAudiences = [
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_ID_IOS,
+    ].filter(Boolean) as string[];
+
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: allowedAudiences,
     });
 
     const payload = ticket.getPayload();
