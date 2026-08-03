@@ -16,7 +16,12 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
-  pod 'CapacitorGoogleAuth', :path => '../../node_modules/@codetrix-studio/capacitor-google-auth'
+  google_podspec = Dir.glob('../../node_modules/@codetrix-studio/capacitor-google-auth/*.podspec').first || Dir.glob('../../node_modules/@codetrix-studio/capacitor-google-auth/ios/*.podspec').first
+  
+  if google_podspec
+    pod_name = File.basename(google_podspec, '.podspec')
+    pod pod_name, :path => '../../node_modules/@codetrix-studio/capacitor-google-auth'
+  end
 end
 
 post_install do |installer|
