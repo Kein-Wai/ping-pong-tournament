@@ -178,6 +178,7 @@ export const Login = () => {
       processSuccessfulLogin(response.data.token);
     } catch (error: any) {
       if (error?.message !== 'user canceled') {
+        alert('ERROR GOOGLE: ' + JSON.stringify(error));
         setErrorMsg('Error al iniciar sesión con Google');
       }
     } finally {
