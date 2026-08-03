@@ -14,7 +14,7 @@
     "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^8.5.0",
     "@capacitor/ios": "^8.5.0",
-    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
+    "@capgo/capacitor-social-login": "^8.3.39",
     "@mantine/core": "^9.4.1",
     "@mantine/dates": "^9.4.1",
     "@mantine/hooks": "^9.4.1",

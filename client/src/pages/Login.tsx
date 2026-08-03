@@ -23,9 +23,9 @@ import { GoogleLogin } from '@react-oauth/google';
 import { IconLock, IconUserPlus, IconBrandGoogle } from '@tabler/icons-react';
 import DICTIONARY from '../constants/dictionary.json';
 
-// 1. IMPORTAR CAPACITOR Y GOOGLE AUTH NATIVO
+// 1. IMPORTAR CAPACITOR Y GOOGLE AUTH NATIVO (Plugin moderno)
 import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { SocialLogin } from '@capgo/capacitor-social-login';
 
 const inputStyles = {
   input: {
@@ -64,23 +64,12 @@ export const Login = () => {
   const [selectedRole, setSelectedRole] = useState<'Player' | 'AdminClub'>('Player');
 
   useEffect(() => {
-    // Detectamos en qué sistema está corriendo la app
-    const platform = Capacitor.getPlatform();
-
-    // Por defecto (para Web y Android), usamos SIEMPRE el ID del servidor Web
-    let currentClientId =
-      '867880972431-ttqe2fdhj8nj1bu000f7h60ipnoa283i.apps.googleusercontent.com';
-
-    // Si detecta que es un iPhone, le damos el cambiazo al ID de iOS
-    if (platform === 'ios') {
-      currentClientId = '867880972431-o7c0k6l2b782gc4h2e97uu073erff8rr.apps.googleusercontent.com';
-    }
-
-    // Inicializamos el plugin con el ID correcto según el móvil
-    GoogleAuth.initialize({
-      clientId: currentClientId,
-      scopes: ['profile', 'email'],
-      grantOfflineAccess: true,
+    // Inicialización limpia multiplataforma con el nuevo plugin
+    SocialLogin.initialize({
+      google: {
+        webClientId: '867880972431-ttqe2fdhj8nj1bu000f7h60ipnoa283i.apps.googleusercontent.com',
+        iOSClientId: '867880972431-o7c0k6l2b782gc4h2e97uu073erff8rr.apps.googleusercontent.com',
+      },
     });
   }, []);
 
@@ -178,21 +167,33 @@ export const Login = () => {
     }
   };
 
-  // 3. HANDLER PARA LA VERSIÓN NATIVA (iOS / Android)
+  // 3. HANDLER PARA LA VERSIÓN NATIVA (iOS / Android) CORREGIDO
   const handleGoogleNativeLogin = async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const googleUser = await GoogleAuth.signIn();
-      // idToken contiene el JWT que enviamos exactamente igual al backend
+      // Sin 'scopes' para que use el login estándar de Google
+      const res = await SocialLogin.login({
+        provider: 'google',
+        options: {},
+      });
+
+      const resultData = res.result as any;
+      const idToken = resultData.idToken || resultData.authentication?.idToken;
+
+      if (!idToken) {
+        throw new Error('No se recibió el token de Google');
+      }
+
+      // Enviamos el token al backend
       const response = await api.post(ENDPOINTS.AUTH.GOOGLE, {
-        credential: googleUser.authentication.idToken,
+        credential: idToken,
         role: activeTab === 'register' ? selectedRole : 'Player',
       });
       processSuccessfulLogin(response.data.token);
     } catch (error: any) {
-      if (error?.message !== 'user canceled') {
-        alert('ERROR GOOGLE: ' + JSON.stringify(error));
+      if (error?.message !== 'user canceled' && error?.message !== 'User cancelled login') {
+        console.error('ERROR GOOGLE NATIVO:', error);
         setErrorMsg('Error al iniciar sesión con Google');
       }
     } finally {
