@@ -65,14 +65,12 @@ jobs:
 
           # 👇 8. INYECTAR EL PROFILE UUID SOLO EN EL PROYECTO PRINCIPAL (Evita el conflicto con SPM)
           python3 -c "
-          import os
-          uuid = os.environ['PROVISIONING_PROFILE_UUID']
           path = 'ios/App/App.xcodeproj/project.pbxproj'
           with open(path, 'r') as f:
               content = f.read()
           content = content.replace(
               'PRODUCT_BUNDLE_IDENTIFIER =',
-              f'PROVISIONING_PROFILE_SPECIFIER = \"{uuid}\";\n\t\t\tPRODUCT_BUNDLE_IDENTIFIER ='
+              'PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_UUID\";\n\t\t\tPRODUCT_BUNDLE_IDENTIFIER ='
           )
           with open(path, 'w') as f:
               f.write(content)
