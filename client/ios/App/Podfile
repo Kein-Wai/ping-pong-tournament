@@ -16,6 +16,7 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+  pod 'CapacitorGoogleAuth', :path => '../../node_modules/@codetrix-studio/capacitor-google-auth'
 end
 
 post_install do |installer|
