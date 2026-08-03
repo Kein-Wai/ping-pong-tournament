@@ -72,8 +72,12 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
-      - name: 🔄 Sincronizar Capacitor (SPM)
-        run: npx cap sync ios
+      - name: 🔄 Sincronizar Capacitor y Dependencias Nativas
+        run: |
+          npx cap sync ios
+          # Forzamos la instalación del fallback de CocoaPods para el plugin de Google
+          cd ios/App
+          pod install
 
       - name: 🔢 Incremento Automático del Número de Build
         run: |
@@ -86,7 +90,8 @@ jobs:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd ios/App
-          xcodebuild -project App.xcodeproj \
+          # 👇 CAMBIO CLAVE AQUÍ: workspace en lugar de project
+          xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -archivePath $RUNNER_TEMP/App.xcarchive \
