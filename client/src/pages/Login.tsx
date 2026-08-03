@@ -63,11 +63,25 @@ export const Login = () => {
 
   const [selectedRole, setSelectedRole] = useState<'Player' | 'AdminClub'>('Player');
 
-  // 2. INICIALIZAR GOOGLE AUTH EN CAPACITOR
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      GoogleAuth.initialize();
+    // Detectamos en qué sistema está corriendo la app
+    const platform = Capacitor.getPlatform();
+
+    // Por defecto (para Web y Android), usamos SIEMPRE el ID del servidor Web
+    let currentClientId =
+      '867880972431-ttqe2fdhj8nj1bu000f7h60ipnoa283i.apps.googleusercontent.com';
+
+    // Si detecta que es un iPhone, le damos el cambiazo al ID de iOS
+    if (platform === 'ios') {
+      currentClientId = '867880972431-o7c0k6l2b782gc4h2e97uu073erff8rr.apps.googleusercontent.com';
     }
+
+    // Inicializamos el plugin con el ID correcto según el móvil
+    GoogleAuth.initialize({
+      clientId: currentClientId,
+      scopes: ['profile', 'email'],
+      grantOfflineAccess: true,
+    });
   }, []);
 
   const processSuccessfulLogin = (token: string) => {
