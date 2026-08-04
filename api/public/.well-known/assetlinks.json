@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.keinwaicheung.tttournamentapp",
+      "sha256_cert_fingerprints": [
+        "B1:1F:DD:52:FF:17:97:89:F2:15:8C:5B:62:04:B4:47:04:DE:B4:D0:F2:41:5B:C2:72:D8:D5:17:AC:7C:3C:83"
+      ]
+    }
+  }
+]

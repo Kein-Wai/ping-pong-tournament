@@ -20,6 +20,16 @@ app.use(
 
 app.use(express.json());
 app.use(express.static('public'));
+app.use(
+  '/.well-known',
+  express.static('public/.well-known', {
+    setHeaders: (res, path) => {
+      if (path.endsWith('apple-app-site-association')) {
+        res.setHeader('Content-Type', 'application/json');
+      }
+    },
+  }),
+);
 
 app.use('/api', apiRoutes);
 

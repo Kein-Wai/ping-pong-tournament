@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { RequireClubSetup } from './components/auth/RequireClubSetup';
 import { MainLayout } from './components/layout/MainLayout';
@@ -17,7 +17,7 @@ import { ClubSetup } from './pages/Clubs/ClubSetup';
 import { MiClub } from './pages/Clubs/MiClub';
 import { AdminPanel } from './pages/Admin/AdminPanel';
 import { Estadisticas } from './pages/Estadisticas/Estadisticas';
-
+import { App as CapApp } from '@capacitor/app';
 import { APP_ROUTES } from './constants/routes'; // 👈 IMPORTADO
 
 const isNativeApp = () => {
@@ -84,6 +84,24 @@ const CustomSplashScreen = () => {
 };
 
 function App() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const listener = CapApp.addListener('appUrlOpen', (data) => {
+      // Captura redirecciones como "https://tt-app-5mdc.onrender.com/login?verified=true"
+      const url = new URL(data.url);
+      const pathAndQuery = url.pathname + url.search;
+
+      if (pathAndQuery) {
+        navigate(pathAndQuery);
+      }
+    });
+
+    return () => {
+      listener.then((h) => h.remove());
+    };
+  }, [navigate]);
+
   return (
     <>
       <CustomSplashScreen />

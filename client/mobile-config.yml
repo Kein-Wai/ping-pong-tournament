@@ -1,0 +1,5 @@
+targets:
+  App:
+    entitlements:
+      - com.apple.developer.associated-domains:
+          - 'applinks:tt-app-5mdc.onrender.com'

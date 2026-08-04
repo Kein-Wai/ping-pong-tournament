@@ -3,8 +3,13 @@ name: iOS Build & Upload to App Store Connect
 on:
   push:
     branches: ["main"]
+    paths:
+      - "client/**"
+      - ".github/workflows/ios-build.yml"
   pull_request:
     branches: ["main"]
+    paths:
+      - "client/**"
 
 jobs:
   build-and-deploy:
@@ -70,7 +75,7 @@ jobs:
               content = f.read()
           content = content.replace(
               'PRODUCT_BUNDLE_IDENTIFIER =',
-              'PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_UUID\";\n\t\t\tPRODUCT_BUNDLE_IDENTIFIER ='
+              'CODE_SIGN_ENTITLEMENTS = \"App/App.entitlements\";\n\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_UUID\";\n\t\t\tPRODUCT_BUNDLE_IDENTIFIER ='
           )
           with open(path, 'w') as f:
               f.write(content)

@@ -24,7 +24,7 @@ const baseTemplate = (contentHtml: string) => {
         <div class="header">
         <img src="${process.env.API_URL}/assets/images/icon.png">
           <!-- Aquí incrustaremos tu imagen -->
-          <h2>PingPong Tournaments</h2>
+          <h2>TT Tournament App</h2>
         </div>
 
         <!-- CUERPO DINÁMICO (Aquí se inyecta lo que cambie) -->
@@ -34,7 +34,7 @@ const baseTemplate = (contentHtml: string) => {
 
         <!-- PIE DE PÁGINA REUTILIZABLE -->
         <div class="footer">
-          <p>© 2024 PingPong Tournaments. Todos los derechos reservados.</p>
+          <p>© 2024 TT Tournament App. Todos los derechos reservados.</p>
         </div>
       </div>
     </body>
@@ -50,7 +50,7 @@ export const templateRegistro = (nombre: string, link: string) => {
     <p>Para poder confirmar tu email, dale al link y podras entrar en tu cuenta, buscar clubs y torneos abiertos</p>
     <a href="${process.env.API_URL}/api/auth/verify/${link}">Verificar mi cuenta</a>.
     <div style="text-align: center;">
-      <a href="${process.env.CLIENT_URL}" class="btn">Empezar a jugar</a>
+      <a href="${process.env.CLIENT_URL}/login" class="btn">Empezar a jugar</a>
     </div>
   `;
 
@@ -64,7 +64,7 @@ export const templateInscripcionTorneo = (nombre: string, torneo: any) => {
     <p>El torneo empezara el dia ${torneo.dateStart}.</p> 
     <p>¡Guarda la fecha en tu calendario!</p>
     <div style="text-align: center;">
-      <a href="${process.env.CLIENT_URL}" class="btn">Empezar a jugar</a>
+      <a href="${process.env.CLIENT_URL}/login" class="btn">Empezar a jugar</a>
     </div>
   `;
 
@@ -77,7 +77,7 @@ export const templateRecordatorioTorneo = (nombre: string, torneo: any) => {
     <p>Este es un recordatorio de que mañana empieza el torneo.</p>
     <p>¡Prepara tu raqueta y tus zapatillas, el dia ha llegado!.</p> 
     <div style="text-align: center;">
-      <a href="${process.env.CLIENT_URL}" class="btn">Empezar a jugar</a>
+      <a href="${process.env.CLIENT_URL}/login" class="btn">Empezar a jugar</a>
     </div>
   `;
 
@@ -91,7 +91,7 @@ export const templateAceptacionClub = (nombre: string, club: any) => {
     <p>Podras ver los torneos y ligas internas creadas de este club, asi como los partidos y estadisticas.</p>
     <p>¡Bienvenido!</p>
     <div style="text-align: center;">
-      <a href="${process.env.CLIENT_URL}" class="btn">Empezar a jugar</a>
+      <a href="${process.env.CLIENT_URL}/login" class="btn">Empezar a jugar</a>
     </div>
   `;
 

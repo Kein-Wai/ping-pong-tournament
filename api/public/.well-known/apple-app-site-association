@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "59U8KKQK6G.com.keinwaicheung.tttournamentapp",
+        "paths": [
+          "/login*",
+          "/api/auth/verify/*"
+        ]
+      }
+    ]
+  }
+}
