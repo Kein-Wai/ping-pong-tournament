@@ -25,6 +25,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "google-auth-library": "^10.9.0",
+    "googleapis": "^174.0.0",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.0.4",
     "swagger-jsdoc": "^6.3.0",
