@@ -5,16 +5,47 @@ import { OAuth2Client } from 'google-auth-library';
 import prisma from '../db';
 import { loginLocalSchema, loginGoogleSchema, registerSchema } from '../schemas/user';
 import { z } from 'zod';
+import { enviarCorreoGenerico } from '../services/email';
+import { templateRegistro } from '../utils/emailtemplate';
+import crypto from 'crypto';
 
 const router = Router();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
+router.get('/verify/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token || token === '') {
+      return res.status(400).json({ error: 'Token inválidos', details: 'Token invalido' });
+    }
+    const user = await prisma.user.findFirst({
+      where: { verificationToken: token },
+      include: { userType: true },
+    });
+
+    if (!user || !user.password) {
+      return res.status(401).json({ error: 'Token incorrecto o el usuario no existe' });
+    }
+
+    await prisma.user.update({
+      where: { email: user.email },
+      data: { active: true, verificationToken: null },
+    });
+
+    const baseUrl = process.env.CLIENT_URL || 'https://tt-app-5mdc.onrender.com';
+    res.redirect(`${baseUrl}/login?verified=true`);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al verificar el jugador' });
+  }
+});
+
 router.post('/register', async (req, res) => {
   try {
     const validation = registerSchema.safeParse(req.body);
-    console.log('body', req.body);
+    console.log(validation);
     if (!validation.success) {
       console.log(validation);
       res.status(400).json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
@@ -38,6 +69,7 @@ router.post('/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationToken = crypto.randomBytes(64).toString('hex');
 
     const newUser = await prisma.user.create({
       data: {
@@ -50,35 +82,27 @@ router.post('/register', async (req, res) => {
         stats: {
           create: {},
         },
+        verificationToken: verificationToken,
       },
       include: { userType: true },
     });
 
-    const token = jwt.sign(
-      {
-        id: newUser.id, // (Usa user o newUser dependiendo de la ruta en la que estés)
-        email: newUser.email,
-        name: newUser.name,
-        surname: newUser.surname,
-        nickname: newUser.nickname,
-        avatarUrl: newUser.avatarUrl,
-        role: newUser.userType?.name,
-        clubId: newUser.clubId,
-        clubStatus: newUser.clubStatus,
-      },
-      JWT_SECRET,
-      { expiresIn: '8h' },
-    );
+    if (newUser)
+      await enviarCorreoGenerico(
+        email.toLowerCase(),
+        'Nuevo registro en TT Tournament App',
+        templateRegistro(name, verificationToken),
+      );
 
     res.status(201).json({
       message: 'Jugador registrado con éxito',
-      token,
-      user: {
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-        role: newUser.userType.name,
-      },
+      // token,
+      // user: {
+      //   id: newUser.id,
+      //   email: newUser.email,
+      //   name: newUser.name,
+      //   role: newUser.userType.name,
+      // },
     });
   } catch (error) {
     console.error(error);
@@ -101,6 +125,12 @@ router.post('/login', async (req, res) => {
       return res
         .status(401)
         .json({ error: 'Credenciales incorrectas o el usuario usa otro método de acceso' });
+    }
+
+    if (!user.active) {
+      return res
+        .status(401)
+        .json({ error: 'Email no ha sido verificado aun, por favor revisa tu bandeja.' });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
@@ -176,6 +206,7 @@ router.post('/google', async (req, res) => {
           googleId,
           avatarUrl: picture,
           userTypeId: userRole.id,
+          active: true,
           stats: {
             create: {},
           },
@@ -185,7 +216,7 @@ router.post('/google', async (req, res) => {
     } else {
       user = await prisma.user.update({
         where: { email },
-        data: { googleId, authProvider: 'GOOGLE', avatarUrl: picture },
+        data: { googleId, authProvider: 'GOOGLE', avatarUrl: picture, active: true },
         include: { userType: true },
       });
     }

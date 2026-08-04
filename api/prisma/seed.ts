@@ -72,6 +72,7 @@ async function main() {
       userTypeId: superAdminRoleId,
       password: hashedPasswordSuper,
       authProvider: 'LOCAL',
+      active: true,
     },
   });
   console.log(superAdmin);
@@ -88,6 +89,7 @@ async function main() {
       clubId: clubA.id,
       clubStatus: 'Aprobado',
       authProvider: 'LOCAL',
+      active: true,
     },
   });
 
@@ -101,6 +103,7 @@ async function main() {
       clubId: clubB.id,
       clubStatus: 'Aprobado',
       authProvider: 'LOCAL',
+      active: true,
     },
   });
 
@@ -118,6 +121,7 @@ async function main() {
       name: 'EXENTO',
       surname: '(Pasa de ronda)',
       userTypeId: playerRoleId,
+      active: true,
     },
   });
 
@@ -130,6 +134,7 @@ async function main() {
       name: 'Por',
       surname: 'Determinar',
       userTypeId: playerRoleId,
+      active: true,
     },
   });
 
@@ -205,7 +210,7 @@ async function main() {
 
   await prisma.user.create({
     data: {
-      email: `keinwai@hotmail.com`,
+      email: `keinwaiplayer@hotmail.com`,
       name: `Kein-Wai`,
       surname: `Cheung`,
       userTypeId: playerRoleId,
@@ -213,6 +218,7 @@ async function main() {
       clubStatus: 'Aprobado',
       password: hashedPasswordSuper,
       authProvider: 'LOCAL',
+      active: true,
       stats: {
         create: {
           elo: 1200,
@@ -241,6 +247,7 @@ async function main() {
       clubStatus: 'Aprobado',
       password: hashedPasswordJ,
       authProvider: 'LOCAL',
+      active: true,
       stats: {
         create: {
           elo: 1200,
@@ -271,6 +278,7 @@ async function main() {
         userTypeId: playerRoleId,
         clubId: assignedClub,
         clubStatus: 'Aprobado',
+        active: true,
         stats: {
           create: {
             elo: startingElo,

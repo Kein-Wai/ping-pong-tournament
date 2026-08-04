@@ -143,6 +143,8 @@ model User {
   nickname        String?  @db.VarChar(255)
   avatarUrl       String?
   email           String   @unique @db.VarChar(255)
+  verificationToken String? @db.VarChar(255)
+  active          Boolean  @default(false)
   
   // Relaciones
   club            Club?    @relation(fields: [clubId], references: [id])

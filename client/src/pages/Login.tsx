@@ -15,13 +15,14 @@ import {
   Box,
   Overlay,
 } from '@mantine/core';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../api/axios';
 import { ENDPOINTS } from '../api/endpoints';
 import { GoogleLogin } from '@react-oauth/google';
 import { IconLock, IconUserPlus, IconBrandGoogle } from '@tabler/icons-react';
 import DICTIONARY from '../constants/dictionary.json';
+import { notifications } from '@mantine/notifications';
 
 // 1. IMPORTAR CAPACITOR Y GOOGLE AUTH NATIVO (Plugin moderno)
 import { Capacitor } from '@capacitor/core';
@@ -60,6 +61,7 @@ export const Login = () => {
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
   const [secondSurname, setSecondSurname] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedRole, setSelectedRole] = useState<'Player' | 'AdminClub'>('Player');
 
@@ -72,6 +74,19 @@ export const Login = () => {
       },
     });
   }, []);
+
+  useEffect(() => {
+    // Inicialización limpia multiplataforma con el nuevo plugin
+    const verified = searchParams.get('verified');
+    if (verified) {
+      notifications.show({
+        title: 'Verificado con éxito',
+        message: '¡Cuenta verificada con éxito! Ya puedes iniciar sesión',
+        color: 'green',
+      });
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   const processSuccessfulLogin = (token: string) => {
     const payloadBase64 = token.split('.')[1];
@@ -133,7 +148,7 @@ export const Login = () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await api.post(ENDPOINTS.AUTH.REGISTER, {
+      await api.post(ENDPOINTS.AUTH.REGISTER, {
         email,
         password,
         confirmPassword,
@@ -142,7 +157,14 @@ export const Login = () => {
         secondSurname: secondSurname || null,
         role: selectedRole,
       });
-      processSuccessfulLogin(response.data.token);
+      notifications.show({
+        title: 'Registrado con exito',
+        message:
+          '¡Te hemos enviado un correo para verificar tu email! Si no te aparece, mira el Spam',
+        color: 'orange',
+      });
+      setLoading(false);
+      setActiveTab('login');
     } catch (error: any) {
       handleLoginError(error);
     } finally {

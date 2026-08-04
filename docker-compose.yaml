@@ -17,6 +17,9 @@ services:
     container_name: ping-pong-api
     ports:
       - "3000:3000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       # Sincroniza el código local con el contenedor en tiempo real
       - ./api:/app

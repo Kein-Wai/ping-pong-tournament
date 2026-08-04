@@ -83,7 +83,7 @@ interface Participant {
   player: {
     id: string;
     name: string;
-    surname: string | null;
+    surname: string;
     avatarUrl: string | null;
     stats: { elo: number | null } | null;
   };
@@ -504,7 +504,11 @@ export const TorneoDetalles = () => {
       onConfirm: async () => {
         setIsRegistering(true);
         try {
-          await api.post(ENDPOINTS.TOURNAMENTS.REGISTER(id));
+          await api.post(ENDPOINTS.TOURNAMENTS.REGISTER(id), {
+            playerId: user?.id,
+            registeredAt: new Date().toISOString(),
+            status: 'Pendiente',
+          });
           await fetchTournamentInfo();
           if (participants !== null) {
             const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
@@ -527,7 +531,12 @@ export const TorneoDetalles = () => {
     return 'orange';
   };
 
-  const handleParticipantStatus = (playerId: string, playerName: string, newStatus: string) => {
+  const handleParticipantStatus = (
+    playerId: string,
+    playerName: string,
+    playerSurname: string,
+    newStatus: string,
+  ) => {
     if (!id) return;
     const isNoShow = newStatus === 'NoPresentado';
 
@@ -538,7 +547,7 @@ export const TorneoDetalles = () => {
       description: isNoShow
         ? '¿Estás seguro de marcar a este jugador como No Presentado? Se le restarán 100 puntos de ELO como penalización.'
         : 'Confirmar a este jugador para que el algoritmo de la Serpiente lo incluya en la Fase de Grupos.',
-      highlightText: playerName,
+      highlightText: `${playerName} ${playerSurname}`,
       confirmLabel: isNoShow ? 'Sí, Sancionar' : 'Confirmar Jugador',
       onConfirm: async () => {
         try {
@@ -1070,16 +1079,17 @@ export const TorneoDetalles = () => {
                     </Button>
                   </>
                 )}
-
-                <Button
-                  color={isFull ? 'gray' : 'blue'}
-                  size="md"
-                  disabled={isFull}
-                  loading={isRegistering}
-                  onClick={handleInscribirse}
-                >
-                  {isFull ? 'Torneo Completo' : 'Inscribirme'}
-                </Button>
+                {user?.role === 'Player' && (
+                  <Button
+                    color={isFull ? 'gray' : 'blue'}
+                    size="md"
+                    disabled={isFull}
+                    loading={isRegistering}
+                    onClick={handleInscribirse}
+                  >
+                    {isFull ? 'Torneo Completo' : 'Inscribirme'}
+                  </Button>
+                )}
               </Group>
 
               <Text size="xs" c="dimmed">
@@ -1352,6 +1362,7 @@ export const TorneoDetalles = () => {
                                       handleParticipantStatus(
                                         p.player.id,
                                         p.player.name,
+                                        p.player.surname,
                                         'Confirmado',
                                       )
                                     }
@@ -1369,6 +1380,7 @@ export const TorneoDetalles = () => {
                                       handleParticipantStatus(
                                         p.player.id,
                                         p.player.name,
+                                        p.player.surname,
                                         'NoPresentado',
                                       )
                                     }

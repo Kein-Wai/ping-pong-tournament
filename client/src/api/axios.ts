@@ -49,12 +49,15 @@ api.interceptors.response.use(
       // Procesar errores solo para mutaciones (POST, PUT, DELETE) o errores Zod de validación
       if (config.method && ['post', 'put', 'delete'].includes(config.method.toLowerCase())) {
         let errorMessage = data?.error || 'Ocurrió un error inesperado.';
-
         // Si el backend expone los detalles de validación de Zod
-        if (data?.details && Array.isArray(data.details)) {
-          errorMessage = data.details
-            .map((d: any) => `${d.path.join('.')}: ${d.message}`)
-            .join(' | ');
+        if (data?.details) {
+          let keyErrors = Object.keys(data.details.properties);
+
+          keyErrors.map((key: string) => {
+            errorMessage = data.details.properties[key].errors
+              .map((d: any) => `${key}: ${d}`)
+              .join(' | ');
+          });
         } else if (typeof data?.error === 'object') {
           errorMessage = JSON.stringify(data.error);
         }

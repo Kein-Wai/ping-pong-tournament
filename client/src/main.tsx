@@ -12,7 +12,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <MantineProvider defaultColorScheme="dark">
-        <Notifications position="top-right" zIndex={1000} />
+        <Notifications position="bottom-right" zIndex={1000} />
         <App />
       </MantineProvider>
     </GoogleOAuthProvider>
