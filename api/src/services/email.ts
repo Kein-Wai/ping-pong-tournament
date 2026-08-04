@@ -1,15 +1,13 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465, // Puerto seguro explícito
-  secure: true, // Usar SSL/TLS
+  service: 'gmail',
   auth: {
+    type: 'OAuth2',
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PW,
-  },
-  tls: {
-    rejectUnauthorized: false,
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
   },
 });
 
@@ -19,7 +17,6 @@ export const enviarCorreoGenerico = async (destinatario: string, asunto: string,
       from: `TT Tournament App Admin`,
       to: destinatario,
       subject: asunto,
-      text: 'TEXTO EN CASO DE NO FUNCIONAR HTML',
       html: texto,
     });
 
