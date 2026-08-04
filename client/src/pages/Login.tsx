@@ -158,7 +158,7 @@ export const Login = () => {
         role: selectedRole,
       });
       notifications.show({
-        title: 'Registrado con exito',
+        title: 'Registrado con exito!',
         message:
           '¡Te hemos enviado un correo para verificar tu email! Si no te aparece, mira el Spam',
         color: 'orange',

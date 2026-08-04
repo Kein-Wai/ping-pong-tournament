@@ -45,16 +45,13 @@ router.get('/verify/:token', async (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     const validation = registerSchema.safeParse(req.body);
-    console.log(validation);
     if (!validation.success) {
-      console.log(validation);
       res.status(400).json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
       return;
     }
 
     const { email, password, name, surname, role } = validation.data;
 
-    console.log('validation', validation.data);
     const existingUser = await prisma.user.findUnique({ where: { email } });
     const userRole = await prisma.userType.findUnique({ where: { name: role } });
 
