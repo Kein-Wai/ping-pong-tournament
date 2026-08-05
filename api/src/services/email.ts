@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import nodemailer from 'nodemailer';
 
 const OAuth2 = google.auth.OAuth2;
 
@@ -22,29 +23,43 @@ export const enviarCorreoGenerico = async (
   htmlCuerpo: string,
 ) => {
   try {
-    const gmail = createGmailClient();
+    // 1. Crear el mensaje MIME RFC 2822
+    const transporter = nodemailer.createTransport({
+      streamTransport: true,
+      newline: 'windows',
+    });
 
-    // 1. Formatear cabeceras MIME y cuerpo en UTF-8
-    const utf8Subject = `=?utf-8?B?${Buffer.from(asunto).toString('base64')}?=`;
-    const messageParts = [
-      `From: "TT Tournament App Admin" <${process.env.GMAIL_USER}>`,
-      `To: ${destinatario}`,
-      `Content-Type: text/html; charset=utf-8`,
-      `MIME-Version: 1.0`,
-      `Subject: ${utf8Subject}`,
-      '',
-      htmlCuerpo,
-    ];
-    const message = messageParts.join('\n');
+    const mailInfo = await transporter.sendMail({
+      from: `"PingPong Tournaments" <${process.env.GMAIL_USER}>`,
+      to: destinatario,
+      subject: asunto,
+      html: htmlCuerpo,
+    });
 
-    // 2. Codificar en Base64URL según los requisitos de Gmail REST API
-    const encodedMessage = Buffer.from(message)
+    // 2. Extraer el Buffer con discriminación de tipos para TypeScript
+    let rawBuffer: Buffer;
+
+    if (Buffer.isBuffer(mailInfo.message)) {
+      rawBuffer = mailInfo.message;
+    } else {
+      const stream = mailInfo.message;
+      rawBuffer = await new Promise<Buffer>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        stream.on('error', reject);
+      });
+    }
+
+    // 3. Codificar a Base64URL
+    const encodedMessage = rawBuffer
       .toString('base64')
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '');
 
-    // 3. Envío sobre HTTPS (Puerto 443)
+    // 4. Enviar a través de la API REST de Gmail (HTTPS)
+    const gmail = createGmailClient();
     const response = await gmail.users.messages.send({
       userId: 'me',
       requestBody: {
@@ -52,10 +67,10 @@ export const enviarCorreoGenerico = async (
       },
     });
 
-    console.log('Correo enviado con éxito vía Gmail REST API (HTTPS). ID:', response.data.id);
+    console.log('Correo entregado con éxito a Gmail. ID:', response.data.id);
     return true;
   } catch (error) {
-    console.error('Error crítico en Gmail REST API:', error);
+    console.error('Error enviando correo:', error);
     throw error;
   }
 };

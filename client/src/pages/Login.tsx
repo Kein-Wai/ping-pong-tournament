@@ -138,6 +138,14 @@ export const Login = () => {
       setLoading(false);
     }
   };
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setName('');
+    setSurname('');
+    setSecondSurname('');
+  };
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -158,12 +166,12 @@ export const Login = () => {
         role: selectedRole,
       });
       notifications.show({
-        title: 'Registrado con exito!',
+        title: 'Registrado con éxito',
         message:
           '¡Te hemos enviado un correo para verificar tu email! Si no te aparece, mira el Spam',
-        color: 'orange',
+        color: 'green',
       });
-      setLoading(false);
+      resetForm();
       setActiveTab('login');
     } catch (error: any) {
       handleLoginError(error);
