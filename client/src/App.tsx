@@ -18,14 +18,12 @@ import { MiClub } from './pages/Clubs/MiClub';
 import { AdminPanel } from './pages/Admin/AdminPanel';
 import { Estadisticas } from './pages/Estadisticas/Estadisticas';
 import { App as CapApp } from '@capacitor/app';
-import { APP_ROUTES } from './constants/routes'; // 👈 IMPORTADO
+import { APP_ROUTES } from './constants/routes';
 
 const isNativeApp = () => {
   return (
     window.location.protocol === 'capacitor:' ||
     window.location.protocol === 'ionic:' ||
-    // Si quieres asegurarte de que SOLO salte en la app nativa y nunca en navegador web:
-    // (Capacitor por defecto suele cargar en localhost sin puerto de desarrollo)
     (window.location.hostname === 'localhost' && window.location.port === '')
   );
 };
@@ -39,12 +37,10 @@ const CustomSplashScreen = () => {
       setIsVisible(false);
       return;
     }
-    // A los 2 segundos empieza a desvanecerse (fade out)
     const fadeOutTimer = setTimeout(() => {
       setOpacity(0);
     }, 2000);
 
-    // A los 2.5 segundos destruimos el componente para que no estorbe los clics
     const removeTimer = setTimeout(() => {
       setIsVisible(false);
     }, 2500);
@@ -65,11 +61,11 @@ const CustomSplashScreen = () => {
         left: 0,
         width: '100vw',
         height: '100vh',
-        backgroundColor: '#000000', // 👈 Color de fondo detrás de tu imagen (cámbialo si quieres)
+        backgroundColor: '#000000',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 9999, // Nos aseguramos de que tape todo el contenido
+        zIndex: 9999,
         opacity: opacity,
         transition: 'opacity 0.5s ease-out',
       }}
@@ -83,12 +79,12 @@ const CustomSplashScreen = () => {
   );
 };
 
-function App() {
+// Componente interno que ya vive dentro de BrowserRouter
+function AppContent() {
   const navigate = useNavigate();
 
   useEffect(() => {
     const listener = CapApp.addListener('appUrlOpen', (data) => {
-      // Captura redirecciones como "https://tt-app-5mdc.onrender.com/login?verified=true"
       const url = new URL(data.url);
       const pathAndQuery = url.pathname + url.search;
 
@@ -105,46 +101,49 @@ function App() {
   return (
     <>
       <CustomSplashScreen />
-      <BrowserRouter>
-        <ModalsProvider>
-          <Routes>
-            {/* Ruta pública */}
-            <Route path={APP_ROUTES.LOGIN} element={<Login />} />
+      <ModalsProvider>
+        <Routes>
+          {/* Ruta pública */}
+          <Route path={APP_ROUTES.LOGIN} element={<Login />} />
 
-            {/* Bloque de seguridad de Rutas Protegidas */}
-            <Route element={<ProtectedRoute />}>
-              <Route path={APP_ROUTES.SETUP_CLUB} element={<ClubSetup />} />
+          {/* Bloque de seguridad de Rutas Protegidas */}
+          <Route element={<ProtectedRoute />}>
+            <Route path={APP_ROUTES.SETUP_CLUB} element={<ClubSetup />} />
 
-              <Route element={<RequireClubSetup />}>
-                <Route element={<MainLayout />}>
-                  {/* Todas las páginas cuelgan del layout base sin colisiones */}
-                  <Route path={APP_ROUTES.HOME} element={<Dashboard />} />
-                  <Route path={APP_ROUTES.CLUB_SELECTION} element={<ClubSelection />} />
+            <Route element={<RequireClubSetup />}>
+              <Route element={<MainLayout />}>
+                <Route path={APP_ROUTES.HOME} element={<Dashboard />} />
+                <Route path={APP_ROUTES.CLUB_SELECTION} element={<ClubSelection />} />
 
-                  <Route path={APP_ROUTES.TORNEOS.LIST} element={<Torneos />} />
-                  <Route path={APP_ROUTES.TORNEOS.NEW} element={<TorneoNuevo />} />
-                  <Route path={APP_ROUTES.TORNEOS.DETAILS_PATH} element={<TorneoDetalles />} />
+                <Route path={APP_ROUTES.TORNEOS.LIST} element={<Torneos />} />
+                <Route path={APP_ROUTES.TORNEOS.NEW} element={<TorneoNuevo />} />
+                <Route path={APP_ROUTES.TORNEOS.DETAILS_PATH} element={<TorneoDetalles />} />
 
-                  <Route path={APP_ROUTES.JUGADORES.LIST} element={<Jugadores />} />
-                  <Route path={APP_ROUTES.JUGADORES.PROFILE_PATH} element={<JugadorPerfil />} />
+                <Route path={APP_ROUTES.JUGADORES.LIST} element={<Jugadores />} />
+                <Route path={APP_ROUTES.JUGADORES.PROFILE_PATH} element={<JugadorPerfil />} />
 
-                  <Route path={APP_ROUTES.PARTIDOS} element={<Partidos />} />
-                  <Route path={APP_ROUTES.ESTADISTICAS} element={<Estadisticas />} />
+                <Route path={APP_ROUTES.PARTIDOS} element={<Partidos />} />
+                <Route path={APP_ROUTES.ESTADISTICAS} element={<Estadisticas />} />
 
-                  {/* Paneles de Control */}
-                  <Route path={APP_ROUTES.MI_CLUB} element={<MiClub />} />
-                  <Route path={APP_ROUTES.ADMIN_PANEL} element={<AdminPanel />} />
-                </Route>
+                <Route path={APP_ROUTES.MI_CLUB} element={<MiClub />} />
+                <Route path={APP_ROUTES.ADMIN_PANEL} element={<AdminPanel />} />
               </Route>
             </Route>
+          </Route>
 
-            {/* Comodín de Redirección Segura */}
-            <Route path="*" element={<Navigate to={APP_ROUTES.HOME} replace />} />
-          </Routes>
-        </ModalsProvider>
-      </BrowserRouter>
+          {/* Comodín de Redirección Segura */}
+          <Route path="*" element={<Navigate to={APP_ROUTES.HOME} replace />} />
+        </Routes>
+      </ModalsProvider>
     </>
   );
 }
 
-export default App;
+// Componente principal que envuelve el Router
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
