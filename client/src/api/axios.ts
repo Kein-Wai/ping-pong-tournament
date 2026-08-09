@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
+import { useAuthStore } from '../store/authStore';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
+  timeout: 10000,
 });
 
 api.interceptors.request.use(
@@ -40,8 +42,9 @@ api.interceptors.response.use(
         }
 
         console.warn('Sesión caducada. Redirigiendo al Login...');
-        localStorage.removeItem('pingpong_token');
-        localStorage.removeItem('pingpong_user');
+
+        useAuthStore.getState().logout();
+
         window.location.href = '/login';
         return Promise.reject(error);
       }

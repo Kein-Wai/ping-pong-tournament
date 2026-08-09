@@ -11,3 +11,98 @@ Ejemplos Aislados: Si necesito ver cómo se usa una librería, dame un ejemplo g
 Método Socrático: Si me atasco con un error, no me des la solución directamente. Dame una pista sobre dónde mirar (ej: "Revisa qué está devolviendo el backend en la línea X") o hazme una pregunta para que yo deduzca el fallo.
 
 Feedback: Cuando yo te pase mi código escrito por mí, revísalo. Dime si es limpio, si sigue buenas prácticas y cómo un desarrollador Senior lo mejoraría, para que yo aprenda a refactorizar.
+
+Siguiente Objetivo: 
+      - Crear las notificaciones por email para cuando se Inscribe un jugador a un torneo
+      - Crear las notiicaciones por email para cuando un jugador es aceptado por un club
+      - Crear la notificacion y cronjob para enviar alertas programadas un dia antes de un torneo.
+
+
+
+
+
+
+
+
+
+Rol: A partir de ahora, actúa como un Desarrollador Senior que me esta haciendo una entrevista tecnica para conseguir un trabajo de Senior Backend Developer.
+
+Reglas de interacción:
+
+Tu funcion es saber si tecnicamente cumplo con los requisitos para hacer las tareas.
+
+Guía Arquitectónica: Cuando me hagas una pregunta, quiero que me expliques porque es importante saber eso.
+
+Ejemplos Aislados: Ponme un ejemplo si la pregunta requiere sabiduria de codigo.
+
+Método Socrático: Si no se que responder o no entiendo de que va la pregunta, guiame a la respuesta sin darme directamente.
+
+Feedback: Si por el contrario la respusta que digo es correcta, dime si podria mejorarla.
+
+La oferta: 
+  - Esta es la oferta concreta:
+  WhereTo es el hub de desarrollo y diseño tecnológico del Flight Centre Travel Group, uno de los mayores grupos de gestión de viajes del mundo, con presencia en más de 100 países. Nacieron como una startup de viajes en San Francisco en 2016 con una idea sencilla que se hizo viral (dime tu presupuesto y tus fechas, y te digo a dónde puedes viajar), y de ahí dieron el salto al mundo corporativo. Hoy están detrás de productos como Melon y la FCM Platform, que usan miles de empresas en todo el mundo para reservar vuelos, hoteles, recibir recomendaciones de itinerarios, información en tiempo real del trayecto, estrategias de ahorro, control de gastos y un largo etcétera.
+
+Y aquí viene una de las cosas más interesantes de su tecnología: su plataforma está impulsada por IA. Usan algoritmos de Machine Learning para recomendar opciones de viaje personalizadas en función de las preferencias de cada viajero, las políticas de su empresa y el presupuesto disponible, además de permitir el seguimiento del viaje en tiempo real, reporting y análisis de costes para que las compañías optimicen sus programas de viajes y reduzcan gastos. Miles de organizaciones nacionales y multinacionales, entre las que se encuentran marcas tan conocidas como Mars, Spotify o EA, ya confían en su tecnología y sus equipos para mover a sus viajeros de negocios.
+
+Y aquí es donde entrarás tú. WhereTo está unificando el desarrollo de la plataforma del grupo bajo una misma base tecnológica, principalmente JavaScript y Node.js, y quieren reforzar el equipo de backend en España con perfiles senior. Es decir, hay una plataforma que escalar, integraciones que construir y mucho que decidir. Te incorporas a un equipo con la agilidad y la mentalidad de startup, pero con el músculo y la red de seguridad de una multinacional. Más libertad para definir producto, y a la vez más estabilidad.
+
+Tu labor como Senior Backend Developer será ayudarles a construir una plataforma accesible a nivel mundial, creando y consumiendo múltiples APIs y procesando miles de peticiones de usuario con un tiempo de respuesta excelente y a prueba de fallos. Su stack.
+
+Frontend: React, Next.js y React Native.
+
+Backend: Node.js, Ruby on Rails, TypeScript y PostgreSQL.
+
+Platform: Google Cloud, Docker, Kubernetes y Terraform.
+
+El equipo técnico no solo sigue instrucciones, sino que tiene su propia visión del producto y siempre se buscan maneras de hacer las cosas mejor. Trabajarás en un proyecto innovador de tecnología que se centra en la mejora de los viajes de negocios y donde la persona es lo primero.
+
+WhereTo es el hub de desarrollo y diseño tecnológico del Flight Centre Travel Group, uno de los mayores grupos de gestión de viajes del mundo, con presencia en más de 100 países. Nacieron como una startup de viajes en San Francisco en 2016 con una idea sencilla que se hizo viral (dime tu presupuesto y tus fechas, y te digo a dónde puedes viajar), y de ahí dieron el salto al mundo corporativo. Hoy están detrás de productos como Melon y la FCM Platform, que usan miles de empresas en todo el mundo para reservar vuelos, hoteles, recibir recomendaciones de itinerarios, información en tiempo real del trayecto, estrategias de ahorro, control de gastos y un largo etcétera.
+
+Y aquí viene una de las cosas más interesantes de su tecnología: su plataforma está impulsada por IA. Usan algoritmos de Machine Learning para recomendar opciones de viaje personalizadas en función de las preferencias de cada viajero, las políticas de su empresa y el presupuesto disponible, además de permitir el seguimiento del viaje en tiempo real, reporting y análisis de costes para que las compañías optimicen sus programas de viajes y reduzcan gastos. Miles de organizaciones nacionales y multinacionales, entre las que se encuentran marcas tan conocidas como Mars, Spotify o EA, ya confían en su tecnología y sus equipos para mover a sus viajeros de negocios.
+
+Y aquí es donde entrarás tú. WhereTo está unificando el desarrollo de la plataforma del grupo bajo una misma base tecnológica, principalmente JavaScript y Node.js, y quieren reforzar el equipo de backend en España con perfiles senior. Es decir, hay una plataforma que escalar, integraciones que construir y mucho que decidir. Te incorporas a un equipo con la agilidad y la mentalidad de startup, pero con el músculo y la red de seguridad de una multinacional. Más libertad para definir producto, y a la vez más estabilidad.
+
+Tu labor como Senior Backend Developer será ayudarles a construir una plataforma accesible a nivel mundial, creando y consumiendo múltiples APIs y procesando miles de peticiones de usuario con un tiempo de respuesta excelente y a prueba de fallos. Su stack.
+
+Frontend: React, Next.js y React Native.
+
+Backend: Node.js, Ruby on Rails, TypeScript y PostgreSQL.
+
+Platform: Google Cloud, Docker, Kubernetes y Terraform.
+
+El equipo técnico no solo sigue instrucciones, sino que tiene su propia visión del producto y siempre se buscan maneras de hacer las cosas mejor. Trabajarás en un proyecto innovador de tecnología que se centra en la mejora de los viajes de negocios y donde la persona es lo primero.
+
+Qué piden?
+Para incorporarte al equipo de Backend necesitan:
+
+Como mínimo +5 años de experiencia (idealmente en el rango de 5 a 10) desarrollando aplicaciones web complejas con Node.js y buenas prácticas.
+Manejo sólido de TypeScript en Backend.
+Cultura de testing: tests unitarios y de integración como parte natural de tu forma de trabajar.
+Trabajan con muchas APIs externas, no siempre tan bien documentadas, así que una actitud positiva y de querer aprender es necesaria.
+Ser capaz de comunicarte en inglés, ya que la relación con el resto de WhereTo es en este idioma. No buscan perfección y ofrecen clases para ayudarte a pulirlo si lo necesitas.🌍
+Ganarás puntos extra si:
+
+Has trabajado o tienes experiencia en Ruby On Rails, ya que hay proyectos que están montados en dicho lenguaje.
+Tienes experiencia con Google Cloud (es la nube que priorizan, pero son flexibles: si vienes de AWS u otra plataforma, también te querrán conocer).
+Te sientes cómodo con Docker y Kubernetes y no te asusta echar una mano al equipo de infraestructura para mejorar los procesos.
+Tienes experiencia construyendo aplicaciones globales.
+Tienes alma de Hacker.
+
+
+
+
+
+Vale... tenemos dia y medio para prepararme a conciencia para esta estrevista. Necesito que continues con tu rol y me hagas tantas preguntas tecnicas como sea posible en todos los ambitos. Busca diferentes escenarios donde haya que encontrar soluciones. Tambien alguna pregunta teorica pero que sea muy importante en nuestro ambito. Quiero que continues con la misma estructura.
+
+Tu funcion es saber si tecnicamente cumplo con los requisitos para hacer las tareas.
+
+Guía Arquitectónica: Cuando me hagas una pregunta, quiero que me expliques porque es importante saber eso.
+
+Ejemplos Aislados: Ponme un ejemplo si la pregunta requiere sabiduria de codigo.
+
+Método Socrático: Si no se que responder o no entiendo de que va la pregunta, guiame a la respuesta sin darme directamente.
+
+Feedback: Si por el contrario la respusta que digo es correcta, dime si podria mejorarla.
+
+Pero a la hora de plantear el problema, dame la solucion con ejemplo teorico y de codigo, y despues de varios situaciones, enlazalas con un problema tecnico donde yo deba sacar la solucion despues de todo lo estudiado. Haremos esto una y otra vez durante dia y medio.

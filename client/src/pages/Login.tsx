@@ -28,6 +28,8 @@ import { notifications } from '@mantine/notifications';
 import { Capacitor } from '@capacitor/core';
 import { SocialLogin } from '@capgo/capacitor-social-login';
 
+import styles from './Login.module.css';
+
 const inputStyles = {
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -51,7 +53,8 @@ export const Login = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<string | null>('login');
-  const [loading, setLoading] = useState(false);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [isRegisterLoading, setIsRegisterLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   // Estados del formulario
@@ -64,6 +67,7 @@ export const Login = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedRole, setSelectedRole] = useState<'Player' | 'AdminClub'>('Player');
+  const [isSlowLoad, setIsSlowLoad] = useState(false);
 
   useEffect(() => {
     // Inicialización limpia multiplataforma con el nuevo plugin
@@ -87,6 +91,23 @@ export const Login = () => {
       setSearchParams({});
     }
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    if (isLoginLoading || isRegisterLoading) {
+      // Si empezamos a cargar, armamos la bomba de relojería a 5 segundos (5000 ms)
+      timeoutId = setTimeout(() => {
+        setIsSlowLoad(true);
+      }, 5000);
+    } else {
+      // Si termina de cargar antes de tiempo, desactivamos el modo lento
+      setIsSlowLoad(false);
+    }
+
+    // La limpieza: si el componente se desmonta o el estado cambia, cancelamos el timer
+    return () => clearTimeout(timeoutId);
+  }, [isLoginLoading, isRegisterLoading]);
 
   const processSuccessfulLogin = (token: string) => {
     const payloadBase64 = token.split('.')[1];
@@ -127,7 +148,7 @@ export const Login = () => {
 
   const handleRealLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
+    setIsLoginLoading(true);
     setErrorMsg('');
     try {
       const response = await api.post(ENDPOINTS.AUTH.LOGIN, { email, password });
@@ -135,7 +156,7 @@ export const Login = () => {
     } catch (error: any) {
       handleLoginError(error);
     } finally {
-      setLoading(false);
+      setIsLoginLoading(false);
     }
   };
   const resetForm = () => {
@@ -153,9 +174,13 @@ export const Login = () => {
       setErrorMsg('Las contraseñas no coinciden');
       return;
     }
-    setLoading(true);
+
+    setIsRegisterLoading(true);
     setErrorMsg('');
+    console.log('1. Empezando registro...');
+
     try {
+      console.log('2. Llamando al backend...');
       await api.post(ENDPOINTS.AUTH.REGISTER, {
         email,
         password,
@@ -165,24 +190,35 @@ export const Login = () => {
         secondSurname: secondSurname || null,
         role: selectedRole,
       });
+
+      console.log('3. Backend respondió OK. Lanzando notificación...');
       notifications.show({
-        title: 'Registrado con éxito',
+        title: 'Registrado con exito!',
         message:
           '¡Te hemos enviado un correo para verificar tu email! Si no te aparece, mira el Spam',
-        color: 'green',
+        color: 'orange',
       });
+
+      // 1. Limpiamos campos y apagamos el botón inmediatamente
       resetForm();
-      setActiveTab('login');
+      setIsRegisterLoading(false);
+
+      // 2. Le damos a React 100ms para repintar la pantalla antes de cambiar la pestaña
+      setTimeout(() => {
+        setActiveTab('login');
+      }, 100);
     } catch (error: any) {
       handleLoginError(error);
+      setIsRegisterLoading(false);
     } finally {
-      setLoading(false);
+      console.log('7. Ejecutando bloque finally de seguridad.');
+      setIsRegisterLoading(false);
     }
   };
 
   // Handler para la versión Web
   const handleGoogleSuccessWeb = async (credentialResponse: any) => {
-    setLoading(true);
+    setIsLoginLoading(true);
     setErrorMsg('');
     try {
       const response = await api.post(ENDPOINTS.AUTH.GOOGLE, {
@@ -193,13 +229,13 @@ export const Login = () => {
     } catch (error: any) {
       handleLoginError(error);
     } finally {
-      setLoading(false);
+      setIsLoginLoading(false);
     }
   };
 
   // 3. HANDLER PARA LA VERSIÓN NATIVA (iOS / Android) CORREGIDO
   const handleGoogleNativeLogin = async () => {
-    setLoading(true);
+    setIsLoginLoading(true);
     setErrorMsg('');
     try {
       // Sin 'scopes' para que use el login estándar de Google
@@ -231,7 +267,7 @@ export const Login = () => {
         setErrorMsg('Error al iniciar sesión con Google');
       }
     } finally {
-      setLoading(false);
+      setIsLoginLoading(false);
     }
   };
 
@@ -324,7 +360,7 @@ export const Login = () => {
                   styles={inputStyles}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                 />
-                <Button type="submit" fullWidth mt="xs" loading={loading} color="blue">
+                <Button type="submit" fullWidth mt="xs" loading={isLoginLoading} color="blue">
                   Iniciar Sesión
                 </Button>
               </Stack>
@@ -401,7 +437,7 @@ export const Login = () => {
                   fullWidth
                   color={selectedRole === 'AdminClub' ? 'orange' : 'green'}
                   mt="xs"
-                  loading={loading}
+                  loading={isRegisterLoading}
                 >
                   {selectedRole === 'AdminClub' ? 'Crear Cuenta de Sede' : 'Crear Cuenta Libre'}
                 </Button>
@@ -420,7 +456,7 @@ export const Login = () => {
               fullWidth
               leftSection={<IconBrandGoogle size={18} />}
               onClick={handleGoogleNativeLogin}
-              loading={loading}
+              loading={isLoginLoading}
               style={{
                 backgroundColor: '#ffffff',
                 color: '#000000',
@@ -438,6 +474,12 @@ export const Login = () => {
             />
           )}
         </Center>
+        {isSlowLoad && (
+          <Text c="orange" size="sm" ta="center" mt="md" fw={500} className={styles.animacionLenta}>
+            Despertando al servidor de la capa gratuita... <br />
+            Esto puede tardar unos 40 segundos, ¡gracias por la paciencia! ☕
+          </Text>
+        )}
       </Paper>
     </Box>
   );

@@ -12,6 +12,8 @@ import { MatchStatus, PlayerTournamentStatus, KnockoutType } from '@prisma/clien
 import { fetchTournamentBracket } from '../utils/knockout';
 import { fetchGroupMatches, fetchGroupClassifications } from '../utils/group';
 import { requireAdminClub } from '../middleware/auth.middleware';
+import { enviarCorreoGenerico } from '../services/email';
+import { templateInscripcionTorneo } from '../utils/emailtemplate';
 
 const router = Router();
 
@@ -191,6 +193,11 @@ router.put('/:id', requireAdminClub, async (req, res) => {
 router.post('/:id/register', async (req, res) => {
   try {
     const tournamentId = req.params.id;
+    const userAuth = req.user;
+
+    if (!userAuth || !userAuth.email || !userAuth.name) {
+      return res.status(401).json({ error: 'Usuario no autenticado o faltan datos' });
+    }
 
     const validation = registerParticipantSchema.safeParse(req.body);
     if (!validation.success) {
@@ -246,6 +253,12 @@ router.post('/:id/register', async (req, res) => {
         status: PlayerTournamentStatus.Pendiente,
       },
     });
+
+    enviarCorreoGenerico(
+      userAuth.email,
+      'Te has inscrito en el torneo',
+      templateInscripcionTorneo(userAuth.name, tournament),
+    ).catch(console.error);
 
     res.status(201).json({
       message: 'Jugador inscrito con éxito',

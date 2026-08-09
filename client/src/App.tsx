@@ -19,6 +19,7 @@ import { AdminPanel } from './pages/Admin/AdminPanel';
 import { Estadisticas } from './pages/Estadisticas/Estadisticas';
 import { App as CapApp } from '@capacitor/app';
 import { APP_ROUTES } from './constants/routes';
+import { useAuthStore } from './store/authStore';
 
 const isNativeApp = () => {
   return (
@@ -82,6 +83,28 @@ const CustomSplashScreen = () => {
 // Componente interno que ya vive dentro de BrowserRouter
 function AppContent() {
   const navigate = useNavigate();
+  const logout = useAuthStore((state) => state.logout);
+  const token = useAuthStore((state) => state.token);
+
+  useEffect(() => {
+    if (token) {
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const decodedPayload = JSON.parse(atob(payloadBase64));
+
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        if (decodedPayload.exp && decodedPayload.exp < currentTime) {
+          console.warn('Token caducado, cerrando sesión...');
+          logout();
+          navigate('/login');
+        }
+      } catch (e) {
+        console.error('Token inválido', e);
+        logout();
+      }
+    }
+  }, [token, navigate, logout]);
 
   useEffect(() => {
     const listener = CapApp.addListener('appUrlOpen', (data) => {
