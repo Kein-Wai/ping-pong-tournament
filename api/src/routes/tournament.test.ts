@@ -38,12 +38,12 @@ vi.mock('../../src/db', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: vi.fn((req: any, res: any, next: any) => {
-    req.user = { id: 'user-id-123', role: 'SuperAdmin' };
+    req.user = { id: 'user-id-123', email: 'test@test.com', name: 'Test', role: 'SuperAdmin' };
     next();
   }),
   requireSuperAdmin: vi.fn((req: any, res: any, next: any) => next()),
   requireAdminClub: vi.fn((req: any, res: any, next: any) => {
-    req.user = { id: 'user-id-123', role: 'SuperAdmin' };
+    req.user = { id: 'user-id-123', email: 'test@test.com', name: 'Test', role: 'SuperAdmin' };
     next();
   }),
 }));

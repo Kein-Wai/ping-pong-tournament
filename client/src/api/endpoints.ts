@@ -40,4 +40,20 @@ export const ENDPOINTS = {
     BASE: '/matches',
     BY_ID: (id: string) => `/matches/${id}`,
   },
+  EXERCISES: {
+    BASE: '/exercises',
+  },
+  TRAININGS: {
+    BASE: '/trainings',
+    SESSIONS: (sessionId: string) => `/trainings/sessions/${sessionId}/exercises`,
+    DELETE_EXERCISE: (sessionExerciseId: string) =>
+      `/trainings/sessions/exercises/${sessionExerciseId}`,
+    CLONE_SESSION: (targetId: string, sourceId: string) =>
+      `/trainings/sessions/${targetId}/clone-from/${sourceId}`,
+    BY_PLAYER: (playerId: string) => `/trainings/player/${playerId}`,
+    UPDATE_EXERCISE: (sessionExerciseId: string) =>
+      `/trainings/sessions/exercises/${sessionExerciseId}`,
+    DELETE_PLAN: (planId: string) => `/trainings/${planId}`,
+    SESSION_DETAILS: (sessionId: string) => `/trainings/sessions/${sessionId}`,
+  },
 } as const;

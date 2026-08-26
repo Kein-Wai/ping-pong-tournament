@@ -15,6 +15,10 @@ vi.mock('bcryptjs', () => ({
   default: { compare: vi.fn(), hash: vi.fn() },
 }));
 
+vi.mock('../../src/services/email', () => ({
+  enviarCorreoGenerico: vi.fn().mockResolvedValue(true),
+}));
+
 const { mockVerifyIdToken } = vi.hoisted(() => ({
   mockVerifyIdToken: vi.fn(),
 }));
@@ -33,6 +37,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
     password: 'hashed-password',
     authProvider: 'LOCAL',
     userType: { name: 'Player' },
+    active: true,
   };
 
   beforeEach(() => {
@@ -70,7 +75,6 @@ describe('Rutas de Autenticación (/api/auth)', () => {
       const response = await request(app).post('/api/auth/register').send(registerPayload);
 
       expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('token');
       expect(response.body.message).toBe('Jugador registrado con éxito');
     });
   });

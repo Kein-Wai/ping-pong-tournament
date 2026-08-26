@@ -24,6 +24,7 @@ import {
   IconMoon,
   IconBuildingCommunity,
   IconUser,
+  IconBook,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes'; // 👈 IMPORTADO
@@ -81,6 +82,12 @@ export const MainLayout = () => {
   }
 
   // Pestañas de gestión exclusivas
+
+  if (isAdminClub || isSuperAdmin) {
+    // Añadimos la pestaña de ejercicios
+    navItems.push({ label: 'Ejercicios', icon: IconBook, path: APP_ROUTES.EJERCICIOS.LIST });
+  }
+
   if (isAdminClub) {
     navItems.push({ label: 'Mi Club', icon: IconBuildingCommunity, path: APP_ROUTES.MI_CLUB });
   }

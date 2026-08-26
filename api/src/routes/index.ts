@@ -4,6 +4,9 @@ import userRoutes from './user';
 import authRoutes from './auth';
 import matchRoutes from './match';
 import tournamentRoutes from './tournament';
+import exerciseRoutes from './exercise';
+import trainingRoutes from './training';
+import webhookRoutes from './webhook';
 import clubRoutes from './club';
 import { verifyToken } from '../middleware/auth.middleware';
 import { enviarCorreoGenerico } from '../services/email';
@@ -16,6 +19,10 @@ router.use('/user-types', verifyToken, userTypeRoutes);
 router.use('/users', verifyToken, userRoutes);
 router.use('/matches', verifyToken, matchRoutes);
 router.use('/tournaments', verifyToken, tournamentRoutes);
+router.use('/exercises', verifyToken, exerciseRoutes);
+router.use('/trainings', verifyToken, trainingRoutes);
+
+router.use('/webhooks', webhookRoutes);
 // router.get('/test-email', async (req, res) => {
 //   try {
 //     await enviarCorreoGenerico('keinwaicheung@gmail.com', 'Email Test', '<h1>ESTO ES UN TEST</h1>');

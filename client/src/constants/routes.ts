@@ -27,4 +27,18 @@ export const APP_ROUTES = {
     DETAILS_PATH: '/torneos/:id', // 👈 Usado en App.tsx
     DETAILS: (id: string | number) => `/torneos/${id}`, // 👈 Usado en los navigate()
   },
+  EJERCICIOS: {
+    LIST: '/ejercicios',
+    NEW: '/ejercicios/nuevo',
+  },
+  ENTRENAMIENTOS: {
+    NEW_PATH: '/jugadores/:playerId/plan-nuevo',
+    NEW: (playerId: string) => `/jugadores/${playerId}/plan-nuevo`,
+
+    DETAILS_PATH: '/entrenamientos/:planId',
+    DETAILS: (planId: string) => `/entrenamientos/${planId}`,
+
+    SESSION_PATH: '/entrenamientos/sesion/:sessionId',
+    SESSION: (sessionId: string) => `/entrenamientos/sesion/${sessionId}`,
+  },
 } as const;

@@ -17,6 +17,11 @@ import { ClubSetup } from './pages/Clubs/ClubSetup';
 import { MiClub } from './pages/Clubs/MiClub';
 import { AdminPanel } from './pages/Admin/AdminPanel';
 import { Estadisticas } from './pages/Estadisticas/Estadisticas';
+import { Ejercicios } from './pages/Ejercicios/Ejercicios';
+import { EjercicioNuevo } from './pages/Ejercicios/EjercicioNuevo';
+import { PlanNuevo } from './pages/Entrenamientos/PlanNuevo';
+import { PlanDetalles } from './pages/Entrenamientos/PlanDetalles';
+import { SessionDetalles } from './pages/Entrenamientos/SessionDetalles';
 import { App as CapApp } from '@capacitor/app';
 import { APP_ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
@@ -150,6 +155,15 @@ function AppContent() {
 
                 <Route path={APP_ROUTES.MI_CLUB} element={<MiClub />} />
                 <Route path={APP_ROUTES.ADMIN_PANEL} element={<AdminPanel />} />
+
+                <Route path={APP_ROUTES.EJERCICIOS.LIST} element={<Ejercicios />} />
+                <Route path={APP_ROUTES.EJERCICIOS.NEW} element={<EjercicioNuevo />} />
+                <Route path={APP_ROUTES.ENTRENAMIENTOS.NEW_PATH} element={<PlanNuevo />} />
+                <Route path={APP_ROUTES.ENTRENAMIENTOS.DETAILS_PATH} element={<PlanDetalles />} />
+                <Route
+                  path={APP_ROUTES.ENTRENAMIENTOS.SESSION_PATH}
+                  element={<SessionDetalles />}
+                />
               </Route>
             </Route>
           </Route>

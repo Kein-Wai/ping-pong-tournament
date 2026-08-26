@@ -30,6 +30,7 @@ services:
     environment:
       - PORT=3000
       - DATABASE_URL=postgresql://pingpong_admin:supersecretpassword@db:5432/pingpong_db?schema=public
+      - CRON_SECRET=keintttournament_app_secreto_diario_2026wai
 
   client:
     build: ./client

@@ -11,6 +11,363 @@ const prisma = new PrismaClient();
 const BYE_USER_ID = '00000000-0000-0000-0000-000000000000';
 const TBD_USER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
+const EJERCICIOS_BASE = [
+  // 1. Control de contra top spin (CT)
+  { code: '11', category: 'Control_CT', description: 'Contra top spin de drive, (CT de D)' },
+  { code: '12', category: 'Control_CT', description: 'Contra top spin de revés, (CT de R)' },
+  {
+    code: '13',
+    category: 'Control_CT',
+    description:
+      'Contra top spin comenzando de PD a PD cruzado y luego ir cambiando de a poco hasta terminar de PR a PR',
+  },
+  {
+    code: '14',
+    category: 'Control_CT',
+    description: 'B Servicio corto, A recibe intermedio, B Ataca Medio Derecha y A CT Libre',
+  },
+  {
+    code: '15',
+    category: 'Control_CT',
+    description: 'Contra top spin, B CT de D tira una a cada lado y A un CT de D y un CT de R',
+  },
+  {
+    code: '16',
+    category: 'Control_CT',
+    description: 'Contra topspin medio a medio hasta que te abren a la derecha, A CT paralelo',
+  },
+
+  // 2. Ejercicios de bloqueos y contraataque
+  {
+    code: '21',
+    category: 'Bloqueo_Contraataque',
+    description: '2 Pelotas: Jug B Topea una a cada lado, Jug A bloquea a mismo lado',
+  },
+  {
+    code: '22',
+    category: 'Bloqueo_Contraataque',
+    description: '2 Pelotas: Jug B Topea una a cada lado, Jug A bloquea una a cada lado',
+  },
+  {
+    code: '23',
+    category: 'Bloqueo_Contraataque',
+    description: '3 Pelotas: Jug B Topea dos al medio y una a cualquiera de las dos puntas',
+  },
+  {
+    code: '24',
+    category: 'Bloqueo_Contraataque',
+    description: '4 Pelotas: Jug B topea una o dos cada lado, Jug A bloquea al mismo lado',
+  },
+  {
+    code: '25',
+    category: 'Bloqueo_Contraataque',
+    description:
+      'Con servicio y Recepción: Jug A saca largo o intermedio, Jug B ataca libre, Jug A bloquea o contraataataca',
+  },
+  {
+    code: '26',
+    category: 'Bloqueo_Contraataque',
+    description: 'A Bloqueo cruzado y cuando quiere bloquea paralelo, sigue libre B.',
+  },
+  {
+    code: '27',
+    category: 'Bloqueo_Contraataque',
+    description: 'B topea medio reves libre, A bloquea, cuando B tira a la derecha A contraataca',
+  },
+  {
+    code: '28',
+    category: 'Bloqueo_Contraataque',
+    description:
+      'A saca corto al R de B, B flip de reves cruzado, A bloquea 2 suaves, 1 con mas velocidad.',
+  },
+  { code: '29', category: 'Bloqueo_Contraataque', description: 'Bloqueo Libre' },
+
+  // 3. Movilidad lateral
+  { code: '31', category: 'Movilidad_Lateral', description: 'Drive, Medio, Drive, Revés' },
+  { code: '32', category: 'Movilidad_Lateral', description: 'Revés, Medio, Revés, Derecha' },
+  {
+    code: '33',
+    category: 'Movilidad_Lateral',
+    description: 'Drive, Medio, Revés, Medio, Cualquiera de las dos puntas, vuelve a empezar',
+  },
+  { code: '34', category: 'Movilidad_Lateral', description: 'Dos revés, medio, derecha' },
+  {
+    code: '35',
+    category: 'Movilidad_Lateral',
+    description:
+      'Dos Revés cerca, dos Revés media distancia, Dos derecha cerca, dos Derecha media distancia',
+  },
+
+  // 4. Movilidad de Pivot
+  { code: '41', category: 'Movilidad_Pivot', description: 'Dos Revés, Dos pivot' },
+  { code: '42', category: 'Movilidad_Pivot', description: 'Revés, Medio, Pivot' },
+  { code: '43', category: 'Movilidad_Pivot', description: 'Drive, Medio, Revés, Pivot' },
+  { code: '44', category: 'Movilidad_Pivot', description: '3/4 de Pivot fijo' },
+  {
+    code: '45',
+    category: 'Movilidad_Pivot',
+    description: 'Jug A Saca, Jug B recibe al revés, Jug A pivot Cruzado',
+  },
+  {
+    code: '46',
+    category: 'Movilidad_Pivot',
+    description: 'Jug A Saca, Jug B recibe al revés, Jug A pivot paralelo',
+  },
+  { code: '47', category: 'Movilidad_Pivot', description: 'Revés, Medio, Pivot, Derecha' },
+  { code: '48', category: 'Movilidad_Pivot', description: 'Drive, Medio, Pivot, vuelve a empezar' },
+
+  // 5. SEMI-VARIABLES
+  { code: '51', category: 'Semi_Variables', description: 'Dos Revés, una o dos a la derecha' },
+  { code: '52', category: 'Semi_Variables', description: 'Dos Derecha, una o dos al Revés' },
+  {
+    code: '53',
+    category: 'Semi_Variables',
+    description: '3/4 de pivot hasta que abren a la derecha',
+  },
+  {
+    code: '54',
+    category: 'Semi_Variables',
+    description:
+      'Dos revés, una a la derecha, un par de pelotas de revés hasta que B abre a la derecha',
+  },
+  {
+    code: '55',
+    category: 'Semi_Variables',
+    description: 'Una al medio y una a cualquiera de las dos puntas',
+  },
+  { code: '56', category: 'Semi_Variables', description: 'Atacar todo al revés o derecha' },
+  { code: '57', category: 'Semi_Variables', description: '3/4 de Derecha' },
+
+  // 6. Recepción con FLIP DE REVES
+  {
+    code: '61',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B Saque al reves o ME luego BL una a la PD y una a PR, A recepción con flip al R y luego T de D y T de R',
+  },
+  {
+    code: '62',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B Saque 3/4 y luego 2 BL a PR y 1 a PD, A recep con Flip de R y luego R, D y D o R R D',
+  },
+  {
+    code: '63',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B- saque 3/4 de la mesa y luego bloqueo 3/4, A - Recepción flip de R y luego T D a PR',
+  },
+  {
+    code: '64',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B- Saque 3/4 de la mesa y luego CT de D, A -Rece con Flip de R al D y luego CT de D',
+  },
+  {
+    code: '65',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B- Saque 3/4, A- Rece con flip de R a la PR y luego Pivot ataque fuerte paralelo o medio (puede ser revés o pivot)',
+  },
+  {
+    code: '66',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B-Saque 3/4 - A Recibe con flip a Punta Derecha, B toquea medio o derecha, A Contratopsin libre',
+  },
+  {
+    code: '67',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B-Saque 3/4 - A Recibe con flip a Punta REVES, Un par de reves libre hasta que te abren a la derecha',
+  },
+
+  // 7. RECEPCIONES CORTAS
+  {
+    code: '71',
+    category: 'Recepciones_Cortas',
+    description:
+      'B- Saque corto LI, A recepción al R corto, B corte de R al D de A y top de D continuo cruzado.',
+  },
+  {
+    code: '72',
+    category: 'Recepciones_Cortas',
+    description: 'B Saque corto LI, A recepción corta al D, B tercera pelota corta o larga LI',
+  },
+  {
+    code: '73',
+    category: 'Recepciones_Cortas',
+    description: 'B saque corto LI, A recepción corta LI, B tercera pelota LI, A punto libre',
+  },
+  {
+    code: '74',
+    category: 'Recepciones_Cortas',
+    description: 'B Saque corto LI, A Recepcion Corta Libre, B tira largo libre, A Ataca libre',
+  },
+
+  // 8. RECEPCIONES LARGAS
+  {
+    code: '81',
+    category: 'Recepciones_Largas',
+    description: 'B- Saque corto LI, A- recepción larga PD, B- T de D cruzado, A- CT de D',
+  },
+  {
+    code: '82',
+    category: 'Recepciones_Largas',
+    description: 'B- Saque corto LI, A- recepción larga PR, B- T de R cruzado, A- BL de R L',
+  },
+  {
+    code: '83',
+    category: 'Recepciones_Largas',
+    description:
+      'B- Saque corto LI, A- recepción larga PR, B- T de D de Pivote o revés cruzado, B- BL de R L',
+  },
+  {
+    code: '84',
+    category: 'Recepciones_Largas',
+    description: 'B- Saque corto LI, A- recepción larga LI, B- T de D o R LI, A- BL o CT',
+  },
+
+  // 9. RECEPCIONES CORTAS O LARGAS
+  {
+    code: '91',
+    category: 'Recepciones_Cortas_Largas',
+    description:
+      'B- Saque corto LI, A- rec Corta LI o Larga PD, B- si va corta LI y si va larga PD hacer TD cruzado, A CT de D LI',
+  },
+  {
+    code: '92',
+    category: 'Recepciones_Cortas_Largas',
+    description:
+      'B- Saque corto LI, A- rec corta LI o Larga PR, B- si va corta LI y si va larga PR hacer TR cruzado, A Bloqueo LI',
+  },
+  {
+    code: '93',
+    category: 'Recepciones_Cortas_Largas',
+    description:
+      'B-Saque corto LI, A-rec Corta LI o larga o intermedia al ME, B si va corto LI y si sale al ME TD, A CT LI o Bloqueo LI',
+  },
+
+  // 10. RECEPCIONAR saques intermedios
+  {
+    code: '101',
+    category: 'Recepcion_Saques_Intermedios',
+    description:
+      'B- Saque corto o un poco largo al D o ME, A- si va corto vuelve a dejar corto, si va un poco largo TD LI',
+  },
+  {
+    code: '102',
+    category: 'Recepcion_Saques_Intermedios',
+    description:
+      'B- Saque corto o un poco largo al D o ME, A- si va corto deja Largo al LI, si va largo TD LI',
+  },
+
+  // 11. SACAR O RECIBIR Saques Largos
+  {
+    code: '111',
+    category: 'Saques_Largos',
+    description: 'B- Saque Largo a PR, A- Recepción con TR a PR, B- CT de pivot o revés',
+  },
+  {
+    code: '112',
+    category: 'Saques_Largos',
+    description: 'B Saque LI y que salga poco de la mesa, A- TD al ME, B - CT de D LI',
+  },
+
+  // 12. Servicios para atacar
+  {
+    code: '121',
+    category: 'Servicios_Ataque',
+    description: 'A Servicio Corto, B recibe Libre, A ataca libre',
+  },
+  {
+    code: '122',
+    category: 'Servicios_Ataque',
+    description:
+      'A Servicio Corto, B Recibe Corto libre, A Flip al PR, B bloquea o ataca al medio revés, A CT',
+  },
+  {
+    code: '123',
+    category: 'Servicios_Ataque',
+    description:
+      'A Servicio Corto, B recibe corto Libre o Largo al revés, A ataca Cruzado y luego Pivot (o fuerte revés)',
+  },
+  {
+    code: '124',
+    category: 'Servicios_Ataque',
+    description: 'A Servicio Corto o intermedio, B ataca, A contraataque',
+  },
+  {
+    code: '125',
+    category: 'Servicios_Ataque',
+    description: 'A servicio Corto o largo para contratacar',
+  },
+  {
+    code: '126',
+    category: 'Servicios_Ataque',
+    description:
+      'A servicio principal para jugada para atacar y mantener el ataque (saque cortado y apertura de reves)',
+  },
+  {
+    code: '127',
+    category: 'Servicios_Ataque',
+    description:
+      'A Servicio Corto, B recibe corto o largo al revés, A ataca todo al revés, B bloquea 3/4 sobre el revés hasta que abre',
+  },
+  {
+    code: '128',
+    category: 'Servicios_Ataque',
+    description:
+      'A servicio corto, B recibe corto a cualquier lado o largo a la derecha (medio), A ataca 3/4 sobre el revés hasta que abren',
+  },
+  {
+    code: '129',
+    category: 'Servicios_Ataque',
+    description: 'A Servicio Corto, B Recibe al revés, A Pivot fuerte al medio',
+  },
+
+  // 13. Ejercicios individuales
+  {
+    code: '131',
+    category: 'Individuales',
+    description: 'B servicio corto al reves. A Flip, luego a elección (de acuerdo al jugador)',
+  },
+  {
+    code: '132',
+    category: 'Individuales',
+    description: 'B servicio corto a la derecha. A Flip, luego a elección (de acuerdo al jugador)',
+  },
+  {
+    code: '133',
+    category: 'Individuales',
+    description:
+      'B Servicio Corto a la derecha. B tira largo al revés, luego a eleccion (de acuerdo al jugador)',
+  },
+  {
+    code: '134',
+    category: 'Individuales',
+    description: 'B Servicio Corto o intermedio a la derecha, luego libre',
+  },
+  {
+    code: '135',
+    category: 'Individuales',
+    description: 'B Servicio Corto a la derecha o largo al revés, tira todo al revés de B',
+  },
+  {
+    code: '136',
+    category: 'Individuales',
+    description:
+      'A Servicio, B tira largo al revés o al medio, A Ataca todo paralelo hasta que abre cruzado (para zurdos)',
+  },
+  { code: '137', category: 'Individuales', description: 'B servicio largo, A ataca todo al revés' },
+  {
+    code: '138',
+    category: 'Individuales',
+    description:
+      'A Servicio Corto, B recibe largo a cualquiera de las dos puntas, A ataca paralelo y luego cruzado',
+  },
+];
+
 async function main() {
   console.log('🧹 Limpiando datos de torneos y clubes anteriores para evitar duplicados...');
   await prisma.match.deleteMany();
@@ -26,6 +383,25 @@ async function main() {
   await prisma.user.deleteMany();
 
   await prisma.club.deleteMany();
+
+  console.log('📚 Generando Catálogo Global de Ejercicios...');
+
+  // Borramos los viejos para evitar duplicados al re-ejecutar el seed
+  await prisma.sessionExercise.deleteMany();
+  await prisma.trainingSession.deleteMany();
+  await prisma.playerTraining.deleteMany();
+  await prisma.exercise.deleteMany();
+
+  // Insertamos todo el catálogo (dejamos clubId en null para que sean "Globales" a todos los clubes)
+  await prisma.exercise.createMany({
+    data: EJERCICIOS_BASE.map((ej) => ({
+      name: `Ejercicio ${ej.code}`,
+      category: ej.category as any, // TypeScript/Prisma casting
+      description: ej.description,
+      clubId: null,
+    })),
+  });
+  console.log(`✅ ${EJERCICIOS_BASE.length} ejercicios creados en el catálogo.`);
 
   console.log('🌱 Iniciando el proceso de Seed Multi-tenant...');
 

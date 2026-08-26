@@ -17,7 +17,8 @@ import {
   Table,
   ScrollArea,
   Modal,
-  TextInput, // 👈 Añadido para el formulario
+  TextInput,
+  ActionIcon, // 👈 Añadido para el formulario
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -26,13 +27,17 @@ import {
   IconChartBar,
   IconMathSymbols,
   IconHistory,
-  IconEdit, // 👈 Añadido icono
+  IconEdit,
+  IconClipboardList,
+  IconTrash, // 👈 Añadido icono
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
 import { getPlayerAvatar } from '../../utils/avatar';
+
+import { openAppConfirmModal } from '../../utils/modals';
 
 interface UserProfile {
   id: string;
@@ -68,7 +73,11 @@ export const JugadorPerfil = () => {
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState({ name: '', surname: '', nickname: '', avatarUrl: '' });
 
+  const [trainings, setTrainings] = useState<any[]>([]);
+
   const isOwnProfile = currentUser?.id === id;
+  const isAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === 'AdminClub';
+  const canViewTrainings = isOwnProfile || isAdmin;
 
   const fetchPlayerInfo = async () => {
     try {
@@ -90,6 +99,11 @@ export const JugadorPerfil = () => {
         );
 
       setRecentMatches(userMatches.slice(0, 10));
+
+      if (isOwnProfile || currentUser?.role === 'AdminClub' || currentUser?.role === 'SuperAdmin') {
+        const trainRes = await api.get(ENDPOINTS.TRAININGS.BY_PLAYER(id!));
+        setTrainings(trainRes.data.data);
+      }
     } catch (error) {
       console.error('Error cargando perfil del jugador:', error);
     } finally {
@@ -130,6 +144,27 @@ export const JugadorPerfil = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeletePlan = (planId: string) => {
+    openAppConfirmModal({
+      title: 'Eliminar Plan de Entrenamiento',
+      icon: <IconTrash size={18} />,
+      color: 'red',
+      description:
+        '¿Estás seguro de que deseas eliminar este plan completo? Se borrarán todas sus sesiones y ejercicios.',
+      highlightText: 'Esta acción no se puede deshacer',
+      confirmLabel: 'Sí, eliminar plan',
+      onConfirm: async () => {
+        try {
+          await api.delete(ENDPOINTS.TRAININGS.DELETE_PLAN(planId));
+          // Recargamos el perfil para que el plan desaparezca
+          await fetchPlayerInfo();
+        } catch (error) {
+          console.error('Error al eliminar el plan:', error);
+        }
+      },
+    });
   };
 
   if (loading) {
@@ -200,16 +235,18 @@ export const JugadorPerfil = () => {
           </Group>
 
           {/* Botón condicional si eres el dueño de la cuenta */}
-          {isOwnProfile && (
-            <Button
-              variant="light"
-              color="blue"
-              leftSection={<IconEdit size={16} />}
-              onClick={handleOpenEdit}
-            >
-              Editar Perfil
-            </Button>
-          )}
+          <Stack align="flex-end">
+            {isOwnProfile && (
+              <Button
+                variant="light"
+                color="blue"
+                leftSection={<IconEdit size={16} />}
+                onClick={handleOpenEdit}
+              >
+                Editar Perfil
+              </Button>
+            )}
+          </Stack>
         </Group>
       </Card>
 
@@ -397,6 +434,67 @@ export const JugadorPerfil = () => {
           </Table>
         </ScrollArea>
       </Card>
+      {canViewTrainings && (
+        <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
+          <Group justify="space-between" mb="md">
+            <Group gap="sm">
+              <IconClipboardList size={20} color="var(--mantine-color-orange-6)" />
+              <Title order={4}>Planes de Entrenamiento</Title>
+            </Group>
+            {isAdmin && (
+              <Button
+                size="xs"
+                color="orange"
+                onClick={() => navigate(APP_ROUTES.ENTRENAMIENTOS.NEW(player.id))}
+              >
+                + Crear Plan
+              </Button>
+            )}
+          </Group>
+
+          {trainings.length === 0 ? (
+            <Center py="md">
+              <Text c="dimmed">No hay planes de entrenamiento asignados.</Text>
+            </Center>
+          ) : (
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              {trainings.map((plan) => (
+                <Card key={plan.id} withBorder shadow="sm" radius="md" p="md">
+                  <Group justify="space-between" mb="xs" align="flex-start">
+                    <Text fw={700}>Plan de {plan.weeks} Semanas</Text>
+                    <Group gap="xs">
+                      <Badge color="orange" variant="light">
+                        {plan._count?.sessions || 0} Sesiones
+                      </Badge>
+                      {isAdmin && (
+                        <ActionIcon
+                          color="red"
+                          variant="subtle"
+                          size="sm"
+                          onClick={() => handleDeletePlan(plan.id)}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      )}
+                    </Group>
+                  </Group>
+                  <Text size="sm" c="dimmed" mb="md">
+                    Inicio: {new Date(plan.startDate).toLocaleDateString('es-ES')}
+                  </Text>
+                  <Button
+                    variant="light"
+                    color="blue"
+                    fullWidth
+                    onClick={() => navigate(APP_ROUTES.ENTRENAMIENTOS.DETAILS(plan.id))}
+                  >
+                    Ver Macrociclo
+                  </Button>
+                </Card>
+              ))}
+            </SimpleGrid>
+          )}
+        </Card>
+      )}
 
       {/* MODAL DE EDICIÓN */}
       <Modal

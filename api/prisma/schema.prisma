@@ -1,11 +1,33 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
+}
+
+enum ExerciseCategory {
+  Control_CT
+  Bloqueo_Contraataque
+  Movilidad_Lateral
+  Movilidad_Pivot
+  Semi_Variables
+  Recepcion_Flip_Reves
+  Recepciones_Cortas
+  Recepciones_Largas
+  Recepciones_Cortas_Largas
+  Recepcion_Saques_Intermedios
+  Saques_Largos
+  Servicios_Ataque
+  Individuales
+}
+
+enum TrainingStatus {
+  Activo
+  Completado
+  Cancelado
 }
 
 enum TypeUser {
@@ -15,8 +37,8 @@ enum TypeUser {
 }
 
 model UserType {
-  id    String @id @default(uuid())
-  name  TypeUser @unique 
+  id    String   @id @default(uuid())
+  name  TypeUser @unique
   users User[]
 
   @@map("user_type")
@@ -71,6 +93,7 @@ enum Rounds {
   GruposKnockout
   Knockout
 }
+
 enum RoundKnockouts {
   R128avos
   R64avos
@@ -98,220 +121,286 @@ enum SortGroups {
 }
 
 enum ClubStatus {
-  Pendiente  // Esperando que el SuperAdmin lo apruebe
-  Aprobado   // El club ya puede operar
-  Inactivo   // Bloqueado (ej: por mal uso)
+  Pendiente // Esperando que el SuperAdmin lo apruebe
+  Aprobado // El club ya puede operar
+  Inactivo // Bloqueado (ej: por mal uso)
 }
 
 enum UserClubStatus {
   Registrado // Usuario que acaba de entrar con Google y aún no ha pedido unirse a nada
-  Pendiente  // Ha solicitado unirse a un club y espera al AdminClub
-  Aprobado   // Es miembro de pleno derecho
-  Rechazado  // No le han dejado entrar
+  Pendiente // Ha solicitado unirse a un club y espera al AdminClub
+  Aprobado // Es miembro de pleno derecho
+  Rechazado // No le han dejado entrar
 }
 
 model Club {
-  id          String     @id @default(uuid())
-  name        String     @unique @db.VarChar(255)
-  status      ClubStatus @default(Pendiente)
-  
-  city            String         @db.VarChar(255) // Obligatorio
-  address         String?        @db.VarChar(255) // Opcional
-  foundedAt       DateTime?      @map("founded_at") // Opcional (Fecha de fundación)
+  id     String     @id @default(uuid())
+  name   String     @unique @db.VarChar(255)
+  status ClubStatus @default(Pendiente)
 
-  createdAt   DateTime   @default(now()) @map("created_at")
+  city      String    @db.VarChar(255) // Obligatorio
+  address   String?   @db.VarChar(255) // Opcional
+  foundedAt DateTime? @map("founded_at") // Opcional (Fecha de fundación)
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Relaciones
   users       User[]
   tournaments Tournament[]
   leagues     League[]
+  exercises   Exercise[]
+
   @@map("club")
 }
 
-
 model User {
-  id              String   @id @default(uuid())
-  userTypeId      String   @map("user_type_id")
+  id         String @id @default(uuid())
+  userTypeId String @map("user_type_id")
 
-  clubId          String?  @map("club_id")
-  clubStatus      UserClubStatus? @default(Registrado) @map("club_status")
-  name            String   @db.VarChar(255)
-  surname         String?  @db.VarChar(255)
-  password        String?  
-  authProvider    String   @default("LOCAL")
-  googleId        String?  @unique
-  secondSurname   String?  @map("secondsurname") @db.VarChar(255)
-  nickname        String?  @db.VarChar(255)
-  avatarUrl       String?
-  email           String   @unique @db.VarChar(255)
-  verificationToken String? @db.VarChar(255)
-  active          Boolean  @default(false)
-  
+  clubId            String?         @map("club_id")
+  clubStatus        UserClubStatus? @default(Registrado) @map("club_status")
+  name              String          @db.VarChar(255)
+  surname           String?         @db.VarChar(255)
+  password          String?
+  authProvider      String          @default("LOCAL")
+  googleId          String?         @unique
+  secondSurname     String?         @map("secondsurname") @db.VarChar(255)
+  nickname          String?         @db.VarChar(255)
+  avatarUrl         String?
+  email             String          @unique @db.VarChar(255)
+  verificationToken String?         @db.VarChar(255)
+  active            Boolean         @default(false)
+
   // Relaciones
-  club            Club?    @relation(fields: [clubId], references: [id])
-  userType        UserType @relation(fields: [userTypeId], references: [id])
-  stats           Stats?
-  matchesAsPlayerOne Match[] @relation("PlayerOne")
-  matchesAsPlayerTwo Match[] @relation("PlayerTwo")
-  groupClasifications TournamentGroupClas[]
-  leagueClasifications LeagueClas[]
-  tournamentInscriptions TournamentParticipant[]
+  club                          Club?                   @relation(fields: [clubId], references: [id])
+  userType                      UserType                @relation(fields: [userTypeId], references: [id])
+  stats                         Stats?
+  matchesAsPlayerOne            Match[]                 @relation("PlayerOne")
+  matchesAsPlayerTwo            Match[]                 @relation("PlayerTwo")
+  groupClasifications           TournamentGroupClas[]
+  leagueClasifications          LeagueClas[]
+  tournamentInscriptions        TournamentParticipant[]
   tournamentgroupClasifications TournamentClas[]
+  trainings                     PlayerTraining[]
 
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
+}
+
+model Exercise {
+  id          String           @id @default(uuid())
+  clubId      String?          @map("club_id") // Opcional, por si haces ejercicios globales
+  name        String           @db.VarChar(255)
+  description String           @db.Text
+  category    ExerciseCategory
+  code        Int?
+
+  // Relaciones
+  club     Club?             @relation(fields: [clubId], references: [id])
+  sessions SessionExercise[] // Un ejercicio puede estar en muchas sesiones
+
+  @@map("exercise")
+}
+
+model PlayerTraining {
+  id              String         @id @default(uuid())
+  playerId        String         @map("player_id")
+  strengths       String         @db.Text
+  weaknesses      String         @db.Text
+  objectives      String         @db.Text
+  sessionsPerWeek Int            @map("sessions_per_week")
+  weeks           Int
+  status          TrainingStatus @default(Activo)
+  startDate       DateTime       @map("start_date") @db.Date
+  endDate         DateTime?      @map("end_date") @db.Date // Opcional hasta que se calcule/termine
+
+  // Relaciones
+  player   User              @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  sessions TrainingSession[]
+
+  @@map("player_training")
+}
+
+model TrainingSession {
+  id               String   @id @default(uuid())
+  playerTrainingId String   @map("player_training_id")
+  date             DateTime @db.Date
+
+  // Relaciones
+  training  PlayerTraining    @relation(fields: [playerTrainingId], references: [id], onDelete: Cascade)
+  exercises SessionExercise[]
+
+  @@map("training_session")
+}
+
+model SessionExercise {
+  id                String @id @default(uuid())
+  trainingSessionId String @map("training_session_id")
+  exerciseId        String @map("exercise_id")
+
+  // Metadatos de esta ejecución específica
+  sets            Int? // Series
+  reps            Int? // Repeticiones
+  durationMinutes Int? // Por si es físico (ej: 15 min de carrera)
+  completed       Boolean @default(false) // Para que el jugador marque el check
+  notes           String? @db.Text // Feedback del jugador tras hacerlo
+
+  // Relaciones
+  session  TrainingSession @relation(fields: [trainingSessionId], references: [id], onDelete: Cascade)
+  exercise Exercise        @relation(fields: [exerciseId], references: [id])
+
+  @@map("session_exercise")
 }
 
 model Stats {
   id             String @id @default(uuid())
   userId         String @unique @map("user_id")
   elo            Int?   @default(500)
-  matchWon       Int?  @map("match_won")
-  matchLost      Int?  @map("match_lost")
-  setWon         Int?  @map("set_won")
-  setLost        Int?  @map("set_lost")
-  pointWon       Int?  @map("point_won")
-  pointLost      Int?  @map("point_lost")
-  tournamentWon  Int?  @map("tournament_won")
-  tournamentLost Int?  @map("tournament_lost")
-  
+  matchWon       Int?   @map("match_won")
+  matchLost      Int?   @map("match_lost")
+  setWon         Int?   @map("set_won")
+  setLost        Int?   @map("set_lost")
+  pointWon       Int?   @map("point_won")
+  pointLost      Int?   @map("point_lost")
+  tournamentWon  Int?   @map("tournament_won")
+  tournamentLost Int?   @map("tournament_lost")
+
   // Relaciones
-  user           User  @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@map("stats")
 }
 
 model Match {
-  id               String             @id @default(uuid())
-  dateStart        DateTime           @map("datestart") @db.Date
-  tournamentId     String?            @map("tournament_id")
-  groupId          String?            @map("group_id")
-  knockoutId       String?            @map("knockout_id")
-  leagueId         String?            @map("league_id")
-  matchOrder       Int?               @default(0) @map("match_order")
-  playerOneId      String             @map("player_one")
-  playerTwoId      String             @map("player_two")
-  
+  id           String   @id @default(uuid())
+  dateStart    DateTime @map("datestart") @db.Date
+  tournamentId String?  @map("tournament_id")
+  groupId      String?  @map("group_id")
+  knockoutId   String?  @map("knockout_id")
+  leagueId     String?  @map("league_id")
+  matchOrder   Int?     @default(0) @map("match_order")
+  playerOneId  String   @map("player_one")
+  playerTwoId  String   @map("player_two")
+
   // Marcadores de sets
-  setOnePlayerOne   Int?            @default(0) @map("set_one_player_one")
-  setOnePlayerTwo   Int?            @default(0) @map("set_one_player_two")
-  setTwoPlayerOne   Int?            @default(0) @map("set_two_player_one")
-  setTwoPlayerTwo   Int?            @default(0) @map("set_two_player_two")
-  setThreePlayerOne Int?            @default(0) @map("set_three_player_one")
-  setThreePlayerTwo Int?            @default(0) @map("set_three_player_two")
-  setFourPlayerOne  Int?            @default(0) @map("set_four_player_one")
-  setFourPlayerTwo  Int?            @default(0) @map("set_four_player_two")
-  setFivePlayerOne  Int?            @default(0) @map("set_five_player_one")
-  setFivePlayerTwo  Int?            @default(0) @map("set_five_player_two")
-  setSixPlayerOne   Int?            @default(0) @map("set_six_player_one")
-  setSixPlayerTwo   Int?            @default(0) @map("set_six_player_two")
-  setSevenPlayerOne Int?            @default(0) @map("set_seven_player_one")
-  setSevenPlayerTwo Int?            @default(0) @map("set_seven_player_two")
-  status            MatchStatus?    @default(Programado)
-  winnerGoesToMatchId String?       @map("winner_goes_to")
-  loserGoesToMatchId  String?       @map("loser_goes_to")
+  setOnePlayerOne     Int?         @default(0) @map("set_one_player_one")
+  setOnePlayerTwo     Int?         @default(0) @map("set_one_player_two")
+  setTwoPlayerOne     Int?         @default(0) @map("set_two_player_one")
+  setTwoPlayerTwo     Int?         @default(0) @map("set_two_player_two")
+  setThreePlayerOne   Int?         @default(0) @map("set_three_player_one")
+  setThreePlayerTwo   Int?         @default(0) @map("set_three_player_two")
+  setFourPlayerOne    Int?         @default(0) @map("set_four_player_one")
+  setFourPlayerTwo    Int?         @default(0) @map("set_four_player_two")
+  setFivePlayerOne    Int?         @default(0) @map("set_five_player_one")
+  setFivePlayerTwo    Int?         @default(0) @map("set_five_player_two")
+  setSixPlayerOne     Int?         @default(0) @map("set_six_player_one")
+  setSixPlayerTwo     Int?         @default(0) @map("set_six_player_two")
+  setSevenPlayerOne   Int?         @default(0) @map("set_seven_player_one")
+  setSevenPlayerTwo   Int?         @default(0) @map("set_seven_player_two")
+  status              MatchStatus? @default(Programado)
+  winnerGoesToMatchId String?      @map("winner_goes_to")
+  loserGoesToMatchId  String?      @map("loser_goes_to")
 
   // Relaciones
-  tournament       Tournament?        @relation(fields: [tournamentId], references: [id])
-  group            TournamentGroup?   @relation(fields: [groupId], references: [id])
-  knockout         TournamentKnockout? @relation(fields: [knockoutId], references: [id])
-  league           League?            @relation(fields: [leagueId], references: [id])
-  playerOne        User               @relation("PlayerOne", fields: [playerOneId], references: [id], map: "match_player_one_foreign")
-  playerTwo        User               @relation("PlayerTwo", fields: [playerTwoId], references: [id], map: "match_player_two_foreign")
+  tournament Tournament?         @relation(fields: [tournamentId], references: [id])
+  group      TournamentGroup?    @relation(fields: [groupId], references: [id])
+  knockout   TournamentKnockout? @relation(fields: [knockoutId], references: [id])
+  league     League?             @relation(fields: [leagueId], references: [id])
+  playerOne  User                @relation("PlayerOne", fields: [playerOneId], references: [id], map: "match_player_one_foreign")
+  playerTwo  User                @relation("PlayerTwo", fields: [playerTwoId], references: [id], map: "match_player_two_foreign")
 
   @@map("match")
 }
 
 model Tournament {
-  id               String               @id @default(uuid())
-  dateStart        DateTime             @map("datestart") @db.Date
-  clubId           String?              @map("club_id")
-  name             String               @db.VarChar(255)
-  numPlayers       Int                  @map("num_players")
-  numGroup         Int?                 @map("num_group")
-  numGroupPlayers  Int?                 @map("num_group_players")
-  typeTournament   TypeTournament?      @map("type_tournament") @default(Interno)
-  levelTournament  LevelTournament?     @map("level_tournament") @default(Mixto)
-  rounds           Rounds?              @default(GruposKnockout)
-  status           TournamentStatus?    @default(Programado)
-  typeKnockout     TypeKnockout?        @map("type_knockout") @default(LlaveA)
-  playersKnockout  Int?                 @map("players_knockout")
-  sortGroups       SortGroups?          @map("sort_groups") @default(Snake)
-  sortKnockout     SortKnockout?        @map("sort_knockout") @default(Siembra)
-  allPos           Boolean?             @map("all_pos")
-  groupsCreated    Boolean?             @map("groups_created") @default(false)
-  knockoutCreated  Boolean?             @map("knockout_created") @default(false)
-  setsToWinGroup    Int? @default(2) @map("sets_to_win_group")
-  setsToWinKnockout Int? @default(3) @map("sets_to_win_knockout")
+  id                String                  @id @default(uuid())
+  dateStart         DateTime                @map("datestart") @db.Date
+  clubId            String?                 @map("club_id")
+  name              String                  @db.VarChar(255)
+  numPlayers        Int                     @map("num_players")
+  numGroup          Int?                    @map("num_group")
+  numGroupPlayers   Int?                    @map("num_group_players")
+  typeTournament    TypeTournament?         @default(Interno) @map("type_tournament")
+  levelTournament   LevelTournament?        @default(Mixto) @map("level_tournament")
+  rounds            Rounds?                 @default(GruposKnockout)
+  status            TournamentStatus?       @default(Programado)
+  typeKnockout      TypeKnockout?           @default(LlaveA) @map("type_knockout")
+  playersKnockout   Int?                    @map("players_knockout")
+  sortGroups        SortGroups?             @default(Snake) @map("sort_groups")
+  sortKnockout      SortKnockout?           @default(Siembra) @map("sort_knockout")
+  allPos            Boolean?                @map("all_pos")
+  groupsCreated     Boolean?                @default(false) @map("groups_created")
+  knockoutCreated   Boolean?                @default(false) @map("knockout_created")
+  setsToWinGroup    Int?                    @default(2) @map("sets_to_win_group")
+  setsToWinKnockout Int?                    @default(3) @map("sets_to_win_knockout")
   // Relaciones
-  matches          Match[]
-  groups           TournamentGroup[]
-  knockouts        TournamentKnockout[]
-  participants     TournamentParticipant[]
-  clasifications   TournamentClas[]
-  club             Club?                @relation(fields: [clubId], references: [id])
+  matches           Match[]
+  groups            TournamentGroup[]
+  knockouts         TournamentKnockout[]
+  participants      TournamentParticipant[]
+  clasifications    TournamentClas[]
+  club              Club?                   @relation(fields: [clubId], references: [id])
+
   @@map("tournament")
 }
 
 model TournamentClas {
-  id                String          @id @default(uuid())
-  tournamentId      String          @map("tournament_group_id")
-  playerId          String          @map("player_id")
-  lastRound         RoundKnockouts? 
-  position          Int?             @default(0)
+  id           String          @id @default(uuid())
+  tournamentId String          @map("tournament_group_id")
+  playerId     String          @map("player_id")
+  lastRound    RoundKnockouts?
+  position     Int?            @default(0)
 
   // Relaciones
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  player       User       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player     User       @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@map("tournament_clas")
 }
 
-
-
 model League {
-  id              String       @id @default(uuid())
-  clubId           String?              @map("club_id")
-  dateStart       DateTime     @map("datestart") @db.Date
-  name            String       @unique @db.VarChar(255)
-  numPlayers      Int          @map("num_players")
-  typeTournament   TypeTournament?      @map("type_tournament") @default(Interno)
-  levelTournament  LevelTournament?     @map("level_tournament") @default(Mixto)
-  status          MatchStatus?      @default(Programado)
-  
+  id              String           @id @default(uuid())
+  clubId          String?          @map("club_id")
+  dateStart       DateTime         @map("datestart") @db.Date
+  name            String           @unique @db.VarChar(255)
+  numPlayers      Int              @map("num_players")
+  typeTournament  TypeTournament?  @default(Interno) @map("type_tournament")
+  levelTournament LevelTournament? @default(Mixto) @map("level_tournament")
+  status          MatchStatus?     @default(Programado)
+
   // Relaciones
-  matches         Match[]
-  clasifications  LeagueClas[]
-  club             Club?                @relation(fields: [clubId], references: [id])
+  matches        Match[]
+  clasifications LeagueClas[]
+  club           Club?        @relation(fields: [clubId], references: [id])
+
   @@map("league")
 }
 
 model TournamentParticipant {
-  id           String     @id @default(uuid())
-  tournamentId String     @map("tournament_id")
-  playerId     String     @map("player_id")
-  registeredAt DateTime   @default(now()) @map("registered_at")
-  status       PlayerTournamentStatus?     @default(Pendiente)
-  
+  id           String                  @id @default(uuid())
+  tournamentId String                  @map("tournament_id")
+  playerId     String                  @map("player_id")
+  registeredAt DateTime                @default(now()) @map("registered_at")
+  status       PlayerTournamentStatus? @default(Pendiente)
+
   // Relaciones
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  player       User       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player     User       @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   // Un jugador no puede apuntarse dos veces al mismo torneo
   @@unique([tournamentId, playerId])
   @@map("tournament_participant")
 }
 
-
 model TournamentGroup {
-  id           String                @id @default(uuid())
-  tournamentId String                @map("tournament_id")
+  id           String       @id @default(uuid())
+  tournamentId String       @map("tournament_id")
   group        Int
-  status       MatchStatus?               @default(Programado)
-  
+  status       MatchStatus? @default(Programado)
+
   // Relaciones
-  tournament   Tournament            @relation(fields: [tournamentId], references: [id])
-  matches      Match[]
+  tournament     Tournament            @relation(fields: [tournamentId], references: [id])
+  matches        Match[]
   clasifications TournamentGroupClas[]
 
   @@map("tournament_group")
@@ -323,37 +412,37 @@ enum KnockoutType {
 }
 
 model TournamentKnockout {
-  id           String     @id @default(uuid())
-  type         KnockoutType @default(A)
-  tournamentId String     @map("tournament_id")
-  round        RoundKnockouts  
-  status       MatchStatus?    @default(Programado)
-  
+  id           String         @id @default(uuid())
+  type         KnockoutType   @default(A)
+  tournamentId String         @map("tournament_id")
+  round        RoundKnockouts
+  status       MatchStatus?   @default(Programado)
+
   // Relaciones
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
-  matches      Match[]
-  positions    String?         @db.VarChar(50)
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+  matches    Match[]
+  positions  String?    @db.VarChar(50)
 
   @@map("tournament_knockout")
 }
 
 model TournamentGroupClas {
-  id                String          @id @default(uuid())
-  tournamentGroupId String          @map("tournament_group_id")
-  playerId          String          @map("player_id")
-  played            Int?            @default(0) @map("played")
-  gamesWon          Int?            @default(0) @map("games_won")
-  gamesLost         Int?            @default(0) @map("games_lost")
-  setsWon           Int?            @default(0) @map("sets_won")
-  setsLost          Int?            @default(0) @map("sets_lost")
-  pointsWon         Int?            @default(0) @map("points_won")
-  pointsLost        Int?            @default(0) @map("points_lost")
-  pointsClas        Int?            @default(0) @map("points_clas")
-  position          Int             @default(0)
+  id                String @id @default(uuid())
+  tournamentGroupId String @map("tournament_group_id")
+  playerId          String @map("player_id")
+  played            Int?   @default(0) @map("played")
+  gamesWon          Int?   @default(0) @map("games_won")
+  gamesLost         Int?   @default(0) @map("games_lost")
+  setsWon           Int?   @default(0) @map("sets_won")
+  setsLost          Int?   @default(0) @map("sets_lost")
+  pointsWon         Int?   @default(0) @map("points_won")
+  pointsLost        Int?   @default(0) @map("points_lost")
+  pointsClas        Int?   @default(0) @map("points_clas")
+  position          Int    @default(0)
 
   // Relaciones
-  tournamentGroup   TournamentGroup @relation(fields: [tournamentGroupId], references: [id])
-  player            User            @relation(fields: [playerId], references: [id])
+  tournamentGroup TournamentGroup @relation(fields: [tournamentGroupId], references: [id])
+  player          User            @relation(fields: [playerId], references: [id])
 
   @@map("tournament_group_clas")
 }
@@ -374,8 +463,8 @@ model LeagueClas {
   status     String? @db.VarChar(255)
 
   // Relaciones
-  league     League  @relation(fields: [leagueId], references: [id])
-  player     User    @relation(fields: [playerId], references: [id])
+  league League @relation(fields: [leagueId], references: [id])
+  player User   @relation(fields: [playerId], references: [id])
 
   @@map("league_clas")
 }

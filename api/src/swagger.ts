@@ -36,6 +36,7 @@ const options = {
       { name: 'Tournaments', description: 'Gestión de torneos con aislamiento por clubes' },
       { name: 'Matches', description: 'Gestión y procesamiento de partidos' },
       { name: 'User Types', description: 'Consulta de roles globales del sistema' },
+      { name: 'Trainings', description: 'Gestión de planes de entrenamiento y sesiones' },
     ],
     paths: {
       // ==========================================
@@ -810,6 +811,206 @@ const options = {
             },
             404: { description: 'Partido no encontrado' },
           },
+        },
+      },
+
+      // ==========================================
+      // TRAININGS
+      // ==========================================
+      '/api/trainings': {
+        post: {
+          summary: 'Crear un macrociclo de entrenamiento (AdminClub)',
+          description:
+            'Genera automáticamente un plan con N sesiones vacías distribuidas lógicamente por semanas.',
+          tags: ['Trainings'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    playerId: { type: 'string', format: 'uuid' },
+                    strengths: { type: 'string' },
+                    weaknesses: { type: 'string' },
+                    objectives: { type: 'string' },
+                    sessionsPerWeek: { type: 'integer', example: 3 },
+                    weeks: { type: 'integer', example: 4 },
+                    startDate: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Plan y sesiones creados con éxito' },
+            400: { description: 'Error de validación (Zod)' },
+            403: { description: 'El jugador no pertenece a tu club' },
+          },
+        },
+      },
+      '/api/trainings/{planId}': {
+        get: {
+          summary: 'Obtener un macrociclo completo con sus sesiones (Dueño o Admin)',
+          tags: ['Trainings'],
+          parameters: [
+            {
+              name: 'planId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: { description: 'Plan devuelto exitosamente' },
+            403: { description: 'Sin permisos para ver el plan' },
+            404: { description: 'Plan no encontrado' },
+          },
+        },
+        delete: {
+          summary: 'Eliminar un plan de entrenamiento completo (AdminClub)',
+          tags: ['Trainings'],
+          parameters: [
+            {
+              name: 'planId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: { description: 'Plan eliminado' },
+          },
+        },
+      },
+      '/api/trainings/player/{playerId}': {
+        get: {
+          summary: 'Lista de planes de un jugador específico',
+          tags: ['Trainings'],
+          parameters: [
+            {
+              name: 'playerId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: { 200: { description: 'Planes obtenidos con éxito' } },
+        },
+      },
+      '/api/trainings/sessions/{sessionId}': {
+        get: {
+          summary: 'Detalles y ejercicios de una sesión específica',
+          tags: ['Trainings'],
+          parameters: [
+            {
+              name: 'sessionId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: { 200: { description: 'Sesión obtenida con éxito' } },
+        },
+      },
+      '/api/trainings/sessions/{sessionId}/exercises': {
+        post: {
+          summary: 'Añadir un ejercicio a una sesión (AdminClub)',
+          description:
+            'Añade un ejercicio. Límite máximo de 6 ejercicios por sesión. No se pueden duplicar ejercicios.',
+          tags: ['Trainings'],
+          parameters: [
+            {
+              name: 'sessionId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    exerciseId: { type: 'string', format: 'uuid' },
+                    sets: { type: 'integer', example: 3 },
+                    reps: { type: 'integer', example: 10 },
+                    durationMinutes: { type: 'integer', example: 15 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Ejercicio añadido exitosamente' },
+            400: { description: 'Límite alcanzado o ejercicio duplicado' },
+          },
+        },
+      },
+      '/api/trainings/sessions/{targetSessionId}/clone-from/{sourceSessionId}': {
+        post: {
+          summary: 'Clonar ejercicios de una sesión a otra',
+          tags: ['Trainings'],
+          parameters: [
+            {
+              name: 'targetSessionId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+            {
+              name: 'sourceSessionId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: { 201: { description: 'Ejercicios clonados con éxito' } },
+        },
+      },
+      '/api/trainings/sessions/exercises/{sessionExerciseId}': {
+        put: {
+          summary: 'Actualizar estado de un ejercicio (Player / Admin)',
+          description: 'Permite marcar o desmarcar un ejercicio como completado o añadir notas.',
+          tags: ['Trainings'],
+          parameters: [
+            {
+              name: 'sessionExerciseId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    completed: { type: 'boolean' },
+                    notes: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 200: { description: 'Estado actualizado' } },
+        },
+        delete: {
+          summary: 'Quitar un ejercicio de una sesión (AdminClub)',
+          tags: ['Trainings'],
+          parameters: [
+            {
+              name: 'sessionExerciseId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: { 200: { description: 'Ejercicio quitado con éxito' } },
         },
       },
     },

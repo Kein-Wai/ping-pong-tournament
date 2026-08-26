@@ -142,3 +142,19 @@ export const MATCH_MATRIX = {
     [4, 5],
   ],
 };
+
+export const EXERCISE_CATEGORIES = [
+  { value: 'Control_CT', label: 'Control de Contra Top Spin' },
+  { value: 'Bloqueo_Contraataque', label: 'Bloqueos y Contraataque' },
+  { value: 'Movilidad_Lateral', label: 'Movilidad Lateral' },
+  { value: 'Movilidad_Pivot', label: 'Movilidad de Pivot' },
+  { value: 'Semi_Variables', label: 'Semi-Variables' },
+  { value: 'Recepcion_Flip_Reves', label: 'Recepción con Flip de Revés' },
+  { value: 'Recepciones_Cortas', label: 'Recepciones Cortas' },
+  { value: 'Recepciones_Largas', label: 'Recepciones Largas' },
+  { value: 'Recepciones_Cortas_Largas', label: 'Recepciones Cortas o Largas' },
+  { value: 'Recepcion_Saques_Intermedios', label: 'Recepción Saques Intermedios' },
+  { value: 'Saques_Largos', label: 'Sacar o Recibir Saques Largos' },
+  { value: 'Servicios_Ataque', label: 'Servicios para Atacar' },
+  { value: 'Individuales', label: 'Ejercicios Individuales' },
+];
