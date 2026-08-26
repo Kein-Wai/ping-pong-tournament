@@ -43,7 +43,6 @@ export const PlanDetalles = () => {
 
   // Estados del Plan
   const [loading, setLoading] = useState(true);
-  const [planData, setPlanData] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
 
   // Catálogo Raw para filtrado dinámico
@@ -72,7 +71,6 @@ export const PlanDetalles = () => {
     try {
       const response = await api.get(`${ENDPOINTS.TRAININGS.BASE}/${planId}`);
       const data = response.data.data;
-      setPlanData(data);
       setSessions(data.sessions || []);
     } catch (error) {
       console.error('Error al cargar el plan:', error);

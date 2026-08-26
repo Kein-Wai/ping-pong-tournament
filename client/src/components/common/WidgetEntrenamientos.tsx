@@ -46,7 +46,7 @@ export const WidgetEntrenamientos = () => {
       <Stack gap="sm">
         {upcoming.map((session, index) => {
           // Calculamos cuántos ha hecho
-          const completedCount = (session.exercises || []).filter((e: any) => e.completed).length;
+          const completedCount = session.exercises.filter((e: any) => e.completed).length;
           const totalCount = session._count.exercises;
 
           return (

@@ -54,7 +54,7 @@ api.interceptors.response.use(
         let errorMessage = data?.error || 'Ocurrió un error inesperado.';
         // Si el backend expone los detalles de validación de Zod
         if (data?.details) {
-          let keyErrors = Object.keys(data.details.properties);
+          const keyErrors = Object.keys(data.details.properties);
 
           keyErrors.map((key: string) => {
             errorMessage = data.details.properties[key].errors

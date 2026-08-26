@@ -17,7 +17,7 @@ import {
   ThemeIcon,
   SimpleGrid,
 } from '@mantine/core';
-import { IconArrowLeft, IconBook, IconCheck, IconBarbell } from '@tabler/icons-react';
+import { IconArrowLeft, IconBook, IconCheck } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 

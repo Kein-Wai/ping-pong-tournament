@@ -356,7 +356,35 @@ router.put('/sessions/exercises/:sessionExerciseId', async (req, res) => {
         completed: completed !== undefined ? completed : undefined,
         notes: notes !== undefined ? notes : undefined,
       },
+      include: {
+        session: true, // 👈 Esto nos da el playerTrainingId
+      },
     });
+
+    const planId = updatedExercise.session.playerTrainingId;
+
+    // 2. Contamos cuántos ejercicios quedan en TODO el macrociclo con completed: false
+    const pendingExercises = await prisma.sessionExercise.count({
+      where: {
+        session: { playerTrainingId: planId },
+        completed: false,
+      },
+    });
+
+    // 3. Actualizamos el estado general del Macrociclo
+    if (pendingExercises === 0) {
+      // ¡No quedan pendientes! Se ha pasado el juego
+      await prisma.playerTraining.update({
+        where: { id: planId },
+        data: { status: 'Completado', endDate: new Date() },
+      });
+    } else {
+      // Aún quedan, o ha desmarcado uno sin querer
+      await prisma.playerTraining.update({
+        where: { id: planId },
+        data: { status: 'Activo', endDate: null },
+      });
+    }
 
     res.status(200).json({ success: true, data: updatedExercise });
   } catch (error) {

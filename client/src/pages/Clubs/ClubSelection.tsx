@@ -43,7 +43,7 @@ export const ClubSelection = () => {
         if (response.data.success) {
           setClubs(response.data.data);
         }
-      } catch (error) {
+      } catch {
         notifications.show({
           title: 'Error de conexión',
           message: 'No se pudieron cargar los clubes disponibles.',

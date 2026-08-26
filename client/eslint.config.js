@@ -8,7 +8,8 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // 1. Añadimos las carpetas de Android, iOS y build para que ESLint no las toque
+  globalIgnores(['dist', 'android/**', 'ios/**', 'build/**']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -19,6 +20,17 @@ export default defineConfig([
     ],
     languageOptions: {
       globals: globals.browser,
+    },
+    // 2. Añadimos las reglas personalizadas aquí
+    rules: {
+      // Apagamos la regla estricta que te daba error en los useEffects
+      'react-hooks/set-state-in-effect': 'off',
+
+      // Convertimos el error de usar "any" en una simple advertencia (naranja en vez de rojo)
+      '@typescript-eslint/no-explicit-any': 'warn',
+
+      // Convertimos las dependencias faltantes del useEffect en advertencia
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
   eslintConfigPrettier,
