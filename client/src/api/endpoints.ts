@@ -35,6 +35,7 @@ export const ENDPOINTS = {
     BRACKETS: (id: string) => `/tournaments/${id}/bracket`,
     CLASSIFICATION: (id: string) => `/tournaments/${id}/classifications`,
     REGISTER: (id: string) => `/tournaments/${id}/register`,
+    ENROLLED: (playerId: string) => `/tournaments/player/${playerId}/enrolled`,
   },
   MATCHES: {
     BASE: '/matches',
@@ -55,5 +56,6 @@ export const ENDPOINTS = {
       `/trainings/sessions/exercises/${sessionExerciseId}`,
     DELETE_PLAN: (planId: string) => `/trainings/${planId}`,
     SESSION_DETAILS: (sessionId: string) => `/trainings/sessions/${sessionId}`,
+    UPCOMING: (playerId: string) => `/trainings/player/${playerId}/upcoming`,
   },
 } as const;

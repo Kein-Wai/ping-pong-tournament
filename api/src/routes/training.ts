@@ -311,6 +311,39 @@ router.get('/player/:playerId', async (req, res) => {
   }
 });
 
+// GET /api/trainings/player/:playerId/upcoming - Próximas sesiones para el Dashboard
+router.get('/player/:playerId/upcoming', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+
+    // Seguridad: Solo el propio jugador puede ver sus avisos del dashboard
+    if (req.user?.id !== playerId) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Desde las 00:00 de hoy
+
+    const upcomingSessions = await prisma.trainingSession.findMany({
+      where: {
+        training: { playerId: playerId },
+        exercises: { some: { completed: false } },
+      },
+      orderBy: { date: 'asc' },
+      take: 3, // Mostramos solo las 3 más inminentes
+      include: {
+        training: { select: { id: true, objectives: true } },
+        _count: { select: { exercises: true } }, // Contamos cuántos ejercicios tiene
+      },
+    });
+
+    res.status(200).json({ success: true, data: upcomingSessions });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Error al obtener próximas sesiones' });
+  }
+});
+
 // PUT /api/trainings/sessions/exercises/:sessionExerciseId - Actualizar estado
 router.put('/sessions/exercises/:sessionExerciseId', async (req, res) => {
   try {

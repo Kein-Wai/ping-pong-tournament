@@ -9,7 +9,7 @@ import {
   Stack,
   Center,
   Loader,
-  Checkbox,
+  Alert,
   Badge,
   Paper,
   Accordion,
@@ -127,7 +127,7 @@ export const SessionDetalles = () => {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{n.desc}</Text>
-                      </Table.Td>{' '}
+                      </Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
@@ -149,7 +149,7 @@ export const SessionDetalles = () => {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{n.desc}</Text>
-                      </Table.Td>{' '}
+                      </Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
@@ -163,6 +163,13 @@ export const SessionDetalles = () => {
       <Title order={4} mt="md">
         Ejercicios a Ejecutar
       </Title>
+      {session.exercises.length > 0 &&
+        session.exercises.filter((ex: any) => ex.completed).length === session.exercises.length && (
+          <Alert variant="light" color="green" title="¡Gran trabajo!" icon={<IconCheck />} mb="md">
+            Has completado todos los ejercicios de esta sesión. Puedes volver al Macrociclo cuando
+            quieras.
+          </Alert>
+        )}
 
       {session.exercises.length === 0 ? (
         <Text c="dimmed">No hay ejercicios asignados a esta sesión.</Text>

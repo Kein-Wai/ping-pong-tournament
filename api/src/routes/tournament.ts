@@ -477,4 +477,34 @@ router.delete('/:id', requireAdminClub, async (req, res) => {
   }
 });
 
+// GET /api/tournaments/player/:playerId/enrolled
+router.get('/player/:playerId/enrolled', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+
+    // Solo el jugador puede ver sus propias inscripciones en el dashboard
+    if (req.user?.id !== playerId) return res.status(403).json({ error: 'No autorizado' });
+
+    const inscriptions = await prisma.tournamentParticipant.findMany({
+      where: {
+        playerId: playerId,
+        tournament: {
+          status: { notIn: ['Completado', 'Cancelado'] }, // Solo torneos en curso
+        },
+      },
+      include: {
+        tournament: true,
+      },
+      orderBy: { tournament: { dateStart: 'asc' } },
+    });
+
+    // Mapeamos para devolver solo los datos del torneo
+    const tournaments = inscriptions.map((i) => i.tournament);
+    res.status(200).json({ success: true, data: tournaments });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Error al obtener torneos inscritos' });
+  }
+});
+
 export default router;

@@ -813,6 +813,43 @@ const options = {
           },
         },
       },
+      // ==========================================
+      // EXERCISES
+      // ==========================================
+      '/api/exercises': {
+        get: {
+          summary: 'Obtener el catálogo de ejercicios',
+          description:
+            'Devuelve todos los ejercicios globales y los específicos del club del usuario.',
+          tags: ['Exercises'],
+          parameters: [
+            { name: 'category', in: 'query', required: false, schema: { type: 'string' } },
+          ],
+          responses: { 200: { description: 'Catálogo devuelto exitosamente' } },
+        },
+        post: {
+          summary: 'Crear un nuevo ejercicio en el catálogo (AdminClub)',
+          tags: ['Exercises'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['name', 'description', 'category'],
+                  properties: {
+                    name: { type: 'string', example: 'Saque lateral corto' },
+                    description: { type: 'string', example: 'Saque con efecto...' },
+                    category: { type: 'string', example: 'Saques_Largos' },
+                    code: { type: 'integer', example: 12 },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Ejercicio creado con éxito' } },
+        },
+      },
 
       // ==========================================
       // TRAININGS

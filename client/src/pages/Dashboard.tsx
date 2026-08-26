@@ -22,6 +22,8 @@ import {
 } from '@tabler/icons-react';
 import { api } from '../api/axios';
 import { ENDPOINTS } from '../api/endpoints';
+import { WidgetEntrenamientos } from '../components/common/WidgetEntrenamientos';
+import { WidgetTorneos } from '../components/common/WidgetTorneos';
 
 export const Dashboard = () => {
   const { user, logout } = useAuthStore();
@@ -188,6 +190,8 @@ export const Dashboard = () => {
               Ir a Torneos
             </Button>
           </Card>
+          <WidgetEntrenamientos />
+          <WidgetTorneos />
         </SimpleGrid>
       )}
     </Stack>

@@ -27,6 +27,7 @@ import {
   IconTrash,
   IconCopy,
   IconInfoCircle,
+  IconCheck,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -235,128 +236,142 @@ export const PlanDetalles = () => {
 
       {/* GRID DE SESIONES */}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-        {sessions.map((session, index) => (
-          <Card key={session.id} shadow="sm" radius="md" withBorder>
-            <Group justify="space-between" mb="md">
-              <Text fw={700}>Sesión {index + 1}</Text>
-              <Badge color="blue" variant="light">
-                {new Date(session.date).toLocaleDateString('es-ES', {
-                  weekday: 'short',
-                  day: '2-digit',
-                  month: 'short',
-                })}
-              </Badge>
-            </Group>
-            <Button
-              fullWidth
-              variant="light"
-              color="blue"
-              mb="md"
-              leftSection={<IconBarbell size={16} />}
-              onClick={() => navigate(APP_ROUTES.ENTRENAMIENTOS.SESSION(session.id))}
-            >
-              Entrar a la Sesión
-            </Button>
-            <Stack gap="xs" mb="md" style={{ minHeight: 80 }}>
-              {session.exercises.length === 0 ? (
-                <Center h="100%">
-                  <Text size="sm" c="dimmed" fs="italic">
-                    Sin ejercicios asignados
-                  </Text>
-                </Center>
-              ) : (
-                session.exercises.map((item: any) => (
-                  <Paper
-                    key={item.id}
-                    withBorder
-                    p="xs"
-                    radius="sm"
-                    bg={
-                      item.completed
-                        ? 'var(--mantine-color-green-light)'
-                        : 'var(--mantine-color-gray-0)'
-                    }
-                    style={{ darkHidden: true, transition: 'background-color 0.3s' }}
-                  >
-                    <Group justify="space-between" wrap="nowrap">
-                      {/* CHECKBOX INTERACTIVO */}
-                      <Group gap="xs" style={{ flex: 1 }}>
-                        <Text
-                          size="sm"
-                          fw={600}
-                          truncate
-                          td={item.completed ? 'line-through' : 'none'}
-                          c={item.completed ? 'dimmed' : 'inherit'}
-                        >
-                          {item.exercise?.code ? `[${item.exercise.code}] ` : ''}
-                          {item.exercise?.name}
-                        </Text>
-                      </Group>
+        {sessions.map((session, index) => {
+          const isSessionEmpty = session.exercises.length === 0;
+          const completedExercises = session.exercises.filter((ex: any) => ex.completed).length;
+          const isSessionCompleted =
+            !isSessionEmpty && completedExercises === session.exercises.length;
 
-                      <Group gap="xs">
-                        {(item.sets || item.reps) && (
-                          <Badge
-                            size="sm"
-                            variant="light"
-                            color={item.completed ? 'green' : 'blue'}
-                          >
-                            {item.sets || '-'}x{item.reps || '-'}
-                          </Badge>
-                        )}
-                        {item.durationMinutes && (
-                          <Badge
-                            size="sm"
-                            variant="light"
-                            color={item.completed ? 'green' : 'teal'}
-                          >
-                            {item.durationMinutes} min
-                          </Badge>
-                        )}
+          return (
+            <Card key={session.id} shadow="sm" radius="md" withBorder>
+              <Group justify="space-between" mb="md">
+                <Text fw={700}>Sesión {index + 1}</Text>
 
-                        {/* BOTÓN DE BORRAR (SOLO ADMIN) */}
-                        {isAdmin && (
-                          <ActionIcon
-                            color="red"
-                            variant="subtle"
-                            size="sm"
-                            onClick={() => handleDeleteExercise(item.id)}
-                          >
-                            <IconTrash size={14} />
-                          </ActionIcon>
-                        )}
-                      </Group>
-                    </Group>
-                  </Paper>
-                ))
-              )}
-            </Stack>
-
-            {/* BOTONES DE LA TARJETA */}
-            {isAdmin && (
-              <Group grow mt="xs">
-                <Button
-                  variant="light"
-                  color="orange"
-                  leftSection={<IconPlus size={16} />}
-                  disabled={session.exercises.length >= 6}
-                  onClick={() => openAddModal(session.id)}
-                >
-                  {session.exercises.length >= 6 ? 'Límite (6)' : 'Añadir'}
-                </Button>
-
-                <Button
-                  variant="subtle"
-                  color="gray"
-                  leftSection={<IconCopy size={16} />}
-                  disabled={session.exercises.length >= 6 || availableSourceSessions.length === 0}
-                  onClick={() => openCloneModal(session.id, index + 1)}
-                >
-                  Clonar
-                </Button>
+                {isSessionEmpty ? (
+                  <Badge color="gray" variant="light">
+                    Vacía
+                  </Badge>
+                ) : isSessionCompleted ? (
+                  <Badge color="green" variant="filled" leftSection={<IconCheck size={14} />}>
+                    Completada
+                  </Badge>
+                ) : (
+                  <Badge color="blue" variant="light" tt="none">
+                    Progreso: {completedExercises} / {session.exercises.length}
+                  </Badge>
+                )}
               </Group>
-            )}
-          </Card>
-        ))}
+              <Button
+                fullWidth
+                variant="light"
+                color="blue"
+                mb="md"
+                leftSection={<IconBarbell size={16} />}
+                onClick={() => navigate(APP_ROUTES.ENTRENAMIENTOS.SESSION(session.id))}
+              >
+                Entrar a la Sesión
+              </Button>
+              <Stack gap="xs" mb="md" style={{ minHeight: 80 }}>
+                {session.exercises.length === 0 ? (
+                  <Center h="100%">
+                    <Text size="sm" c="dimmed" fs="italic">
+                      Sin ejercicios asignados
+                    </Text>
+                  </Center>
+                ) : (
+                  session.exercises.map((item: any) => (
+                    <Paper
+                      key={item.id}
+                      withBorder
+                      p="xs"
+                      radius="sm"
+                      bg={
+                        item.completed
+                          ? 'var(--mantine-color-green-light)'
+                          : 'var(--mantine-color-gray-0)'
+                      }
+                      style={{ darkHidden: true, transition: 'background-color 0.3s' }}
+                    >
+                      <Group justify="space-between" wrap="nowrap">
+                        {/* CHECKBOX INTERACTIVO */}
+                        <Group gap="xs" style={{ flex: 1 }}>
+                          <Text
+                            size="sm"
+                            fw={600}
+                            truncate
+                            td={item.completed ? 'line-through' : 'none'}
+                            c={item.completed ? 'dimmed' : 'inherit'}
+                          >
+                            {item.exercise?.code ? `[${item.exercise.code}] ` : ''}
+                            {item.exercise?.name}
+                          </Text>
+                        </Group>
+
+                        <Group gap="xs">
+                          {(item.sets || item.reps) && (
+                            <Badge
+                              size="sm"
+                              variant="light"
+                              color={item.completed ? 'green' : 'blue'}
+                            >
+                              {item.sets || '-'}x{item.reps || '-'}
+                            </Badge>
+                          )}
+                          {item.durationMinutes && (
+                            <Badge
+                              size="sm"
+                              variant="light"
+                              color={item.completed ? 'green' : 'teal'}
+                            >
+                              {item.durationMinutes} min
+                            </Badge>
+                          )}
+
+                          {/* BOTÓN DE BORRAR (SOLO ADMIN) */}
+                          {isAdmin && (
+                            <ActionIcon
+                              color="red"
+                              variant="subtle"
+                              size="sm"
+                              onClick={() => handleDeleteExercise(item.id)}
+                            >
+                              <IconTrash size={14} />
+                            </ActionIcon>
+                          )}
+                        </Group>
+                      </Group>
+                    </Paper>
+                  ))
+                )}
+              </Stack>
+
+              {/* BOTONES DE LA TARJETA */}
+              {isAdmin && (
+                <Group grow mt="xs">
+                  <Button
+                    variant="light"
+                    color="orange"
+                    leftSection={<IconPlus size={16} />}
+                    disabled={session.exercises.length >= 6}
+                    onClick={() => openAddModal(session.id)}
+                  >
+                    {session.exercises.length >= 6 ? 'Límite (6)' : 'Añadir'}
+                  </Button>
+
+                  <Button
+                    variant="subtle"
+                    color="gray"
+                    leftSection={<IconCopy size={16} />}
+                    disabled={session.exercises.length >= 6 || availableSourceSessions.length === 0}
+                    onClick={() => openCloneModal(session.id, index + 1)}
+                  >
+                    Clonar
+                  </Button>
+                </Group>
+              )}
+            </Card>
+          );
+        })}
       </SimpleGrid>
 
       {/* MODAL PARA AÑADIR EJERCICIO */}
