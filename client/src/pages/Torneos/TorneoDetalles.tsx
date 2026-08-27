@@ -528,6 +528,7 @@ export const TorneoDetalles = () => {
     if (status === 'Programado') return 'blue';
     if (status === 'Completado') return 'green';
     if (status === 'Cancelado') return 'red';
+    if (status === 'Grupos') return 'black';
     return 'orange';
   };
 
@@ -945,7 +946,7 @@ export const TorneoDetalles = () => {
                         const isBye =
                           match.playerOne?.name === 'EXENTO' || match.playerTwo?.name === 'EXENTO';
 
-                        if (isBye) {
+                        if (isBye && isAdmin) {
                           notifications.show({
                             title: 'Pase Directo (Bye)',
                             message: 'Este jugador no tiene contrincante.',
@@ -953,7 +954,7 @@ export const TorneoDetalles = () => {
                           });
                           return;
                         }
-                        if (isTBD) {
+                        if (isTBD && isAdmin) {
                           notifications.show({
                             title: 'Partido Bloqueado',
                             message: 'Faltan jugadores por clasificarse.',
@@ -1684,15 +1685,17 @@ export const TorneoDetalles = () => {
                               {match.status}
                             </Badge>
 
-                            <Button
-                              variant="light"
-                              size="xs"
-                              leftSection={<IconEdit size={14} />}
-                              onClick={() => openEditMatchModal(match, false)}
-                              disabled={tournament.status !== 'Grupos'}
-                            >
-                              Actualizar
-                            </Button>
+                            {isAdmin && (
+                              <Button
+                                variant="light"
+                                size="xs"
+                                leftSection={<IconEdit size={14} />}
+                                onClick={() => openEditMatchModal(match, false)}
+                                disabled={tournament.status !== 'Grupos'}
+                              >
+                                Actualizar
+                              </Button>
+                            )}
                           </Group>
                         </Group>
                       </Card>

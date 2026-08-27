@@ -120,6 +120,7 @@ export const Torneos = () => {
     if (status === 'Programado') return 'blue';
     if (status === 'Completado') return 'green';
     if (status === 'Cancelado') return 'red';
+    if (status === 'Grupos') return 'black';
     return 'orange';
   };
 
