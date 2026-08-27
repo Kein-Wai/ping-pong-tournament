@@ -18,7 +18,7 @@ import {
   ScrollArea,
   Modal,
   TextInput,
-  ActionIcon, // 👈 Añadido para el formulario
+  ActionIcon,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -29,16 +29,20 @@ import {
   IconHistory,
   IconEdit,
   IconClipboardList,
-  IconTrash, // 👈 Añadido icono
+  IconTrash,
+  IconTrendingUp,
+  IconTrendingDown,
+  IconTarget,
 } from '@tabler/icons-react';
+import { RadarChart } from '@mantine/charts'; // 👈 IMPORTAMOS EL RADAR
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
 import { getPlayerAvatar } from '../../utils/avatar';
-
 import { openAppConfirmModal } from '../../utils/modals';
 
+// ... (Mantenemos tus interfaces iguales)
 interface UserProfile {
   id: string;
   email: string;
@@ -62,17 +66,15 @@ interface UserProfile {
 export const JugadorPerfil = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser, updateUserFields } = useAuthStore(); // Para saber si es nuestro propio perfil
+  const { user: currentUser, updateUserFields } = useAuthStore();
 
   const [player, setPlayer] = useState<UserProfile | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados de edición
   const [editModalOpened, setEditModalOpened] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState({ name: '', surname: '', nickname: '', avatarUrl: '' });
-
   const [trainings, setTrainings] = useState<any[]>([]);
 
   const isOwnProfile = currentUser?.id === id;
@@ -113,6 +115,7 @@ export const JugadorPerfil = () => {
 
   useEffect(() => {
     fetchPlayerInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleOpenEdit = () => {
@@ -138,7 +141,7 @@ export const JugadorPerfil = () => {
         nickname: editData.nickname,
         avatarUrl: editData.avatarUrl,
       });
-      await fetchPlayerInfo(); // Recargamos para ver los cambios
+      await fetchPlayerInfo();
     } catch (error) {
       console.error('Error actualizando el perfil:', error);
     } finally {
@@ -151,14 +154,12 @@ export const JugadorPerfil = () => {
       title: 'Eliminar Plan de Entrenamiento',
       icon: <IconTrash size={18} />,
       color: 'red',
-      description:
-        '¿Estás seguro de que deseas eliminar este plan completo? Se borrarán todas sus sesiones y ejercicios.',
+      description: '¿Estás seguro de que deseas eliminar este plan completo?',
       highlightText: 'Esta acción no se puede deshacer',
       confirmLabel: 'Sí, eliminar plan',
       onConfirm: async () => {
         try {
           await api.delete(ENDPOINTS.TRAININGS.DELETE_PLAN(planId));
-          // Recargamos el perfil para que el plan desaparezca
           await fetchPlayerInfo();
         } catch (error) {
           console.error('Error al eliminar el plan:', error);
@@ -183,11 +184,50 @@ export const JugadorPerfil = () => {
     );
   }
 
+  // --- 1. CÁLCULO DE DATOS PARA EL RADAR ---
   const s = player.stats;
-  const matchWinRate =
-    (s?.matchWon || 0) + (s?.matchLost || 0) > 0
-      ? Math.round(((s?.matchWon || 0) / ((s?.matchWon || 0) + (s?.matchLost || 0))) * 100)
-      : 0;
+  const totalMatches = (s?.matchWon || 0) + (s?.matchLost || 0);
+  const totalSets = (s?.setWon || 0) + (s?.setLost || 0);
+  const totalPoints = (s?.pointWon || 0) + (s?.pointLost || 0);
+  const totalTournaments = (s?.tournamentWon || 0) + (s?.tournamentLost || 0);
+
+  const matchWinRate = totalMatches > 0 ? Math.round(((s?.matchWon || 0) / totalMatches) * 100) : 0;
+
+  // Transformamos los datos a una escala 0-100 para que el radar se vea simétrico
+  const radarData =
+    totalMatches > 0
+      ? [
+          {
+            metric: 'Partidos',
+            Victorias: matchWinRate,
+            Derrotas: totalMatches > 0 ? Math.round(((s?.matchLost || 0) / totalMatches) * 100) : 0,
+          },
+          {
+            metric: 'Sets',
+            Victorias: totalSets > 0 ? Math.round(((s?.setWon || 0) / totalSets) * 100) : 0,
+            Derrotas: totalSets > 0 ? Math.round(((s?.setLost || 0) / totalSets) * 100) : 0,
+          },
+          {
+            metric: 'Puntos',
+            Victorias: totalPoints > 0 ? Math.round(((s?.pointWon || 0) / totalPoints) * 100) : 0,
+            Derrotas: totalPoints > 0 ? Math.round(((s?.pointLost || 0) / totalPoints) * 100) : 0,
+          },
+          {
+            metric: 'Torneos',
+            Victorias:
+              totalTournaments > 0
+                ? Math.round(((s?.tournamentWon || 0) / totalTournaments) * 100)
+                : 0,
+            Derrotas:
+              totalTournaments > 0
+                ? Math.round(((s?.tournamentLost || 0) / totalTournaments) * 100)
+                : 0,
+          },
+        ]
+      : [];
+
+  // --- 2. EXTRACCIÓN DEL ÚLTIMO PLAN (DATOS CUALITATIVOS) ---
+  const latestPlan = trainings.length > 0 ? trainings[0] : null;
 
   return (
     <Stack gap="xl">
@@ -234,7 +274,6 @@ export const JugadorPerfil = () => {
             </div>
           </Group>
 
-          {/* Botón condicional si eres el dueño de la cuenta */}
           <Stack align="flex-end">
             {isOwnProfile && (
               <Button
@@ -250,10 +289,121 @@ export const JugadorPerfil = () => {
         </Group>
       </Card>
 
-      <Title order={3}>Estadísticas Completas</Title>
+      {/* 👇 NUEVO: SECCIÓN DE ANÁLISIS DE RENDIMIENTO */}
+      <Title order={3}>Perfil de Rendimiento</Title>
 
-      {/* Grid de Tarjetas de Estadísticas */}
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        {/* GRÁFICO DE RADAR */}
+        <Card withBorder radius="md" shadow="sm" p="lg">
+          <Group gap="xs" mb="lg">
+            <ThemeIcon color="blue" variant="light">
+              <IconTarget size={18} />
+            </ThemeIcon>
+            <Title order={4}>Radar de Eficiencia</Title>
+          </Group>
+          {totalMatches > 0 ? (
+            <Center h={250}>
+              <RadarChart
+                h={300}
+                w="100%"
+                data={radarData}
+                dataKey="metric"
+                withPolarGrid
+                withPolarAngleAxis
+                withPolarRadiusAxis
+                withLegend // 👈 Muestra la leyenda de colores debajo
+                series={[
+                  { name: 'Victorias', color: 'blue.4', opacity: 0.5 }, // 👈 Capa Azul
+                  { name: 'Derrotas', color: 'red.4', opacity: 0.5 }, // 👈 Capa Roja
+                ]}
+              />
+            </Center>
+          ) : (
+            <Center
+              h={200}
+              bg="var(--mantine-color-gray-0)"
+              style={{ borderRadius: 8, darkHidden: true }}
+            >
+              <Stack align="center" gap="xs">
+                <IconChartBar size={40} color="var(--mantine-color-gray-4)" />
+                <Text c="dimmed" size="sm" ta="center">
+                  Juega tu primer partido para
+                  <br />
+                  desbloquear tu radar de estadísticas.
+                </Text>
+              </Stack>
+            </Center>
+          )}
+        </Card>
+
+        {/* ANÁLISIS TÉCNICO CUALITATIVO */}
+        {canViewTrainings && (
+          <Card withBorder radius="md" shadow="sm" p="lg">
+            <Group gap="xs" mb="md">
+              <ThemeIcon color="orange" variant="light">
+                <IconClipboardList size={18} />
+              </ThemeIcon>
+              <Title order={4}>Último Análisis Técnico</Title>
+            </Group>
+
+            {latestPlan ? (
+              <Stack gap="sm">
+                <Paper
+                  withBorder
+                  p="sm"
+                  bg="var(--mantine-color-gray-0)"
+                  style={{ darkHidden: true }}
+                >
+                  <Group gap="xs" mb={4}>
+                    <IconTrendingUp size={16} color="var(--mantine-color-green-6)" />
+                    <Text fw={600} size="sm">
+                      Fortalezas
+                    </Text>
+                  </Group>
+                  <Text size="sm" c="dimmed">
+                    {latestPlan.strengths}
+                  </Text>
+                </Paper>
+
+                <Paper
+                  withBorder
+                  p="sm"
+                  bg="var(--mantine-color-gray-0)"
+                  style={{ darkHidden: true }}
+                >
+                  <Group gap="xs" mb={4}>
+                    <IconTrendingDown size={16} color="var(--mantine-color-red-6)" />
+                    <Text fw={600} size="sm">
+                      A Mejorar
+                    </Text>
+                  </Group>
+                  <Text size="sm" c="dimmed">
+                    {latestPlan.weaknesses}
+                  </Text>
+                </Paper>
+              </Stack>
+            ) : (
+              <Center
+                h={200}
+                bg="var(--mantine-color-gray-0)"
+                style={{ borderRadius: 8, darkHidden: true }}
+              >
+                <Stack align="center" gap="xs">
+                  <IconClipboardList size={40} color="var(--mantine-color-gray-4)" />
+                  <Text c="dimmed" size="sm" ta="center">
+                    El entrenador aún no ha creado
+                    <br />
+                    un macrociclo para ti.
+                  </Text>
+                </Stack>
+              </Center>
+            )}
+          </Card>
+        )}
+      </SimpleGrid>
+
+      {/* ESTADÍSTICAS TRADICIONALES (El Grid de siempre) */}
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mt="md">
         <Paper withBorder p="md" radius="md" shadow="sm">
           <Group justify="space-between">
             <Text size="xs" c="dimmed" fw={700} tt="uppercase">
@@ -434,12 +584,14 @@ export const JugadorPerfil = () => {
           </Table>
         </ScrollArea>
       </Card>
+
+      {/* SECCIÓN DE HISTORIAL DE MACROCICLOS */}
       {canViewTrainings && (
         <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
           <Group justify="space-between" mb="md">
             <Group gap="sm">
               <IconClipboardList size={20} color="var(--mantine-color-orange-6)" />
-              <Title order={4}>Planes de Entrenamiento</Title>
+              <Title order={4}>Historial de Macrociclos</Title>
             </Group>
             {isAdmin && (
               <Button
