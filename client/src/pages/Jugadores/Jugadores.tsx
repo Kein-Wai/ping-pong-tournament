@@ -219,11 +219,13 @@ export const Jugadores = () => {
           </Badge>
         </Table.Td>
 
-        <Table.Td visibleFrom="sm">
-          <Badge color={player.clubStatus === 'Aprobado' ? 'green' : 'yellow'} variant="dot">
-            {player.clubStatus || 'Registrado'}
-          </Badge>
-        </Table.Td>
+        {isAdminClub && (
+          <Table.Td visibleFrom="sm">
+            <Badge color={player.clubStatus === 'Aprobado' ? 'green' : 'yellow'} variant="dot">
+              {player.clubStatus || 'Registrado'}
+            </Badge>
+          </Table.Td>
+        )}
 
         <Table.Td visibleFrom="sm">
           <Text fz="sm" fw={500}>
@@ -324,7 +326,7 @@ export const Jugadores = () => {
               <Table.Tr>
                 <Table.Th>Jugador</Table.Th>
                 <Table.Th>ELO</Table.Th>
-                <Table.Th visibleFrom="sm">Estado Club</Table.Th>
+                {isAdminClub && <Table.Th visibleFrom="sm">Estado Club</Table.Th>}
                 <Table.Th visibleFrom="sm">Récord</Table.Th>
                 <Table.Th>Acciones</Table.Th>
               </Table.Tr>

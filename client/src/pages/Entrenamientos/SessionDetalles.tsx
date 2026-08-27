@@ -16,6 +16,7 @@ import {
   Table,
   ThemeIcon,
   SimpleGrid,
+  Textarea,
 } from '@mantine/core';
 import { IconArrowLeft, IconBook, IconCheck } from '@tabler/icons-react';
 import { api } from '../../api/axios';
@@ -46,9 +47,12 @@ export const SessionDetalles = () => {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
 
+  // const isOwnProfile = currentUser?.id === id;
+
   const fetchSession = async () => {
     try {
       const res = await api.get(ENDPOINTS.TRAININGS.SESSION_DETAILS(sessionId!));
+      console.log(res.data.data);
       setSession(res.data.data);
     } catch (error) {
       console.error(error);
@@ -69,6 +73,17 @@ export const SessionDetalles = () => {
       await fetchSession(); // Recargamos para reflejar el check
     } catch (error) {
       console.error('Error al actualizar:', error);
+    }
+  };
+
+  const handleUpdateNotes = async (sessionExerciseId: string, notes: string) => {
+    try {
+      await api.put(ENDPOINTS.TRAININGS.UPDATE_EXERCISE(sessionExerciseId), {
+        notes, // Mandamos solo las notas al backend
+      });
+      // No recargamos la página aquí para no interrumpir al usuario mientras escribe
+    } catch (error) {
+      console.error('Error al guardar las notas:', error);
     }
   };
 
@@ -220,6 +235,17 @@ export const SessionDetalles = () => {
                 {item.exercise?.description || 'Sin descripción detallada.'}
               </Text>
             </Paper>
+
+            <Textarea
+              label="Mis anotaciones / Feedback"
+              placeholder="Ej: Sensaciones, peso utilizado, dificultades..."
+              defaultValue={item.notes || ''}
+              onBlur={(e) => handleUpdateNotes(item.id, e.currentTarget.value)}
+              disabled={item.completed ? true : false}
+              mt="md"
+              autosize
+              minRows={2}
+            />
 
             <Button
               fullWidth

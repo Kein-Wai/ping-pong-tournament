@@ -190,8 +190,12 @@ export const Dashboard = () => {
               Ir a Torneos
             </Button>
           </Card>
-          <WidgetEntrenamientos />
-          <WidgetTorneos />
+          {isPlayer && hasApprovedClub && (
+            <>
+              <WidgetEntrenamientos />
+              <WidgetTorneos />
+            </>
+          )}
         </SimpleGrid>
       )}
     </Stack>

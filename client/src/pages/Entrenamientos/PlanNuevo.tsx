@@ -154,7 +154,7 @@ export const PlanNuevo = () => {
             <Title order={4} mt="md">
               Estructura del Calendario
             </Title>
-            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+            <Group grow align="flex-end">
               <DateInput
                 label="Fecha de Inicio"
                 placeholder="¿Cuándo empieza?"
@@ -181,7 +181,7 @@ export const PlanNuevo = () => {
                 value={sessionsPerWeek}
                 onChange={setSessionsPerWeek}
               />
-            </SimpleGrid>
+            </Group>
 
             <Button
               type="submit"

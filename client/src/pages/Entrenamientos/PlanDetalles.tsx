@@ -28,6 +28,9 @@ import {
   IconCopy,
   IconInfoCircle,
   IconCheck,
+  IconTarget,
+  IconTrendingUp,
+  IconTrendingDown,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -44,7 +47,7 @@ export const PlanDetalles = () => {
   // Estados del Plan
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<any[]>([]);
-
+  const [planData, setPlanData] = useState<any>(null);
   // Catálogo Raw para filtrado dinámico
   const [rawCatalog, setRawCatalog] = useState<any[]>([]);
 
@@ -71,6 +74,7 @@ export const PlanDetalles = () => {
     try {
       const response = await api.get(`${ENDPOINTS.TRAININGS.BASE}/${planId}`);
       const data = response.data.data;
+      setPlanData(data);
       setSessions(data.sessions || []);
     } catch (error) {
       console.error('Error al cargar el plan:', error);
@@ -198,7 +202,14 @@ export const PlanDetalles = () => {
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (planData?.playerId) {
+              // Te lleva directamente al perfil del jugador
+              navigate(`/jugadores/${planData.playerId}`);
+            } else {
+              navigate(-1); // Respaldo por si aún no ha cargado
+            }
+          }}
         >
           Volver atrás
         </Button>
@@ -217,6 +228,60 @@ export const PlanDetalles = () => {
           </div>
         </Group>
       </Group>
+
+      {planData && (
+        <Paper
+          withBorder
+          p="md"
+          radius="md"
+          bg="var(--mantine-color-gray-0)"
+          style={{ darkHidden: true }}
+        >
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+            <Stack gap="xs">
+              <Group gap="xs">
+                <ThemeIcon color="green" variant="light" size="sm">
+                  <IconTrendingUp size={16} />
+                </ThemeIcon>
+                <Text fw={600} size="sm">
+                  Fortalezas
+                </Text>
+              </Group>
+              <Text size="sm" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                {planData.strengths || 'No especificadas'}
+              </Text>
+            </Stack>
+
+            <Stack gap="xs">
+              <Group gap="xs">
+                <ThemeIcon color="red" variant="light" size="sm">
+                  <IconTrendingDown size={16} />
+                </ThemeIcon>
+                <Text fw={600} size="sm">
+                  A Mejorar
+                </Text>
+              </Group>
+              <Text size="sm" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                {planData.weaknesses || 'No especificadas'}
+              </Text>
+            </Stack>
+
+            <Stack gap="xs">
+              <Group gap="xs">
+                <ThemeIcon color="blue" variant="light" size="sm">
+                  <IconTarget size={16} />
+                </ThemeIcon>
+                <Text fw={600} size="sm">
+                  Objetivos del Plan
+                </Text>
+              </Group>
+              <Text size="sm" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                {planData.objectives || 'No especificados'}
+              </Text>
+            </Stack>
+          </SimpleGrid>
+        </Paper>
+      )}
 
       <Title order={4}>Sesiones Programadas</Title>
 

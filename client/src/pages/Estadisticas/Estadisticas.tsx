@@ -13,11 +13,21 @@ import {
   ThemeIcon,
   ScrollArea,
   Pagination,
+  SimpleGrid,
+  Paper,
 } from '@mantine/core';
-import { IconMedal, IconTrophy, IconChartBar } from '@tabler/icons-react';
+import {
+  IconMedal,
+  IconTrophy,
+  IconChartBar,
+  IconPingPong,
+  IconTrendingUp,
+} from '@tabler/icons-react';
+import { BarChart, DonutChart } from '@mantine/charts'; // 👈 Importamos los gráficos
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { getPlayerAvatar } from '../../utils/avatar';
+import { PodioHonor } from '../../components/common/PodioHonor';
 
 interface PlayerStats {
   id: string;
@@ -38,20 +48,26 @@ const ITEMS_PER_PAGE = 10;
 
 export const Estadisticas = () => {
   const [players, setPlayers] = useState<PlayerStats[]>([]);
+  const [matches, setMatches] = useState<any[]>([]); // 👈 Guardaremos los partidos aquí
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  useEffect(() => {
-    const fetchRanking = async () => {
-      try {
-        const response = await api.get(ENDPOINTS.USERS.BASE);
-        let data: PlayerStats[] = response.data.data || response.data;
 
-        // Filtramos solo los jugadores con estadísticas y los ordenamos por ELO
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Traemos Jugadores y Partidos al mismo tiempo
+        const [resUsers, resMatches] = await Promise.all([
+          api.get(ENDPOINTS.USERS.BASE),
+          api.get(ENDPOINTS.MATCHES.BASE),
+        ]);
+
+        let data: PlayerStats[] = resUsers.data.data || resUsers.data;
         data = data
           .filter((p) => p.stats !== null)
           .sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
 
         setPlayers(data);
+        setMatches(resMatches.data);
       } catch (error) {
         console.error('Error cargando estadísticas:', error);
       } finally {
@@ -59,11 +75,12 @@ export const Estadisticas = () => {
       }
     };
 
-    fetchRanking();
+    fetchDashboardData();
   }, []);
 
   const totalPages = Math.ceil(players.length / ITEMS_PER_PAGE);
   const paginatedPlayers = players.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
   if (loading) {
     return (
       <Center h={400}>
@@ -71,6 +88,40 @@ export const Estadisticas = () => {
       </Center>
     );
   }
+
+  // --- 1. CÁLCULO DE DATOS PARA EL GRÁFICO DE BARRAS (Distribución ELO) ---
+  const eloSegments = { novice: 0, intermediate: 0, advanced: 0, expert: 0 };
+  players.forEach((p) => {
+    const elo = p.stats?.elo || 500;
+    if (elo < 500) eloSegments.novice++;
+    else if (elo < 750) eloSegments.intermediate++;
+    else if (elo < 1000) eloSegments.advanced++;
+    else eloSegments.expert++;
+  });
+
+  const chartDataElo = [
+    { Nivel: 'Aficionado (<500)', Jugadores: eloSegments.novice },
+    { Nivel: 'Intermedio (500-749)', Jugadores: eloSegments.intermediate },
+    { Nivel: 'Avanzado (750-999)', Jugadores: eloSegments.advanced },
+    { Nivel: 'Experto (1000+)', Jugadores: eloSegments.expert },
+  ];
+
+  // --- 2. CÁLCULO DE DATOS PARA EL GRÁFICO DE ANILLO (Salud del Club) ---
+  let completedMatches = 0;
+  let pendingMatches = 0;
+  let cancelledMatches = 0;
+
+  matches.forEach((m) => {
+    if (m.status === 'Completado') completedMatches++;
+    else if (m.status === 'Cancelado') cancelledMatches++;
+    else pendingMatches++;
+  });
+
+  const chartDataMatches = [
+    { name: 'Completados', value: completedMatches, color: 'teal.6' },
+    { name: 'Pendientes', value: pendingMatches, color: 'blue.6' },
+    { name: 'Cancelados', value: cancelledMatches, color: 'red.6' },
+  ];
 
   const getRankBadge = (index: number, page: number) => {
     if (page == 1) {
@@ -107,13 +158,65 @@ export const Estadisticas = () => {
           <IconChartBar size={28} />
         </ThemeIcon>
         <div>
-          <Title order={2}>Ranking Global (ELO)</Title>
+          <Title order={2}>Centro de Estadísticas</Title>
           <Text c="dimmed" size="sm">
-            Clasificación oficial basada en el rendimiento histórico.
+            Rendimiento global de los jugadores y salud del club.
           </Text>
         </div>
       </Group>
 
+      {/* PODIO DE HONOR */}
+      {players.length > 0 && <PodioHonor players={players} />}
+
+      {/* GRÁFICOS VISUALES */}
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        {/* Gráfico de Barras */}
+        <Paper withBorder p="lg" radius="md" shadow="sm">
+          <Group gap="xs" mb="xl">
+            <ThemeIcon color="blue" variant="light">
+              <IconTrendingUp size={18} />
+            </ThemeIcon>
+            <Title order={4}>Distribución de Nivel (ELO)</Title>
+          </Group>
+          <BarChart
+            h={250}
+            data={chartDataElo}
+            dataKey="Nivel"
+            series={[{ name: 'Jugadores', color: 'blue.6' }]}
+            tickLine="y"
+          />
+        </Paper>
+
+        {/* Gráfico de Anillo */}
+        <Paper withBorder p="lg" radius="md" shadow="sm">
+          <Group gap="xs" mb="xl">
+            <ThemeIcon color="teal" variant="light">
+              <IconPingPong size={18} />
+            </ThemeIcon>
+            <Title order={4}>Volumen de Partidos</Title>
+          </Group>
+          {matches.length === 0 ? (
+            <Center h={250}>
+              <Text c="dimmed">No hay partidos registrados aún.</Text>
+            </Center>
+          ) : (
+            <Group justify="center" h={250}>
+              <DonutChart
+                data={chartDataMatches}
+                withLabelsLine
+                withLabels
+                size={180}
+                thickness={25}
+              />
+            </Group>
+          )}
+        </Paper>
+      </SimpleGrid>
+
+      {/* RANKING GLOBAL (LA TABLA) */}
+      <Title order={3} mt="md">
+        Ranking Oficial
+      </Title>
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <ScrollArea>
           <Table striped highlightOnHover verticalSpacing="md" miw={700}>

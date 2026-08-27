@@ -16,6 +16,7 @@
     "@capacitor/core": "^8.5.0",
     "@capacitor/ios": "^8.5.0",
     "@capgo/capacitor-social-login": "^8.3.39",
+    "@mantine/charts": "^9.4.1",
     "@mantine/core": "^9.4.1",
     "@mantine/dates": "^9.4.1",
     "@mantine/hooks": "^9.4.1",
@@ -30,6 +31,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
+    "recharts": "^3.10.1",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
