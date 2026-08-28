@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.keinwaicheung.tttournamentapp',
-  appName: 'TT Tournament App',
+  appName: 'TM Evolve',
   webDir: 'dist',
   server: {
     cleartext: true,
