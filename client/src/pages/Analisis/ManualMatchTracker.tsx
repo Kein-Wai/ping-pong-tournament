@@ -272,7 +272,7 @@ export const ManualMatchTracker = () => {
       setEditOppName(data.opponentName);
       setEditOppHand(data.opponentHand);
       setEditOppStyle(data.opponentStyle);
-
+      setSetNumber(1);
       // Calcular marcador base según historial
       let myPts = 0;
       let oppPts = 0;

@@ -170,6 +170,16 @@ export const AnalisisList = () => {
               clearable
             />
           </SimpleGrid>
+          <SimpleGrid cols={2}>
+            <Select
+              label="Nivel del Rival"
+              placeholder="Opcional"
+              data={['Peor', 'Igual', 'Mejor']}
+              value={opponentHand}
+              onChange={setOpponentLevel}
+              clearable
+            />
+          </SimpleGrid>
           <Button
             color="blue"
             fullWidth
