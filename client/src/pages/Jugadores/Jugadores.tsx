@@ -20,6 +20,7 @@ import {
   Modal,
   NumberInput,
   Button,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -30,6 +31,7 @@ import {
   IconUserCheck,
   IconUserMinus,
   IconEdit,
+  IconUsers,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -293,33 +295,37 @@ export const Jugadores = () => {
 
   return (
     <Stack gap="md">
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md" wrap="wrap" gap="sm">
+      <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+        <Group gap="sm">
+          <ThemeIcon size={40} radius="md" color="blue" variant="light">
+            <IconUsers size={24} />
+          </ThemeIcon>
           <Title order={2}>Plantilla de Jugadores</Title>
-
-          <Group gap="xs" style={{ flexGrow: 1, justifyRight: 'true', maxWidth: 500 }}>
-            <TextInput
-              placeholder="Buscar jugador..."
-              leftSection={<IconSearch size={16} />}
-              value={search}
-              onChange={handleSearchChange}
-              style={{ flexGrow: 1 }}
-            />
-            <Select
-              leftSection={<IconFilter size={16} />}
-              data={[
-                { value: 'Aprobado', label: 'Miembros Activos' },
-                { value: 'Pendiente', label: 'Solicitudes en Espera' },
-                { value: 'Rechazado', label: 'Rechazados' },
-              ]}
-              value={statusFilter}
-              onChange={handleStatusChange}
-              allowDeselect={false}
-              style={{ width: 190 }}
-            />
-          </Group>
         </Group>
 
+        <Group gap="xs" style={{ flexGrow: 1, justifyRight: 'true', maxWidth: 500 }}>
+          <TextInput
+            placeholder="Buscar jugador..."
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={handleSearchChange}
+            style={{ flexGrow: 1 }}
+          />
+          <Select
+            leftSection={<IconFilter size={16} />}
+            data={[
+              { value: 'Aprobado', label: 'Miembros Activos' },
+              { value: 'Pendiente', label: 'Solicitudes en Espera' },
+              { value: 'Rechazado', label: 'Rechazados' },
+            ]}
+            value={statusFilter}
+            onChange={handleStatusChange}
+            allowDeselect={false}
+            style={{ width: 190 }}
+          />
+        </Group>
+      </Group>
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
         <ScrollArea>
           <Table verticalSpacing="sm" striped highlightOnHover miw={600}>
             <Table.Thead>

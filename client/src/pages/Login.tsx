@@ -132,6 +132,8 @@ export const Login = () => {
       role: decodedPayload.role,
       clubId: decodedPayload.clubId || null,
       clubStatus: decodedPayload.clubStatus || null,
+      dominantHand: decodedPayload.dominantHand || null,
+      playstyle: decodedPayload.playstyle || null,
     };
 
     login(token, loggedUser);

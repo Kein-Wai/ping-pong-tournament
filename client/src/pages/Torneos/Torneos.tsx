@@ -13,6 +13,7 @@ import {
   TextInput,
   Pagination,
   Select,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconCalendar,
@@ -128,7 +129,12 @@ export const Torneos = () => {
     <Stack gap="lg">
       {/* Cabecera Adaptativa con botón condicional */}
       <Group justify="space-between" align="center">
-        <Title order={2}>Torneos</Title>
+        <Group gap="sm">
+          <ThemeIcon size={40} radius="md" color="blue" variant="light">
+            <IconTrophy size={24} />
+          </ThemeIcon>
+          <Title order={2}>Torneos</Title>
+        </Group>
         {canCreateTournament && (
           <Button
             leftSection={<IconPlus size={16} />}

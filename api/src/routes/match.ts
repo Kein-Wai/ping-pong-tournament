@@ -41,6 +41,8 @@ router.get('/', async (req, res) => {
               name: true,
               surname: true,
               email: true,
+              dominantHand: true,
+              playstyle: true,
               club: {
                 select: { id: true, name: true, city: true },
               },
@@ -52,6 +54,8 @@ router.get('/', async (req, res) => {
               name: true,
               surname: true,
               email: true,
+              dominantHand: true,
+              playstyle: true,
               club: {
                 select: { id: true, name: true, city: true },
               },

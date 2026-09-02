@@ -41,4 +41,10 @@ export const APP_ROUTES = {
     SESSION_PATH: '/entrenamientos/sesion/:sessionId',
     SESSION: (sessionId: string) => `/entrenamientos/sesion/${sessionId}`,
   },
+  ANALISIS: {
+    LIST: '/analisis',
+    NEW: '/analisis/nuevo',
+    TRACKER_PATH: '/analisis/tracker/:id',
+    TRACKER: (id: string) => `/analisis/tracker/${id}`,
+  },
 } as const;

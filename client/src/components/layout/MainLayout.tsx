@@ -8,6 +8,10 @@ import {
   Avatar,
   UnstyledButton,
   useMantineColorScheme,
+  Modal,
+  Select,
+  Button,
+  Stack,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -27,20 +31,53 @@ import {
   IconBook,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
-import { APP_ROUTES } from '../../constants/routes'; // 👈 IMPORTADO
+import { APP_ROUTES } from '../../constants/routes';
 import { getPlayerAvatar } from '../../utils/avatar';
+import { useState, useEffect } from 'react';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
 
 export const MainLayout = () => {
   const [opened, { toggle }] = useDisclosure();
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateUserFields } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [hand, setHand] = useState<string | null>(null);
+  const [style, setStyle] = useState<string | null>(null);
+  const [savingOnboarding, setSavingOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (user && user.role === 'Player' && (!user.dominantHand || !user.playstyle)) {
+      setOnboardingOpen(true);
+    } else {
+      setOnboardingOpen(false);
+    }
+  }, [user]);
+
   const handleLogout = () => {
     logout();
     navigate(APP_ROUTES.LOGIN);
+  };
+
+  const handleCompleteOnboarding = async () => {
+    if (!hand || !style) return;
+    setSavingOnboarding(true);
+    try {
+      await api.put(ENDPOINTS.USERS.ME, {
+        dominantHand: hand,
+        playstyle: style,
+      });
+      updateUserFields({ dominantHand: hand as any, playstyle: style as any });
+      setOnboardingOpen(false);
+    } catch (error) {
+      console.error('Error guardando perfil:', error);
+    } finally {
+      setSavingOnboarding(false);
+    }
   };
 
   const isSuperAdmin = user?.role === 'SuperAdmin';
@@ -58,6 +95,11 @@ export const MainLayout = () => {
       label: 'Mi Perfil',
       icon: IconUser,
       path: APP_ROUTES.JUGADORES.PROFILE(user.id),
+    });
+    navItems.push({
+      label: 'Análisis Pro',
+      icon: IconChartBar, // O el icono que prefieras
+      path: APP_ROUTES.ANALISIS.LIST,
     });
   }
 
@@ -178,6 +220,63 @@ export const MainLayout = () => {
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+      <Modal
+        opened={onboardingOpen}
+        onClose={() => {}} // Vacío para que no se pueda cerrar con ESC
+        withCloseButton={false} // Quitamos la "X"
+        closeOnClickOutside={false} // No se cierra al hacer clic fuera
+        title={
+          <Text fw={900} size="lg">
+            ¡Último paso, {user?.name}!
+          </Text>
+        }
+        centered
+        overlayProps={{ blur: 5, backgroundOpacity: 0.85 }}
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Para poder generar tus estadísticas avanzadas y emparejamientos, necesitamos conocer un
+            poco más sobre tu perfil de jugador.
+          </Text>
+
+          <Select
+            label="Mano Dominante"
+            placeholder="¿Con qué mano juegas?"
+            data={[
+              { value: 'Diestro', label: 'Diestro (Derecha)' },
+              { value: 'Zurdo', label: 'Zurdo (Izquierda)' },
+            ]}
+            value={hand}
+            onChange={setHand}
+            required
+            allowDeselect={false}
+          />
+
+          <Select
+            label="Estilo de Juego Principal"
+            placeholder="¿Cómo te defines en la mesa?"
+            data={[
+              { value: 'Ofensivo', label: 'Ofensivo (Ataque, Top Spin)' },
+              { value: 'Defensivo', label: 'Defensivo (Bloqueo, Corte)' },
+            ]}
+            value={style}
+            onChange={setStyle}
+            required
+            allowDeselect={false}
+          />
+
+          <Button
+            color="blue"
+            fullWidth
+            mt="md"
+            onClick={handleCompleteOnboarding}
+            loading={savingOnboarding}
+            disabled={!hand || !style}
+          >
+            Completar mi Perfil
+          </Button>
+        </Stack>
+      </Modal>
     </AppShell>
   );
 };

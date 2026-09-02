@@ -8,6 +8,38 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum MatchLocation {
+  Casa
+  Fuera
+}
+
+enum ManualMatchType {
+  Liga
+  Competicion
+  Amistoso
+}
+
+enum MatchFormat {
+  Individual
+  Equipos
+}
+
+enum OpponentLevel {
+  Peor
+  Igual
+  Mejor
+}
+
+enum DominantHand {
+  Diestro
+  Zurdo
+}
+
+enum Playstyle {
+  Ofensivo
+  Defensivo
+}
+
 enum ExerciseCategory {
   Control_CT
   Bloqueo_Contraataque
@@ -170,6 +202,8 @@ model User {
   email             String          @unique @db.VarChar(255)
   verificationToken String?         @db.VarChar(255)
   active            Boolean         @default(false)
+  dominantHand      DominantHand?   @map("dominant_hand")
+  playstyle         Playstyle?
 
   // Relaciones
   club                          Club?                   @relation(fields: [clubId], references: [id])
@@ -182,6 +216,7 @@ model User {
   tournamentInscriptions        TournamentParticipant[]
   tournamentgroupClasifications TournamentClas[]
   trainings                     PlayerTraining[]
+  manualMatches                 ManualMatch[]
 
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
@@ -467,4 +502,51 @@ model LeagueClas {
   player User   @relation(fields: [playerId], references: [id])
 
   @@map("league_clas")
+}
+
+
+model ManualMatch {
+  id              String           @id @default(uuid())
+  userId          String           @map("user_id")
+  date            DateTime         @db.Date
+  location        MatchLocation
+  matchType       ManualMatchType  @map("match_type")
+  format          MatchFormat
+  
+  // Datos del Rival
+  opponentName    String           @map("opponent_name") @db.VarChar(255)
+  opponentHand    DominantHand?    @map("opponent_hand")
+  opponentStyle   Playstyle?       @map("opponent_style")
+  opponentLevel   OpponentLevel?   @map("opponent_level")
+  
+  // Resultado General
+  status          MatchStatus      @default(Programado)
+  mySets          Int              @default(0) @map("my_sets")
+  opponentSets    Int              @default(0) @map("opponent_sets")
+  
+  // Relaciones
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points          PointAnalysis[]
+
+  @@map("manual_match")
+}
+
+model PointAnalysis {
+  id              String       @id @default(uuid())
+  manualMatchId   String       @map("manual_match_id")
+  
+  setNumber       Int          @map("set_number")
+  pointOrder      Int          @map("point_order") // El orden en el que ocurrió el punto (1, 2, 3...)
+  isWon           Boolean      @map("is_won")      // true = Verde (Ganado), false = Rojo (Perdido)
+  
+  // Clasificación del excel
+  phase           String?      @db.VarChar(255) // Nivel 1: Servicio, Resto, Bola 3ra, Rally, Defensa...
+  side            String?      @db.VarChar(255) // Nivel 2: Derecha, Reves, Largo, Corto...
+  technique       String?      @db.VarChar(255) // Nivel 3: Ataque, Push, Corte, Flip...
+  placement       String?      @db.VarChar(255) // Nivel 4: Cruzado, Paralelo, Red, Canto...
+  
+  // Relaciones
+  match           ManualMatch  @relation(fields: [manualMatchId], references: [id], onDelete: Cascade)
+
+  @@map("point_analysis")
 }

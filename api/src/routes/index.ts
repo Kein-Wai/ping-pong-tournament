@@ -9,7 +9,7 @@ import trainingRoutes from './training';
 import webhookRoutes from './webhook';
 import clubRoutes from './club';
 import { verifyToken } from '../middleware/auth.middleware';
-import { enviarCorreoGenerico } from '../services/email';
+import manualMatchRoutes from './manual-match';
 
 const router = Router();
 
@@ -21,16 +21,7 @@ router.use('/matches', verifyToken, matchRoutes);
 router.use('/tournaments', verifyToken, tournamentRoutes);
 router.use('/exercises', verifyToken, exerciseRoutes);
 router.use('/trainings', verifyToken, trainingRoutes);
-
+router.use('/manual-matches', verifyToken, manualMatchRoutes);
 router.use('/webhooks', webhookRoutes);
-// router.get('/test-email', async (req, res) => {
-//   try {
-//     await enviarCorreoGenerico('keinwaicheung@gmail.com', 'Email Test', '<h1>ESTO ES UN TEST</h1>');
 
-//     res.status(200).json({ message: 'Email Sent' });
-//   } catch (error) {
-//     res.status(500).json({ success: false, error: 'Error al enviar email' });
-//     console.log(error);
-//   }
-// });
 export default router;

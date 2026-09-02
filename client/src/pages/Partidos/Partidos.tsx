@@ -17,6 +17,7 @@ import {
   Avatar,
   Badge,
   Paper,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -254,18 +255,22 @@ export const Partidos = () => {
 
   return (
     <Stack gap="md">
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md">
+      <Group justify="space-between" align="center" mb="sm">
+        <Group gap="sm">
+          <ThemeIcon size={40} radius="md" color="blue" variant="light">
+            <IconCalendar size={24} />
+          </ThemeIcon>
           <Title order={2}>Historial de Partidas</Title>
-          <TextInput
-            placeholder="Buscar por jugador o torneo..."
-            leftSection={<IconSearch size={16} />}
-            value={search}
-            onChange={handleSearchChange}
-            style={{ flexGrow: 1, maxWidth: 300 }}
-          />
         </Group>
-
+        <TextInput
+          placeholder="Buscar por jugador o torneo..."
+          leftSection={<IconSearch size={16} />}
+          value={search}
+          onChange={handleSearchChange}
+          style={{ flexGrow: 1, maxWidth: 300 }}
+        />
+      </Group>
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
         <ScrollArea>
           <Table verticalSpacing="sm" striped highlightOnHover>
             <Table.Thead>

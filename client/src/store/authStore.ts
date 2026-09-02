@@ -10,6 +10,8 @@ export interface User {
   role: string;
   clubId: string | null;
   clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
+  dominantHand?: 'Diestro' | 'Zurdo' | null;
+  playstyle?: 'Ofensivo' | 'Defensivo' | null;
 }
 
 interface AuthState {

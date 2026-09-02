@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UserClubStatus } from '@prisma/client';
+import { UserClubStatus, DominantHand, Playstyle } from '@prisma/client';
 
 export const loginLocalSchema = z.object({
   email: z.email(),
@@ -70,6 +70,8 @@ export const updateProfileSchema = z
       .min(6, 'La nueva contraseña debe tener al menos 6 caracteres')
       .optional(),
     confirmPassword: z.string().optional(),
+    dominantHand: z.enum([DominantHand.Diestro, DominantHand.Zurdo]).optional().nullable(),
+    playstyle: z.enum([Playstyle.Ofensivo, Playstyle.Defensivo]).optional().nullable(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
     message: 'Las contraseñas no coinciden',

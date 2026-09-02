@@ -22,6 +22,8 @@ import { EjercicioNuevo } from './pages/Ejercicios/EjercicioNuevo';
 import { PlanNuevo } from './pages/Entrenamientos/PlanNuevo';
 import { PlanDetalles } from './pages/Entrenamientos/PlanDetalles';
 import { SessionDetalles } from './pages/Entrenamientos/SessionDetalles';
+import { AnalisisList } from './pages/Analisis/AnalisisList';
+import { ManualMatchTracker } from './pages/Analisis/ManualMatchTracker';
 import { App as CapApp } from '@capacitor/app';
 import { APP_ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
@@ -164,6 +166,8 @@ function AppContent() {
                   path={APP_ROUTES.ENTRENAMIENTOS.SESSION_PATH}
                   element={<SessionDetalles />}
                 />
+                <Route path={APP_ROUTES.ANALISIS.LIST} element={<AnalisisList />} />
+                <Route path={APP_ROUTES.ANALISIS.TRACKER_PATH} element={<ManualMatchTracker />} />
               </Route>
             </Route>
           </Route>

@@ -646,6 +646,8 @@ async function main() {
     const assignedClub = i <= 40 ? clubA.id : clubB.id;
     const nombre = nombres[Math.floor(Math.random() * nombres.length)];
     const apellido = apellidos[Math.floor(Math.random() * apellidos.length)];
+    const hand = Math.random() < 0.8 ? 'Diestro' : 'Zurdo'; // 80% Diestro, 20% Zurdo
+    const style = Math.random() < 0.85 ? 'Ofensivo' : 'Defensivo'; // 85% Ofensivo, 15% Defensivo
     const p = await prisma.user.create({
       data: {
         email: `${nombre}${i}-${apellido}@pingpong.local`,
@@ -654,6 +656,8 @@ async function main() {
         userTypeId: playerRoleId,
         clubId: assignedClub,
         clubStatus: 'Aprobado',
+        dominantHand: hand as any,
+        playstyle: style as any,
         active: true,
         stats: {
           create: {

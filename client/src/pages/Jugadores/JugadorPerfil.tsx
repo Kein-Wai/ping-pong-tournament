@@ -19,6 +19,8 @@ import {
   Modal,
   TextInput,
   ActionIcon,
+  Select,
+  Box,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -34,7 +36,7 @@ import {
   IconTrendingDown,
   IconTarget,
 } from '@tabler/icons-react';
-import { RadarChart } from '@mantine/charts'; // 👈 IMPORTAMOS EL RADAR
+import { RadarChart, BarChart } from '@mantine/charts'; // 👈 IMPORTAMOS EL RADAR
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
@@ -50,6 +52,8 @@ interface UserProfile {
   surname?: string;
   nickname?: string;
   avatarUrl?: string | null;
+  dominantHand?: 'Diestro' | 'Zurdo' | null;
+  playstyle?: 'Ofensivo' | 'Defensivo' | null;
   stats?: {
     elo: number;
     matchWon: number;
@@ -74,7 +78,14 @@ export const JugadorPerfil = () => {
 
   const [editModalOpened, setEditModalOpened] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editData, setEditData] = useState({ name: '', surname: '', nickname: '', avatarUrl: '' });
+  const [editData, setEditData] = useState({
+    name: '',
+    surname: '',
+    nickname: '',
+    avatarUrl: '',
+    dominantHand: '',
+    playstyle: '',
+  });
   const [trainings, setTrainings] = useState<any[]>([]);
 
   const isOwnProfile = currentUser?.id === id;
@@ -125,6 +136,8 @@ export const JugadorPerfil = () => {
         surname: player.surname || '',
         nickname: player.nickname || '',
         avatarUrl: player.avatarUrl || '',
+        dominantHand: player.dominantHand || '',
+        playstyle: player.playstyle || '',
       });
       setEditModalOpened(true);
     }
@@ -193,6 +206,71 @@ export const JugadorPerfil = () => {
 
   const matchWinRate = totalMatches > 0 ? Math.round(((s?.matchWon || 0) / totalMatches) * 100) : 0;
 
+  const rivalStats = {
+    Diestro: { win: 0, loss: 0 },
+    Zurdo: { win: 0, loss: 0 },
+    Ofensivo: { win: 0, loss: 0 },
+    Defensivo: { win: 0, loss: 0 },
+  };
+
+  const allCompletedUserMatches = recentMatches; // O si tienes el array completo sin recortar, mejor
+  allCompletedUserMatches.forEach((m) => {
+    const isPlayerOne = m.playerOneId === id;
+    const opponent = isPlayerOne ? m.playerTwo : m.playerOne;
+
+    // Calculamos quién ganó el partido
+    let p1Sets = 0,
+      p2Sets = 0;
+    const sets = [
+      [m.setOnePlayerOne, m.setOnePlayerTwo],
+      [m.setTwoPlayerOne, m.setTwoPlayerTwo],
+      [m.setThreePlayerOne, m.setThreePlayerTwo],
+      [m.setFourPlayerOne, m.setFourPlayerTwo],
+      [m.setFivePlayerOne, m.setFivePlayerTwo],
+    ];
+    sets.forEach(([s1, s2]) => {
+      if (s1 !== null && s2 !== null && !(s1 === 0 && s2 === 0)) {
+        if (s1 > s2) p1Sets++;
+        else if (s2 > s1) p2Sets++;
+      }
+    });
+
+    const didWin = isPlayerOne ? p1Sets > p2Sets : p2Sets > p1Sets;
+
+    // Clasificamos según la mano del rival
+    if (opponent.dominantHand === 'Diestro') {
+      didWin ? rivalStats.Diestro.win++ : rivalStats.Diestro.loss++;
+    } else if (opponent.dominantHand === 'Zurdo') {
+      didWin ? rivalStats.Zurdo.win++ : rivalStats.Zurdo.loss++;
+    }
+
+    // Clasificamos según el estilo del rival
+    if (opponent.playstyle === 'Ofensivo') {
+      didWin ? rivalStats.Ofensivo.win++ : rivalStats.Ofensivo.loss++;
+    } else if (opponent.playstyle === 'Defensivo') {
+      didWin ? rivalStats.Defensivo.win++ : rivalStats.Defensivo.loss++;
+    }
+  });
+
+  // Preparamos los arrays para Mantine Charts
+  const chartDataMano = [
+    { Rasgo: 'vs Diestros', Victorias: rivalStats.Diestro.win, Derrotas: rivalStats.Diestro.loss },
+    { Rasgo: 'vs Zurdos', Victorias: rivalStats.Zurdo.win, Derrotas: rivalStats.Zurdo.loss },
+  ];
+
+  const chartDataEstilo = [
+    {
+      Rasgo: 'vs Ofensivos',
+      Victorias: rivalStats.Ofensivo.win,
+      Derrotas: rivalStats.Ofensivo.loss,
+    },
+    {
+      Rasgo: 'vs Defensivos',
+      Victorias: rivalStats.Defensivo.win,
+      Derrotas: rivalStats.Defensivo.loss,
+    },
+  ];
+
   // Transformamos los datos a una escala 0-100 para que el radar se vea simétrico
   const radarData =
     totalMatches > 0
@@ -231,16 +309,17 @@ export const JugadorPerfil = () => {
 
   return (
     <Stack gap="xl">
-      <div>
-        <Button
-          variant="subtle"
-          leftSection={<IconArrowLeft size={16} />}
-          onClick={() => navigate(APP_ROUTES.JUGADORES.LIST)}
-        >
-          Volver a Jugadores
-        </Button>
-      </div>
-
+      {!isOwnProfile && (
+        <div>
+          <Button
+            variant="subtle"
+            leftSection={<IconArrowLeft size={16} />}
+            onClick={() => navigate(APP_ROUTES.JUGADORES.LIST)}
+          >
+            Volver a Jugadores
+          </Button>
+        </div>
+      )}
       {/* Cabecera del Perfil */}
       <Card shadow="sm" padding="xl" radius="md" withBorder>
         <Group align="flex-start" justify="space-between">
@@ -271,6 +350,18 @@ export const JugadorPerfil = () => {
               >
                 {s?.elo || 500} ELO
               </Badge>
+              <Group gap="xs" mt="xs">
+                {player.dominantHand && (
+                  <Badge variant="outline" color="gray" tt="none">
+                    🖐️ {player.dominantHand}
+                  </Badge>
+                )}
+                {player.playstyle && (
+                  <Badge variant="outline" color="orange" tt="none">
+                    ⚔️ {player.playstyle}
+                  </Badge>
+                )}
+              </Group>
             </div>
           </Group>
 
@@ -332,6 +423,61 @@ export const JugadorPerfil = () => {
                   desbloquear tu radar de estadísticas.
                 </Text>
               </Stack>
+            </Center>
+          )}
+        </Card>
+
+        <Card withBorder radius="md" shadow="sm" p="lg">
+          <Group gap="xs" mb="lg">
+            <ThemeIcon color="grape" variant="light">
+              <IconPingPong size={18} />
+            </ThemeIcon>
+            <Title order={4}>Desempeño vs Rivales</Title>
+          </Group>
+          {totalMatches > 0 ? (
+            <Stack gap="xl">
+              <Box>
+                <Text size="sm" c="dimmed" fw={600} mb="xs">
+                  Según Mano Dominante
+                </Text>
+                <BarChart
+                  h={120}
+                  data={chartDataMano}
+                  dataKey="Rasgo"
+                  type="stacked" // 👈 Stacked apila victorias y derrotas en la misma barra
+                  orientation="vertical" // 👈 Barras horizontales (más elegantes aquí)
+                  series={[
+                    { name: 'Victorias', color: 'blue.5' },
+                    { name: 'Derrotas', color: 'red.5' },
+                  ]}
+                />
+              </Box>
+              <Box>
+                <Text size="sm" c="dimmed" fw={600} mb="xs">
+                  Según Estilo de Juego
+                </Text>
+                <BarChart
+                  h={120}
+                  data={chartDataEstilo}
+                  dataKey="Rasgo"
+                  type="stacked"
+                  orientation="vertical"
+                  series={[
+                    { name: 'Victorias', color: 'blue.5' },
+                    { name: 'Derrotas', color: 'red.5' },
+                  ]}
+                />
+              </Box>
+            </Stack>
+          ) : (
+            <Center
+              h={200}
+              bg="var(--mantine-color-gray-0)"
+              style={{ borderRadius: 8, darkHidden: true }}
+            >
+              <Text c="dimmed" size="sm" ta="center">
+                Sin datos de enfrentamientos.
+              </Text>
             </Center>
           )}
         </Card>
@@ -679,6 +825,20 @@ export const JugadorPerfil = () => {
             value={editData.avatarUrl || ''}
             onChange={(e) => setEditData({ ...editData, avatarUrl: e.currentTarget.value })}
           />
+          <SimpleGrid cols={2}>
+            <Select
+              label="Mano Dominante"
+              data={['Diestro', 'Zurdo']}
+              value={editData.dominantHand}
+              onChange={(val) => setEditData({ ...editData, dominantHand: val || '' })}
+            />
+            <Select
+              label="Estilo de Juego"
+              data={['Ofensivo', 'Defensivo']}
+              value={editData.playstyle}
+              onChange={(val) => setEditData({ ...editData, playstyle: val || '' })}
+            />
+          </SimpleGrid>
           <Button color="blue" fullWidth mt="md" loading={saving} onClick={handleSaveProfile}>
             Guardar Cambios
           </Button>
