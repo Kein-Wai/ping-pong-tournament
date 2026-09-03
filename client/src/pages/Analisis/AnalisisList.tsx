@@ -33,7 +33,7 @@ export const AnalisisList = () => {
   const [opponentHand, setOpponentHand] = useState<string | null>(null);
   const [opponentStyle, setOpponentStyle] = useState<string | null>(null);
   const [opponentLevel, setOpponentLevel] = useState<string | null>(null);
-
+  const [setsToWin, setSetsToWin] = useState<string>('3');
   useEffect(() => {
     api
       .get(ENDPOINTS.MANUAL_MATCHES.BASE)
@@ -53,6 +53,7 @@ export const AnalisisList = () => {
         opponentHand,
         opponentStyle,
         opponentLevel,
+        setsToWin: Number(setsToWin),
       });
       navigate(APP_ROUTES.ANALISIS.TRACKER(res.data.data.id));
     } catch (error) {
@@ -175,11 +176,23 @@ export const AnalisisList = () => {
               label="Nivel del Rival"
               placeholder="Opcional"
               data={['Peor', 'Igual', 'Mejor']}
-              value={opponentHand}
+              value={opponentLevel}
               onChange={setOpponentLevel}
               clearable
             />
+            <Select
+              label="Formato al mejor de..."
+              data={[
+                { value: '2', label: 'Mejor de 3 Sets (2 para ganar)' },
+                { value: '3', label: 'Mejor de 5 Sets (3 para ganar)' },
+                { value: '4', label: 'Mejor de 7 Sets (4 para ganar)' },
+              ]}
+              value={setsToWin}
+              onChange={(val) => setSetsToWin(val!)}
+              allowDeselect={false}
+            />
           </SimpleGrid>
+
           <Button
             color="blue"
             fullWidth

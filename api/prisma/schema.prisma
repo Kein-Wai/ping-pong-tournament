@@ -8,6 +8,56 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum PointPhase {
+  Servicio
+  Resto
+  TerceraBola
+  Rally
+  Defensa
+  JuegoPies
+  ErrorRival
+  WinnerRival
+}
+
+enum StrokeSide {
+  Derecha
+  Reves
+}
+
+enum StrokeTechnique {
+  Ace
+  Corto
+  Largo
+  Flip
+  Corte
+  Push
+  Ataque
+  Top
+  Contra
+  Smash
+  Bloqueo
+  Globo
+  JuegoPies
+  Error
+  Winner
+}
+
+enum StrokePlacement {
+  Cruzado
+  Paralelo
+  Medio
+  Corto
+  Largo
+}
+
+// 👇 La nueva columna de errores
+enum ErrorModifier {
+  Red
+  Fuera
+  BloqueoRival
+  WinnerRival
+}
+
 enum MatchLocation {
   Casa
   Fuera
@@ -512,6 +562,7 @@ model ManualMatch {
   location        MatchLocation
   matchType       ManualMatchType  @map("match_type")
   format          MatchFormat
+  setsToWin       Int              @default(3) @map("sets_to_win")
   
   // Datos del Rival
   opponentName    String           @map("opponent_name") @db.VarChar(255)
@@ -540,10 +591,11 @@ model PointAnalysis {
   isWon           Boolean      @map("is_won")      // true = Verde (Ganado), false = Rojo (Perdido)
   
   // Clasificación del excel
-  phase           String?      @db.VarChar(255) // Nivel 1: Servicio, Resto, Bola 3ra, Rally, Defensa...
-  side            String?      @db.VarChar(255) // Nivel 2: Derecha, Reves, Largo, Corto...
-  technique       String?      @db.VarChar(255) // Nivel 3: Ataque, Push, Corte, Flip...
-  placement       String?      @db.VarChar(255) // Nivel 4: Cruzado, Paralelo, Red, Canto...
+  phase           PointPhase?  
+  side            StrokeSide?  
+  technique       StrokeTechnique? 
+  placement       StrokePlacement? 
+  errorModifier   ErrorModifier?   @map("error_modifier") 
   
   // Relaciones
   match           ManualMatch  @relation(fields: [manualMatchId], references: [id], onDelete: Cascade)

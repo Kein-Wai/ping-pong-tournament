@@ -6,21 +6,24 @@ import {
   OpponentLevel,
   DominantHand,
   Playstyle,
+  PointPhase,
+  StrokeSide,
+  StrokeTechnique,
+  StrokePlacement,
+  ErrorModifier,
 } from '@prisma/client';
 
 export const createManualMatchSchema = z.object({
   date: z.iso.datetime().optional(),
-  location: z.enum([MatchLocation.Casa, MatchLocation.Fuera]),
-  matchType: z.enum([ManualMatchType.Liga, ManualMatchType.Competicion, ManualMatchType.Amistoso]),
-  format: z.enum([MatchFormat.Individual, MatchFormat.Equipos]),
+  location: z.enum(MatchLocation),
+  matchType: z.enum(ManualMatchType),
+  format: z.enum(MatchFormat),
 
   opponentName: z.string().min(1, 'El nombre del rival es obligatorio'),
-  opponentHand: z.enum([DominantHand.Diestro, DominantHand.Zurdo]).optional().nullable(),
-  opponentStyle: z.enum([Playstyle.Ofensivo, Playstyle.Defensivo]).optional().nullable(),
-  opponentLevel: z
-    .enum([OpponentLevel.Peor, OpponentLevel.Igual, OpponentLevel.Mejor])
-    .optional()
-    .nullable(),
+  opponentHand: z.enum(DominantHand).optional().nullable(),
+  opponentStyle: z.enum(Playstyle).optional().nullable(),
+  opponentLevel: z.enum(OpponentLevel).optional().nullable(),
+  setsToWin: z.number().int().min(1).default(3),
 });
 
 export const addPointSchema = z.object({
@@ -29,10 +32,11 @@ export const addPointSchema = z.object({
   isWon: z.boolean(),
 
   // Los 4 niveles de tu estructura (pueden ser nulos si es un error no forzado, por ejemplo)
-  phase: z.string().optional().nullable(),
-  side: z.string().optional().nullable(),
-  technique: z.string().optional().nullable(),
-  placement: z.string().optional().nullable(),
+  phase: z.enum(PointPhase).optional().nullable(),
+  side: z.enum(StrokeSide).optional().nullable(),
+  technique: z.enum(StrokeTechnique).optional().nullable(),
+  placement: z.enum(StrokePlacement).optional().nullable(),
+  errorModifier: z.enum(ErrorModifier).optional().nullable(),
 });
 
 export const completeMatchSchema = z.object({
@@ -42,10 +46,7 @@ export const completeMatchSchema = z.object({
 
 export const updateManualMatchSchema = z.object({
   opponentName: z.string().min(1, 'El nombre no puede estar vacío').optional(),
-  opponentHand: z.enum([DominantHand.Diestro, DominantHand.Zurdo]).optional().nullable(),
-  opponentStyle: z.enum([Playstyle.Ofensivo, Playstyle.Defensivo]).optional().nullable(),
-  opponentLevel: z
-    .enum([OpponentLevel.Peor, OpponentLevel.Igual, OpponentLevel.Mejor])
-    .optional()
-    .nullable(),
+  opponentHand: z.enum(DominantHand).optional().nullable(),
+  opponentStyle: z.enum(Playstyle).optional().nullable(),
+  opponentLevel: z.enum(OpponentLevel).optional().nullable(),
 });
