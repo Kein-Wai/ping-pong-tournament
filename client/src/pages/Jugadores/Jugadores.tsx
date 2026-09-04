@@ -30,7 +30,6 @@ import {
   IconCheck,
   IconX,
   IconFilter,
-  IconUserCheck,
   IconUserMinus,
   IconEdit,
   IconUsers,
