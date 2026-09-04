@@ -19,6 +19,8 @@ import { IconDeviceAnalytics, IconPlus } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
+import { DateInput } from '@mantine/dates';
+import '@mantine/dates/styles.css';
 
 export const AnalisisList = () => {
   const navigate = useNavigate();
@@ -30,10 +32,13 @@ export const AnalisisList = () => {
   // Formulario rápido
   const [opponentName, setOppName] = useState('');
   const [matchType, setMatchType] = useState('Amistoso');
+  const [matchFormat, setMatchFormat] = useState<string>('Individual');
   const [opponentHand, setOpponentHand] = useState<string | null>(null);
   const [opponentStyle, setOpponentStyle] = useState<string | null>(null);
   const [opponentLevel, setOpponentLevel] = useState<string | null>(null);
   const [setsToWin, setSetsToWin] = useState<string>('3');
+  const [matchDate, setMatchDate] = useState<Date | null>(new Date());
+
   useEffect(() => {
     api
       .get(ENDPOINTS.MANUAL_MATCHES.BASE)
@@ -49,11 +54,12 @@ export const AnalisisList = () => {
         opponentName,
         matchType,
         location: 'Casa', // Valores por defecto para ir rápido
-        format: 'Individual',
+        format: matchFormat,
         opponentHand,
         opponentStyle,
         opponentLevel,
         setsToWin: Number(setsToWin),
+        date: matchDate ? matchDate.toISOString() : new Date().toISOString(),
       });
       navigate(APP_ROUTES.ANALISIS.TRACKER(res.data.data.id));
     } catch (error) {
@@ -110,8 +116,10 @@ export const AnalisisList = () => {
                   <Text fw={700} size="lg">
                     vs {m.opponentName}
                   </Text>
+
                   <Text c="dimmed" size="sm">
-                    Formato: {m.format} · {m.matchType}
+                    {m.date ? new Date(m.date).toLocaleDateString('es-ES') : 'Sin fecha'} · Formato:{' '}
+                    {m.format} · {m.matchType}
                   </Text>
                 </div>
                 <Group>
@@ -139,6 +147,13 @@ export const AnalisisList = () => {
         centered
       >
         <Stack gap="md">
+          <DateInput
+            label="Fecha del Partido"
+            value={matchDate}
+            onChange={(val) => setMatchDate(val ? new Date(val) : null)}
+            maxDate={new Date()} // No permitir fechas futuras
+            clearable
+          />
           <TextInput
             label="Nombre del Rival"
             required
@@ -146,13 +161,22 @@ export const AnalisisList = () => {
             onChange={(e) => setOppName(e.currentTarget.value)}
             data-autofocus
           />
-          <Select
-            label="Tipo de Partido"
-            data={['Amistoso', 'Liga', 'Competicion']}
-            value={matchType}
-            onChange={(val) => setMatchType(val!)}
-            allowDeselect={false}
-          />
+          <SimpleGrid cols={2}>
+            <Select
+              label="Tipo de Partido"
+              data={['Amistoso', 'Liga', 'Competicion']}
+              value={matchType}
+              onChange={(val) => setMatchType(val!)}
+              allowDeselect={false}
+            />
+            <Select
+              label="Formato"
+              data={['Individual', 'Equipos']}
+              value={matchFormat}
+              onChange={(val) => setMatchFormat(val!)}
+              allowDeselect={false}
+            />
+          </SimpleGrid>
           <SimpleGrid cols={2}>
             <Select
               label="Mano del Rival"

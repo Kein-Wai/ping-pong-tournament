@@ -184,7 +184,7 @@ export const ManualMatchTracker = () => {
 
     const payload = {
       setNumber: currentSet,
-      pointOrder: pointHistory.length + 1,
+      pointOrder: currentSetPoints.length + 1,
       isWon: isWonState,
       phase: actionDef.phase || activePhase,
       side: actionDef.side,
