@@ -10,6 +10,7 @@ import webhookRoutes from './webhook';
 import clubRoutes from './club';
 import { verifyToken } from '../middleware/auth.middleware';
 import manualMatchRoutes from './manual-match';
+import skillsRoutes from './skill';
 
 const router = Router();
 
@@ -23,5 +24,6 @@ router.use('/exercises', verifyToken, exerciseRoutes);
 router.use('/trainings', verifyToken, trainingRoutes);
 router.use('/manual-matches', verifyToken, manualMatchRoutes);
 router.use('/webhooks', webhookRoutes);
+router.use('/skills', verifyToken, skillsRoutes);
 
 export default router;

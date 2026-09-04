@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../db';
 import { createClubSchema, updateMemberStatusSchema, updateClubSchema } from '../schemas/club';
+import { updateSkillsSchema } from '../schemas/user';
 import { z } from 'zod';
 import { verifyToken, requireAdminClub, requireSuperAdmin } from '../middleware/auth.middleware';
 
@@ -241,7 +242,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
       return;
     }
 
-    const { status } = validation.data;
+    const { status, skills, level, elo } = validation.data;
 
     // Verificar si el usuario realmente mandó la solicitud a este club específico
     const userToUpdate = await prisma.user.findUnique({ where: { id: userId } });
@@ -254,12 +255,30 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
     const updateData =
       status === 'Rechazado'
         ? { clubId: null, clubStatus: 'Registrado' as any }
-        : { clubStatus: status as any };
+        : { clubStatus: status, level: level };
 
     await prisma.user.update({
       where: { id: userId },
       data: updateData,
     });
+
+    if (status === 'Aprobado' && skills) {
+      if (elo !== undefined) {
+        await prisma.stats.upsert({
+          where: { userId: userId },
+          update: { elo: elo },
+          create: { userId: userId, elo: elo },
+        });
+      }
+      await prisma.playerSkills.upsert({
+        where: { userId: userId },
+        update: skills, // Si por algún error ya existía, lo actualizamos
+        create: {
+          userId: userId,
+          ...skills, // Si es nuevo, lo creamos
+        },
+      });
+    }
 
     res.status(200).json({
       success: true,

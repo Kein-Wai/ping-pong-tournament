@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ClubStatus, UserClubStatus } from '@prisma/client';
+import { ClubStatus, UserClubStatus, PlayerLevel } from '@prisma/client';
 
 export const createClubSchema = z.object({
   name: z.string().min(3, 'El nombre del club debe tener al menos 3 caracteres'),
@@ -19,6 +19,25 @@ export const updateClubSchema = z.object({
   status: z.enum([ClubStatus.Pendiente, ClubStatus.Aprobado, ClubStatus.Inactivo]).optional(),
 });
 
+const statValidator = z.number().int().min(0).max(100);
+
+export const updateSkillsSchema = z.object({
+  derechaPlano: statValidator,
+  revesPlano: statValidator,
+  topspinDerecha: statValidator,
+  topspinReves: statValidator,
+  corte: statValidator,
+  bloqueoDerecha: statValidator,
+  bloqueoReves: statValidator,
+  servicio: statValidator,
+  recepcion: statValidator,
+  movilidad: statValidator,
+  fortalezaMental: statValidator,
+});
+
 export const updateMemberStatusSchema = z.object({
   status: z.enum([UserClubStatus.Aprobado, UserClubStatus.Rechazado]),
+  level: z.enum(PlayerLevel).optional(),
+  skills: updateSkillsSchema.optional(),
+  elo: z.number().int().min(0).optional(),
 });

@@ -215,6 +215,14 @@ enum UserClubStatus {
   Rechazado // No le han dejado entrar
 }
 
+enum PlayerLevel {
+  Iniciacion
+  Principiante
+  Intermedio
+  Avanzado
+  Profesional
+}
+
 model Club {
   id     String     @id @default(uuid())
   name   String     @unique @db.VarChar(255)
@@ -254,8 +262,10 @@ model User {
   active            Boolean         @default(false)
   dominantHand      DominantHand?   @map("dominant_hand")
   playstyle         Playstyle?
+  level             PlayerLevel?
 
   // Relaciones
+       
   club                          Club?                   @relation(fields: [clubId], references: [id])
   userType                      UserType                @relation(fields: [userTypeId], references: [id])
   stats                         Stats?
@@ -267,6 +277,7 @@ model User {
   tournamentgroupClasifications TournamentClas[]
   trainings                     PlayerTraining[]
   manualMatches                 ManualMatch[]
+  skills                        PlayerSkills?      
 
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
@@ -601,4 +612,26 @@ model PointAnalysis {
   match           ManualMatch  @relation(fields: [manualMatchId], references: [id], onDelete: Cascade)
 
   @@map("point_analysis")
+}
+
+// --- HABILIDADES TÉCNICAS (RPG STATS) ---
+model PlayerSkills {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  
+  derechaPlano    Int      @default(0)
+  revesPlano      Int      @default(0)
+  topspinDerecha  Int      @default(0)
+  topspinReves    Int      @default(0)
+  corte           Int      @default(0)
+  bloqueoDerecha  Int      @default(0)
+  bloqueoReves    Int      @default(0)
+  servicio        Int      @default(0)
+  recepcion       Int      @default(0)
+  movilidad       Int      @default(0)
+  fortalezaMental Int      @default(0)
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("player_skills")
 }

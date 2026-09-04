@@ -21,6 +21,8 @@ import {
   NumberInput,
   Button,
   ThemeIcon,
+  SimpleGrid,
+  Divider,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -32,6 +34,7 @@ import {
   IconUserMinus,
   IconEdit,
   IconUsers,
+  IconClipboardList,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -58,6 +61,30 @@ interface User {
 
 const ITEMS_PER_PAGE = 10;
 
+// --- DICCIONARIO DE NIVELES Y SUS STATS BASE ---
+const LEVEL_BASE_STATS: Record<string, number> = {
+  Iniciacion: 0,
+  Principiante: 20,
+  Intermedio: 40,
+  Avanzado: 60,
+  Profesional: 80,
+};
+
+// --- ESTRUCTURA DE HABILIDADES ---
+const SKILL_FIELDS = [
+  { key: 'derechaPlano', label: 'Derecha Plano' },
+  { key: 'revesPlano', label: 'Revés Plano' },
+  { key: 'topspinDerecha', label: 'Topspin Derecha' },
+  { key: 'topspinReves', label: 'Topspin Revés' },
+  { key: 'corte', label: 'Corte' },
+  { key: 'bloqueoDerecha', label: 'Bloqueo Derecha' },
+  { key: 'bloqueoReves', label: 'Bloqueo Revés' },
+  { key: 'servicio', label: 'Servicio' },
+  { key: 'recepcion', label: 'Recepción' },
+  { key: 'movilidad', label: 'Movilidad' },
+  { key: 'fortalezaMental', label: 'Fortaleza Mental' },
+] as const;
+
 export const Jugadores = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
@@ -74,6 +101,28 @@ export const Jugadores = () => {
     player: null,
   });
   const [newElo, setNewElo] = useState<number | string>(500);
+
+  // --- ESTADOS DE APROBACIÓN DE JUGADOR (STATS INICIALES) ---
+  const [approveModal, setApproveModal] = useState<{ opened: boolean; player: User | null }>({
+    opened: false,
+    player: null,
+  });
+  const [playerLevel, setPlayerLevel] = useState<string | null>(null);
+  const [startingElo, setStartingElo] = useState<number | string>(500);
+  const [skills, setSkills] = useState<Record<string, number | ''>>({
+    derechaPlano: '',
+    revesPlano: '',
+    topspinDerecha: '',
+    topspinReves: '',
+    corte: '',
+    bloqueoDerecha: '',
+    bloqueoReves: '',
+    servicio: '',
+    recepcion: '',
+    movilidad: '',
+    fortalezaMental: '',
+  });
+  const [approving, setApproving] = useState(false);
 
   const isAdminClub = currentUser?.role === 'AdminClub';
 
@@ -106,16 +155,24 @@ export const Jugadores = () => {
 
     if (!adminClubId) return;
 
+    if (isApprove) {
+      // Si el entrenador lo aprueba, le abrimos el Modal RPG para evaluar los Stats
+      const playerToApprove = players.find((p) => p.id === playerId) || null;
+      setApproveModal({ opened: true, player: playerToApprove });
+      setStartingElo(playerToApprove?.stats?.elo || 500);
+      return;
+    }
+
+    // Modal original para Rechazar
     openAppConfirmModal({
-      title: isApprove ? 'Aprobar Miembro' : 'Rechazar Solicitud',
-      icon: isApprove ? <IconUserCheck size={18} /> : <IconUserMinus size={18} />,
-      color: isApprove ? 'green' : 'red',
+      title: 'Rechazar Solicitud',
+      icon: <IconUserMinus size={18} />,
+      color: 'red',
       description: `Estás a punto de procesar la solicitud de membresía para:`,
       highlightText: playerName,
-      warningText: isApprove
-        ? 'El jugador ganará acceso completo a los rankings internos, estadísticas e historial privado del club.'
-        : 'La solicitud será denegada. El jugador volverá al estado de Jugador Libre para poder aplicar a otros clubes.',
-      confirmLabel: isApprove ? 'Aprobar Miembro' : 'Rechazar Solicitud',
+      warningText:
+        'La solicitud será denegada. El jugador volverá al estado de Jugador Libre para poder aplicar a otros clubes.',
+      confirmLabel: 'Rechazar Solicitud',
       onConfirm: async () => {
         try {
           await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(adminClubId, playerId), { status: action });
@@ -125,6 +182,50 @@ export const Jugadores = () => {
         }
       },
     });
+  };
+
+  const handleConfirmApproval = async () => {
+    if (!approveModal.player || !playerLevel || !currentUser?.clubId) return;
+    setApproving(true);
+
+    const baseStat = LEVEL_BASE_STATS[playerLevel] || 0;
+
+    // Construimos el payload de Skills usando el baseStat si el input está vacío
+    const finalSkills: Record<string, number> = {};
+    SKILL_FIELDS.forEach((field) => {
+      const val = skills[field.key];
+      finalSkills[field.key] = val !== '' ? Number(val) : baseStat;
+    });
+
+    try {
+      await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(currentUser.clubId, approveModal.player.id), {
+        status: 'Aprobado',
+        level: playerLevel, // Enviamos el nivel a la base de datos
+        elo: Number(startingElo),
+        skills: finalSkills,
+      });
+
+      setApproveModal({ opened: false, player: null });
+      setPlayerLevel(null);
+      setSkills({
+        derechaPlano: '',
+        revesPlano: '',
+        topspinDerecha: '',
+        topspinReves: '',
+        corte: '',
+        bloqueoDerecha: '',
+        bloqueoReves: '',
+        servicio: '',
+        recepcion: '',
+        movilidad: '',
+        fortalezaMental: '',
+      });
+      await fetchPlayers();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setApproving(false);
+    }
   };
 
   // --- LÓGICA DE EDICIÓN DE ELO ---
@@ -359,6 +460,103 @@ export const Jugadores = () => {
           </Center>
         )}
       </Card>
+
+      {/* --- MODAL DE APROBACIÓN (EVALUACIÓN DE SKILLS RPG) --- */}
+      <Modal
+        opened={approveModal.opened}
+        onClose={() => setApproveModal({ opened: false, player: null })}
+        title={<Title order={4}>Evaluación Inicial de Nivel</Title>}
+        size="xl"
+        centered
+        overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
+      >
+        {approveModal.player && (
+          <Stack gap="md">
+            <Group wrap="nowrap" align="center">
+              <ThemeIcon size="xl" radius="md" color="green" variant="light">
+                <IconClipboardList size={28} />
+              </ThemeIcon>
+              <div>
+                <Text size="sm">
+                  Estás a punto de admitir a{' '}
+                  <strong>
+                    {approveModal.player.name} {approveModal.player.surname}
+                  </strong>{' '}
+                  en el club.
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Por favor, indica su nivel general de juego. Si lo deseas, puedes afinar sus
+                  características técnicas (0-100) o dejarlas vacías para que tomen el valor por
+                  defecto del nivel seleccionado.
+                </Text>
+              </div>
+            </Group>
+
+            <Divider />
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <Select
+                label="Nivel General de Juego"
+                description="Define la base técnica (Obligatorio)"
+                required
+                data={Object.keys(LEVEL_BASE_STATS)}
+                value={playerLevel}
+                onChange={setPlayerLevel}
+                allowDeselect={false}
+                placeholder="Selecciona el nivel..."
+              />
+              <NumberInput
+                label="Puntuación ELO Inicial"
+                description="Ajusta el ELO según su nivel real"
+                required
+                min={0}
+                max={3500}
+                value={startingElo}
+                onChange={setStartingElo}
+              />
+            </SimpleGrid>
+
+            {playerLevel && (
+              <Card withBorder bg="var(--mantine-color-gray-0)" style={{ darkHidden: true }}>
+                <Text fw={600} size="sm" mb="xs">
+                  Atributos Técnicos (Base: {LEVEL_BASE_STATS[playerLevel]})
+                </Text>
+                <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+                  {SKILL_FIELDS.map((field) => (
+                    <NumberInput
+                      key={field.key}
+                      label={field.label}
+                      placeholder={`Def: ${LEVEL_BASE_STATS[playerLevel]}`}
+                      min={0}
+                      max={100}
+                      value={skills[field.key]}
+                      onChange={(val) => setSkills({ ...skills, [field.key]: val as number | '' })}
+                    />
+                  ))}
+                </SimpleGrid>
+              </Card>
+            )}
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="subtle"
+                color="gray"
+                onClick={() => setApproveModal({ opened: false, player: null })}
+              >
+                Cancelar
+              </Button>
+              <Button
+                color="green"
+                onClick={handleConfirmApproval}
+                loading={approving}
+                disabled={!playerLevel}
+              >
+                Confirmar y Aprobar Miembro
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
 
       {/* MODAL PARA CAMBIO DE ELO MANUAL */}
       <Modal

@@ -514,7 +514,8 @@ async function main() {
     },
   });
 
-  console.log('👥 Generando 60 jugadores y distribuyéndolos...');
+  // --- INICIO DE LA MODIFICACIÓN DE JUGADORES (Aprox línea 740) ---
+  console.log('👥 Generando 60 jugadores con niveles y skills realistas...');
   const playersClubA = [];
   const playersClubB = [];
 
@@ -584,6 +585,19 @@ async function main() {
     'Suárez',
   ];
 
+  // Definición de rangos según el nivel
+  const levelRanges = [
+    { level: 'Iniciacion', minElo: 100, maxElo: 300, minSkill: 0, maxSkill: 10 },
+    { level: 'Principiante', minElo: 300, maxElo: 500, minSkill: 10, maxSkill: 30 },
+    { level: 'Intermedio', minElo: 500, maxElo: 750, minSkill: 30, maxSkill: 50 },
+    { level: 'Avanzado', minElo: 750, maxElo: 1200, minSkill: 40, maxSkill: 60 },
+  ];
+
+  // Helper para generar números aleatorios dentro de un rango
+  const getRandomInRange = (min: number, max: number) =>
+    Math.floor(Math.random() * (max - min + 1)) + min;
+
+  // Creamos al SuperAdmin Kein-Wai (Mantenemos como estaba, pero con skills)
   await prisma.user.create({
     data: {
       email: `keinwaiplayer@hotmail.com`,
@@ -592,6 +606,7 @@ async function main() {
       userTypeId: playerRoleId,
       clubId: clubA.id,
       clubStatus: 'Aprobado',
+      level: 'Avanzado',
       password: hashedPasswordSuper,
       authProvider: 'LOCAL',
       active: true,
@@ -608,10 +623,26 @@ async function main() {
           tournamentLost: 0,
         },
       },
+      skills: {
+        create: {
+          derechaPlano: 60,
+          revesPlano: 60,
+          topspinDerecha: 60,
+          topspinReves: 60,
+          corte: 60,
+          bloqueoDerecha: 60,
+          bloqueoReves: 60,
+          servicio: 60,
+          recepcion: 60,
+          movilidad: 60,
+          fortalezaMental: 60,
+        },
+      },
     },
     include: { stats: true },
   });
 
+  // Creamos a Julian (Mantenemos como estaba, pero con skills)
   const hashedPasswordJ = await bcrypt.hash('pechofrioygay', 10);
   await prisma.user.create({
     data: {
@@ -621,6 +652,7 @@ async function main() {
       userTypeId: playerRoleId,
       clubId: clubA.id,
       clubStatus: 'Aprobado',
+      level: 'Avanzado',
       password: hashedPasswordJ,
       authProvider: 'LOCAL',
       active: true,
@@ -637,17 +669,42 @@ async function main() {
           tournamentLost: 0,
         },
       },
+      skills: {
+        create: {
+          derechaPlano: 60,
+          revesPlano: 60,
+          topspinDerecha: 60,
+          topspinReves: 60,
+          corte: 60,
+          bloqueoDerecha: 60,
+          bloqueoReves: 60,
+          servicio: 60,
+          recepcion: 60,
+          movilidad: 60,
+          fortalezaMental: 60,
+        },
+      },
     },
     include: { stats: true },
   });
 
+  // Bucle de 60 jugadores aleatorios
   for (let i = 1; i <= 60; i++) {
-    const startingElo = Math.floor(400 + i * 20);
     const assignedClub = i <= 40 ? clubA.id : clubB.id;
     const nombre = nombres[Math.floor(Math.random() * nombres.length)];
     const apellido = apellidos[Math.floor(Math.random() * apellidos.length)];
-    const hand = Math.random() < 0.8 ? 'Diestro' : 'Zurdo'; // 80% Diestro, 20% Zurdo
-    const style = Math.random() < 0.85 ? 'Ofensivo' : 'Defensivo'; // 85% Ofensivo, 15% Defensivo
+    const hand = Math.random() < 0.8 ? 'Diestro' : 'Zurdo';
+    const style = Math.random() < 0.85 ? 'Ofensivo' : 'Defensivo';
+
+    // Elegimos un nivel aleatorio de la lista definida
+    const randomLevelData = levelRanges[Math.floor(Math.random() * levelRanges.length)];
+
+    // Asignamos ELO aleatorio dentro del rango del nivel
+    const startingElo = getRandomInRange(randomLevelData.minElo, randomLevelData.maxElo);
+
+    // Función para generar un skill aleatorio dentro del rango
+    const getSkill = () => getRandomInRange(randomLevelData.minSkill, randomLevelData.maxSkill);
+
     const p = await prisma.user.create({
       data: {
         email: `${nombre}${i}-${apellido}@pingpong.local`,
@@ -656,12 +713,13 @@ async function main() {
         userTypeId: playerRoleId,
         clubId: assignedClub,
         clubStatus: 'Aprobado',
+        level: randomLevelData.level as any, // Asignamos el enum del nivel
         dominantHand: hand as any,
         playstyle: style as any,
         active: true,
         stats: {
           create: {
-            elo: startingElo,
+            elo: startingElo, // ELO realista
             matchWon: 0,
             matchLost: 0,
             setWon: 0,
@@ -670,6 +728,21 @@ async function main() {
             pointLost: 0,
             tournamentWon: 0,
             tournamentLost: 0,
+          },
+        },
+        skills: {
+          create: {
+            derechaPlano: getSkill(),
+            revesPlano: getSkill(),
+            topspinDerecha: getSkill(),
+            topspinReves: getSkill(),
+            corte: getSkill(),
+            bloqueoDerecha: getSkill(),
+            bloqueoReves: getSkill(),
+            servicio: getSkill(),
+            recepcion: getSkill(),
+            movilidad: getSkill(),
+            fortalezaMental: getSkill(),
           },
         },
       },
@@ -682,6 +755,7 @@ async function main() {
 
   const sortedA = [...playersClubA].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
   const sortedB = [...playersClubB].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
+  // --- FIN DE LA MODIFICACIÓN ---
 
   async function simulateAndSaveMatch(
     tournamentId: string,

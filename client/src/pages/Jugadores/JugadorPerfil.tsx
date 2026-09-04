@@ -21,6 +21,7 @@ import {
   ActionIcon,
   Select,
   Box,
+  Progress,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -35,8 +36,9 @@ import {
   IconTrendingUp,
   IconTrendingDown,
   IconTarget,
+  IconSwords,
 } from '@tabler/icons-react';
-import { RadarChart, BarChart } from '@mantine/charts'; // 👈 IMPORTAMOS EL RADAR
+import { RadarChart, BarChart } from '@mantine/charts';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
@@ -44,7 +46,6 @@ import { useAuthStore } from '../../store/authStore';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { openAppConfirmModal } from '../../utils/modals';
 
-// ... (Mantenemos tus interfaces iguales)
 interface UserProfile {
   id: string;
   email: string;
@@ -54,6 +55,7 @@ interface UserProfile {
   avatarUrl?: string | null;
   dominantHand?: 'Diestro' | 'Zurdo' | null;
   playstyle?: 'Ofensivo' | 'Defensivo' | null;
+  level?: string | null;
   stats?: {
     elo: number;
     matchWon: number;
@@ -64,6 +66,19 @@ interface UserProfile {
     pointLost: number;
     tournamentWon: number;
     tournamentLost: number;
+  };
+  skills?: {
+    derechaPlano: number;
+    revesPlano: number;
+    topspinDerecha: number;
+    topspinReves: number;
+    corte: number;
+    bloqueoDerecha: number;
+    bloqueoReves: number;
+    servicio: number;
+    recepcion: number;
+    movilidad: number;
+    fortalezaMental: number;
   };
 }
 
@@ -197,7 +212,7 @@ export const JugadorPerfil = () => {
     );
   }
 
-  // --- 1. CÁLCULO DE DATOS PARA EL RADAR ---
+  // --- 1. CÁLCULO DE DATOS (Eficiencia) ---
   const s = player.stats;
   const totalMatches = (s?.matchWon || 0) + (s?.matchLost || 0);
   const totalSets = (s?.setWon || 0) + (s?.setLost || 0);
@@ -213,12 +228,10 @@ export const JugadorPerfil = () => {
     Defensivo: { win: 0, loss: 0 },
   };
 
-  const allCompletedUserMatches = recentMatches; // O si tienes el array completo sin recortar, mejor
-  allCompletedUserMatches.forEach((m) => {
+  recentMatches.forEach((m) => {
     const isPlayerOne = m.playerOneId === id;
     const opponent = isPlayerOne ? m.playerTwo : m.playerOne;
 
-    // Calculamos quién ganó el partido
     let p1Sets = 0,
       p2Sets = 0;
     const sets = [
@@ -237,14 +250,12 @@ export const JugadorPerfil = () => {
 
     const didWin = isPlayerOne ? p1Sets > p2Sets : p2Sets > p1Sets;
 
-    // Clasificamos según la mano del rival
     if (opponent.dominantHand === 'Diestro') {
       didWin ? rivalStats.Diestro.win++ : rivalStats.Diestro.loss++;
     } else if (opponent.dominantHand === 'Zurdo') {
       didWin ? rivalStats.Zurdo.win++ : rivalStats.Zurdo.loss++;
     }
 
-    // Clasificamos según el estilo del rival
     if (opponent.playstyle === 'Ofensivo') {
       didWin ? rivalStats.Ofensivo.win++ : rivalStats.Ofensivo.loss++;
     } else if (opponent.playstyle === 'Defensivo') {
@@ -252,7 +263,6 @@ export const JugadorPerfil = () => {
     }
   });
 
-  // Preparamos los arrays para Mantine Charts
   const chartDataMano = [
     { Rasgo: 'vs Diestros', Victorias: rivalStats.Diestro.win, Derrotas: rivalStats.Diestro.loss },
     { Rasgo: 'vs Zurdos', Victorias: rivalStats.Zurdo.win, Derrotas: rivalStats.Zurdo.loss },
@@ -271,8 +281,8 @@ export const JugadorPerfil = () => {
     },
   ];
 
-  // Transformamos los datos a una escala 0-100 para que el radar se vea simétrico
-  const radarData =
+  // AHORA ESTE DATA VA A UN BARCHART APILADO HORIZONTAL
+  const efficiencyData =
     totalMatches > 0
       ? [
           {
@@ -304,7 +314,30 @@ export const JugadorPerfil = () => {
         ]
       : [];
 
-  // --- 2. EXTRACCIÓN DEL ÚLTIMO PLAN (DATOS CUALITATIVOS) ---
+  // --- 2. CÁLCULO DE DATOS RPG (SKILLS) ---
+  const skillsData = player.skills
+    ? [
+        { attribute: 'Plano Derecha', value: player.skills.derechaPlano },
+        { attribute: 'Plano Revés', value: player.skills.revesPlano },
+        { attribute: 'Top Derecha', value: player.skills.topspinDerecha },
+        { attribute: 'Top Revés', value: player.skills.topspinReves },
+        { attribute: 'Corte', value: player.skills.corte },
+        { attribute: 'Bloqueo Der.', value: player.skills.bloqueoDerecha },
+        { attribute: 'Bloqueo Rev.', value: player.skills.bloqueoReves },
+        { attribute: 'Servicio', value: player.skills.servicio },
+        { attribute: 'Recepción', value: player.skills.recepcion },
+        { attribute: 'Movilidad', value: player.skills.movilidad },
+        { attribute: 'Mentalidad', value: player.skills.fortalezaMental },
+      ]
+    : [];
+
+  const getSkillColor = (val: number) => {
+    if (val < 30) return 'red';
+    if (val < 60) return 'yellow';
+    if (val < 80) return 'blue';
+    return 'green';
+  };
+
   const latestPlan = trainings.length > 0 ? trainings[0] : null;
 
   return (
@@ -320,6 +353,7 @@ export const JugadorPerfil = () => {
           </Button>
         </div>
       )}
+
       {/* Cabecera del Perfil */}
       <Card shadow="sm" padding="xl" radius="md" withBorder>
         <Group align="flex-start" justify="space-between">
@@ -342,14 +376,22 @@ export const JugadorPerfil = () => {
               <Text c="dimmed" size="lg">
                 {player.email}
               </Text>
-              <Badge
-                mt="sm"
-                size="lg"
-                color={s?.elo && s.elo >= 1000 ? 'green' : s?.elo && s.elo >= 750 ? 'blue' : 'gray'}
-                variant="filled"
-              >
-                {s?.elo || 500} ELO
-              </Badge>
+              <Group gap="xs" mt="sm">
+                <Badge
+                  size="lg"
+                  color={
+                    s?.elo && s.elo >= 1000 ? 'green' : s?.elo && s.elo >= 750 ? 'blue' : 'gray'
+                  }
+                  variant="filled"
+                >
+                  {s?.elo || 500} ELO
+                </Badge>
+                {player.level && (
+                  <Badge size="lg" variant="light" color="grape">
+                    {player.level}
+                  </Badge>
+                )}
+              </Group>
               <Group gap="xs" mt="xs">
                 {player.dominantHand && (
                   <Badge variant="outline" color="gray" tt="none">
@@ -380,35 +422,118 @@ export const JugadorPerfil = () => {
         </Group>
       </Card>
 
-      {/* 👇 NUEVO: SECCIÓN DE ANÁLISIS DE RENDIMIENTO */}
-      <Title order={3}>Perfil de Rendimiento</Title>
+      {/* 👇 NUEVA SECCIÓN: PERFIL TÉCNICO RPG */}
+      <Title order={3}>Perfil Técnico (Atributos)</Title>
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        {/* GRÁFICO DE RADAR */}
+        {/* CAJA 1: BARRAS DE PROGRESO INDIVIDUALES */}
+        <Card withBorder radius="md" shadow="sm" p="lg">
+          <Group gap="xs" mb="md">
+            <ThemeIcon color="orange" variant="light">
+              <IconSwords size={18} />
+            </ThemeIcon>
+            <Title order={4}>Desglose de Habilidades</Title>
+          </Group>
+
+          {skillsData.length > 0 ? (
+            <ScrollArea h={320} offsetScrollbars>
+              <Stack gap="xs" pr="sm">
+                {skillsData.map((skill) => (
+                  <Box key={skill.attribute}>
+                    <Group justify="space-between" mb={2}>
+                      <Text size="sm" fw={600}>
+                        {skill.attribute}
+                      </Text>
+                      <Text size="sm" fw={700} c={getSkillColor(skill.value)}>
+                        {skill.value} / 100
+                      </Text>
+                    </Group>
+                    <Progress
+                      value={skill.value}
+                      color={getSkillColor(skill.value)}
+                      size="md"
+                      radius="xl"
+                    />
+                  </Box>
+                ))}
+              </Stack>
+            </ScrollArea>
+          ) : (
+            <Center
+              h={200}
+              bg="var(--mantine-color-gray-0)"
+              style={{ borderRadius: 8, darkHidden: true }}
+            >
+              <Text c="dimmed" size="sm" ta="center">
+                Sin habilidades registradas.
+              </Text>
+            </Center>
+          )}
+        </Card>
+
+        {/* CAJA 2: RADAR CHART */}
         <Card withBorder radius="md" shadow="sm" p="lg">
           <Group gap="xs" mb="lg">
-            <ThemeIcon color="blue" variant="light">
+            <ThemeIcon color="grape" variant="light">
               <IconTarget size={18} />
             </ThemeIcon>
-            <Title order={4}>Radar de Eficiencia</Title>
+            <Title order={4}>Radar de Juego</Title>
           </Group>
-          {totalMatches > 0 ? (
-            <Center h={250}>
+          {skillsData.length > 0 ? (
+            <Center h={320}>
               <RadarChart
                 h={300}
                 w="100%"
-                data={radarData}
-                dataKey="metric"
+                data={skillsData}
+                dataKey="attribute"
                 withPolarGrid
                 withPolarAngleAxis
                 withPolarRadiusAxis
-                withLegend // 👈 Muestra la leyenda de colores debajo
-                series={[
-                  { name: 'Victorias', color: 'blue.4', opacity: 0.5 }, // 👈 Capa Azul
-                  { name: 'Derrotas', color: 'red.4', opacity: 0.5 }, // 👈 Capa Roja
-                ]}
+                series={[{ name: 'value', color: 'grape.5', opacity: 0.5 }]}
               />
             </Center>
+          ) : (
+            <Center
+              h={200}
+              bg="var(--mantine-color-gray-0)"
+              style={{ borderRadius: 8, darkHidden: true }}
+            >
+              <Text c="dimmed" size="sm" ta="center">
+                Sin habilidades registradas.
+              </Text>
+            </Center>
+          )}
+        </Card>
+      </SimpleGrid>
+
+      {/* SECCIÓN DE ANÁLISIS DE RENDIMIENTO */}
+      <Title order={3} mt="md">
+        Estadísticas Competitivas
+      </Title>
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        {/* GRÁFICO BARRAS APILADAS: EFICIENCIA */}
+        <Card withBorder radius="md" shadow="sm" p="lg">
+          <Group gap="xs" mb="lg">
+            <ThemeIcon color="blue" variant="light">
+              <IconChartBar size={18} />
+            </ThemeIcon>
+            <Title order={4}>Balance General (Win Rate %)</Title>
+          </Group>
+          {totalMatches > 0 ? (
+            <Box mt="md">
+              <BarChart
+                h={250}
+                data={efficiencyData}
+                dataKey="metric"
+                type="stacked"
+                orientation="vertical"
+                series={[
+                  { name: 'Victorias', color: 'green.5' },
+                  { name: 'Derrotas', color: 'red.5' },
+                ]}
+              />
+            </Box>
           ) : (
             <Center
               h={200}
@@ -420,16 +545,17 @@ export const JugadorPerfil = () => {
                 <Text c="dimmed" size="sm" ta="center">
                   Juega tu primer partido para
                   <br />
-                  desbloquear tu radar de estadísticas.
+                  desbloquear tus estadísticas.
                 </Text>
               </Stack>
             </Center>
           )}
         </Card>
 
+        {/* GRÁFICO BARRAS APILADAS: VS RIVALES */}
         <Card withBorder radius="md" shadow="sm" p="lg">
           <Group gap="xs" mb="lg">
-            <ThemeIcon color="grape" variant="light">
+            <ThemeIcon color="orange" variant="light">
               <IconPingPong size={18} />
             </ThemeIcon>
             <Title order={4}>Desempeño vs Rivales</Title>
@@ -444,10 +570,10 @@ export const JugadorPerfil = () => {
                   h={120}
                   data={chartDataMano}
                   dataKey="Rasgo"
-                  type="stacked" // 👈 Stacked apila victorias y derrotas en la misma barra
-                  orientation="vertical" // 👈 Barras horizontales (más elegantes aquí)
+                  type="stacked"
+                  orientation="vertical"
                   series={[
-                    { name: 'Victorias', color: 'blue.5' },
+                    { name: 'Victorias', color: 'green.5' },
                     { name: 'Derrotas', color: 'red.5' },
                   ]}
                 />
@@ -463,7 +589,7 @@ export const JugadorPerfil = () => {
                   type="stacked"
                   orientation="vertical"
                   series={[
-                    { name: 'Victorias', color: 'blue.5' },
+                    { name: 'Victorias', color: 'green.5' },
                     { name: 'Derrotas', color: 'red.5' },
                   ]}
                 />
@@ -482,9 +608,9 @@ export const JugadorPerfil = () => {
           )}
         </Card>
 
-        {/* ANÁLISIS TÉCNICO CUALITATIVO */}
+        {/* ANÁLISIS TÉCNICO CUALITATIVO (PLANES) */}
         {canViewTrainings && (
-          <Card withBorder radius="md" shadow="sm" p="lg">
+          <Card withBorder radius="md" shadow="sm" p="lg" style={{ gridColumn: '1 / -1' }}>
             <Group gap="xs" mb="md">
               <ThemeIcon color="orange" variant="light">
                 <IconClipboardList size={18} />
@@ -493,7 +619,7 @@ export const JugadorPerfil = () => {
             </Group>
 
             {latestPlan ? (
-              <Stack gap="sm">
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
                 <Paper
                   withBorder
                   p="sm"
@@ -527,28 +653,23 @@ export const JugadorPerfil = () => {
                     {latestPlan.weaknesses}
                   </Text>
                 </Paper>
-              </Stack>
+              </SimpleGrid>
             ) : (
               <Center
-                h={200}
+                h={100}
                 bg="var(--mantine-color-gray-0)"
                 style={{ borderRadius: 8, darkHidden: true }}
               >
-                <Stack align="center" gap="xs">
-                  <IconClipboardList size={40} color="var(--mantine-color-gray-4)" />
-                  <Text c="dimmed" size="sm" ta="center">
-                    El entrenador aún no ha creado
-                    <br />
-                    un macrociclo para ti.
-                  </Text>
-                </Stack>
+                <Text c="dimmed" size="sm" ta="center">
+                  El entrenador aún no ha creado un macrociclo para ti.
+                </Text>
               </Center>
             )}
           </Card>
         )}
       </SimpleGrid>
 
-      {/* ESTADÍSTICAS TRADICIONALES (El Grid de siempre) */}
+      {/* ESTADÍSTICAS TRADICIONALES */}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mt="md">
         <Paper withBorder p="md" radius="md" shadow="sm">
           <Group justify="space-between">

@@ -207,7 +207,10 @@ router.put('/me', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await prisma.user.findUnique({ where: { id: id }, include: { stats: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: id },
+      include: { stats: true, skills: true },
+    });
     res.json(user);
   } catch (error) {
     console.error(error);

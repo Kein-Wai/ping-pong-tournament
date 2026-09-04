@@ -77,3 +77,19 @@ export const updateProfileSchema = z
     message: 'Las contraseñas no coinciden',
     path: ['confirmPassword'],
   });
+
+const statValidator = z.number().int().min(0).max(100);
+
+export const updateSkillsSchema = z.object({
+  derechaPlano: statValidator,
+  revesPlano: statValidator,
+  topspinDerecha: statValidator,
+  topspinReves: statValidator,
+  corte: statValidator,
+  bloqueoDerecha: statValidator,
+  bloqueoReves: statValidator,
+  servicio: statValidator,
+  recepcion: statValidator,
+  movilidad: statValidator,
+  fortalezaMental: statValidator,
+});
