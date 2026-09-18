@@ -22,6 +22,7 @@ import {
   Select,
   Box,
   Progress,
+  NumberInput,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -79,6 +80,21 @@ interface UserProfile {
     recepcion: number;
     movilidad: number;
     fortalezaMental: number;
+    experiencia: number;
+  };
+  pendingSkills?: {
+    derechaPlano: number | null;
+    revesPlano: number | null;
+    topspinDerecha: number | null;
+    topspinReves: number | null;
+    corte: number | null;
+    bloqueoDerecha: number | null;
+    bloqueoReves: number | null;
+    servicio: number | null;
+    recepcion: number | null;
+    movilidad: number | null;
+    fortalezaMental: number | null;
+    experiencia: number | null;
   };
 }
 
@@ -92,6 +108,9 @@ export const JugadorPerfil = () => {
   const [loading, setLoading] = useState(true);
 
   const [editModalOpened, setEditModalOpened] = useState(false);
+  const [consolidateModalOpened, setConsolidateModalOpened] = useState(false);
+  const [approvedGains, setApprovedGains] = useState<Record<string, number>>({});
+  const [consolidating, setConsolidating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState({
     name: '',
@@ -317,17 +336,78 @@ export const JugadorPerfil = () => {
   // --- 2. CÁLCULO DE DATOS RPG (SKILLS) ---
   const skillsData = player.skills
     ? [
-        { attribute: 'Plano Derecha', value: player.skills.derechaPlano },
-        { attribute: 'Plano Revés', value: player.skills.revesPlano },
-        { attribute: 'Top Derecha', value: player.skills.topspinDerecha },
-        { attribute: 'Top Revés', value: player.skills.topspinReves },
-        { attribute: 'Corte', value: player.skills.corte },
-        { attribute: 'Bloqueo Der.', value: player.skills.bloqueoDerecha },
-        { attribute: 'Bloqueo Rev.', value: player.skills.bloqueoReves },
-        { attribute: 'Servicio', value: player.skills.servicio },
-        { attribute: 'Recepción', value: player.skills.recepcion },
-        { attribute: 'Movilidad', value: player.skills.movilidad },
-        { attribute: 'Mentalidad', value: player.skills.fortalezaMental },
+        {
+          attribute: 'Plano Der.',
+          value: player.skills.derechaPlano,
+          pending: player.pendingSkills?.derechaPlano || 0,
+          potential: player.skills.derechaPlano + (player.pendingSkills?.derechaPlano || 0),
+        },
+        {
+          attribute: 'Plano Rev.',
+          value: player.skills.revesPlano,
+          pending: player.pendingSkills?.revesPlano || 0,
+          potential: player.skills.revesPlano + (player.pendingSkills?.revesPlano || 0),
+        },
+        {
+          attribute: 'Top Der.',
+          value: player.skills.topspinDerecha,
+          pending: player.pendingSkills?.topspinDerecha || 0,
+          potential: player.skills.topspinDerecha + (player.pendingSkills?.topspinDerecha || 0),
+        },
+        {
+          attribute: 'Top Rev.',
+          value: player.skills.topspinReves,
+          pending: player.pendingSkills?.topspinReves || 0,
+          potential: player.skills.topspinReves + (player.pendingSkills?.topspinReves || 0),
+        },
+        {
+          attribute: 'Corte',
+          value: player.skills.corte,
+          pending: player.pendingSkills?.corte || 0,
+          potential: player.skills.corte + (player.pendingSkills?.corte || 0),
+        },
+        {
+          attribute: 'Bloqueo Der.',
+          value: player.skills.bloqueoDerecha,
+          pending: player.pendingSkills?.bloqueoDerecha || 0,
+          potential: player.skills.bloqueoDerecha + (player.pendingSkills?.bloqueoDerecha || 0),
+        },
+        {
+          attribute: 'Bloqueo Rev.',
+          value: player.skills.bloqueoReves,
+          pending: player.pendingSkills?.bloqueoReves || 0,
+          potential: player.skills.bloqueoReves + (player.pendingSkills?.bloqueoReves || 0),
+        },
+        {
+          attribute: 'Servicio',
+          value: player.skills.servicio,
+          pending: player.pendingSkills?.servicio || 0,
+          potential: player.skills.servicio + (player.pendingSkills?.servicio || 0),
+        },
+        {
+          attribute: 'Recepción',
+          value: player.skills.recepcion,
+          pending: player.pendingSkills?.recepcion || 0,
+          potential: player.skills.recepcion + (player.pendingSkills?.recepcion || 0),
+        },
+        {
+          attribute: 'Movilidad',
+          value: player.skills.movilidad,
+          pending: player.pendingSkills?.movilidad || 0,
+          potential: player.skills.movilidad + (player.pendingSkills?.movilidad || 0),
+        },
+        {
+          attribute: 'Mentalidad',
+          value: player.skills.fortalezaMental,
+          pending: player.pendingSkills?.fortalezaMental || 0,
+          potential: player.skills.fortalezaMental + (player.pendingSkills?.fortalezaMental || 0),
+        },
+        {
+          attribute: 'Experiencia',
+          value: player.skills.experiencia,
+          pending: player.pendingSkills?.experiencia || 0,
+          potential: player.skills.experiencia + (player.pendingSkills?.experiencia || 0),
+        },
       ]
     : [];
 
@@ -339,6 +419,58 @@ export const JugadorPerfil = () => {
   };
 
   const latestPlan = trainings.length > 0 ? trainings[0] : null;
+
+  const SKILL_KEYS = [
+    { key: 'derechaPlano', label: 'Plano Derecha' },
+    { key: 'revesPlano', label: 'Plano Revés' },
+    { key: 'topspinDerecha', label: 'Top Derecha' },
+    { key: 'topspinReves', label: 'Top Revés' },
+    { key: 'corte', label: 'Corte' },
+    { key: 'bloqueoDerecha', label: 'Bloqueo Der.' },
+    { key: 'bloqueoReves', label: 'Bloqueo Rev.' },
+    { key: 'servicio', label: 'Servicio' },
+    { key: 'recepcion', label: 'Recepción' },
+    { key: 'movilidad', label: 'Movilidad' },
+    { key: 'fortalezaMental', label: 'Fortaleza Mental' },
+    { key: 'experiencia', label: 'Experiencia / Táctica' },
+  ];
+
+  // Verificamos si hay alguna skill con subida pendiente mayor a 0
+  const hasPendingSkills =
+    player?.pendingSkills &&
+    Object.values(player.pendingSkills).some((val) => val !== null && val > 0);
+
+  const handleOpenConsolidate = () => {
+    const initialGains: Record<string, number> = {};
+    SKILL_KEYS.forEach((s) => {
+      initialGains[s.key] =
+        player?.pendingSkills?.[s.key as keyof typeof player.pendingSkills] || 0;
+    });
+    setApprovedGains(initialGains);
+    setConsolidateModalOpened(true);
+  };
+
+  const handleExecuteConsolidate = async () => {
+    if (!id || !player) return;
+    setConsolidating(true);
+    try {
+      // Sumamos la base actual + lo que el entrenador haya dejado en los inputs
+      const finalSkills: Record<string, number> = {};
+      SKILL_KEYS.forEach((s) => {
+        const base = player.skills?.[s.key as keyof typeof player.skills] || 0;
+        const gain = approvedGains[s.key] || 0;
+        finalSkills[s.key] = Number((base + gain).toFixed(2)); // Evitar decimales infinitos
+      });
+
+      await api.put(ENDPOINTS.SKILLS.CONSOLIDATE(id), finalSkills);
+      setConsolidateModalOpened(false);
+      await fetchPlayerInfo();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setConsolidating(false);
+    }
+  };
 
   return (
     <Stack gap="xl">
@@ -418,6 +550,17 @@ export const JugadorPerfil = () => {
                 Editar Perfil
               </Button>
             )}
+            {/* 👇 NUEVO BOTÓN DE CONSOLIDACIÓN */}
+            {isAdmin && hasPendingSkills && (
+              <Button
+                color="cyan"
+                leftSection={<IconTrendingUp size={16} />}
+                onClick={handleOpenConsolidate}
+                variant="light"
+              >
+                Consolidar Mejoras
+              </Button>
+            )}
           </Stack>
         </Group>
       </Card>
@@ -445,15 +588,25 @@ export const JugadorPerfil = () => {
                         {skill.attribute}
                       </Text>
                       <Text size="sm" fw={700} c={getSkillColor(skill.value)}>
-                        {skill.value} / 100
+                        {Math.floor(skill.value)}
+                        {skill.pending > 0 && (
+                          <Text component="span" c="cyan.5" fz="xs" ml={4}>
+                            (+{skill.pending.toFixed(2)})
+                          </Text>
+                        )}
+                        <Text component="span" c="dimmed" fz="xs" ml={4}>
+                          / 100
+                        </Text>
                       </Text>
                     </Group>
-                    <Progress
-                      value={skill.value}
-                      color={getSkillColor(skill.value)}
-                      size="md"
-                      radius="xl"
-                    />
+
+                    {/* 👇 Usamos Progress.Root para apilar el nivel actual + la mejora pendiente */}
+                    <Progress.Root size="md" radius="xl">
+                      <Progress.Section value={skill.value} color={getSkillColor(skill.value)} />
+                      {skill.pending > 0 && (
+                        <Progress.Section value={skill.pending} color="cyan.4" striped animated />
+                      )}
+                    </Progress.Root>
                   </Box>
                 ))}
               </Stack>
@@ -489,7 +642,13 @@ export const JugadorPerfil = () => {
                 withPolarGrid
                 withPolarAngleAxis
                 withPolarRadiusAxis
-                series={[{ name: 'value', color: 'grape.5', opacity: 0.5 }]}
+                polarRadiusAxisProps={{ domain: [0, 100] }}
+                series={[
+                  // 👇 Capa base del radar (Más grande, con el potencial total)
+                  { name: 'potential', color: 'cyan.5', opacity: 0.3 },
+                  // 👇 Capa real consolidada (Dibujada encima)
+                  { name: 'value', color: 'grape.5', opacity: 0.7 },
+                ]}
               />
             </Center>
           ) : (
@@ -962,6 +1121,80 @@ export const JugadorPerfil = () => {
           </SimpleGrid>
           <Button color="blue" fullWidth mt="md" loading={saving} onClick={handleSaveProfile}>
             Guardar Cambios
+          </Button>
+        </Stack>
+      </Modal>
+      {/* MODAL DE CONSOLIDACIÓN DE SKILLS */}
+      <Modal
+        opened={consolidateModalOpened}
+        onClose={() => setConsolidateModalOpened(false)}
+        title={<Title order={4}>Consolidar Progreso</Title>}
+        size="lg"
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            El sistema ha calculado estas subidas basándose en la asistencia a entrenamientos.
+            Puedes aceptar los valores calculados o ajustarlos manualmente si consideras que el
+            rendimiento ha sido distinto.
+          </Text>
+
+          <ScrollArea h={400}>
+            <Table striped highlightOnHover verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Habilidad</Table.Th>
+                  <Table.Th ta="center">Base Actual</Table.Th>
+                  <Table.Th ta="center">Mejora (+)</Table.Th>
+                  <Table.Th ta="center">Total Estimado</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {SKILL_KEYS.map((s) => {
+                  const base = player?.skills?.[s.key as keyof typeof player.skills] || 0;
+                  const gain = approvedGains[s.key] || 0;
+                  const final = base + gain;
+
+                  // Solo mostramos las filas donde hay algo que subir o donde la base ya existe para no saturar
+                  if (gain === 0 && base === 0) return null;
+
+                  return (
+                    <Table.Tr key={s.key}>
+                      <Table.Td fw={500}>{s.label}</Table.Td>
+                      <Table.Td ta="center">{Math.floor(base)}</Table.Td>
+                      <Table.Td>
+                        <NumberInput
+                          value={gain}
+                          onChange={(val) =>
+                            setApprovedGains({ ...approvedGains, [s.key]: Number(val) || 0 })
+                          }
+                          min={0}
+                          step={0.1}
+                          decimalScale={2}
+                          w={100}
+                          mx="auto"
+                        />
+                      </Table.Td>
+                      <Table.Td ta="center">
+                        <Badge size="lg" color="cyan" variant="light">
+                          {final.toFixed(2)}
+                        </Badge>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
+
+          <Button
+            color="cyan"
+            fullWidth
+            mt="md"
+            loading={consolidating}
+            onClick={handleExecuteConsolidate}
+          >
+            Confirmar y Aplicar Subidas
           </Button>
         </Stack>
       </Modal>

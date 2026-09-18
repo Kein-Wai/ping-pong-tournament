@@ -47,4 +47,5 @@ export const APP_ROUTES = {
     TRACKER_PATH: '/analisis/tracker/:id',
     TRACKER: (id: string) => `/analisis/tracker/${id}`,
   },
+  ENTRENAMIENTOS_GENERALES: '/entrenamientos-generales',
 } as const;

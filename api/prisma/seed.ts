@@ -368,8 +368,57 @@ const EJERCICIOS_BASE = [
   },
 ];
 
+// Helper para calcular la curva de progresión
+const getGrowth = (stat?: number | null) => {
+  const val = stat || 0;
+  if (val < 20) return 0.25;
+  if (val < 40) return 0.2;
+  if (val < 60) return 0.15;
+  if (val < 80) return 0.07;
+  return 0.01;
+};
+
+// Función para inyectar subidas de experiencia tras cada partido de torneo
+const addMatchSkillUpdates = async (matchId: string, p1Id: string, p2Id: string) => {
+  const updates = [];
+
+  if (p1Id !== BYE_USER_ID && p1Id !== TBD_USER_ID) {
+    const p1Skills = await prisma.playerSkills.findUnique({ where: { userId: p1Id } });
+    updates.push({
+      playerId: p1Id,
+      matchId: matchId,
+      sourceType: 'Partido' as any,
+      status: 'EXPECTED' as any,
+      fortalezaMental: getGrowth(p1Skills?.fortalezaMental),
+      experiencia: getGrowth(p1Skills?.experiencia),
+    });
+  }
+
+  if (p2Id !== BYE_USER_ID && p2Id !== TBD_USER_ID) {
+    const p2Skills = await prisma.playerSkills.findUnique({ where: { userId: p2Id } });
+    updates.push({
+      playerId: p2Id,
+      matchId: matchId,
+      sourceType: 'Partido' as any,
+      status: 'EXPECTED' as any,
+      fortalezaMental: getGrowth(p2Skills?.fortalezaMental),
+      experiencia: getGrowth(p2Skills?.experiencia),
+    });
+  }
+
+  if (updates.length > 0) {
+    await prisma.playerSkillUpdate.createMany({ data: updates });
+  }
+};
+
 async function main() {
   console.log('🧹 Limpiando datos de torneos y clubes anteriores para evitar duplicados...');
+  await prisma.generalTrainingAttendance.deleteMany();
+  await prisma.playerSkillUpdate.deleteMany();
+  await prisma.generalTraining.deleteMany();
+  await prisma.skillUpdateTemplate.deleteMany();
+  await prisma.generalTrainingSchedule.deleteMany();
+
   await prisma.match.deleteMany();
   await prisma.tournamentKnockout.deleteMany();
   await prisma.tournamentParticipant.deleteMany();
@@ -386,17 +435,15 @@ async function main() {
 
   console.log('📚 Generando Catálogo Global de Ejercicios...');
 
-  // Borramos los viejos para evitar duplicados al re-ejecutar el seed
   await prisma.sessionExercise.deleteMany();
   await prisma.trainingSession.deleteMany();
   await prisma.playerTraining.deleteMany();
   await prisma.exercise.deleteMany();
 
-  // Insertamos todo el catálogo (dejamos clubId en null para que sean "Globales" a todos los clubes)
   await prisma.exercise.createMany({
     data: EJERCICIOS_BASE.map((ej) => ({
       name: `Ejercicio ${ej.code}`,
-      category: ej.category as any, // TypeScript/Prisma casting
+      category: ej.category as any,
       description: ej.description,
       clubId: null,
     })),
@@ -451,7 +498,6 @@ async function main() {
       active: true,
     },
   });
-  console.log(superAdmin);
 
   const hashedPasswordClub = await bcrypt.hash('112233club', 10);
 
@@ -514,7 +560,6 @@ async function main() {
     },
   });
 
-  // --- INICIO DE LA MODIFICACIÓN DE JUGADORES (Aprox línea 740) ---
   console.log('👥 Generando 60 jugadores con niveles y skills realistas...');
   const playersClubA = [];
   const playersClubB = [];
@@ -585,7 +630,6 @@ async function main() {
     'Suárez',
   ];
 
-  // Definición de rangos según el nivel
   const levelRanges = [
     { level: 'Iniciacion', minElo: 100, maxElo: 300, minSkill: 0, maxSkill: 10 },
     { level: 'Principiante', minElo: 300, maxElo: 500, minSkill: 10, maxSkill: 30 },
@@ -593,11 +637,9 @@ async function main() {
     { level: 'Avanzado', minElo: 750, maxElo: 1200, minSkill: 40, maxSkill: 60 },
   ];
 
-  // Helper para generar números aleatorios dentro de un rango
   const getRandomInRange = (min: number, max: number) =>
     Math.floor(Math.random() * (max - min + 1)) + min;
 
-  // Creamos al SuperAdmin Kein-Wai (Mantenemos como estaba, pero con skills)
   await prisma.user.create({
     data: {
       email: `keinwaiplayer@hotmail.com`,
@@ -636,13 +678,13 @@ async function main() {
           recepcion: 60,
           movilidad: 60,
           fortalezaMental: 60,
+          experiencia: 60,
         },
       },
     },
     include: { stats: true },
   });
 
-  // Creamos a Julian (Mantenemos como estaba, pero con skills)
   const hashedPasswordJ = await bcrypt.hash('pechofrioygay', 10);
   await prisma.user.create({
     data: {
@@ -682,13 +724,13 @@ async function main() {
           recepcion: 60,
           movilidad: 60,
           fortalezaMental: 60,
+          experiencia: 60,
         },
       },
     },
     include: { stats: true },
   });
 
-  // Bucle de 60 jugadores aleatorios
   for (let i = 1; i <= 60; i++) {
     const assignedClub = i <= 40 ? clubA.id : clubB.id;
     const nombre = nombres[Math.floor(Math.random() * nombres.length)];
@@ -696,13 +738,8 @@ async function main() {
     const hand = Math.random() < 0.8 ? 'Diestro' : 'Zurdo';
     const style = Math.random() < 0.85 ? 'Ofensivo' : 'Defensivo';
 
-    // Elegimos un nivel aleatorio de la lista definida
     const randomLevelData = levelRanges[Math.floor(Math.random() * levelRanges.length)];
-
-    // Asignamos ELO aleatorio dentro del rango del nivel
     const startingElo = getRandomInRange(randomLevelData.minElo, randomLevelData.maxElo);
-
-    // Función para generar un skill aleatorio dentro del rango
     const getSkill = () => getRandomInRange(randomLevelData.minSkill, randomLevelData.maxSkill);
 
     const p = await prisma.user.create({
@@ -713,13 +750,13 @@ async function main() {
         userTypeId: playerRoleId,
         clubId: assignedClub,
         clubStatus: 'Aprobado',
-        level: randomLevelData.level as any, // Asignamos el enum del nivel
+        level: randomLevelData.level as any,
         dominantHand: hand as any,
         playstyle: style as any,
         active: true,
         stats: {
           create: {
-            elo: startingElo, // ELO realista
+            elo: startingElo,
             matchWon: 0,
             matchLost: 0,
             setWon: 0,
@@ -743,6 +780,7 @@ async function main() {
             recepcion: getSkill(),
             movilidad: getSkill(),
             fortalezaMental: getSkill(),
+            experiencia: getSkill(),
           },
         },
       },
@@ -755,7 +793,81 @@ async function main() {
 
   const sortedA = [...playersClubA].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
   const sortedB = [...playersClubB].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
-  // --- FIN DE LA MODIFICACIÓN ---
+
+  // ============================================================================
+  // 🔥 NUEVO: GENERAR ENTRENAMIENTOS GRUPALES Y SUBIDAS (AGOSTO 2026)
+  // ============================================================================
+  console.log('\n📅 Generando Calendario de Entrenamientos Grupales (Agosto 2026)...');
+  const schedule = await prisma.generalTrainingSchedule.create({
+    data: {
+      clubId: clubA.id,
+      name: 'Clase Avanzada (L-X-V)',
+      startTime: '17:00',
+      endTime: '19:00',
+      daysOfWeek: [1, 3, 5],
+    },
+  });
+
+  const template = await prisma.skillUpdateTemplate.create({
+    data: {
+      name: 'Mejora Ofensiva y Movilidad',
+      sourceType: 'EntrenamientoGeneral',
+      derechaPlano: true,
+      topspinDerecha: true,
+      servicio: true,
+      movilidad: true,
+    },
+  });
+
+  const augustDates = [3, 5, 7, 10, 12, 14, 17, 19, 21, 24, 26, 28, 31];
+
+  const allSkillsA = await prisma.playerSkills.findMany({
+    where: { userId: { in: playersClubA.map((p) => p.id) } },
+  });
+
+  for (const day of augustDates) {
+    const date = new Date(2026, 7, day, 17, 0, 0); // Agosto = 7
+
+    const training = await prisma.generalTraining.create({
+      data: {
+        clubId: clubA.id,
+        description: `Entrenamiento General ${day} de Agosto`,
+        date: date,
+        scheduleId: schedule.id,
+        templateId: template.id,
+      },
+    });
+
+    const attendanceData = [];
+    const updatesData = [];
+
+    for (const player of playersClubA) {
+      attendanceData.push({
+        generalTrainingId: training.id,
+        clubId: clubA.id,
+        playerId: player.id,
+        attended: true,
+      });
+
+      const pSkill = allSkillsA.find((s) => s.userId === player.id);
+
+      updatesData.push({
+        playerId: player.id,
+        sourceType: 'EntrenamientoGeneral' as any,
+        generalTrainingId: training.id,
+        status: 'EXPECTED' as any,
+        derechaPlano: getGrowth(pSkill?.derechaPlano),
+        topspinDerecha: getGrowth(pSkill?.topspinDerecha),
+        servicio: getGrowth(pSkill?.servicio),
+        movilidad: getGrowth(pSkill?.movilidad),
+      });
+    }
+
+    await prisma.generalTrainingAttendance.createMany({ data: attendanceData });
+    await prisma.playerSkillUpdate.createMany({ data: updatesData });
+  }
+
+  // --- MOTOR DE PARTIDOS Y TORNEOS ---
 
   async function simulateAndSaveMatch(
     tournamentId: string,
@@ -821,6 +933,9 @@ async function main() {
         status: 'Completado',
       },
     });
+
+    // 👇 Inyectar habilidades de partido
+    await addMatchSkillUpdates(createdMatch.id, p1Id, p2Id);
 
     await prisma.stats.update({
       where: { userId: p1Id },
@@ -1087,7 +1202,6 @@ async function main() {
     where: { userId: finalMatchT1.winner },
     data: { tournamentWon: { increment: 1 } },
   });
-
   await prisma.tournamentClas.create({
     data: { tournamentId: t1.id, playerId: finalMatchT1.loser, lastRound: 'Final', position: 2 },
   });
@@ -1205,14 +1319,9 @@ async function main() {
         where: { id: clas[pos].id },
         data: { position: pos + 1 },
       });
-
       if (pos >= 2) {
         await prisma.tournamentClas.create({
-          data: {
-            tournamentId: t3.id,
-            playerId: clas[pos].playerId,
-            position: pos === 2 ? 9 : 13,
-          },
+          data: { tournamentId: t3.id, playerId: clas[pos].playerId, position: pos === 2 ? 9 : 13 },
         });
       }
     }
@@ -1358,14 +1467,9 @@ async function main() {
         where: { id: clas[pos].id },
         data: { position: pos + 1 },
       });
-
       if (pos >= 2) {
         await prisma.tournamentClas.create({
-          data: {
-            tournamentId: t4.id,
-            playerId: clas[pos].playerId,
-            position: pos === 2 ? 9 : 13,
-          },
+          data: { tournamentId: t4.id, playerId: clas[pos].playerId, position: pos === 2 ? 9 : 13 },
         });
       }
     }
@@ -1395,7 +1499,6 @@ async function main() {
       i / 2,
     );
     cuartosMatchesT4.push(res);
-
     await prisma.tournamentClas.create({
       data: { tournamentId: t4.id, playerId: res.loser, lastRound: 'Cuartos', position: 5 },
     });
@@ -1422,7 +1525,6 @@ async function main() {
       where: { id: cuartosMatchesT4[i + 1].matchId },
       data: { winnerGoesToMatchId: res.matchId },
     });
-
     await prisma.tournamentClas.create({
       data: { tournamentId: t4.id, playerId: res.loser, lastRound: 'Semifinales', position: 3 },
     });
@@ -1453,16 +1555,6 @@ async function main() {
   await prisma.tournamentClas.create({
     data: { tournamentId: t4.id, playerId: finalMatchT4.winner, lastRound: 'Final', position: 1 },
   });
-
-  await prisma.stats.update({
-    where: { userId: finalMatchT4.winner },
-    data: { tournamentWon: { increment: 1 } },
-  });
-
-  await prisma.tournamentClas.create({
-    data: { tournamentId: t4.id, playerId: finalMatchT4.winner, lastRound: 'Final', position: 1 },
-  });
-
   await prisma.stats.update({
     where: { userId: finalMatchT4.winner },
     data: { tournamentWon: { increment: 1 } },
@@ -1559,6 +1651,9 @@ async function main() {
         status: 'Completado',
       },
     });
+
+    // 👇 Inyectar habilidades de partido
+    await addMatchSkillUpdates(matchId, p1Id, p2Id);
 
     await prisma.stats.update({
       where: { userId: p1Id },
@@ -1783,10 +1878,7 @@ async function main() {
   }
 
   for (const g of t6Groups) {
-    const clas = await prisma.tournamentGroupClas.findMany({
-      where: { tournamentGroupId: g.id },
-    });
-
+    const clas = await prisma.tournamentGroupClas.findMany({ where: { tournamentGroupId: g.id } });
     clas.sort((a, b) => {
       if (b.pointsClas !== a.pointsClas) return (b.pointsClas || 0) - (a.pointsClas || 0);
       const diffA = (a.setsWon || 0) - (a.setsLost || 0);
@@ -1804,7 +1896,6 @@ async function main() {
   }
 
   console.log('\n🧪 Generando Torneo 7 (16 Jugadores | Full Bracket allPos: true)...');
-
   const t7 = await prisma.tournament.create({
     data: {
       name: 'Torneo Brújula (Compass Draw 16)',
@@ -1831,21 +1922,13 @@ async function main() {
     });
   }
 
-  const t7Participants = t7Players.map((p, index) => ({
-    playerId: p.id,
-    position: index + 1,
-  }));
-
+  const t7Participants = t7Players.map((p, index) => ({ playerId: p.id, position: index + 1 }));
   const matchesT7 = createKnockoutDraw(t7Participants, 'Siembra', true);
   await saveKnockoutBracket(prisma, t7.id, 'A', matchesT7, new Date(), true);
 
-  // ============================================================================
-  // 🔥 TORNEO 8: LA PRUEBA DEFINITIVA (24 JUG., LLAVES A+B, TODAS LAS POSICIONES)
-  // ============================================================================
   console.log(
     '\n🏆 Generando Torneo 8 (La Prueba Definitiva | 100% Simulado A y B con Todas las Posiciones)...',
   );
-
   const t8 = await prisma.tournament.create({
     data: {
       name: 'Gran Máster Final (Todas las Posiciones)',
@@ -1862,7 +1945,7 @@ async function main() {
       playersKnockout: 3,
       sortGroups: 'Snake',
       sortKnockout: 'Siembra',
-      allPos: true, // 👈 ¡COMPASS DRAW ACTIVADO!
+      allPos: true,
       groupsCreated: true,
       knockoutCreated: false,
       setsToWinGroup: 2,
@@ -1893,24 +1976,6 @@ async function main() {
     snakeGroupsT8[index].push(t8Players[i]);
   }
 
-  const MATCH_MATRIX_6_T8 = [
-    [1, 6],
-    [2, 5],
-    [3, 4],
-    [1, 5],
-    [6, 4],
-    [2, 3],
-    [1, 4],
-    [5, 3],
-    [6, 2],
-    [1, 3],
-    [4, 2],
-    [5, 6],
-    [1, 2],
-    [3, 6],
-    [4, 5],
-  ];
-
   const allT8Matches = [];
   for (let g = 0; g < 4; g++) {
     const groupDb = t8Groups[g];
@@ -1924,7 +1989,7 @@ async function main() {
       clasRecords.push({ playerId: p.id, clasId: c.id });
     }
 
-    for (const [p1Index, p2Index] of MATCH_MATRIX_6_T8) {
+    for (const [p1Index, p2Index] of MATCH_MATRIX_6) {
       const p1 = groupPlayers[p1Index - 1];
       const p2 = groupPlayers[p2Index - 1];
       const clas1 = clasRecords[p1Index - 1];
@@ -1956,10 +2021,7 @@ async function main() {
   }
 
   for (const g of t8Groups) {
-    const clas = await prisma.tournamentGroupClas.findMany({
-      where: { tournamentGroupId: g.id },
-    });
-
+    const clas = await prisma.tournamentGroupClas.findMany({ where: { tournamentGroupId: g.id } });
     clas.sort((a, b) => {
       if (b.pointsClas !== a.pointsClas) return (b.pointsClas || 0) - (a.pointsClas || 0);
       const diffA = (a.setsWon || 0) - (a.setsLost || 0);
@@ -1989,10 +2051,7 @@ async function main() {
     await saveKnockoutBracket(prisma, t8.id, 'B', matchesB, new Date(), true);
   }
 
-  await prisma.tournament.update({
-    where: { id: t8.id },
-    data: { knockoutCreated: true },
-  });
+  await prisma.tournament.update({ where: { id: t8.id }, data: { knockoutCreated: true } });
 
   async function playKnockoutMatch(matchId: string, p1Id: string, p2Id: string) {
     const isP1Bye = p1Id === BYE_USER_ID;
@@ -2004,7 +2063,6 @@ async function main() {
       ptsP2 = 0;
     const setScores: { s1: number; s2: number }[] = [];
 
-    // SI HAY UN FANTASMA (BYE), EL JUGADOR REAL GANA 3-0 AUTOMÁTICAMENTE
     if (isP1Bye || isP2Bye) {
       const p1WinsMatch = !isP1Bye || (isP1Bye && isP2Bye);
       for (let i = 0; i < 3; i++) {
@@ -2046,6 +2104,9 @@ async function main() {
       },
     });
 
+    // 👇 Inyectar habilidades de partido
+    await addMatchSkillUpdates(matchId, p1Id, p2Id);
+
     if (!isP1Bye && !isP2Bye) {
       await prisma.stats.update({
         where: { userId: p1Id },
@@ -2061,7 +2122,6 @@ async function main() {
   }
 
   console.log(`Fase 3: Jugando TODOS los partidos de eliminatorias en cascada...`);
-
   let playableKnockouts = await prisma.match.findMany({
     where: {
       tournamentId: t8.id,
@@ -2076,7 +2136,6 @@ async function main() {
     for (const m of playableKnockouts) {
       await playKnockoutMatch(m.id, m.playerOneId, m.playerTwoId);
     }
-
     playableKnockouts = await prisma.match.findMany({
       where: {
         tournamentId: t8.id,
@@ -2090,48 +2149,41 @@ async function main() {
 
   console.log(`¡Torneo 8 completado al 100%! Se han repartido todas las posiciones del 1 al 24.`);
 
-  // ============================================================================
-  // 🔥 TORNEO 9: TODOS VS TODOS (LIGA ÚNICA DE 8 JUGADORES)
-  // ============================================================================
   console.log('\n🏆 Generando Torneo 9 (Todos vs Todos | 8 Jugadores - Falta 1 partido)...');
-
   const t9 = await prisma.tournament.create({
     data: {
       name: 'Liga Master Todos vs Todos',
       dateStart: new Date(new Date().setDate(new Date().getDate() + 14)),
       clubId: clubA.id,
       numPlayers: 8,
-      numGroup: 1, // 👈 Obligatorio 1 para liga
+      numGroup: 1,
       numGroupPlayers: 8,
       typeTournament: 'Interno',
       levelTournament: 'Avanzado',
-      rounds: 'TodosvsTodos', // 👈 El formato que estamos probando
-      status: 'Grupos', // Está en fase de liga
-      typeKnockout: 'LlaveA', // No se usará
-      playersKnockout: 0, // No hay clasificados a eliminatorias
+      rounds: 'TodosvsTodos',
+      status: 'Grupos',
+      typeKnockout: 'LlaveA',
+      playersKnockout: 0,
       sortGroups: 'Snake',
       sortKnockout: 'Siembra',
       allPos: false,
-      groupsCreated: true, // 👈 Fase iniciada
+      groupsCreated: true,
       knockoutCreated: false,
       setsToWinGroup: 2,
       setsToWinKnockout: 3,
     },
   });
 
-  const t9Players = sortedB.slice(0, 8); // Cogemos 8 jugadores del Club B
+  const t9Players = sortedB.slice(0, 8);
   for (const p of t9Players) {
     await prisma.tournamentParticipant.create({
       data: { tournamentId: t9.id, playerId: p.id, status: 'Confirmado' },
     });
   }
 
-  // 1. Crear el único grupo
   const t9Group = await prisma.tournamentGroup.create({
     data: { tournamentId: t9.id, group: 1, status: 'Programado' },
   });
-
-  // 2. Crear clasificaciones en blanco
   const clasRecordsT9 = [];
   for (const p of t9Players) {
     const c = await prisma.tournamentGroupClas.create({
@@ -2140,7 +2192,6 @@ async function main() {
     clasRecordsT9.push({ playerId: p.id, clasId: c.id });
   }
 
-  // 3. Matriz para 8 jugadores (28 partidos en total)
   const MATCH_MATRIX_8 = [
     [1, 8],
     [2, 7],
@@ -2198,18 +2249,15 @@ async function main() {
     });
   }
 
-  // 4. Simulamos 27 de los 28 partidos para dejar 1 pendiente
   console.log(`Simulando 27 de los 28 partidos de la Liga Todos vs Todos...`);
   for (let i = 0; i < allT9Matches.length - 1; i++) {
     const m = allT9Matches[i];
     await simulateExistingMatch(m.matchId, m.p1Id, m.p2Id, m.clas1Id, m.clas2Id);
   }
 
-  // 5. Ordenamos la tabla visualmente para la interfaz
   const clasT9 = await prisma.tournamentGroupClas.findMany({
     where: { tournamentGroupId: t9Group.id },
   });
-
   clasT9.sort((a, b) => {
     if (b.pointsClas !== a.pointsClas) return (b.pointsClas || 0) - (a.pointsClas || 0);
     const diffA = (a.setsWon || 0) - (a.setsLost || 0);

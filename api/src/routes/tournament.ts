@@ -220,6 +220,16 @@ router.post('/:id/register', async (req, res) => {
       return;
     }
 
+    if (tournament.typeTournament === 'Interno') {
+      if (userAuth.clubId !== tournament.clubId || userAuth.clubStatus !== 'Aprobado') {
+        res.status(403).json({
+          error:
+            'Acceso denegado. Este torneo es privado y exclusivo para los miembros del club organizador.',
+        });
+        return;
+      }
+    }
+
     if (tournament.groupsCreated) {
       res
         .status(400)
@@ -256,7 +266,7 @@ router.post('/:id/register', async (req, res) => {
 
     enviarCorreoGenerico(
       userAuth.email,
-      'Te has inscrito en el torneo',
+      'Te han inscrito en un nuevo torneo',
       templateInscripcionTorneo(userAuth.name, tournament),
     ).catch(console.error);
 
@@ -267,6 +277,72 @@ router.post('/:id/register', async (req, res) => {
   } catch (error) {
     console.error('Error al inscribir jugador:', error);
     res.status(500).json({ error: 'Error interno al inscribir jugador' });
+  }
+});
+
+router.post('/:id/register-bulk', requireAdminClub, async (req, res) => {
+  try {
+    const tournamentId = req.params.id as string;
+    const { playerIds } = req.body; // Array de IDs
+    const adminClubId = req.user?.clubId;
+
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: { _count: { select: { participants: true } } },
+    });
+
+    if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+    if (req.user?.role === 'AdminClub' && tournament.clubId !== adminClubId) {
+      return res.status(403).json({ error: 'No tienes permiso sobre este torneo' });
+    }
+    if (tournament.groupsCreated) {
+      return res.status(400).json({ error: 'Las inscripciones están cerradas.' });
+    }
+
+    const availableSpots = tournament.numPlayers - tournament._count.participants;
+    if (playerIds.length > availableSpots) {
+      return res.status(400).json({ error: `Solo quedan ${availableSpots} plazas disponibles.` });
+    }
+
+    // Filtrar los que ya están inscritos por si acaso
+    const existing = await prisma.tournamentParticipant.findMany({
+      where: { tournamentId, playerId: { in: playerIds } },
+    });
+    const existingIds = existing.map((e) => e.playerId);
+    const newPlayers = playerIds.filter((id: string) => !existingIds.includes(id));
+
+    // Insertamos los nuevos confirmándolos directamente
+    const dataToInsert = newPlayers.map((id: string) => ({
+      tournamentId,
+      playerId: id,
+      status: 'Confirmado' as any,
+    }));
+
+    await prisma.tournamentParticipant.createMany({ data: dataToInsert });
+
+    // 👇 NUEVO: Buscamos a los jugadores recién inscritos para mandarles el email
+    if (newPlayers.length > 0) {
+      const enrolledUsers = await prisma.user.findMany({
+        where: { id: { in: newPlayers } },
+        select: { email: true, name: true },
+      });
+
+      // Disparamos los correos en segundo plano (Fire-and-forget)
+      enrolledUsers.forEach((user) => {
+        if (user.email && user.name) {
+          enviarCorreoGenerico(
+            user.email,
+            'Te han inscrito en un nuevo torneo',
+            templateInscripcionTorneo(user.name, tournament),
+          ).catch((err) => console.error(`Fallo silencioso al enviar email a ${user.email}:`, err));
+        }
+      });
+    }
+
+    res.status(201).json({ success: true, message: 'Jugadores inscritos con éxito' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al inscribir jugadores masivamente' });
   }
 });
 

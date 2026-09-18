@@ -53,6 +53,7 @@ router.get('/', async (req, res) => {
         clubId: true,
         clubStatus: true,
         stats: true,
+        level: true,
       },
     });
 
@@ -211,7 +212,34 @@ router.get('/:id', async (req, res) => {
       where: { id: id },
       include: { stats: true, skills: true },
     });
-    res.json(user);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // 2. Sumamos todas las micromejoras que están en estado EXPECTED
+    const pendingUpdates = await prisma.playerSkillUpdate.aggregate({
+      where: { playerId: id, status: 'EXPECTED' },
+      _sum: {
+        derechaPlano: true,
+        revesPlano: true,
+        topspinDerecha: true,
+        topspinReves: true,
+        corte: true,
+        bloqueoDerecha: true,
+        bloqueoReves: true,
+        servicio: true,
+        recepcion: true,
+        movilidad: true,
+        fortalezaMental: true,
+        experiencia: true,
+      },
+    });
+
+    // 3. Devolvemos el usuario mezclado con sus mejoras pendientes
+    res.json({
+      ...user,
+      pendingSkills: pendingUpdates._sum, // Esto enviará un objeto con las sumas
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener los usuarios' });

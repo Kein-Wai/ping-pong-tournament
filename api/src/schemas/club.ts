@@ -33,6 +33,7 @@ export const updateSkillsSchema = z.object({
   recepcion: statValidator,
   movilidad: statValidator,
   fortalezaMental: statValidator,
+  experiencia: statValidator,
 });
 
 export const updateMemberStatusSchema = z.object({

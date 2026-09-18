@@ -3,5 +3,5 @@ export const getPlayerAvatar = (name: string, avatarUrl?: string | null) => {
     return avatarUrl;
   }
   const cleanName = encodeURIComponent(name || 'Jugador');
-  return `https://api.dicebear.com/10.x/open-peeps/svg?seed=${cleanName}`;
+  return `https://api.dicebear.com/10.x/avataaars-neutral/svg?seed=${cleanName}`;
 };

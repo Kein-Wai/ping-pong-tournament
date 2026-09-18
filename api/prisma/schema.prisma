@@ -223,6 +223,18 @@ enum PlayerLevel {
   Profesional
 }
 
+enum UpdateSourceType {
+  EntrenamientoGeneral
+  EntrenamientoEspecifico
+  Partido
+}
+
+enum SkillUpdateStatus {
+  EXPECTED
+  COMPLETED
+  REJECTED
+}
+
 model Club {
   id     String     @id @default(uuid())
   name   String     @unique @db.VarChar(255)
@@ -239,7 +251,9 @@ model Club {
   tournaments Tournament[]
   leagues     League[]
   exercises   Exercise[]
-
+  generalSchedules  GeneralTrainingSchedule[]
+  generalTrainings  GeneralTraining[]
+  generalAttendances GeneralTrainingAttendance[]
   @@map("club")
 }
 
@@ -278,7 +292,8 @@ model User {
   trainings                     PlayerTraining[]
   manualMatches                 ManualMatch[]
   skills                        PlayerSkills?      
-
+  skillUpdates                  PlayerSkillUpdate[]
+  generalAttendances GeneralTrainingAttendance[]
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
 }
@@ -325,7 +340,7 @@ model TrainingSession {
   // Relaciones
   training  PlayerTraining    @relation(fields: [playerTrainingId], references: [id], onDelete: Cascade)
   exercises SessionExercise[]
-
+  skillUpdates PlayerSkillUpdate[]
   @@map("training_session")
 }
 
@@ -404,7 +419,7 @@ model Match {
   league     League?             @relation(fields: [leagueId], references: [id])
   playerOne  User                @relation("PlayerOne", fields: [playerOneId], references: [id], map: "match_player_one_foreign")
   playerTwo  User                @relation("PlayerTwo", fields: [playerTwoId], references: [id], map: "match_player_two_foreign")
-
+  skillUpdates PlayerSkillUpdate[]
   @@map("match")
 }
 
@@ -619,19 +634,136 @@ model PlayerSkills {
   id              String   @id @default(uuid())
   userId          String   @unique @map("user_id")
   
-  derechaPlano    Int      @default(0)
-  revesPlano      Int      @default(0)
-  topspinDerecha  Int      @default(0)
-  topspinReves    Int      @default(0)
-  corte           Int      @default(0)
-  bloqueoDerecha  Int      @default(0)
-  bloqueoReves    Int      @default(0)
-  servicio        Int      @default(0)
-  recepcion       Int      @default(0)
-  movilidad       Int      @default(0)
-  fortalezaMental Int      @default(0)
+  derechaPlano    Float      @default(0)
+  revesPlano      Float      @default(0)
+  topspinDerecha  Float      @default(0)
+  topspinReves    Float      @default(0)
+  corte           Float      @default(0)
+  bloqueoDerecha  Float      @default(0)
+  bloqueoReves    Float      @default(0)
+  servicio        Float      @default(0)
+  recepcion       Float      @default(0)
+  movilidad       Float      @default(0)
+  fortalezaMental Float      @default(0)
+  experiencia     Float      @default(0)
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("player_skills")
 }
+
+model SkillUpdateTemplate {
+  id              String           @id @default(uuid())
+  name            String           @db.VarChar(255)
+  sourceType      UpdateSourceType @map("source_type")
+  
+  derechaPlano    Boolean @default(false)
+  revesPlano      Boolean @default(false)
+  topspinDerecha  Boolean @default(false)
+  topspinReves    Boolean @default(false)
+  corte           Boolean @default(false)
+  bloqueoDerecha  Boolean @default(false)
+  bloqueoReves    Boolean @default(false)
+  servicio        Boolean @default(false)
+  recepcion       Boolean @default(false)
+  movilidad       Boolean @default(false)
+  fortalezaMental Boolean @default(false)
+  experiencia     Boolean @default(false)
+
+  generalTrainings GeneralTraining[]
+
+  @@map("skill_update_template")
+}
+
+// --- 2. HISTORIAL DE SUBIDAS PENDIENTES/COMPLETADAS (El "Cuánto" se sube) ---
+model PlayerSkillUpdate {
+  id              String            @id @default(uuid())
+  playerId        String            @map("player_id")
+  date            DateTime          @default(now()) @db.Date
+  status          SkillUpdateStatus @default(EXPECTED)
+  sourceType      UpdateSourceType  @map("source_type")
+
+  // Valores numéricos que se sumarán al perfil
+  derechaPlano    Float @default(0)
+  revesPlano      Float @default(0)
+  topspinDerecha  Float @default(0)
+  topspinReves    Float @default(0)
+  corte           Float @default(0)
+  bloqueoDerecha  Float @default(0)
+  bloqueoReves    Float @default(0)
+  servicio        Float @default(0)
+  recepcion       Float @default(0)
+  movilidad       Float @default(0)
+  fortalezaMental Float @default(0)
+  experiencia     Float @default(0)
+
+  // --- RELACIONES EXPLÍCITAS (Opción B) ---
+  matchId           String?           @map("match_id")
+  match             Match?            @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  trainingSessionId String?           @map("training_session_id")
+  trainingSession   TrainingSession?  @relation(fields: [trainingSessionId], references: [id], onDelete: SetNull)
+
+  // Preparado para tu futura feature de Entrenamientos Generales
+  generalTrainingId String?           @map("general_training_id")
+  generalTraining   GeneralTraining? @relation(fields: [generalTrainingId], references: [id], onDelete: SetNull)
+
+  // Relación con el jugador
+  player            User              @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@map("player_skill_update")
+}
+
+
+model GeneralTrainingSchedule {
+  id          String   @id @default(uuid())
+  clubId      String   @map("club_id")
+  name        String   @db.VarChar(255)    // Ej: "Clase Avanzada"
+  startTime   String   @map("start_time")  // Ej: "17:00"
+  endTime     String   @map("end_time")    // Ej: "19:00"
+  daysOfWeek  Int[]    @map("days_of_week") // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
+  club        Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  trainings   GeneralTraining[]
+
+  @@map("general_training_schedule")
+}
+
+// --- CALENDARIZACIÓN DEL ENTRENAMIENTO GENERAL ---
+model GeneralTraining {
+  id               String   @id @default(uuid())
+  clubId           String   @map("club_id")
+  description      String?  @db.Text
+  date             DateTime @db.Date
+
+  // Relaciones (A qué horario pertenece y qué skills sube)
+  scheduleId       String?               @map("schedule_id")
+  templateId       String               @map("template_id")
+
+  club             Club                    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  schedule         GeneralTrainingSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  template         SkillUpdateTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // El historial de subidas de los jugadores para este bloque de entrenamientos
+  skillUpdates     PlayerSkillUpdate[]
+  attendances      GeneralTrainingAttendance[]
+  @@map("general_training")
+}
+
+// --- ASISTENCIA A ENTRENAMIENTOS GENERALES ---
+model GeneralTrainingAttendance {
+  id                String   @id @default(uuid())
+  generalTrainingId String   @map("general_training_id")
+  clubId            String   @map("club_id")
+  playerId          String   @map("player_id")
+  attended          Boolean  @default(true) // Por defecto true al confirmar, útil por si hay lista de inscritos previa
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  generalTraining   GeneralTraining @relation(fields: [generalTrainingId], references: [id], onDelete: Cascade)
+  club              Club            @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  player            User            @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  // Un jugador solo puede tener un registro de asistencia por sesión
+  @@unique([generalTrainingId, playerId])
+  @@map("general_training_attendance")
+}
+

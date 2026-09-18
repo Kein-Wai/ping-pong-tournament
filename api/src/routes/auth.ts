@@ -231,6 +231,8 @@ router.post('/google', async (req, res) => {
         role: user.userType.name,
         clubId: user.clubId,
         clubStatus: user.clubStatus,
+        dominantHand: user.dominantHand,
+        playstyle: user.playstyle,
       },
       JWT_SECRET,
       { expiresIn: '8h' },

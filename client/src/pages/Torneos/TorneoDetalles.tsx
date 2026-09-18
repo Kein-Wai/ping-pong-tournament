@@ -24,6 +24,7 @@ import {
   ActionIcon,
   Tooltip,
   NumberInput,
+  Checkbox,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -237,6 +238,23 @@ export const TorneoDetalles = () => {
 
   const [editMatch, setEditMatch] = useState<MatchToEdit | null>(null);
   const [submittingMatch, setSubmittingMatch] = useState(false);
+  const [enrollModalOpen, setEnrollModalOpen] = useState(false);
+  const [clubPlayers, setClubPlayers] = useState<any[]>([]);
+  const [checkedToEnroll, setCheckedToEnroll] = useState<string[]>([]);
+  const [enrolling, setEnrolling] = useState(false);
+
+  const myParticipation = participants?.find((p) => p.player.id === user?.id);
+  const isEnrolled = !!myParticipation;
+
+  const fetchParticipants = async () => {
+    if (!id) return;
+    try {
+      const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
+      setParticipants(res.data.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchTournamentInfo = async () => {
     try {
@@ -292,6 +310,7 @@ export const TorneoDetalles = () => {
 
   useEffect(() => {
     fetchTournamentInfo();
+    fetchParticipants();
   }, [id]);
 
   useEffect(() => {
@@ -299,10 +318,7 @@ export const TorneoDetalles = () => {
 
     const fetchLazyData = async () => {
       try {
-        if (activeTab === 'inscritos' && participants === null) {
-          const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
-          setParticipants(res.data.data);
-        } else if (activeTab === 'resultados' && results === null) {
+        if (activeTab === 'resultados' && results === null) {
           const res = await api.get(ENDPOINTS.TOURNAMENTS.CLASSIFICATION(id));
           setResults(res.data.data);
         } else if (activeTab === 'grupos' && (groupsClas === null || groupMatches === null)) {
@@ -592,6 +608,32 @@ export const TorneoDetalles = () => {
         }
       },
     });
+  };
+
+  const handleOpenEnrollModal = async () => {
+    try {
+      const res = await api.get(ENDPOINTS.USERS.BASE);
+      setClubPlayers(res.data);
+      setCheckedToEnroll([]);
+      setEnrollModalOpen(true);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleBulkEnroll = async () => {
+    if (!id) return;
+    setEnrolling(true);
+    try {
+      await api.post(ENDPOINTS.TOURNAMENTS.REGISTER_BULK(id), { playerIds: checkedToEnroll });
+      setEnrollModalOpen(false);
+      await fetchParticipants(); // Refrescar inscritos
+      await fetchTournamentInfo(); // Refrescar torneo (para actualizar contadores de plazas)
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setEnrolling(false);
+    }
   };
 
   const openEditFormat = () => {
@@ -1068,6 +1110,15 @@ export const TorneoDetalles = () => {
                       Ajustar Formato
                     </Button>
                     <Button
+                      color="blue"
+                      variant="light"
+                      size="md"
+                      onClick={handleOpenEnrollModal}
+                      leftSection={<IconUsers size={18} />}
+                    >
+                      Añadir Inscritos
+                    </Button>
+                    <Button
                       color={
                         confirmedPlayersCount < (tournament.numPlayers || 0) ? 'red' : 'orange'
                       }
@@ -1080,17 +1131,28 @@ export const TorneoDetalles = () => {
                     </Button>
                   </>
                 )}
-                {user?.role === 'Player' && (
-                  <Button
-                    color={isFull ? 'gray' : 'blue'}
-                    size="md"
-                    disabled={isFull}
-                    loading={isRegistering}
-                    onClick={handleInscribirse}
-                  >
-                    {isFull ? 'Torneo Completo' : 'Inscribirme'}
-                  </Button>
-                )}
+                {user?.role === 'Player' &&
+                  (isEnrolled ? (
+                    <Button
+                      color={myParticipation.status === 'Confirmado' ? 'green' : 'orange'}
+                      size="md"
+                      disabled
+                    >
+                      {myParticipation.status === 'Confirmado'
+                        ? 'Inscripción Confirmada'
+                        : 'Inscripción Pendiente'}
+                    </Button>
+                  ) : (
+                    <Button
+                      color={isFull ? 'gray' : 'blue'}
+                      size="md"
+                      disabled={isFull}
+                      loading={isRegistering}
+                      onClick={handleInscribirse}
+                    >
+                      {isFull ? 'Torneo Completo' : 'Inscribirme'}
+                    </Button>
+                  ))}
               </Group>
 
               <Text size="xs" c="dimmed">
@@ -1776,6 +1838,76 @@ export const TorneoDetalles = () => {
               </Stack>
             </Stack>
           )}
+        </Modal>
+        <Modal
+          opened={enrollModalOpen}
+          onClose={() => setEnrollModalOpen(false)}
+          title={
+            <Text size="lg" fw={700}>
+              Inscripción Manual (Entrenador)
+            </Text>
+          }
+          size="xl"
+          centered
+        >
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              Selecciona los jugadores que deseas inscribir directamente al torneo. Entrarán con
+              estado "Confirmado".
+            </Text>
+            <ScrollArea h={400}>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                {clubPlayers
+                  .filter((p) => !participants?.some((part) => part.player.id === p.id))
+                  .map((p) => (
+                    <Paper
+                      key={p.id}
+                      withBorder
+                      p="xs"
+                      radius="sm"
+                      onClick={() => {
+                        setCheckedToEnroll((prev) =>
+                          prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
+                        );
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        backgroundColor: checkedToEnroll.includes(p.id)
+                          ? 'var(--mantine-color-blue-light)'
+                          : 'transparent',
+                      }}
+                    >
+                      <Group wrap="nowrap">
+                        <Checkbox
+                          checked={checkedToEnroll.includes(p.id)}
+                          onChange={() => {}}
+                          tabIndex={-1}
+                        />
+                        <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} size="sm" radius="xl" />
+                        <Text size="sm" fw={500}>
+                          {p.name} {p.surname}
+                        </Text>
+                      </Group>
+                    </Paper>
+                  ))}
+                {clubPlayers.filter((p) => !participants?.some((part) => part.player.id === p.id))
+                  .length === 0 && (
+                  <Text c="dimmed" size="sm">
+                    No hay más jugadores disponibles en el club para inscribir.
+                  </Text>
+                )}
+              </SimpleGrid>
+            </ScrollArea>
+            <Button
+              fullWidth
+              color="blue"
+              onClick={handleBulkEnroll}
+              loading={enrolling}
+              disabled={checkedToEnroll.length === 0}
+            >
+              Inscribir {checkedToEnroll.length} Jugadores
+            </Button>
+          </Stack>
         </Modal>
       </Tabs>
 

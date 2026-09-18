@@ -142,18 +142,49 @@ router.delete('/:id/points/:pointId', async (req, res) => {
 });
 
 // 6. Finalizar el partido (Se llama al terminar el último set)
+// 6. Finalizar el partido (Se llama al terminar el último set)
 router.put('/:id/complete', async (req, res) => {
   try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'No autorizado' });
+
     const validation = completeMatchSchema.safeParse(req.body);
     if (!validation.success) return res.status(400).json({ error: 'Datos inválidos' });
 
-    const updatedMatch = await prisma.manualMatch.update({
-      where: { id: req.params.id },
-      data: {
-        status: MatchStatus.Completado,
-        mySets: validation.data.mySets,
-        opponentSets: validation.data.opponentSets,
-      },
+    // Envolvemos en transacción para asegurar la base de datos
+    const updatedMatch = await prisma.$transaction(async (tx) => {
+      const match = await tx.manualMatch.update({
+        where: { id: req.params.id },
+        data: {
+          status: MatchStatus.Completado,
+          mySets: validation.data.mySets,
+          opponentSets: validation.data.opponentSets,
+        },
+      });
+
+      // Obtener stats y aplicar curva decreciente
+      const userSkills = await tx.playerSkills.findUnique({ where: { userId } });
+      const getGrowth = (stat?: number) => {
+        const val = stat || 0;
+        if (val < 20) return 0.25;
+        if (val < 40) return 0.2;
+        if (val < 60) return 0.15;
+        if (val < 80) return 0.07;
+        return 0.01;
+      };
+
+      // Inyectar subida al tracker personal
+      await tx.playerSkillUpdate.create({
+        data: {
+          playerId: userId,
+          sourceType: 'Partido',
+          status: 'EXPECTED',
+          fortalezaMental: getGrowth(userSkills?.fortalezaMental),
+          experiencia: getGrowth(userSkills?.experiencia),
+        },
+      });
+
+      return match;
     });
 
     res.status(200).json({ success: true, data: updatedMatch });

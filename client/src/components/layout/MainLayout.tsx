@@ -29,6 +29,7 @@ import {
   IconBuildingCommunity,
   IconUser,
   IconBook,
+  IconCalendarEvent, // 👈 Importado el icono para los grupales
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes';
@@ -80,63 +81,92 @@ export const MainLayout = () => {
     }
   };
 
+  // --- VARIABLES DE CONDICIÓN ---
   const isSuperAdmin = user?.role === 'SuperAdmin';
   const isAdminClub = user?.role === 'AdminClub';
   const isPlayer = user?.role === 'Player';
-  const hasApprovedClub = user?.clubStatus === 'Aprobado' && user?.clubId;
+  const hasApprovedClub = user?.clubStatus === 'Aprobado' && !!user?.clubId;
 
-  // --- CONSTRUCCIÓN DEL MENÚ SEGÚN TU JERARQUÍA ---
-  const navItems: { label: string; icon: any; path: string }[] = [
-    { label: 'Inicio', icon: IconHome, path: APP_ROUTES.HOME },
-  ];
-
-  if (user?.id && isPlayer) {
-    navItems.push({
-      label: 'Mi Perfil',
-      icon: IconUser,
-      path: APP_ROUTES.JUGADORES.PROFILE(user.id),
-    });
-    navItems.push({
-      label: 'Análisis Pro',
-      icon: IconChartBar, // O el icono que prefieras
-      path: APP_ROUTES.ANALISIS.LIST,
-    });
-  }
-
-  navItems.push({ label: 'Torneos', icon: IconTrophy, path: APP_ROUTES.TORNEOS.LIST });
-
-  // Restricción: Jugadores y Estadísticas solo si tienes club aprobado o eres Admin
-  if (isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub)) {
-    navItems.push(
-      { label: 'Jugadores', icon: IconUsers, path: APP_ROUTES.JUGADORES.LIST },
-      { label: 'Historial', icon: IconHistory, path: APP_ROUTES.PARTIDOS },
-      { label: 'Estadísticas', icon: IconChartBar, path: APP_ROUTES.ESTADISTICAS },
-    );
-  }
-
-  // Pestaña especial: Si eres Player libre, rechazado o pendiente, ves la lista para aplicar
-  if (isPlayer && !hasApprovedClub) {
-    navItems.push({
+  // --- ESTRUCTURA DECLARATIVA DEL MENÚ ---
+  // Aquí defines el ORDEN EXACTO. El array se filtrará dejando solo las que cumplan "show: true"
+  const navItemsDefinition = [
+    {
+      label: 'Inicio',
+      icon: IconHome,
+      path: APP_ROUTES.HOME,
+      show: true,
+    },
+    {
+      label: 'Panel Global',
+      icon: IconSettings,
+      path: APP_ROUTES.ADMIN_PANEL,
+      show: isSuperAdmin,
+    },
+    {
+      label: 'Mi Club',
+      icon: IconBuildingCommunity,
+      path: APP_ROUTES.MI_CLUB,
+      show: isAdminClub,
+    },
+    {
       label: 'Unirse a un Club',
       icon: IconBuildingCommunity,
       path: APP_ROUTES.CLUB_SELECTION,
-    });
-  }
+      show: isPlayer && !hasApprovedClub,
+    },
+    {
+      label: 'Mi Perfil',
+      icon: IconUser,
+      path: APP_ROUTES.JUGADORES.PROFILE(user?.id || ''),
+      show: !!user?.id && isPlayer,
+    },
+    {
+      label: 'Jugadores',
+      icon: IconUsers,
+      path: APP_ROUTES.JUGADORES.LIST,
+      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+    },
+    {
+      label: 'Torneos',
+      icon: IconTrophy,
+      path: APP_ROUTES.TORNEOS.LIST,
+      show: true,
+    },
+    {
+      label: 'Entrenamientos Grupales',
+      icon: IconCalendarEvent,
+      // @ts-ignore - Ignoramos temporalmente si TypeScript no encuentra la ruta, asumiendo que la has creado en constants
+      path: APP_ROUTES.ENTRENAMIENTOS_GENERALES || '/entrenamientos-generales',
+      show: isAdminClub,
+    },
+    {
+      label: 'Ejercicios',
+      icon: IconBook,
+      path: APP_ROUTES.EJERCICIOS.LIST,
+      show: isAdminClub || isSuperAdmin,
+    },
+    {
+      label: 'Análisis Pro',
+      icon: IconChartBar,
+      path: APP_ROUTES.ANALISIS.LIST,
+      show: !!user?.id && isPlayer,
+    },
+    {
+      label: 'Historial',
+      icon: IconHistory,
+      path: APP_ROUTES.PARTIDOS,
+      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+    },
+    {
+      label: 'Estadísticas',
+      icon: IconChartBar,
+      path: APP_ROUTES.ESTADISTICAS,
+      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+    },
+  ];
 
-  // Pestañas de gestión exclusivas
-
-  if (isAdminClub || isSuperAdmin) {
-    // Añadimos la pestaña de ejercicios
-    navItems.push({ label: 'Ejercicios', icon: IconBook, path: APP_ROUTES.EJERCICIOS.LIST });
-  }
-
-  if (isAdminClub) {
-    navItems.push({ label: 'Mi Club', icon: IconBuildingCommunity, path: APP_ROUTES.MI_CLUB });
-  }
-
-  if (isSuperAdmin) {
-    navItems.push({ label: 'Panel Global', icon: IconSettings, path: APP_ROUTES.ADMIN_PANEL });
-  }
+  // Filtramos la lista eliminando todo lo que tenga show: false
+  const navItems = navItemsDefinition.filter((item) => item.show);
 
   return (
     <AppShell
@@ -220,6 +250,8 @@ export const MainLayout = () => {
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+
+      {/* --- MODAL ONBOARDING JUGADOR --- */}
       <Modal
         opened={onboardingOpen}
         onClose={() => {}} // Vacío para que no se pueda cerrar con ESC

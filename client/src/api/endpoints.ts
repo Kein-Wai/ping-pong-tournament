@@ -35,6 +35,7 @@ export const ENDPOINTS = {
     BRACKETS: (id: string) => `/tournaments/${id}/bracket`,
     CLASSIFICATION: (id: string) => `/tournaments/${id}/classifications`,
     REGISTER: (id: string) => `/tournaments/${id}/register`,
+    REGISTER_BULK: (id: string) => `/tournaments/${id}/register-bulk`,
     ENROLLED: (playerId: string) => `/tournaments/player/${playerId}/enrolled`,
   },
   MATCHES: {
@@ -58,6 +59,11 @@ export const ENDPOINTS = {
     SESSION_DETAILS: (sessionId: string) => `/trainings/sessions/${sessionId}`,
     UPCOMING: (playerId: string) => `/trainings/player/${playerId}/upcoming`,
   },
+  GENERAL_TRAININGS: {
+    BASE: '/general-trainings',
+    SCHEDULES: '/general-trainings/schedules',
+    BULK_ATTENDANCE: (id: string) => `/general-trainings/${id}/attendance/bulk`,
+  },
   MANUAL_MATCHES: {
     BASE: '/manual-matches',
     BY_ID: (id: string) => `/manual-matches/${id}`,
@@ -65,5 +71,9 @@ export const ENDPOINTS = {
     ADD_POINT: (id: string) => `/manual-matches/${id}/points`,
     DELETE_POINT: (id: string, pointId: string) => `/manual-matches/${id}/points/${pointId}`,
     COMPLETE: (id: string) => `/manual-matches/${id}/complete`,
+  },
+  SKILLS: {
+    BASE: '/skills',
+    CONSOLIDATE: (playerId: string) => `/skills/${playerId}/consolidate`,
   },
 } as const;

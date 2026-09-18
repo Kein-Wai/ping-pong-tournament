@@ -24,6 +24,7 @@ import { PlanDetalles } from './pages/Entrenamientos/PlanDetalles';
 import { SessionDetalles } from './pages/Entrenamientos/SessionDetalles';
 import { AnalisisList } from './pages/Analisis/AnalisisList';
 import { ManualMatchTracker } from './pages/Analisis/ManualMatchTracker';
+import { EntrenamientosGenerales } from './pages/Entrenamientos/EntrenamientosGenerales';
 import { App as CapApp } from '@capacitor/app';
 import { APP_ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
@@ -162,6 +163,10 @@ function AppContent() {
                 <Route path={APP_ROUTES.EJERCICIOS.NEW} element={<EjercicioNuevo />} />
                 <Route path={APP_ROUTES.ENTRENAMIENTOS.NEW_PATH} element={<PlanNuevo />} />
                 <Route path={APP_ROUTES.ENTRENAMIENTOS.DETAILS_PATH} element={<PlanDetalles />} />
+                <Route
+                  path={APP_ROUTES.ENTRENAMIENTOS_GENERALES}
+                  element={<EntrenamientosGenerales />}
+                />
                 <Route
                   path={APP_ROUTES.ENTRENAMIENTOS.SESSION_PATH}
                   element={<SessionDetalles />}

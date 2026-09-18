@@ -87,6 +87,9 @@ export const handleMatchStatsUpdate = async (
           pointLost: { decrement: prevRes.p1Points },
         },
       });
+      await prisma.playerSkillUpdate.deleteMany({
+        where: { matchId: previousMatch.id, sourceType: 'Partido' },
+      });
     }
   }
 
@@ -168,5 +171,41 @@ export const handleMatchStatsUpdate = async (
       newRes.p2Points,
       newRes.p1Points,
     );
+    const p1Skills = await prisma.playerSkills.findUnique({
+      where: { userId: newMatch.playerOneId },
+    });
+    const p2Skills = await prisma.playerSkills.findUnique({
+      where: { userId: newMatch.playerTwoId },
+    });
+
+    const getGrowth = (stat?: number) => {
+      const val = stat || 0;
+      if (val < 20) return 0.25;
+      if (val < 40) return 0.2;
+      if (val < 60) return 0.15;
+      if (val < 80) return 0.07;
+      return 0.01;
+    };
+
+    await prisma.playerSkillUpdate.createMany({
+      data: [
+        {
+          playerId: newMatch.playerOneId,
+          matchId: newMatch.id,
+          sourceType: 'Partido',
+          status: 'EXPECTED',
+          fortalezaMental: getGrowth(p1Skills?.fortalezaMental),
+          experiencia: getGrowth(p1Skills?.experiencia),
+        },
+        {
+          playerId: newMatch.playerTwoId,
+          matchId: newMatch.id,
+          sourceType: 'Partido',
+          status: 'EXPECTED',
+          fortalezaMental: getGrowth(p2Skills?.fortalezaMental),
+          experiencia: getGrowth(p2Skills?.experiencia),
+        },
+      ],
+    });
   }
 };
