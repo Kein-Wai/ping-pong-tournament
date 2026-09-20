@@ -2,7 +2,9 @@ import express from 'express';
 import apiRoutes from './routes';
 import { setupSwagger } from './swagger';
 import cors from 'cors';
+import dns from 'dns';
 
+dns.setDefaultResultOrder('ipv4first');
 export const app = express();
 const PORT = process.env.PORT || 3000;
 
