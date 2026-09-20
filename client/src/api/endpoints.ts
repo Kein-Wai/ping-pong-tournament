@@ -20,6 +20,7 @@ export const ENDPOINTS = {
     JOIN: (clubId: string) => `/clubs/${clubId}/join`,
     MEMBERS: (clubId: string) => `/clubs/${clubId}/members`,
     MEMBER_STATUS: (clubId: string, userId: string) => `/clubs/${clubId}/members/${userId}/status`,
+    NOTIFICATIONS: (id: string) => `/clubs/${id}/notifications`,
   },
   TOURNAMENTS: {
     BASE: '/tournaments',

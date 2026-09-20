@@ -290,4 +290,39 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
   }
 });
 
+// GET: Alertas y notificaciones del club (AdminClub)
+router.get('/:id/notifications', verifyToken, requireAdminClub, async (req, res) => {
+  try {
+    const clubId = req.params.id as string;
+
+    if (req.user?.role === 'AdminClub' && req.user?.clubId !== clubId) {
+      return res.status(403).json({ error: 'No tienes permiso para ver estas notificaciones' });
+    }
+
+    // 1. Contar solicitudes de unión al club pendientes
+    const pendingMembers = await prisma.user.count({
+      where: { clubId: clubId, clubStatus: 'Pendiente' },
+    });
+
+    // 2. Contar inscripciones pendientes en torneos activos del club
+    const pendingTournaments = await prisma.tournamentParticipant.count({
+      where: {
+        tournament: { clubId: clubId, status: { notIn: ['Completado', 'Cancelado'] } },
+        status: 'Pendiente',
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        pendingMembers,
+        pendingTournaments,
+        total: pendingMembers + pendingTournaments,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener las notificaciones' });
+  }
+});
+
 export default router;

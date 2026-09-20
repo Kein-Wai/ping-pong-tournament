@@ -529,6 +529,7 @@ export const TorneoDetalles = () => {
           if (participants !== null) {
             const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
             setParticipants(res.data.data);
+            window.dispatchEvent(new CustomEvent('refresh-notifications'));
           }
         } catch (error) {
           console.error(error);

@@ -12,6 +12,7 @@ import {
   Select,
   Button,
   Stack,
+  Badge,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -50,6 +51,28 @@ export const MainLayout = () => {
   const [hand, setHand] = useState<string | null>(null);
   const [style, setStyle] = useState<string | null>(null);
   const [savingOnboarding, setSavingOnboarding] = useState(false);
+  const [notificationsBadge, setNotificationsBadge] = useState({
+    pendingMembers: 0,
+    pendingTournaments: 0,
+  });
+
+  const fetchNotifications = () => {
+    if (user?.role === 'AdminClub' && user?.clubId) {
+      api
+        .get(ENDPOINTS.CLUBS.NOTIFICATIONS(user.clubId))
+        .then((res) => setNotificationsBadge(res.data.data))
+        .catch(console.error);
+    }
+  };
+
+  // Llamada para obtener notificaciones si es Entrenador
+  useEffect(() => {
+    fetchNotifications(); // Carga inicial
+
+    // 👇 Queda a la escucha de cualquier aviso del resto de la app
+    window.addEventListener('refresh-notifications', fetchNotifications);
+    return () => window.removeEventListener('refresh-notifications', fetchNotifications);
+  }, [user]);
 
   useEffect(() => {
     if (user && user.role === 'Player' && (!user.dominantHand || !user.playstyle)) {
@@ -125,12 +148,15 @@ export const MainLayout = () => {
       icon: IconUsers,
       path: APP_ROUTES.JUGADORES.LIST,
       show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+      badge: notificationsBadge.pendingMembers > 0 ? notificationsBadge.pendingMembers : null, // 👈 AÑADIDO
     },
     {
       label: 'Torneos',
       icon: IconTrophy,
       path: APP_ROUTES.TORNEOS.LIST,
       show: true,
+      badge:
+        notificationsBadge.pendingTournaments > 0 ? notificationsBadge.pendingTournaments : null, // 👈 AÑADIDO
     },
     {
       label: 'Entrenamientos Grupales',
@@ -236,6 +262,13 @@ export const MainLayout = () => {
             key={item.label}
             label={item.label}
             leftSection={<item.icon size="1.2rem" stroke={1.5} />}
+            rightSection={
+              item.badge ? (
+                <Badge color="red" variant="filled" size="sm" circle>
+                  {item.badge}
+                </Badge>
+              ) : null
+            }
             active={location.pathname === item.path}
             onClick={() => {
               navigate(item.path);

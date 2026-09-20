@@ -90,15 +90,9 @@ router.post('/register', async (req, res) => {
         'Nuevo registro en TT Tournament App',
         templateRegistro(name, verificationToken),
       ).catch((err) => console.error('Fallo silencioso al enviar correo de registro:', err));
+
     res.status(201).json({
       message: 'Jugador registrado con éxito',
-      // token,
-      // user: {
-      //   id: newUser.id,
-      //   email: newUser.email,
-      //   name: newUser.name,
-      //   role: newUser.userType.name,
-      // },
     });
   } catch (error) {
     console.error(error);

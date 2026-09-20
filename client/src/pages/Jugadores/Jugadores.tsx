@@ -178,6 +178,7 @@ export const Jugadores = () => {
         try {
           await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(adminClubId, playerId), { status: action });
           await fetchPlayers();
+          window.dispatchEvent(new CustomEvent('refresh-notifications'));
         } catch (error) {
           console.error('Error al procesar la solicitud del miembro:', error);
         }
@@ -223,6 +224,7 @@ export const Jugadores = () => {
         experiencia: '',
       });
       await fetchPlayers();
+      window.dispatchEvent(new CustomEvent('refresh-notifications'));
     } catch (error) {
       console.error(error);
     } finally {
