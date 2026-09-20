@@ -82,6 +82,7 @@ const SKILL_FIELDS = [
   { key: 'recepcion', label: 'Recepción' },
   { key: 'movilidad', label: 'Movilidad' },
   { key: 'fortalezaMental', label: 'Fortaleza Mental' },
+  { key: 'experiencia', label: 'Experiencia' },
 ] as const;
 
 export const Jugadores = () => {
@@ -120,6 +121,7 @@ export const Jugadores = () => {
     recepcion: '',
     movilidad: '',
     fortalezaMental: '',
+    experiencia: '',
   });
   const [approving, setApproving] = useState(false);
 
@@ -218,6 +220,7 @@ export const Jugadores = () => {
         recepcion: '',
         movilidad: '',
         fortalezaMental: '',
+        experiencia: '',
       });
       await fetchPlayers();
     } catch (error) {
@@ -525,7 +528,7 @@ export const Jugadores = () => {
                     <NumberInput
                       key={field.key}
                       label={field.label}
-                      placeholder={`Def: ${LEVEL_BASE_STATS[playerLevel]}`}
+                      placeholder={`Defecto: ${LEVEL_BASE_STATS[playerLevel]}`}
                       min={0}
                       max={100}
                       value={skills[field.key]}

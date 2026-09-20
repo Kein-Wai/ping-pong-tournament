@@ -7,12 +7,15 @@ export const enviarCorreoGenerico = async (
 ) => {
   try {
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com', // 👈 Usamos el host directo
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.GMAIL_USER, // Tu correo de Gmail
         pass: process.env.GMAIL_PW, // Tu nueva contraseña de 16 letras
       },
-    });
+      family: 4,
+    } as any);
 
     const mailInfo = await transporter.sendMail({
       from: `"TM Evolve" <${process.env.GMAIL_USER}>`,

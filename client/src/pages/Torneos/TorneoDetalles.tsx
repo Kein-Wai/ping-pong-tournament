@@ -1115,6 +1115,7 @@ export const TorneoDetalles = () => {
                       size="md"
                       onClick={handleOpenEnrollModal}
                       leftSection={<IconUsers size={18} />}
+                      disabled={(participants?.length || 0) >= (tournament?.numPlayers || 0)}
                     >
                       Añadir Inscritos
                     </Button>
@@ -1839,6 +1840,7 @@ export const TorneoDetalles = () => {
             </Stack>
           )}
         </Modal>
+        {/* MODAL PARA INSCRIBIR JUGADORES MANUALMENTE */}
         <Modal
           opened={enrollModalOpen}
           onClose={() => setEnrollModalOpen(false)}
@@ -1850,64 +1852,93 @@ export const TorneoDetalles = () => {
           size="xl"
           centered
         >
-          <Stack gap="md">
-            <Text size="sm" c="dimmed">
-              Selecciona los jugadores que deseas inscribir directamente al torneo. Entrarán con
-              estado "Confirmado".
-            </Text>
-            <ScrollArea h={400}>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                {clubPlayers
-                  .filter((p) => !participants?.some((part) => part.player.id === p.id))
-                  .map((p) => (
-                    <Paper
-                      key={p.id}
-                      withBorder
-                      p="xs"
-                      radius="sm"
-                      onClick={() => {
-                        setCheckedToEnroll((prev) =>
-                          prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
-                        );
-                      }}
-                      style={{
-                        cursor: 'pointer',
-                        backgroundColor: checkedToEnroll.includes(p.id)
-                          ? 'var(--mantine-color-blue-light)'
-                          : 'transparent',
-                      }}
-                    >
-                      <Group wrap="nowrap">
-                        <Checkbox
-                          checked={checkedToEnroll.includes(p.id)}
-                          onChange={() => {}}
-                          tabIndex={-1}
-                        />
-                        <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} size="sm" radius="xl" />
-                        <Text size="sm" fw={500}>
-                          {p.name} {p.surname}
-                        </Text>
-                      </Group>
-                    </Paper>
-                  ))}
-                {clubPlayers.filter((p) => !participants?.some((part) => part.player.id === p.id))
-                  .length === 0 && (
-                  <Text c="dimmed" size="sm">
-                    No hay más jugadores disponibles en el club para inscribir.
+          {(() => {
+            const availableSpots = (tournament?.numPlayers || 0) - (participants?.length || 0);
+            return (
+              <Stack gap="md">
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Selecciona los jugadores que deseas inscribir directamente al torneo.
                   </Text>
-                )}
-              </SimpleGrid>
-            </ScrollArea>
-            <Button
-              fullWidth
-              color="blue"
-              onClick={handleBulkEnroll}
-              loading={enrolling}
-              disabled={checkedToEnroll.length === 0}
-            >
-              Inscribir {checkedToEnroll.length} Jugadores
-            </Button>
-          </Stack>
+                  <Badge
+                    color={checkedToEnroll.length === availableSpots ? 'red' : 'blue'}
+                    variant="light"
+                  >
+                    {checkedToEnroll.length} / {availableSpots} Plazas
+                  </Badge>
+                </Group>
+
+                <ScrollArea h={400}>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    {clubPlayers
+                      .filter((p) => !participants?.some((part) => part.player.id === p.id))
+                      .map((p) => {
+                        const isChecked = checkedToEnroll.includes(p.id);
+                        const isMaxedOut = !isChecked && checkedToEnroll.length >= availableSpots;
+
+                        return (
+                          <Paper
+                            key={p.id}
+                            withBorder
+                            p="xs"
+                            radius="sm"
+                            onClick={() => {
+                              if (isChecked) {
+                                setCheckedToEnroll((prev) => prev.filter((x) => x !== p.id));
+                              } else if (!isMaxedOut) {
+                                setCheckedToEnroll((prev) => [...prev, p.id]);
+                              }
+                            }}
+                            style={{
+                              cursor: isMaxedOut ? 'not-allowed' : 'pointer',
+                              backgroundColor: isChecked
+                                ? 'var(--mantine-color-blue-light)'
+                                : 'transparent',
+                              opacity: isMaxedOut ? 0.4 : 1,
+                            }}
+                          >
+                            <Group wrap="nowrap">
+                              <Checkbox
+                                checked={isChecked}
+                                onChange={() => {}}
+                                tabIndex={-1}
+                                disabled={isMaxedOut}
+                              />
+                              <Avatar
+                                src={getPlayerAvatar(p.name, p.avatarUrl)}
+                                size="sm"
+                                radius="xl"
+                              />
+                              <Text size="sm" fw={500} c={isMaxedOut ? 'dimmed' : ''}>
+                                {p.name} {p.surname}
+                              </Text>
+                            </Group>
+                          </Paper>
+                        );
+                      })}
+
+                    {clubPlayers.filter(
+                      (p) => !participants?.some((part) => part.player.id === p.id),
+                    ).length === 0 && (
+                      <Text c="dimmed" size="sm">
+                        No hay más jugadores disponibles en el club para inscribir.
+                      </Text>
+                    )}
+                  </SimpleGrid>
+                </ScrollArea>
+
+                <Button
+                  fullWidth
+                  color="blue"
+                  onClick={handleBulkEnroll}
+                  loading={enrolling}
+                  disabled={checkedToEnroll.length === 0}
+                >
+                  Inscribir {checkedToEnroll.length} Jugadores
+                </Button>
+              </Stack>
+            );
+          })()}
         </Modal>
       </Tabs>
 
