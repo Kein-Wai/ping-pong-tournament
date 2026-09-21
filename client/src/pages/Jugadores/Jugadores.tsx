@@ -48,6 +48,7 @@ interface User {
   surname?: string;
   nickname?: string;
   avatarUrl?: string;
+  clubId?: string;
   clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
   stats?: {
     elo: number;
@@ -126,6 +127,8 @@ export const Jugadores = () => {
   const [approving, setApproving] = useState(false);
 
   const isAdminClub = currentUser?.role === 'AdminClub';
+  const isSuperAdmin = currentUser?.role === 'SuperAdmin';
+  const canManage = isAdminClub || isSuperAdmin;
 
   const fetchPlayers = async () => {
     try {
@@ -152,8 +155,9 @@ export const Jugadores = () => {
     action: 'Aprobado' | 'Rechazado',
   ) => {
     const isApprove = action === 'Aprobado';
-    const adminClubId = currentUser?.clubId;
-
+    const adminClubId = isSuperAdmin
+      ? players.find((p) => p.id === playerId)?.clubId
+      : currentUser?.clubId;
     if (!adminClubId) return;
 
     if (isApprove) {
@@ -187,7 +191,8 @@ export const Jugadores = () => {
   };
 
   const handleConfirmApproval = async () => {
-    if (!approveModal.player || !playerLevel || !currentUser?.clubId) return;
+    const clubIdToApprove = isSuperAdmin ? approveModal.player?.clubId : currentUser?.clubId;
+    if (!approveModal.player || !playerLevel || !clubIdToApprove) return;
     setApproving(true);
 
     const baseStat = LEVEL_BASE_STATS[playerLevel] || 0;
@@ -200,7 +205,7 @@ export const Jugadores = () => {
     });
 
     try {
-      await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(currentUser.clubId, approveModal.player.id), {
+      await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(clubIdToApprove, approveModal.player.id), {
         status: 'Aprobado',
         level: playerLevel, // Enviamos el nivel a la base de datos
         elo: Number(startingElo),
@@ -326,11 +331,17 @@ export const Jugadores = () => {
           </Badge>
         </Table.Td>
 
-        {isAdminClub && (
+        {canManage && (
           <Table.Td visibleFrom="sm">
             <Badge color={player.clubStatus === 'Aprobado' ? 'green' : 'yellow'} variant="dot">
               {player.clubStatus || 'Registrado'}
             </Badge>
+            {/* Opcional: Mostrar el ID del club o el nombre si lo trajéramos del backend */}
+            {isSuperAdmin && player.clubId && (
+              <Text size="xs" c="dimmed">
+                ID: {player.clubId.substring(0, 6)}
+              </Text>
+            )}
           </Table.Td>
         )}
 
@@ -351,7 +362,7 @@ export const Jugadores = () => {
 
         <Table.Td>
           <Group gap="xs">
-            {player.clubStatus === 'Pendiente' && isAdminClub && (
+            {player.clubStatus === 'Pendiente' && canManage && (
               <>
                 <Tooltip label="Aprobar e incorporar al club">
                   <ActionIcon
@@ -375,7 +386,7 @@ export const Jugadores = () => {
             )}
 
             {/* BOTÓN EDICIÓN MANUAL DE ELO (Solo para miembros del club y si eres admin) */}
-            {player.clubStatus === 'Aprobado' && isAdminClub && (
+            {player.clubStatus === 'Aprobado' && canManage && (
               <Tooltip label="Ajustar ELO manualmente">
                 <ActionIcon variant="light" color="orange" onClick={() => openEditElo(player)}>
                   <IconEdit size={16} />
@@ -437,7 +448,7 @@ export const Jugadores = () => {
               <Table.Tr>
                 <Table.Th>Jugador</Table.Th>
                 <Table.Th>ELO</Table.Th>
-                {isAdminClub && <Table.Th visibleFrom="sm">Estado Club</Table.Th>}
+                {canManage && <Table.Th visibleFrom="sm">Estado Club</Table.Th>}
                 <Table.Th visibleFrom="sm">Récord</Table.Th>
                 <Table.Th>Acciones</Table.Th>
               </Table.Tr>

@@ -25,6 +25,11 @@ import { SessionDetalles } from './pages/Entrenamientos/SessionDetalles';
 import { AnalisisList } from './pages/Analisis/AnalisisList';
 import { ManualMatchTracker } from './pages/Analisis/ManualMatchTracker';
 import { EntrenamientosGenerales } from './pages/Entrenamientos/EntrenamientosGenerales';
+import { FeedbackPage } from './pages/Feedback/FeedbackPage';
+
+import { Equipos } from './pages/Equipos/Equipos';
+import { EquipoNuevo } from './pages/Equipos/EquipoNuevo';
+import { EquipoDetalles } from './pages/Equipos/EquipoDetalles';
 import { App as CapApp } from '@capacitor/app';
 import { APP_ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
@@ -173,6 +178,10 @@ function AppContent() {
                 />
                 <Route path={APP_ROUTES.ANALISIS.LIST} element={<AnalisisList />} />
                 <Route path={APP_ROUTES.ANALISIS.TRACKER_PATH} element={<ManualMatchTracker />} />
+                <Route path={APP_ROUTES.EQUIPOS.LIST} element={<Equipos />} />
+                <Route path={APP_ROUTES.EQUIPOS.NEW} element={<EquipoNuevo />} />
+                <Route path={APP_ROUTES.EQUIPOS.DETAILS_PATH} element={<EquipoDetalles />} />
+                <Route path={APP_ROUTES.FEEDBACK} element={<FeedbackPage />} />
               </Route>
             </Route>
           </Route>

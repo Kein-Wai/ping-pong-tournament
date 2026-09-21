@@ -30,7 +30,9 @@ import {
   IconBuildingCommunity,
   IconUser,
   IconBook,
-  IconCalendarEvent, // 👈 Importado el icono para los grupales
+  IconCalendarEvent,
+  IconShield,
+  IconBug,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes';
@@ -132,6 +134,12 @@ export const MainLayout = () => {
       show: isAdminClub,
     },
     {
+      label: 'Equipos',
+      icon: IconShield,
+      path: APP_ROUTES.EQUIPOS.LIST,
+      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+    },
+    {
       label: 'Unirse a un Club',
       icon: IconBuildingCommunity,
       path: APP_ROUTES.CLUB_SELECTION,
@@ -188,6 +196,12 @@ export const MainLayout = () => {
       icon: IconChartBar,
       path: APP_ROUTES.ESTADISTICAS,
       show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+    },
+    {
+      label: isSuperAdmin ? 'Bandeja de Soporte' : 'Sugerencias y Bugs',
+      icon: IconBug,
+      path: APP_ROUTES.FEEDBACK,
+      show: true,
     },
   ];
 

@@ -17,6 +17,9 @@ vi.mock('../../src/db', () => ({
     userType: {
       findUnique: vi.fn(),
     },
+    playerSkillUpdate: {
+      aggregate: vi.fn(),
+    },
   },
 }));
 
@@ -190,7 +193,7 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
 
   it('GET /:id - debería devolver un usuario (200)', async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
-
+    vi.mocked(prisma.playerSkillUpdate.aggregate).mockResolvedValue({ _sum: {} } as any);
     const response = await request(app).get('/api/users/123e4567-e89b-12d3-a456-426614174000');
 
     expect(response.status).toBe(200);

@@ -77,4 +77,17 @@ export const ENDPOINTS = {
     BASE: '/skills',
     CONSOLIDATE: (playerId: string) => `/skills/${playerId}/consolidate`,
   },
+  TEAMS: {
+    BASE: '/teams',
+    BY_CLUB: (clubId: string) => `/teams/club/${clubId}`,
+    UPDATE_PLAYERS: (teamId: string) => `/teams/${teamId}/players`,
+    MATCHES: (teamId: string) => `/teams/${teamId}/matches`,
+    DELETE: (teamId: string) => `/teams/${teamId}`,
+    UPDATE_MATCH: (matchId: string) => `/teams/matches/${matchId}`,
+    DELETE_MATCH: (matchId: string) => `/teams/matches/${matchId}`,
+  },
+  FEEDBACK: {
+    BASE: '/feedback',
+    UPDATE_STATUS: (id: string) => `/feedback/${id}/status`,
+  },
 } as const;

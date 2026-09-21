@@ -23,6 +23,7 @@ import {
   Box,
   Progress,
   NumberInput,
+  Pagination,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -38,6 +39,8 @@ import {
   IconTrendingDown,
   IconTarget,
   IconSwords,
+  IconCalendarEvent,
+  IconMapPin,
 } from '@tabler/icons-react';
 import { RadarChart, BarChart } from '@mantine/charts';
 import { api } from '../../api/axios';
@@ -96,6 +99,19 @@ interface UserProfile {
     fortalezaMental: number | null;
     experiencia: number | null;
   };
+  teams?: {
+    id: string;
+    name: string;
+    category: string;
+    matches: {
+      id: string;
+      rivalName: string;
+      date: string;
+      isHome: boolean;
+      location: string | null;
+      status: string;
+    }[];
+  }[];
 }
 
 export const JugadorPerfil = () => {
@@ -121,6 +137,32 @@ export const JugadorPerfil = () => {
     playstyle: '',
   });
   const [trainings, setTrainings] = useState<any[]>([]);
+  // 👇 AÑADE ESTO PARA LA LÓGICA DE PARTIDOS DE EQUIPO
+  const [teamMatchPage, setTeamMatchPage] = useState(1);
+  const TEAM_MATCHES_PER_PAGE = 4;
+
+  // Extraemos todos los partidos de todos los equipos del jugador
+  const allTeamMatches =
+    player?.teams?.flatMap((t) => t.matches.map((m) => ({ ...m, teamName: t.name }))) || [];
+
+  // 1. Encontramos el "Próximisimo" partido (Programado y fecha futura o actual)
+  const now = new Date().getTime();
+  const upcomingMatches = allTeamMatches
+    .filter((m) => m.status === 'Programado' && new Date(m.date).getTime() >= now)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Ordenamos por el más inminente
+
+  const nextMatch = upcomingMatches.length > 0 ? upcomingMatches[0] : null;
+
+  // 2. El resto de partidos (los completados, cancelados, y los futuros que no son "el próximo")
+  const otherTeamMatches = allTeamMatches
+    .filter((m) => m.id !== nextMatch?.id)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // De más reciente a más antiguo
+
+  const totalTeamMatchPages = Math.ceil(otherTeamMatches.length / TEAM_MATCHES_PER_PAGE);
+  const paginatedTeamMatches = otherTeamMatches.slice(
+    (teamMatchPage - 1) * TEAM_MATCHES_PER_PAGE,
+    teamMatchPage * TEAM_MATCHES_PER_PAGE,
+  );
 
   const isOwnProfile = currentUser?.id === id;
   const isAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === 'AdminClub';
@@ -536,6 +578,14 @@ export const JugadorPerfil = () => {
                   </Badge>
                 )}
               </Group>
+              {player.teams && player.teams.length > 0 && (
+                <Text size="sm" mt="xs" fw={600} c="dimmed">
+                  Equipos:{' '}
+                  <Text span c="blue.4">
+                    {player.teams.map((t) => t.name).join(' / ')}
+                  </Text>
+                </Text>
+              )}
             </div>
           </Group>
 
@@ -914,6 +964,151 @@ export const JugadorPerfil = () => {
           </Text>
         </Paper>
       </SimpleGrid>
+      {/* 👇 NUEVA SECCIÓN DE PRÓXIMOS PARTIDOS DE LIGA */}
+      {/* SECCIÓN DE PARTIDOS DE EQUIPO */}
+      {allTeamMatches.length > 0 && (
+        <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
+          <Group gap="sm" mb="md">
+            <IconCalendarEvent size={20} color="var(--mantine-color-blue-6)" />
+            <Title order={4}>Calendario de Equipos</Title>
+          </Group>
+
+          <Stack gap="md">
+            {/* 1. EL PRÓXIMISIMO PARTIDO (DESTACADO) */}
+            {nextMatch && (
+              <Card
+                withBorder
+                shadow="md"
+                radius="md"
+                p="md"
+                bg="blue.0"
+                style={{ borderColor: 'var(--mantine-color-blue-5)', borderWidth: 2 }}
+              >
+                <Text size="xs" fw={800} c="blue.7" tt="uppercase" mb="xs">
+                  🔥 Siguiente Compromiso
+                </Text>
+                <Group justify="space-between" align="center" wrap="nowrap">
+                  <Stack gap={4}>
+                    <Text fw={800} size="lg" c="blue.9">
+                      {nextMatch.isHome ? nextMatch.teamName : nextMatch.rivalName}
+                      <Text span c="blue.5" mx="sm">
+                        vs
+                      </Text>
+                      {nextMatch.isHome ? nextMatch.rivalName : nextMatch.teamName}
+                    </Text>
+                    <Group gap="sm">
+                      <Text size="sm" c="blue.8" fw={600}>
+                        {new Date(nextMatch.date).toLocaleString('es-ES', {
+                          dateStyle: 'full',
+                          timeStyle: 'short',
+                        })}
+                      </Text>
+                      {nextMatch.location && (
+                        <Text size="sm" c="blue.8">
+                          <IconMapPin
+                            size={14}
+                            style={{ verticalAlign: 'middle', marginRight: 4 }}
+                          />
+                          {nextMatch.location}
+                        </Text>
+                      )}
+                    </Group>
+                  </Stack>
+                  <Badge color="blue" variant="filled" size="lg">
+                    {nextMatch.status}
+                  </Badge>
+                </Group>
+              </Card>
+            )}
+
+            {/* 2. EL RESTO DE PARTIDOS (PAGINADOS) */}
+            {otherTeamMatches.length > 0 && (
+              <Stack gap="sm">
+                <Text size="sm" fw={700} c="dimmed" mt="sm">
+                  Historial y Resto del Calendario
+                </Text>
+                {paginatedTeamMatches.map((m: any) => {
+                  // Lógica para detectar si se ganó, perdió o empató (usando la BD del paso anterior)
+                  const isWin =
+                    m.ourScore !== null && m.rivalScore !== null && m.ourScore > m.rivalScore;
+                  const isLoss =
+                    m.ourScore !== null && m.rivalScore !== null && m.ourScore < m.rivalScore;
+
+                  let statusColor = 'gray';
+                  if (m.status === 'Programado') statusColor = 'blue';
+                  if (m.status === 'Cancelado') statusColor = 'red';
+                  if (m.status === 'Completado') {
+                    if (isWin) statusColor = 'green';
+                    else if (isLoss) statusColor = 'red';
+                    else statusColor = 'yellow';
+                  }
+
+                  return (
+                    <Paper
+                      key={m.id}
+                      withBorder
+                      radius="md"
+                      p="sm"
+                      bg="var(--mantine-color-gray-0)"
+                      style={{ darkHidden: true }}
+                    >
+                      <Group justify="space-between" align="center" wrap="nowrap">
+                        <Stack gap={4}>
+                          <Text fw={600} size="sm">
+                            {m.isHome ? m.teamName : m.rivalName}
+                            <Text span c="dimmed" mx="xs">
+                              vs
+                            </Text>
+                            {m.isHome ? m.rivalName : m.teamName}
+                          </Text>
+                          <Group gap="xs">
+                            <Text size="xs" c="dimmed" fw={600}>
+                              {new Date(m.date).toLocaleString('es-ES', {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                              })}
+                            </Text>
+                          </Group>
+                        </Stack>
+
+                        <Group gap="xs">
+                          {/* Si está completado y hay marcador, lo mostramos */}
+                          {m.status === 'Completado' &&
+                            m.ourScore !== null &&
+                            m.rivalScore !== null && (
+                              <Badge size="md" variant="outline" color={statusColor}>
+                                {m.isHome
+                                  ? `${m.ourScore} - ${m.rivalScore}`
+                                  : `${m.rivalScore} - ${m.ourScore}`}
+                              </Badge>
+                            )}
+                          <Badge color={statusColor} variant="light" size="sm">
+                            {m.status}
+                          </Badge>
+                        </Group>
+                      </Group>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            )}
+
+            {/* PAGINACIÓN */}
+            {totalTeamMatchPages > 1 && (
+              <Center mt="sm">
+                <Pagination
+                  total={totalTeamMatchPages}
+                  value={teamMatchPage}
+                  onChange={setTeamMatchPage}
+                  color="blue"
+                  size="sm"
+                  withEdges
+                />
+              </Center>
+            )}
+          </Stack>
+        </Card>
+      )}
 
       {/* Historial de Partidos */}
       <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">

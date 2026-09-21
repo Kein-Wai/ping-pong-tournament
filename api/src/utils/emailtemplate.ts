@@ -48,9 +48,8 @@ export const templateRegistro = (nombre: string, link: string) => {
     <p>Estamos emocionados de tenerte en nuestra comunidad. Prepárate para competir, mejorar tu nivel y disfrutar de los mejores torneos de tenis de mesa.</p>
     <p>Tu cuenta ha sido creada con éxito.</p> 
     <p>Para poder confirmar tu email, dale al link y podras entrar en tu cuenta, buscar clubs y torneos abiertos</p>
-    <a href="${process.env.API_URL}/api/auth/verify/${link}">Verificar mi cuenta</a>.
-    <div style="text-align: center;">
-      <a href="${process.env.CLIENT_URL}/login" class="btn">Empezar a jugar</a>
+    <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
+      <a href="${process.env.API_URL}/api/auth/verify/${link}" class="btn">Verificar cuenta y empezar a jugar</a>
     </div>
   `;
 

@@ -234,7 +234,16 @@ enum SkillUpdateStatus {
   COMPLETED
   REJECTED
 }
+enum FeedbackType {
+  Bug
+  Sugerencia
+}
 
+enum FeedbackStatus {
+  Pendiente
+  Revisado
+  Resuelto
+}
 model Club {
   id     String     @id @default(uuid())
   name   String     @unique @db.VarChar(255)
@@ -254,6 +263,7 @@ model Club {
   generalSchedules  GeneralTrainingSchedule[]
   generalTrainings  GeneralTraining[]
   generalAttendances GeneralTrainingAttendance[]
+  teams       Team[]
   @@map("club")
 }
 
@@ -293,7 +303,9 @@ model User {
   manualMatches                 ManualMatch[]
   skills                        PlayerSkills?      
   skillUpdates                  PlayerSkillUpdate[]
-  generalAttendances GeneralTrainingAttendance[]
+  generalAttendances            GeneralTrainingAttendance[]
+  teams                         Team[]
+  feedbacks                     AppFeedback[]
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
 }
@@ -767,3 +779,54 @@ model GeneralTrainingAttendance {
   @@map("general_training_attendance")
 }
 
+
+model Team {
+  id          String      @id @default(uuid())
+  name        String
+  category    String      // Ej: "1ª Autonómica", "2ª Nacional", "Superdivisión"
+  level       String      // Nivel dinámico basado en el jugador de menor nivel
+  
+  clubId      String
+  club        Club        @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  
+  // Relación implícita muchos-a-muchos (un jugador puede estar en varios equipos, ej: Absoluto y Veteranos)
+  players     User[]      
+  
+  // Relación con su calendario de partidos
+  matches     TeamMatch[] 
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model TeamMatch {
+  id          String   @id @default(uuid())
+  
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  rivalName   String   // Nombre del club/equipo rival
+  date        DateTime // Fecha y hora exacta del encuentro
+  isHome      Boolean  // true = Casa, false = Fuera
+  location    String?  // Dirección del local de juego
+  status      String   @default("Programado") // Programado, Completado, Cancelado
+
+  ourScore    Int?     
+  rivalScore  Int?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+model AppFeedback {
+  id        String         @id @default(uuid())
+  userId    String         @map("user_id")
+  type      FeedbackType
+  content   String         @db.Text
+  status    FeedbackStatus @default(Pendiente)
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  // Relación
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("app_feedback")
+}

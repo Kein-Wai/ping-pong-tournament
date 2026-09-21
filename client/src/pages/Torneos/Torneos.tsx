@@ -180,6 +180,8 @@ export const Torneos = () => {
               withBorder
               display="flex"
               style={{ flexDirection: 'column' }}
+              className="hover-card"
+              onClick={() => navigate(`/torneos/${t.id}`)}
             >
               <Card.Section withBorder inheritPadding py="xs">
                 <Group justify="space-between" wrap="nowrap">

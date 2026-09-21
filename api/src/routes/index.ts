@@ -12,6 +12,8 @@ import { verifyToken } from '../middleware/auth.middleware';
 import manualMatchRoutes from './manual-match';
 import skillsRoutes from './skill';
 import generalTrainingRoutes from './general-training';
+import teamRoutes from './team';
+import feedbackRoutes from './feedback';
 
 const router = Router();
 
@@ -27,5 +29,7 @@ router.use('/manual-matches', verifyToken, manualMatchRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/skills', verifyToken, skillsRoutes);
 router.use('/general-trainings', verifyToken, generalTrainingRoutes);
+router.use('/teams', verifyToken, teamRoutes);
+router.use('/feedback', verifyToken, feedbackRoutes);
 
 export default router;

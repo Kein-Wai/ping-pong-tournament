@@ -210,7 +210,17 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const user = await prisma.user.findUnique({
       where: { id: id },
-      include: { stats: true, skills: true },
+      include: {
+        stats: true,
+        skills: true,
+        teams: {
+          include: {
+            matches: {
+              orderBy: { date: 'asc' },
+            },
+          },
+        },
+      },
     });
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });

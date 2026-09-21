@@ -9,6 +9,14 @@ describe('Utility: handleMatchStatsUpdate', () => {
       update: vi.fn(),
       create: vi.fn(),
     },
+    playerSkills: {
+      findUnique: vi.fn(),
+    },
+    playerSkillUpdate: {
+      createMany: vi.fn(),
+      deleteMany: vi.fn(),
+      create: vi.fn(),
+    },
   } as any;
 
   beforeEach(() => {

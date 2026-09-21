@@ -37,6 +37,13 @@ const options = {
       { name: 'Matches', description: 'Gestión y procesamiento de partidos' },
       { name: 'User Types', description: 'Consulta de roles globales del sistema' },
       { name: 'Trainings', description: 'Gestión de planes de entrenamiento y sesiones' },
+      { name: 'Teams', description: 'Gestión de equipos, plantillas y calendarios por club' },
+      {
+        name: 'General Trainings',
+        description: 'Gestión de clases grupales y horarios recurrentes',
+      },
+      { name: 'Manual Matches', description: 'Registro de análisis de partidos externos (Pro)' },
+      { name: 'Skills', description: 'Gestión de la experiencia y atributos técnicos (RPG)' },
     ],
     paths: {
       // ==========================================
@@ -69,28 +76,6 @@ const options = {
           responses: {
             201: {
               description: 'Jugador registrado con éxito. Devuelve el JWT y los datos básicos.',
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      message: { type: 'string', example: 'Jugador registrado con éxito' },
-                      token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR...' },
-                      user: {
-                        type: 'object',
-                        properties: {
-                          id: { type: 'string', format: 'uuid' },
-                          email: { type: 'string', format: 'email' },
-                          name: { type: 'string' },
-                          role: { type: 'string', example: 'Player' },
-                          clubId: { type: 'string', format: 'uuid', nullable: true, example: null },
-                          clubStatus: { type: 'string', example: 'Registrado' },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
             },
             400: { description: 'Datos inválidos o el email ya está en uso' },
             500: { description: 'Error interno del servidor' },
@@ -116,20 +101,7 @@ const options = {
             },
           },
           responses: {
-            200: {
-              description: 'Login exitoso, devuelve el JWT con los claims de club incluidos',
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      message: { type: 'string', example: 'Login local exitoso' },
-                      token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR...' },
-                    },
-                  },
-                },
-              },
-            },
+            200: { description: 'Login exitoso, devuelve el JWT con los claims de club incluidos' },
             400: { description: 'Datos de entrada inválidos' },
             401: { description: 'Credenciales incorrectas' },
           },
@@ -169,34 +141,7 @@ const options = {
             'Devuelve una lista con todos los clubes que han sido aprobados por el SuperAdmin para que los jugadores libres puedan buscar y solicitar unirse.',
           tags: ['Clubs'],
           responses: {
-            200: {
-              description: 'Lista de clubes aprobados obtenida con éxito',
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean', example: true },
-                      data: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            id: {
-                              type: 'string',
-                              format: 'uuid',
-                              example: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-                            },
-                            name: { type: 'string', example: 'Club PingPong Castellón' },
-                            createdAt: { type: 'string', format: 'date-time' },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
+            200: { description: 'Lista de clubes aprobados obtenida con éxito' },
             500: { description: 'Error al obtener los clubes' },
           },
         },
@@ -333,32 +278,7 @@ const options = {
             'Devuelve la lista de jugadores. Si es consultado por un AdminClub o un Player, el sistema filtra de forma automática y transparente devolviendo únicamente los usuarios vinculados a su mismo club.',
           tags: ['Users'],
           responses: {
-            200: {
-              description: 'Lista de jugadores devuelta exitosamente',
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        id: { type: 'string', format: 'uuid' },
-                        email: { type: 'string', format: 'email' },
-                        name: { type: 'string' },
-                        surname: { type: 'string', nullable: true },
-                        clubId: { type: 'string', format: 'uuid', nullable: true },
-                        clubStatus: { type: 'string', example: 'Aprobado' },
-                        userTypeId: { type: 'string', format: 'uuid' },
-                        stats: {
-                          type: 'object',
-                          description: 'Métricas de rendimiento e histórico',
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
+            200: { description: 'Lista de jugadores devuelta exitosamente' },
             500: { description: 'Error al obtener los usuarios' },
           },
         },
@@ -494,38 +414,7 @@ const options = {
           description:
             'Aplica filtros contextuales multi-tenant. El SuperAdmin ve todo; el AdminClub ve los de su club; los Players ven los torneos privados de su propio club y todos los de tipo "Abierto" de otras entidades.',
           tags: ['Tournaments'],
-          responses: {
-            200: {
-              description: 'Lista filtrada de torneos devuelta exitosamente',
-              content: {
-                'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      success: { type: 'boolean', example: true },
-                      data: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            id: { type: 'string', format: 'uuid' },
-                            name: { type: 'string', example: 'Open de Verano 2026' },
-                            clubId: { type: 'string', format: 'uuid', nullable: true },
-                            typeTournament: { type: 'string', example: 'Abierto' },
-                            status: { type: 'string', example: 'Programado' },
-                            club: {
-                              type: 'object',
-                              properties: { name: { type: 'string', example: 'Club Castellón' } },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+          responses: { 200: { description: 'Lista filtrada de torneos devuelta exitosamente' } },
         },
         post: {
           summary: 'Crear un nuevo torneo asociado al Club (AdminClub / SuperAdmin)',
@@ -614,6 +503,18 @@ const options = {
             400: { description: 'La configuración rompe las reglas matemáticas del formato' },
             403: { description: 'Sin permisos sobre este torneo' },
             404: { description: 'Torneo no encontrado' },
+          },
+        },
+        delete: {
+          summary: 'Eliminar un torneo programado',
+          tags: ['Tournaments'],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            200: { description: 'Torneo eliminado con éxito' },
+            400: { description: 'No se puede eliminar un torneo iniciado' },
+            403: { description: 'Sin permisos sobre este torneo' },
           },
         },
       },
@@ -915,9 +816,7 @@ const options = {
               schema: { type: 'string', format: 'uuid' },
             },
           ],
-          responses: {
-            200: { description: 'Plan eliminado' },
-          },
+          responses: { 200: { description: 'Plan eliminado' } },
         },
       },
       '/api/trainings/player/{playerId}': {
@@ -1048,6 +947,391 @@ const options = {
             },
           ],
           responses: { 200: { description: 'Ejercicio quitado con éxito' } },
+        },
+      },
+
+      // ==========================================
+      // TEAMS (Equipos)
+      // ==========================================
+      '/api/teams/club/{clubId}': {
+        get: {
+          summary: 'Listar equipos de un club',
+          tags: ['Teams'],
+          parameters: [{ name: 'clubId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Equipos obtenidos con éxito' } },
+        },
+      },
+      '/api/teams': {
+        post: {
+          summary: 'Crear un equipo (AdminClub)',
+          tags: ['Teams'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', example: 'Equipo Absoluto' },
+                    category: { type: 'string', example: 'Superdivisión' },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Equipo creado exitosamente' } },
+        },
+      },
+      '/api/teams/{id}/players': {
+        put: {
+          summary: 'Actualizar plantilla del equipo',
+          description:
+            'Sincroniza los jugadores de un equipo y recalcula automáticamente el nivel base del mismo.',
+          tags: ['Teams'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    playerIds: {
+                      type: 'array',
+                      items: { type: 'string', format: 'uuid' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 200: { description: 'Plantilla y nivel actualizados' } },
+        },
+      },
+      '/api/teams/{id}/matches': {
+        post: {
+          summary: 'Añadir partido al calendario del equipo',
+          tags: ['Teams'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    rivalName: { type: 'string', example: 'Club Tenis de Mesa Madrid' },
+                    date: { type: 'string', format: 'date-time' },
+                    isHome: { type: 'boolean', example: true },
+                    location: { type: 'string', example: 'Pabellón Municipal' },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Partido del equipo programado' } },
+        },
+      },
+      '/api/teams/{id}': {
+        delete: {
+          summary: 'Eliminar un equipo y su calendario (AdminClub)',
+          tags: ['Teams'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Equipo eliminado con éxito' } },
+        },
+      },
+
+      // ==========================================
+      // GENERAL TRAININGS (Clases Grupales)
+      // ==========================================
+      '/api/general-trainings/schedules': {
+        get: {
+          summary: 'Listar horarios base del club',
+          tags: ['General Trainings'],
+          responses: { 200: { description: 'Horarios obtenidos' } },
+        },
+        post: {
+          summary: 'Crear un horario base (AdminClub)',
+          tags: ['General Trainings'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string', example: 'Clase Avanzada L-X-V' },
+                    startTime: { type: 'string', example: '17:00' },
+                    endTime: { type: 'string', example: '19:00' },
+                    daysOfWeek: { type: 'array', items: { type: 'integer' }, example: [1, 3, 5] },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Horario creado' } },
+        },
+      },
+      '/api/general-trainings/schedules/{id}': {
+        put: {
+          summary: 'Actualizar horario base',
+          tags: ['General Trainings'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Horario actualizado' } },
+        },
+        delete: {
+          summary: 'Eliminar horario base',
+          tags: ['General Trainings'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Horario eliminado' } },
+        },
+      },
+      '/api/general-trainings': {
+        get: {
+          summary: 'Listar calendario de clases programadas',
+          tags: ['General Trainings'],
+          responses: { 200: { description: 'Calendario obtenido' } },
+        },
+        post: {
+          summary: 'Programar clases en bloque',
+          description:
+            'Crea múltiples sesiones automáticamente basándose en el rango de fechas y los días del horario base seleccionado.',
+          tags: ['General Trainings'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    description: { type: 'string', example: 'Semana de saques' },
+                    startDate: { type: 'string', format: 'date-time' },
+                    endDate: { type: 'string', format: 'date-time' },
+                    scheduleId: { type: 'string', format: 'uuid' },
+                    skillsToTrain: {
+                      type: 'object',
+                      properties: {
+                        topspinDerecha: { type: 'boolean', default: true },
+                        movilidad: { type: 'boolean', default: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Clases programadas exitosamente' } },
+        },
+      },
+      '/api/general-trainings/{id}': {
+        put: {
+          summary: 'Actualizar detalle de clase grupal',
+          tags: ['General Trainings'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Clase actualizada' } },
+        },
+        delete: {
+          summary: 'Eliminar una clase grupal',
+          tags: ['General Trainings'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Clase eliminada' } },
+        },
+      },
+      '/api/general-trainings/{id}/attendance/bulk': {
+        put: {
+          summary: 'Sincronizar asistencia de una clase',
+          description:
+            'Actualiza quién ha venido y reparte la experiencia (skills) a los asistentes de forma automática basándose en su nivel actual.',
+          tags: ['General Trainings'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    playerIds: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 200: { description: 'Asistencia y experiencia sincronizadas' } },
+        },
+      },
+
+      // ==========================================
+      // MANUAL MATCHES (Análisis Pro)
+      // ==========================================
+      '/api/manual-matches': {
+        get: {
+          summary: 'Listar partidos de análisis del usuario',
+          tags: ['Manual Matches'],
+          responses: { 200: { description: 'Partidos obtenidos' } },
+        },
+        post: {
+          summary: 'Crear un partido de análisis',
+          tags: ['Manual Matches'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    date: { type: 'string', format: 'date-time' },
+                    location: { type: 'string', enum: ['Casa', 'Fuera'] },
+                    matchType: { type: 'string', enum: ['Amistoso', 'Liga', 'Competicion'] },
+                    format: { type: 'string', enum: ['Individual', 'Equipos'] },
+                    opponentName: { type: 'string' },
+                    opponentHand: { type: 'string', enum: ['Diestro', 'Zurdo'] },
+                    opponentStyle: { type: 'string', enum: ['Ofensivo', 'Defensivo'] },
+                    opponentLevel: { type: 'string', enum: ['Peor', 'Igual', 'Mejor'] },
+                    setsToWin: { type: 'integer', default: 3 },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Partido creado' } },
+        },
+      },
+      '/api/manual-matches/{id}': {
+        get: {
+          summary: 'Obtener reporte completo de un partido (puntos incluidos)',
+          tags: ['Manual Matches'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Reporte del partido devuelto' } },
+        },
+        put: {
+          summary: 'Actualizar configuración del rival en el partido',
+          tags: ['Manual Matches'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Datos del rival actualizados' } },
+        },
+      },
+      '/api/manual-matches/{id}/points': {
+        post: {
+          summary: 'Registrar un punto individual (Tracker)',
+          tags: ['Manual Matches'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    setNumber: { type: 'integer', example: 1 },
+                    pointOrder: { type: 'integer', example: 1 },
+                    isWon: { type: 'boolean', example: true },
+                    phase: { type: 'string', example: 'Servicio' },
+                    technique: { type: 'string', example: 'Corto' },
+                    placement: { type: 'string', example: 'Medio' },
+                    errorModifier: { type: 'string', example: 'Red' },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 201: { description: 'Punto guardado exitosamente' } },
+        },
+      },
+      '/api/manual-matches/{id}/points/{pointId}': {
+        delete: {
+          summary: 'Deshacer (Borrar) el último punto registrado',
+          tags: ['Manual Matches'],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'pointId', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: { 200: { description: 'Punto eliminado' } },
+        },
+      },
+      '/api/manual-matches/{id}/complete': {
+        put: {
+          summary: 'Finalizar partido de análisis',
+          description:
+            'Cierra el partido y otorga experiencia (Fortaleza Mental / Experiencia) al jugador.',
+          tags: ['Manual Matches'],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { mySets: { type: 'integer' }, opponentSets: { type: 'integer' } },
+                },
+              },
+            },
+          },
+          responses: { 200: { description: 'Partido completado con éxito' } },
+        },
+      },
+
+      // ==========================================
+      // SKILLS (RPG)
+      // ==========================================
+      '/api/skills/{playerId}': {
+        put: {
+          summary: 'Editar manualmente los atributos (AdminClub)',
+          tags: ['Skills'],
+          parameters: [
+            {
+              name: 'playerId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    derechaPlano: { type: 'integer', minimum: 0, maximum: 100 },
+                    revesPlano: { type: 'integer', minimum: 0, maximum: 100 },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 200: { description: 'Atributos actualizados' } },
+        },
+      },
+      '/api/skills/{playerId}/consolidate': {
+        put: {
+          summary: 'Consolidar progreso (AdminClub)',
+          description:
+            'Aplica toda la experiencia acumulada (EXPECTED) a las estadísticas base del jugador de forma definitiva.',
+          tags: ['Skills'],
+          parameters: [
+            {
+              name: 'playerId',
+              in: 'path',
+              required: true,
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    derechaPlano: { type: 'number', example: 55.5 },
+                    revesPlano: { type: 'number', example: 60.0 },
+                  },
+                },
+              },
+            },
+          },
+          responses: { 200: { description: 'Progreso consolidado de manera permanente' } },
         },
       },
     },
