@@ -8,6 +8,7 @@ import {
   createTeamMatchSchema,
   updateTeamMatchSchema,
 } from '../schemas/team';
+import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ const getLowestLevel = (players: any[]) => {
 router.get('/club/:clubId', verifyToken, async (req, res) => {
   try {
     const clubId = req.params.clubId as string;
+    const currentSeason = await getCurrentSeason(prisma);
 
     // Seguridad Multi-tenant: Si eres AdminClub, solo puedes ver tus equipos (o los de tu club si eres player)
     if (req.user?.role !== 'SuperAdmin' && req.user?.clubId !== clubId) {
@@ -49,7 +51,7 @@ router.get('/club/:clubId', verifyToken, async (req, res) => {
     }
 
     const teams = await prisma.team.findMany({
-      where: { clubId },
+      where: { clubId, seasonId: currentSeason.id },
       include: {
         _count: { select: { players: true } },
         players: {
@@ -73,6 +75,7 @@ router.get('/club/:clubId', verifyToken, async (req, res) => {
 router.post('/', verifyToken, requireAdminClub, async (req, res) => {
   try {
     const clubId = req.user?.clubId;
+    const currentSeason = await getCurrentSeason(prisma);
     if (!clubId) return res.status(403).json({ error: 'No tienes un club asignado' });
 
     const validation = createTeamSchema.safeParse(req.body);
@@ -90,6 +93,7 @@ router.post('/', verifyToken, requireAdminClub, async (req, res) => {
         category,
         level,
         clubId,
+        seasonId: currentSeason.id,
       },
     });
 

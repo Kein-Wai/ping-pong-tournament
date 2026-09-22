@@ -6,6 +6,19 @@ import prisma from '../../src/db';
 // Mock de Prisma
 vi.mock('../../src/db', () => ({
   default: {
+    season: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      update: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+    },
     user: { findUnique: vi.fn() },
     playerTraining: { create: vi.fn(), findUnique: vi.fn(), delete: vi.fn(), findMany: vi.fn() },
     trainingSession: { findUnique: vi.fn() },

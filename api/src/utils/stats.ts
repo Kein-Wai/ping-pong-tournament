@@ -49,8 +49,12 @@ export const handleMatchStatsUpdate = async (
   // ------------------------------------------------------------------
   if (wasCompleted) {
     const prevRes = calculateMatchResults(previousMatch);
-    const p1Stats = await prisma.stats.findFirst({ where: { userId: previousMatch.playerOneId } });
-    const p2Stats = await prisma.stats.findFirst({ where: { userId: previousMatch.playerTwoId } });
+    const p1Stats = await prisma.stats.findFirst({
+      where: { userId: previousMatch.playerOneId, seasonId: previousMatch.seasonId },
+    });
+    const p2Stats = await prisma.stats.findFirst({
+      where: { userId: previousMatch.playerTwoId, seasonId: previousMatch.seasonId },
+    });
 
     if (p1Stats && p2Stats) {
       const p1Score = p1Stats.elo || SCORE_DEFAULT;
@@ -98,8 +102,12 @@ export const handleMatchStatsUpdate = async (
   // ------------------------------------------------------------------
   if (isCompletedNow) {
     const newRes = calculateMatchResults(newMatch);
-    const p1Stats = await prisma.stats.findFirst({ where: { userId: newMatch.playerOneId } });
-    const p2Stats = await prisma.stats.findFirst({ where: { userId: newMatch.playerTwoId } });
+    const p1Stats = await prisma.stats.findFirst({
+      where: { userId: newMatch.playerOneId, seasonId: newMatch.seasonId },
+    });
+    const p2Stats = await prisma.stats.findFirst({
+      where: { userId: newMatch.playerTwoId, seasonId: newMatch.seasonId },
+    });
 
     let p1Score = p1Stats?.elo && p1Stats.elo > 0 ? p1Stats.elo : SCORE_DEFAULT;
     let p2Score = p2Stats?.elo && p2Stats.elo > 0 ? p2Stats.elo : SCORE_DEFAULT;
@@ -134,6 +142,7 @@ export const handleMatchStatsUpdate = async (
         await prisma.stats.create({
           data: {
             userId,
+            seasonId: newMatch.seasonId,
             elo: SCORE_DEFAULT + scoreDelta,
             matchWon: wonMatch,
             matchLost: lostMatch,
@@ -142,7 +151,7 @@ export const handleMatchStatsUpdate = async (
             pointWon: wonPoints,
             pointLost: lostPoints,
             tournamentWon: 0,
-            tournamentLost: 0,
+            tournamentPart: 0,
           },
         });
       }
@@ -171,11 +180,13 @@ export const handleMatchStatsUpdate = async (
       newRes.p2Points,
       newRes.p1Points,
     );
-    const p1Skills = await prisma.playerSkills.findUnique({
-      where: { userId: newMatch.playerOneId },
+    const p1Skills = await prisma.playerSkills.findFirst({
+      // 👈 findFirst
+      where: { userId: newMatch.playerOneId, seasonId: newMatch.seasonId }, // 👈 seasonId
     });
-    const p2Skills = await prisma.playerSkills.findUnique({
-      where: { userId: newMatch.playerTwoId },
+    const p2Skills = await prisma.playerSkills.findFirst({
+      // 👈 findFirst
+      where: { userId: newMatch.playerTwoId, seasonId: newMatch.seasonId }, // 👈 seasonId
     });
 
     const getGrowth = (stat?: number) => {

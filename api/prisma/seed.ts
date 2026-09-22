@@ -383,7 +383,7 @@ const addMatchSkillUpdates = async (matchId: string, p1Id: string, p2Id: string)
   const updates = [];
 
   if (p1Id !== BYE_USER_ID && p1Id !== TBD_USER_ID) {
-    const p1Skills = await prisma.playerSkills.findUnique({ where: { userId: p1Id } });
+    const p1Skills = await prisma.playerSkills.findFirst({ where: { userId: p1Id } });
     updates.push({
       playerId: p1Id,
       matchId: matchId,
@@ -395,7 +395,7 @@ const addMatchSkillUpdates = async (matchId: string, p1Id: string, p2Id: string)
   }
 
   if (p2Id !== BYE_USER_ID && p2Id !== TBD_USER_ID) {
-    const p2Skills = await prisma.playerSkills.findUnique({ where: { userId: p2Id } });
+    const p2Skills = await prisma.playerSkills.findFirst({ where: { userId: p2Id } });
     updates.push({
       playerId: p2Id,
       matchId: matchId,
@@ -431,6 +431,7 @@ async function main() {
   await prisma.stats.deleteMany();
   await prisma.user.deleteMany();
 
+  await prisma.season.deleteMany();
   await prisma.club.deleteMany();
 
   console.log('📚 Generando Catálogo Global de Ejercicios...');
@@ -471,6 +472,16 @@ async function main() {
   const superAdminRoleId = savedTypes[0].id;
   const adminClubRoleId = savedTypes[1].id;
   const playerRoleId = savedTypes[2].id;
+
+  console.log('📅 Generando Temporada Actual...');
+  const currentSeason = await prisma.season.create({
+    data: {
+      name: 'Temporada 2026/2027',
+      startDate: new Date('2026-08-01T00:00:00Z'),
+      endDate: new Date('2027-07-31T23:59:59Z'),
+      isCurrent: true,
+    },
+  });
 
   console.log('🏢 Generando Clubes...');
   const clubA = await prisma.club.create({
@@ -654,6 +665,7 @@ async function main() {
       active: true,
       stats: {
         create: {
+          seasonId: currentSeason.id,
           elo: 1200,
           matchWon: 0,
           matchLost: 0,
@@ -662,11 +674,12 @@ async function main() {
           pointWon: 0,
           pointLost: 0,
           tournamentWon: 0,
-          tournamentLost: 0,
+          tournamentPart: 0,
         },
       },
       skills: {
         create: {
+          seasonId: currentSeason.id,
           derechaPlano: 60,
           revesPlano: 60,
           topspinDerecha: 60,
@@ -700,6 +713,7 @@ async function main() {
       active: true,
       stats: {
         create: {
+          seasonId: currentSeason.id,
           elo: 1200,
           matchWon: 0,
           matchLost: 0,
@@ -708,11 +722,12 @@ async function main() {
           pointWon: 0,
           pointLost: 0,
           tournamentWon: 0,
-          tournamentLost: 0,
+          tournamentPart: 0,
         },
       },
       skills: {
         create: {
+          seasonId: currentSeason.id,
           derechaPlano: 60,
           revesPlano: 60,
           topspinDerecha: 60,
@@ -756,6 +771,7 @@ async function main() {
         active: true,
         stats: {
           create: {
+            seasonId: currentSeason.id,
             elo: startingElo,
             matchWon: 0,
             matchLost: 0,
@@ -764,11 +780,12 @@ async function main() {
             pointWon: 0,
             pointLost: 0,
             tournamentWon: 0,
-            tournamentLost: 0,
+            tournamentPart: 0,
           },
         },
         skills: {
           create: {
+            seasonId: currentSeason.id,
             derechaPlano: getSkill(),
             revesPlano: getSkill(),
             topspinDerecha: getSkill(),
@@ -791,8 +808,8 @@ async function main() {
     else playersClubB.push(p);
   }
 
-  const sortedA = [...playersClubA].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
-  const sortedB = [...playersClubB].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
+  const sortedA = [...playersClubA].sort((a, b) => (b.stats[0]?.elo || 0) - (a.stats[0]?.elo || 0));
+  const sortedB = [...playersClubB].sort((a, b) => (b.stats[0]?.elo || 0) - (a.stats[0]?.elo || 0));
 
   // ============================================================================
   // 🔥 NUEVO: GENERAR ENTRENAMIENTOS GRUPALES Y SUBIDAS (AGOSTO 2026)
@@ -831,6 +848,7 @@ async function main() {
     const training = await prisma.generalTraining.create({
       data: {
         clubId: clubA.id,
+        seasonId: currentSeason.id,
         description: `Entrenamiento General ${day} de Agosto`,
         date: date,
         scheduleId: schedule.id,
@@ -868,6 +886,18 @@ async function main() {
   }
 
   // --- MOTOR DE PARTIDOS Y TORNEOS ---
+
+  // NUEVA FUNCIÓN HELPER PARA INSCRIBIR EN TORNEOS Y SUMAR PARTICIPACIÓN
+  const registerParticipants = async (tournamentId: string, players: any[]) => {
+    await prisma.tournamentParticipant.createMany({
+      data: players.map((p) => ({ tournamentId, playerId: p.id, status: 'Confirmado' })),
+    });
+
+    await prisma.stats.updateMany({
+      where: { userId: { in: players.map((p) => p.id) }, seasonId: currentSeason.id },
+      data: { tournamentPart: { increment: 1 } },
+    });
+  };
 
   async function simulateAndSaveMatch(
     tournamentId: string,
@@ -914,6 +944,7 @@ async function main() {
     const createdMatch = await prisma.match.create({
       data: {
         dateStart: new Date(),
+        seasonId: currentSeason.id,
         tournamentId,
         groupId,
         knockoutId,
@@ -937,8 +968,8 @@ async function main() {
     // 👇 Inyectar habilidades de partido
     await addMatchSkillUpdates(createdMatch.id, p1Id, p2Id);
 
-    await prisma.stats.update({
-      where: { userId: p1Id },
+    await prisma.stats.updateMany({
+      where: { userId: p1Id, seasonId: currentSeason.id },
       data: {
         matchWon: { increment: p1WinsMatch ? 1 : 0 },
         matchLost: { increment: p1WinsMatch ? 0 : 1 },
@@ -949,8 +980,8 @@ async function main() {
       },
     });
 
-    await prisma.stats.update({
-      where: { userId: p2Id },
+    await prisma.stats.updateMany({
+      where: { userId: p2Id, seasonId: currentSeason.id },
       data: {
         matchWon: { increment: p1WinsMatch ? 0 : 1 },
         matchLost: { increment: p1WinsMatch ? 1 : 0 },
@@ -1005,6 +1036,7 @@ async function main() {
       name: 'Grand Slam Castellón 2026',
       dateStart: new Date(),
       clubId: clubA.id,
+      seasonId: currentSeason.id,
       numPlayers: 32,
       numGroup: 8,
       numGroupPlayers: 4,
@@ -1020,11 +1052,7 @@ async function main() {
     },
   });
 
-  for (const p of t1Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t1.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t1.id, t1Players);
 
   const t1Groups = [];
   for (let i = 1; i <= 8; i++) {
@@ -1198,8 +1226,8 @@ async function main() {
     data: { winnerGoesToMatchId: finalMatchT1.matchId },
   });
 
-  await prisma.stats.update({
-    where: { userId: finalMatchT1.winner },
+  await prisma.stats.updateMany({
+    where: { userId: finalMatchT1.winner, seasonId: currentSeason.id },
     data: { tournamentWon: { increment: 1 } },
   });
   await prisma.tournamentClas.create({
@@ -1215,6 +1243,7 @@ async function main() {
       name: 'Challenger Castellón de Otoño',
       dateStart: new Date(new Date().setMonth(new Date().getMonth() + 1)),
       clubId: clubA.id,
+      seasonId: currentSeason.id,
       numPlayers: 32,
       numGroup: 8,
       numGroupPlayers: 4,
@@ -1230,11 +1259,7 @@ async function main() {
   });
 
   const t2Players = sortedA.slice(15, 33);
-  for (const p of t2Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t2.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t2.id, t2Players);
 
   console.log('\n🔥 Generando Torneo 3 (Club B | En Juego - Cuartos de Final)...');
   const t3Players = sortedB.slice(0, 16);
@@ -1244,6 +1269,7 @@ async function main() {
       name: 'Masters 1000 Valencia',
       dateStart: new Date(new Date().setDate(new Date().getDate() - 2)),
       clubId: clubB.id,
+      seasonId: currentSeason.id,
       numPlayers: 16,
       numGroup: 4,
       numGroupPlayers: 4,
@@ -1259,11 +1285,7 @@ async function main() {
     },
   });
 
-  for (const p of t3Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t3.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t3.id, t3Players);
 
   const t3Groups = [];
   for (let i = 1; i <= 4; i++) {
@@ -1341,6 +1363,7 @@ async function main() {
   const t3FinalMatch = await prisma.match.create({
     data: {
       dateStart: new Date(),
+      seasonId: currentSeason.id,
       tournamentId: t3.id,
       knockoutId: t3FinalKnockout.id,
       playerOneId: TBD_USER_ID,
@@ -1355,6 +1378,7 @@ async function main() {
     const m = await prisma.match.create({
       data: {
         dateStart: new Date(),
+        seasonId: currentSeason.id,
         tournamentId: t3.id,
         knockoutId: t3SemisKnockout.id,
         playerOneId: TBD_USER_ID,
@@ -1373,6 +1397,7 @@ async function main() {
     await prisma.match.create({
       data: {
         dateStart: new Date(),
+        seasonId: currentSeason.id,
         tournamentId: t3.id,
         knockoutId: t3CuartosKnockout.id,
         playerOneId: advancingT3[bracket8[i]],
@@ -1392,6 +1417,7 @@ async function main() {
       name: 'Liga de Primavera Valencia',
       dateStart: new Date(),
       clubId: clubB.id,
+      seasonId: currentSeason.id,
       numPlayers: 16,
       numGroup: 4,
       numGroupPlayers: 4,
@@ -1407,11 +1433,7 @@ async function main() {
     },
   });
 
-  for (const p of t4Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t4.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t4.id, t4Players);
 
   const t4Groups = [];
   for (let i = 1; i <= 4; i++) {
@@ -1555,8 +1577,8 @@ async function main() {
   await prisma.tournamentClas.create({
     data: { tournamentId: t4.id, playerId: finalMatchT4.winner, lastRound: 'Final', position: 1 },
   });
-  await prisma.stats.update({
-    where: { userId: finalMatchT4.winner },
+  await prisma.stats.updateMany({
+    where: { userId: finalMatchT4.winner, seasonId: currentSeason.id },
     data: { tournamentWon: { increment: 1 } },
   });
 
@@ -1567,6 +1589,7 @@ async function main() {
       name: 'Torneo Testing Manual 2026',
       dateStart: new Date(new Date().setDate(new Date().getDate() + 5)),
       clubId: clubA.id,
+      seasonId: currentSeason.id,
       numPlayers: 16,
       numGroup: 4,
       numGroupPlayers: 4,
@@ -1587,11 +1610,7 @@ async function main() {
   });
 
   const t5Players = sortedA.slice(0, 16);
-  for (const p of t5Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t5.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t5.id, t5Players);
 
   const t5Groups = [];
   for (let i = 1; i <= 4; i++) {
@@ -1655,8 +1674,8 @@ async function main() {
     // 👇 Inyectar habilidades de partido
     await addMatchSkillUpdates(matchId, p1Id, p2Id);
 
-    await prisma.stats.update({
-      where: { userId: p1Id },
+    await prisma.stats.updateMany({
+      where: { userId: p1Id, seasonId: currentSeason.id },
       data: {
         elo: { increment: p1WinsMatch ? -eloExchanged : eloExchanged },
         matchWon: { increment: p1WinsMatch ? 1 : 0 },
@@ -1668,8 +1687,8 @@ async function main() {
       },
     });
 
-    await prisma.stats.update({
-      where: { userId: p2Id },
+    await prisma.stats.updateMany({
+      where: { userId: p2Id, seasonId: currentSeason.id },
       data: {
         elo: { increment: p1WinsMatch ? -eloExchanged : eloExchanged },
         matchWon: { increment: p1WinsMatch ? 0 : 1 },
@@ -1739,6 +1758,7 @@ async function main() {
 
       const m = await prisma.match.create({
         data: {
+          seasonId: currentSeason.id,
           tournamentId: t5.id,
           groupId: groupDb.id,
           playerOneId: p1.id,
@@ -1772,6 +1792,7 @@ async function main() {
       name: 'Torneo 24 Jugadores (4 Grupos x 6)',
       dateStart: new Date(new Date().setDate(new Date().getDate() + 7)),
       clubId: clubA.id,
+      seasonId: currentSeason.id,
       numPlayers: 24,
       numGroup: 4,
       numGroupPlayers: 6,
@@ -1792,11 +1813,7 @@ async function main() {
   });
 
   const t6Players = sortedA.slice(0, 24);
-  for (const p of t6Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t6.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t6.id, t6Players);
 
   const t6Groups = [];
   for (let i = 1; i <= 4; i++) {
@@ -1853,6 +1870,7 @@ async function main() {
 
       const m = await prisma.match.create({
         data: {
+          seasonId: currentSeason.id,
           tournamentId: t6.id,
           groupId: groupDb.id,
           playerOneId: p1.id,
@@ -1901,6 +1919,7 @@ async function main() {
       name: 'Torneo Brújula (Compass Draw 16)',
       dateStart: new Date(new Date().setDate(new Date().getDate() + 10)),
       clubId: clubA.id,
+      seasonId: currentSeason.id,
       numPlayers: 16,
       typeTournament: 'Interno',
       levelTournament: 'Avanzado',
@@ -1916,11 +1935,7 @@ async function main() {
   });
 
   const t7Players = sortedA.slice(0, 16);
-  for (const p of t7Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t7.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t7.id, t7Players);
 
   const t7Participants = t7Players.map((p, index) => ({ playerId: p.id, position: index + 1 }));
   const matchesT7 = createKnockoutDraw(t7Participants, 'Siembra', true);
@@ -1934,6 +1949,7 @@ async function main() {
       name: 'Gran Máster Final (Todas las Posiciones)',
       dateStart: new Date(new Date().setDate(new Date().getDate() - 2)),
       clubId: clubA.id,
+      seasonId: currentSeason.id,
       numPlayers: 24,
       numGroup: 4,
       numGroupPlayers: 6,
@@ -1954,11 +1970,7 @@ async function main() {
   });
 
   const t8Players = sortedA.slice(0, 24);
-  for (const p of t8Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t8.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t8.id, t8Players);
 
   const t8Groups = [];
   for (let i = 1; i <= 4; i++) {
@@ -1997,6 +2009,7 @@ async function main() {
 
       const m = await prisma.match.create({
         data: {
+          seasonId: currentSeason.id,
           tournamentId: t8.id,
           groupId: groupDb.id,
           playerOneId: p1.id,
@@ -2108,12 +2121,12 @@ async function main() {
     await addMatchSkillUpdates(matchId, p1Id, p2Id);
 
     if (!isP1Bye && !isP2Bye) {
-      await prisma.stats.update({
-        where: { userId: p1Id },
+      await prisma.stats.updateMany({
+        where: { userId: p1Id, seasonId: currentSeason.id },
         data: { elo: { increment: p1WinsMatch ? eloExchanged : -eloExchanged } },
       });
-      await prisma.stats.update({
-        where: { userId: p2Id },
+      await prisma.stats.updateMany({
+        where: { userId: p2Id, seasonId: currentSeason.id },
         data: { elo: { increment: p1WinsMatch ? -eloExchanged : eloExchanged } },
       });
     }
@@ -2155,6 +2168,7 @@ async function main() {
       name: 'Liga Master Todos vs Todos',
       dateStart: new Date(new Date().setDate(new Date().getDate() + 14)),
       clubId: clubA.id,
+      seasonId: currentSeason.id,
       numPlayers: 8,
       numGroup: 1,
       numGroupPlayers: 8,
@@ -2175,11 +2189,7 @@ async function main() {
   });
 
   const t9Players = sortedB.slice(0, 8);
-  for (const p of t9Players) {
-    await prisma.tournamentParticipant.create({
-      data: { tournamentId: t9.id, playerId: p.id, status: 'Confirmado' },
-    });
-  }
+  await registerParticipants(t9.id, t9Players);
 
   const t9Group = await prisma.tournamentGroup.create({
     data: { tournamentId: t9.id, group: 1, status: 'Programado' },
@@ -2232,6 +2242,7 @@ async function main() {
 
     const m = await prisma.match.create({
       data: {
+        seasonId: currentSeason.id,
         tournamentId: t9.id,
         groupId: t9Group.id,
         playerOneId: p1.id,

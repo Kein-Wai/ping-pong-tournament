@@ -5,9 +5,22 @@ import prisma from '../../src/db';
 
 vi.mock('../../src/db', () => ({
   default: {
+    season: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      update: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+    },
     manualMatch: { findMany: vi.fn(), create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     pointAnalysis: { create: vi.fn(), delete: vi.fn() },
-    playerSkills: { findUnique: vi.fn() },
+    playerSkills: { findUnique: vi.fn(), findFirst: vi.fn() },
     playerSkillUpdate: { create: vi.fn() },
     $transaction: vi.fn(async (cb) => cb(prisma)),
   },

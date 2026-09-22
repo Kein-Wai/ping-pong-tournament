@@ -8,6 +8,7 @@ import {
   updateManualMatchSchema,
 } from '../schemas/manualMatch';
 import { MatchStatus } from '@prisma/client';
+import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -44,11 +45,12 @@ router.post('/', async (req, res) => {
         .status(400)
         .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
     }
-
+    const currentSeason = await getCurrentSeason(prisma);
     const newMatch = await prisma.manualMatch.create({
       data: {
         ...validation.data,
         userId,
+        seasonId: currentSeason.id,
         date: validation.data.date ? new Date(validation.data.date) : new Date(),
         status: MatchStatus.Iniciado,
       },
@@ -153,6 +155,7 @@ router.put('/:id/complete', async (req, res) => {
 
     // Envolvemos en transacción para asegurar la base de datos
     const updatedMatch = await prisma.$transaction(async (tx) => {
+      const currentSeason = await getCurrentSeason(tx as any);
       const match = await tx.manualMatch.update({
         where: { id: req.params.id },
         data: {
@@ -163,7 +166,9 @@ router.put('/:id/complete', async (req, res) => {
       });
 
       // Obtener stats y aplicar curva decreciente
-      const userSkills = await tx.playerSkills.findUnique({ where: { userId } });
+      const userSkills = await tx.playerSkills.findFirst({
+        where: { userId, seasonId: currentSeason.id },
+      });
       const getGrowth = (stat?: number) => {
         const val = stat || 0;
         if (val < 20) return 0.25;

@@ -94,3 +94,25 @@ export const updateSkillsSchema = z.object({
   fortalezaMental: statValidator,
   experiencia: statValidator,
 });
+
+export const forgotPasswordSchema = z.object({
+  email: z.email('El formato del email no es válido'),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1, 'El token es obligatorio'),
+    newPassword: z
+      .string()
+      .min(8, 'La contraseña debe tener al menos 8 caracteres')
+      .max(32, { message: 'La contraseña no puede exceder de 32 caracteres' })
+      .regex(/[A-Z]/, { message: 'Debe contener al menos una mayúscula' })
+      .regex(/[a-z]/, { message: 'Debe contener al menos una minúscula' })
+      .regex(/\d/, { message: 'Debe contener al menos un número' })
+      .regex(/[@$!%*?&]/, { message: 'Debe contener al menos un carácter especial' }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
+  });

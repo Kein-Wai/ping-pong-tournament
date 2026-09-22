@@ -137,7 +137,7 @@ export const MainLayout = () => {
       label: 'Equipos',
       icon: IconShield,
       path: APP_ROUTES.EQUIPOS.LIST,
-      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+      show: isAdminClub || (isPlayer && hasApprovedClub),
     },
     {
       label: 'Unirse a un Club',

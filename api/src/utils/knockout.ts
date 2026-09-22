@@ -363,6 +363,7 @@ export const saveKnockoutBracket = async (
 };
 
 // Añade esta función helper justo encima de processKnockoutAdvancement
+// Añade esta función helper justo encima de processKnockoutAdvancement
 const recordTournamentClassification = async (
   tx: any,
   match: any,
@@ -385,13 +386,19 @@ const recordTournamentClassification = async (
 
   // 1. Calcular el "Offset" si estamos en la Llave B
   let offset = 0;
-  if (type === 'B') {
-    const tournament = await tx.tournament.findUnique({
-      where: { id: match.tournamentId },
-      select: { numGroup: true, playersKnockout: true },
-    });
-    // Si pasan 2 por grupo y hay 4 grupos, la llave A ocupa del 1 al 8. La Llave B empieza en el 9.
-    offset = (tournament?.numGroup || 0) * (tournament?.playersKnockout || 0);
+  let tournamentSeasonId = null; // 👈 Lo guardaremos para el ELO
+
+  const tournament = await tx.tournament.findUnique({
+    where: { id: match.tournamentId },
+    select: { numGroup: true, playersKnockout: true, seasonId: true }, // 👈 Extraemos seasonId
+  });
+
+  if (tournament) {
+    tournamentSeasonId = tournament.seasonId;
+    if (type === 'B') {
+      // Si pasan 2 por grupo y hay 4 grupos, la llave A ocupa del 1 al 8. La Llave B empieza en el 9.
+      offset = (tournament.numGroup || 0) * (tournament.playersKnockout || 0);
+    }
   }
 
   // 2. Cálculo de posiciones base (1º, 2º, 3º, 5º, 9º...)
@@ -445,6 +452,14 @@ const recordTournamentClassification = async (
       position: position,
     },
   });
+
+  // 👇 5. NUEVO: SI ES EL GANADOR ABSOLUTO, SUMAMOS +1 EN TORNEOS GANADOS
+  if (position === 1 && tournamentSeasonId) {
+    await tx.stats.updateMany({
+      where: { userId: playerId, seasonId: tournamentSeasonId },
+      data: { tournamentWon: { increment: 1 } },
+    });
+  }
 };
 
 export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: string) => {

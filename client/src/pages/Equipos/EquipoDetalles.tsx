@@ -328,33 +328,36 @@ export const EquipoDetalles = () => {
               </Center>
             ) : (
               <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-                {team.players.map((p: any) => (
-                  <Paper
-                    key={p.id}
-                    withBorder
-                    p="md"
-                    radius="md"
-                    className="hover-card" // 👈 AÑADIDO: Efecto visual
-                    onClick={() => navigate(APP_ROUTES.JUGADORES.PROFILE(p.id))} // 👈 AÑADIDO: Navegación
-                  >
-                    <Group wrap="nowrap">
-                      <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="md" />
-                      <div style={{ flex: 1 }}>
-                        <Text fw={600} size="sm" truncate>
-                          {p.name} {p.surname}
-                        </Text>
-                        <Group gap="xs" mt={4}>
-                          <Badge size="xs" color="gray" variant="light">
-                            {p.level}
-                          </Badge>
-                          <Text size="xs" c="dimmed" fw={700}>
-                            {p.stats?.elo || 500} ELO
+                {team.players.map((p: any) => {
+                  const s = Array.isArray(p.stats) ? p.stats[0] : p.stats; // 👈 Modificado
+                  return (
+                    <Paper
+                      key={p.id}
+                      withBorder
+                      p="md"
+                      radius="md"
+                      className="hover-card" // 👈 AÑADIDO: Efecto visual
+                      onClick={() => navigate(APP_ROUTES.JUGADORES.PROFILE(p.id))} // 👈 AÑADIDO: Navegación
+                    >
+                      <Group wrap="nowrap">
+                        <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="md" />
+                        <div style={{ flex: 1 }}>
+                          <Text fw={600} size="sm" truncate>
+                            {p.name} {p.surname}
                           </Text>
-                        </Group>
-                      </div>
-                    </Group>
-                  </Paper>
-                ))}
+                          <Group gap="xs" mt={4}>
+                            <Badge size="xs" color="gray" variant="light">
+                              {p.level}
+                            </Badge>
+                            <Text size="xs" c="dimmed" fw={700}>
+                              {s?.elo || 500} ELO
+                            </Text>
+                          </Group>
+                        </div>
+                      </Group>
+                    </Paper>
+                  );
+                })}
               </SimpleGrid>
             )}
           </Stack>

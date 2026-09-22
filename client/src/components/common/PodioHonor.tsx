@@ -1,6 +1,7 @@
 import { Card, Group, Stack, Avatar, Text, ThemeIcon, Badge } from '@mantine/core';
 import { IconTrophy, IconMedal } from '@tabler/icons-react';
 import { getPlayerAvatar } from '../../utils/avatar'; // 👈 1. Importamos la función
+import { returnEloColor } from '../../utils/helpers';
 
 interface PlayerProps {
   name: string;
@@ -10,7 +11,8 @@ interface PlayerProps {
 }
 
 export const PodioHonor = ({ players }: { players: any[] }) => {
-  const sortedPlayers = [...players].sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
+  const getS = (p: any) => (Array.isArray(p?.stats) ? p.stats[0] : p?.stats);
+  const sortedPlayers = [...players].sort((a, b) => (getS(b)?.elo || 0) - (getS(a)?.elo || 0));
   const oro = sortedPlayers[0];
   const plata = sortedPlayers[1];
   const bronce = sortedPlayers[2];
@@ -31,17 +33,16 @@ export const PodioHonor = ({ players }: { players: any[] }) => {
     icono: any;
   }) => {
     if (!player) return <div style={{ width: 150 }} />;
+    const s = getS(player); // 👈 Usamos el helper aquí
 
     return (
       <Stack align="center" gap="xs" style={{ zIndex: puesto === 1 ? 2 : 1 }}>
-        {/* 👇 2. Usamos getPlayerAvatar aquí */}
         <Avatar
           src={getPlayerAvatar(player.name, player.avatarUrl)}
           size={puesto === 1 ? 80 : 60}
           radius="100%"
           style={{ border: `3px solid var(--mantine-color-${color})`, backgroundColor: 'white' }}
         />
-
         <Card
           shadow="md"
           radius="md"
@@ -71,12 +72,12 @@ export const PodioHonor = ({ players }: { players: any[] }) => {
           >
             {player.name}
           </Text>
-          <Badge color="dark" variant="filled" mt="auto">
-            {player.stats?.elo || 500} ELO
+          <Badge color={s?.elo ? returnEloColor(s?.elo) : 'gray'} variant="filled" mt="auto">
+            {s?.elo || 500} ELO
           </Badge>
-          {(player.stats?.tournamentWon || 0) > 0 && (
+          {(s?.tournamentWon || 0) > 0 && (
             <Text size="xs" c="dark.7" fw={600} mt={4}>
-              🏆 {player.stats?.tournamentWon} Torneos
+              🏆 {s?.tournamentWon} Torneos
             </Text>
           )}
         </Card>

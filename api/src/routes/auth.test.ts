@@ -6,6 +6,19 @@ import bcrypt from 'bcryptjs';
 
 vi.mock('../../src/db', () => ({
   default: {
+    season: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      update: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+    },
     user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     userType: { findUnique: vi.fn() },
   },

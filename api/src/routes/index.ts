@@ -14,7 +14,7 @@ import skillsRoutes from './skill';
 import generalTrainingRoutes from './general-training';
 import teamRoutes from './team';
 import feedbackRoutes from './feedback';
-
+import seasonRoutes from './season';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -31,5 +31,5 @@ router.use('/skills', verifyToken, skillsRoutes);
 router.use('/general-trainings', verifyToken, generalTrainingRoutes);
 router.use('/teams', verifyToken, teamRoutes);
 router.use('/feedback', verifyToken, feedbackRoutes);
-
+router.use('/seasons', verifyToken, seasonRoutes);
 export default router;

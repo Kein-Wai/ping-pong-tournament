@@ -14,6 +14,7 @@ import { fetchGroupMatches, fetchGroupClassifications } from '../utils/group';
 import { requireAdminClub } from '../middleware/auth.middleware';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateInscripcionTorneo } from '../utils/emailtemplate';
+import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -21,17 +22,28 @@ router.get('/', async (req, res) => {
   try {
     const role = req.user?.role;
     const clubId = req.user?.clubId;
+    const clubStatus = req.user?.clubStatus;
 
-    let whereClause: any = {};
+    const currentSeason = await getCurrentSeason(prisma);
+
+    let whereClause: any = {
+      seasonId: currentSeason.id,
+    };
 
     if (role === 'SuperAdmin') {
       whereClause = {};
     } else if (role === 'AdminClub') {
       whereClause = { clubId: clubId };
     } else {
-      whereClause = {
-        OR: [{ clubId: clubId ? clubId : 'no-club-assigned' }, { typeTournament: 'Abierto' }],
-      };
+      if (clubId && clubStatus === 'Aprobado') {
+        // Si está aprobado, ve los de su club y los abiertos globales
+        whereClause = {
+          OR: [{ clubId: clubId }, { typeTournament: 'Abierto' }],
+        };
+      } else {
+        // Si está Pendiente, Rechazado o Libre, SOLO ve los torneos Abiertos
+        whereClause = { typeTournament: 'Abierto' };
+      }
     }
 
     const tournaments = await prisma.tournament.findMany({
@@ -71,6 +83,8 @@ router.post('/', requireAdminClub, async (req, res) => {
 
     const data = validation.data;
 
+    const currentSeason = await getCurrentSeason(prisma);
+
     const newTournament = await prisma.tournament.create({
       data: {
         name: data.name,
@@ -92,6 +106,7 @@ router.post('/', requireAdminClub, async (req, res) => {
         knockoutCreated: false,
 
         clubId: userClubId || null,
+        seasonId: currentSeason.id,
       },
     });
 
@@ -320,6 +335,14 @@ router.post('/:id/register-bulk', requireAdminClub, async (req, res) => {
 
     await prisma.tournamentParticipant.createMany({ data: dataToInsert });
 
+    if (newPlayers.length > 0) {
+      const currentSeason = await getCurrentSeason(prisma);
+      await prisma.stats.updateMany({
+        where: { userId: { in: newPlayers }, seasonId: currentSeason.id },
+        data: { tournamentPart: { increment: 1 } },
+      });
+    }
+
     // 👇 NUEVO: Buscamos a los jugadores recién inscritos para mandarles el email
     if (newPlayers.length > 0) {
       const enrolledUsers = await prisma.user.findMany({
@@ -472,9 +495,7 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, r
     const { status } = req.body;
     const adminClubId = req.user?.clubId;
 
-    console.log('playerID', playerId);
-    console.log('tournamentid', id);
-    console.log('status', status);
+    const currentSeason = await getCurrentSeason(prisma);
 
     const tournament = await prisma.tournament.findUnique({ where: { id } });
     if (!tournament || (req.user?.role === 'AdminClub' && tournament.clubId !== adminClubId)) {
@@ -495,14 +516,27 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, r
     });
 
     if (status === 'NoPresentado' && currentParticipant.status !== 'NoPresentado') {
-      await prisma.stats.update({
-        where: { userId: playerId },
+      await prisma.stats.updateMany({
+        where: { userId: playerId, seasonId: currentSeason.id },
         data: { elo: { decrement: 100 } },
       });
     } else if (status !== 'NoPresentado' && currentParticipant.status === 'NoPresentado') {
-      await prisma.stats.update({
-        where: { userId: playerId },
+      await prisma.stats.updateMany({
+        where: { userId: playerId, seasonId: currentSeason.id },
         data: { elo: { increment: 100 } },
+      });
+    }
+
+    if (status === 'Confirmado' && currentParticipant.status !== 'Confirmado') {
+      await prisma.stats.updateMany({
+        where: { userId: playerId, seasonId: currentSeason.id },
+        data: { tournamentPart: { increment: 1 } },
+      });
+    } else if (status !== 'Confirmado' && currentParticipant.status === 'Confirmado') {
+      // Si le quitan el "Confirmado" (porque lo pasan a Pendiente o NoPresentado), le restamos la participación
+      await prisma.stats.updateMany({
+        where: { userId: playerId, seasonId: currentSeason.id },
+        data: { tournamentPart: { decrement: 1 } },
       });
     }
 

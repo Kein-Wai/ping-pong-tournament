@@ -4,6 +4,7 @@ import { createClubSchema, updateMemberStatusSchema, updateClubSchema } from '..
 import { updateSkillsSchema } from '../schemas/user';
 import { z } from 'zod';
 import { verifyToken, requireAdminClub, requireSuperAdmin } from '../middleware/auth.middleware';
+import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -262,20 +263,36 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
       where: { id: userId },
       data: updateData,
     });
+    const currentSeason = await getCurrentSeason(prisma);
 
     if (status === 'Aprobado' && skills) {
       if (elo !== undefined) {
         await prisma.stats.upsert({
-          where: { userId: userId },
+          // 👇 Usamos la clave compuesta
+          where: {
+            userId_seasonId: {
+              userId: userId,
+              seasonId: currentSeason.id,
+            },
+          },
           update: { elo: elo },
-          create: { userId: userId, elo: elo },
+          // 👇 Inyectamos el seasonId al crear
+          create: { userId: userId, seasonId: currentSeason.id, elo: elo },
         });
       }
+
       await prisma.playerSkills.upsert({
-        where: { userId: userId },
+        // 👇 Usamos la clave compuesta
+        where: {
+          userId_seasonId: {
+            userId: userId,
+            seasonId: currentSeason.id,
+          },
+        },
         update: skills, // Si por algún error ya existía, lo actualizamos
         create: {
           userId: userId,
+          seasonId: currentSeason.id, // 👇 Inyectamos el seasonId al crear
           ...skills, // Si es nuevo, lo creamos
         },
       });

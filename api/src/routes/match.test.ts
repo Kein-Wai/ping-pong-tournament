@@ -5,6 +5,7 @@ import prisma from '../db';
 
 vi.mock('../db', () => ({
   default: {
+    season: { findFirst: vi.fn().mockResolvedValue({ id: 'season-1', isCurrent: true }) },
     match: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('../db', () => ({
     },
     playerSkills: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     playerSkillUpdate: {
       createMany: vi.fn(),

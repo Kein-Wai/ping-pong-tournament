@@ -14,6 +14,7 @@ import {
   SegmentedControl,
   Box,
   Overlay,
+  Anchor,
 } from '@mantine/core';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -23,6 +24,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { IconLock, IconUserPlus, IconBrandGoogle } from '@tabler/icons-react';
 import DICTIONARY from '../constants/dictionary.json';
 import { notifications } from '@mantine/notifications';
+import { APP_ROUTES } from '../constants/routes';
 
 // 1. IMPORTAR CAPACITOR Y GOOGLE AUTH NATIVO (Plugin moderno)
 import { Capacitor } from '@capacitor/core';
@@ -194,12 +196,6 @@ export const Login = () => {
       });
 
       console.log('3. Backend respondió OK. Lanzando notificación...');
-      notifications.show({
-        title: 'Registrado con exito!',
-        message:
-          '¡Te hemos enviado un correo para verificar tu email! Si no te aparece, mira el Spam',
-        color: 'orange',
-      });
 
       // 1. Limpiamos campos y apagamos el botón inmediatamente
       resetForm();
@@ -362,6 +358,11 @@ export const Login = () => {
                   styles={inputStyles}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                 />
+                <Group justify="space-between" mt="xs">
+                  <Anchor size="xs" onClick={() => navigate(APP_ROUTES.FORGOT_PASSWORD)}>
+                    ¿Olvidaste tu contraseña?
+                  </Anchor>
+                </Group>
                 <Button type="submit" fullWidth mt="xs" loading={isLoginLoading} color="blue">
                   Iniciar Sesión
                 </Button>

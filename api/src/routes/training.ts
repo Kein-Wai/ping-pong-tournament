@@ -3,7 +3,7 @@ import prisma from '../db';
 import { createTrainingSchema } from '../schemas/training'; // El Zod que creamos antes
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
-
+import { getCurrentSeason } from '../utils/season';
 const router = Router();
 
 // Distribución lógica de días según las sesiones semanales (0 es el día de inicio)
@@ -51,10 +51,12 @@ router.post('/', requireAdminClub, async (req, res) => {
       }
     }
 
+    const currentSeason = await getCurrentSeason(prisma);
     // 4. Inserción Anidada en Prisma (Crea el plan y sus N sesiones de golpe)
     const newTraining = await prisma.playerTraining.create({
       data: {
         playerId: data.playerId,
+        seasonId: currentSeason.id,
         strengths: data.strengths,
         weaknesses: data.weaknesses,
         objectives: data.objectives,

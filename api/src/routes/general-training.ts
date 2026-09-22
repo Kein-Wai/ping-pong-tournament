@@ -9,6 +9,7 @@ import {
   updateScheduleSchema,
   updateGeneralTrainingSchema,
 } from '../schemas/generalTraining';
+import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -172,6 +173,7 @@ router.post('/', requireAdminClub, async (req, res) => {
       });
     }
 
+    const currentSeason = await getCurrentSeason(prisma);
     await prisma.$transaction(async (tx) => {
       const template = await tx.skillUpdateTemplate.create({
         data: {
@@ -183,6 +185,7 @@ router.post('/', requireAdminClub, async (req, res) => {
 
       const trainingsData = datesToCreate.map((date) => ({
         clubId,
+        seasonId: currentSeason.id,
         description,
         date: date,
         scheduleId,

@@ -662,11 +662,6 @@ export const TorneoDetalles = () => {
 
       await api.put(ENDPOINTS.TOURNAMENTS.UPDATE(id), payload);
       setEditFormatOpened(false);
-      notifications.show({
-        title: 'Formato actualizado',
-        message: 'Se han ajustado los parámetros del torneo.',
-        color: 'green',
-      });
       await fetchTournamentInfo();
     } catch (error) {
       console.error(error);
@@ -975,78 +970,88 @@ export const TorneoDetalles = () => {
                   >
                     {roundTitle}
                   </Title>
-                  {round.matches.map((match: any) => (
-                    <Paper
-                      key={match.id}
-                      withBorder
-                      shadow="sm"
-                      radius="md"
-                      p={0}
-                      style={{ overflow: 'hidden', cursor: 'pointer' }}
-                      onClick={() => {
-                        const isTBD =
-                          match.playerOne?.name === 'Por' || match.playerTwo?.name === 'Por';
-                        const isBye =
-                          match.playerOne?.name === 'EXENTO' || match.playerTwo?.name === 'EXENTO';
+                  {round.matches.map((match: any) => {
+                    const s1 = Array.isArray(match.playerOne?.stats)
+                      ? match.playerOne?.stats[0]
+                      : match.playerOne?.stats;
+                    const s2 = Array.isArray(match.playerTwo?.stats)
+                      ? match.playerTwo?.stats[0]
+                      : match.playerTwo?.stats;
 
-                        if (isBye && isAdmin) {
-                          notifications.show({
-                            title: 'Pase Directo (Bye)',
-                            message: 'Este jugador no tiene contrincante.',
-                            color: 'blue',
-                          });
-                          return;
-                        }
-                        if (isTBD && isAdmin) {
-                          notifications.show({
-                            title: 'Partido Bloqueado',
-                            message: 'Faltan jugadores por clasificarse.',
-                            color: 'orange',
-                          });
-                          return;
-                        }
-                        if (match.status === 'Completado') {
-                          if (isAdmin) {
-                            openEditMatchModal(match, true);
-                          } else {
-                            setSelectedMatch(match);
+                    return (
+                      <Paper
+                        key={match.id}
+                        withBorder
+                        shadow="sm"
+                        radius="md"
+                        p={0}
+                        style={{ overflow: 'hidden', cursor: 'pointer' }}
+                        onClick={() => {
+                          const isTBD =
+                            match.playerOne?.name === 'Por' || match.playerTwo?.name === 'Por';
+                          const isBye =
+                            match.playerOne?.name === 'EXENTO' ||
+                            match.playerTwo?.name === 'EXENTO';
+
+                          if (isBye && isAdmin) {
+                            notifications.show({
+                              title: 'Pase Directo (Bye)',
+                              message: 'Este jugador no tiene contrincante.',
+                              color: 'blue',
+                            });
+                            return;
                           }
-                          return;
-                        }
-                        if (isAdmin) openEditMatchModal(match, true);
-                      }}
-                    >
-                      <Group
-                        justify="space-between"
-                        p="xs"
-                        style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
+                          if (isTBD && isAdmin) {
+                            notifications.show({
+                              title: 'Partido Bloqueado',
+                              message: 'Faltan jugadores por clasificarse.',
+                              color: 'orange',
+                            });
+                            return;
+                          }
+                          if (match.status === 'Completado') {
+                            if (isAdmin) {
+                              openEditMatchModal(match, true);
+                            } else {
+                              setSelectedMatch(match);
+                            }
+                            return;
+                          }
+                          if (isAdmin) openEditMatchModal(match, true);
+                        }}
                       >
-                        <Text size="sm">
-                          {match.playerOne?.name || 'TBD'} {match.playerOne?.surname || ''}
-                        </Text>
-                        {match.playerOne?.stats?.elo && (
-                          <Badge size="sm" variant="light" color="blue">
-                            {match.playerOne.stats.elo}
-                          </Badge>
-                        )}
-                      </Group>
-                      <Group justify="space-between" p="xs">
-                        <Text size="sm">
-                          {match.playerTwo?.name || 'TBD'} {match.playerTwo?.surname || ''}
-                        </Text>
-                        {match.playerTwo?.stats?.elo && (
-                          <Badge size="sm" variant="light" color="blue">
-                            {match.playerTwo.stats.elo}
-                          </Badge>
-                        )}
-                      </Group>
-                      <Center p={4} bg="gray.1" style={{ darkHidden: true }}>
-                        <Stack justify="space-around" align="center" gap="xs">
-                          {formatSets(match)}
-                        </Stack>
-                      </Center>
-                    </Paper>
-                  ))}
+                        <Group
+                          justify="space-between"
+                          p="xs"
+                          style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
+                        >
+                          <Text size="sm">
+                            {match.playerOne?.name || 'TBD'} {match.playerOne?.surname || ''}
+                          </Text>
+                          {s1?.elo && (
+                            <Badge size="sm" variant="light" color="blue">
+                              {match.playerOne.stats.elo}
+                            </Badge>
+                          )}
+                        </Group>
+                        <Group justify="space-between" p="xs">
+                          <Text size="sm">
+                            {match.playerTwo?.name || 'TBD'} {match.playerTwo?.surname || ''}
+                          </Text>
+                          {match.playerTwo?.stats?.elo && (
+                            <Badge size="sm" variant="light" color="blue">
+                              {s2?.elo}
+                            </Badge>
+                          )}
+                        </Group>
+                        <Center p={4} bg="gray.1" style={{ darkHidden: true }}>
+                          <Stack justify="space-around" align="center" gap="xs">
+                            {formatSets(match)}
+                          </Stack>
+                        </Center>
+                      </Paper>
+                    );
+                  })}
                 </Stack>
               );
             })}
@@ -1383,82 +1388,87 @@ export const TorneoDetalles = () => {
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {participants.map((p, index) => (
-                      <Table.Tr key={p.id}>
-                        <Table.Td>{index + 1}</Table.Td>
-                        <Table.Td>
-                          <Group gap="sm">
-                            <Avatar
-                              src={getPlayerAvatar(p.player?.name, p.player?.avatarUrl)}
-                              radius="xl"
-                              size="sm"
-                            />
-                            <Text size="sm" fw={500}>
-                              {p.player?.name} {p.player?.surname || ''}
-                            </Text>
-                          </Group>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge variant="light">{p.player?.stats?.elo || 500}</Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge
-                            color={
-                              p.status === 'Confirmado'
-                                ? 'green'
-                                : p.status === 'NoPresentado'
-                                  ? 'red'
-                                  : 'yellow'
-                            }
-                            variant="dot"
-                          >
-                            {p.status}
-                          </Badge>
-                        </Table.Td>
-                        {isAdmin && isProgramado && (
+                    {participants.map((p, index) => {
+                      const sP = Array.isArray(p.player?.stats)
+                        ? p.player?.stats[0]
+                        : p.player?.stats;
+                      return (
+                        <Table.Tr key={p.id}>
+                          <Table.Td>{index + 1}</Table.Td>
                           <Table.Td>
-                            <Group gap="xs">
-                              {p.status !== 'Confirmado' && (
-                                <Tooltip label="Confirmar Asistencia">
-                                  <ActionIcon
-                                    color="green"
-                                    variant="light"
-                                    onClick={() =>
-                                      handleParticipantStatus(
-                                        p.player.id,
-                                        p.player.name,
-                                        p.player.surname,
-                                        'Confirmado',
-                                      )
-                                    }
-                                  >
-                                    <IconUserCheck size={18} />
-                                  </ActionIcon>
-                                </Tooltip>
-                              )}
-                              {p.status !== 'NoPresentado' && (
-                                <Tooltip label="Sancionar (No Presentado)">
-                                  <ActionIcon
-                                    color="red"
-                                    variant="light"
-                                    onClick={() =>
-                                      handleParticipantStatus(
-                                        p.player.id,
-                                        p.player.name,
-                                        p.player.surname,
-                                        'NoPresentado',
-                                      )
-                                    }
-                                  >
-                                    <IconUserX size={18} />
-                                  </ActionIcon>
-                                </Tooltip>
-                              )}
+                            <Group gap="sm">
+                              <Avatar
+                                src={getPlayerAvatar(p.player?.name, p.player?.avatarUrl)}
+                                radius="xl"
+                                size="sm"
+                              />
+                              <Text size="sm" fw={500}>
+                                {p.player?.name} {p.player?.surname || ''}
+                              </Text>
                             </Group>
                           </Table.Td>
-                        )}
-                      </Table.Tr>
-                    ))}
+                          <Table.Td>
+                            <Badge variant="light">{sP?.elo || 500}</Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={
+                                p.status === 'Confirmado'
+                                  ? 'green'
+                                  : p.status === 'NoPresentado'
+                                    ? 'red'
+                                    : 'yellow'
+                              }
+                              variant="dot"
+                            >
+                              {p.status}
+                            </Badge>
+                          </Table.Td>
+                          {isAdmin && isProgramado && (
+                            <Table.Td>
+                              <Group gap="xs">
+                                {p.status !== 'Confirmado' && (
+                                  <Tooltip label="Confirmar Asistencia">
+                                    <ActionIcon
+                                      color="green"
+                                      variant="light"
+                                      onClick={() =>
+                                        handleParticipantStatus(
+                                          p.player.id,
+                                          p.player.name,
+                                          p.player.surname,
+                                          'Confirmado',
+                                        )
+                                      }
+                                    >
+                                      <IconUserCheck size={18} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                )}
+                                {p.status !== 'NoPresentado' && (
+                                  <Tooltip label="Sancionar (No Presentado)">
+                                    <ActionIcon
+                                      color="red"
+                                      variant="light"
+                                      onClick={() =>
+                                        handleParticipantStatus(
+                                          p.player.id,
+                                          p.player.name,
+                                          p.player.surname,
+                                          'NoPresentado',
+                                        )
+                                      }
+                                    >
+                                      <IconUserX size={18} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                )}
+                              </Group>
+                            </Table.Td>
+                          )}
+                        </Table.Tr>
+                      );
+                    })}
                   </Table.Tbody>
                 </Table>
               </Paper>
@@ -1643,66 +1653,71 @@ export const TorneoDetalles = () => {
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
-                        {currentGroupClas.map((clas) => (
-                          <Table.Tr key={clas.id}>
-                            <Table.Td>
-                              <Badge
-                                color={
-                                  clas.visualPosition <= (tournament?.playersKnockout || 2)
-                                    ? 'green'
-                                    : 'gray'
-                                }
-                                variant="filled"
-                              >
-                                {clas.visualPosition}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td fw={500}>
-                              {clas.player?.name} {clas.player?.surname || ''}
-                            </Table.Td>
-                            <Table.Td fw={500}>
-                              <Badge color="blue" variant="light" size="lg">
-                                {clas.player?.stats.elo}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td ta="center" fw={700}>
-                              <Badge color="green" variant="light" size="lg">
-                                {clas.pointsClas} pts
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td ta="center">
-                              {clas.gamesWon}-{clas.gamesLost}
-                            </Table.Td>
-                            <Table.Td ta="center" fw={600} visibleFrom="sm">
-                              <Text size="sm" c="teal.6">
-                                {clas.setsWon}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td ta="center" fw={600} visibleFrom="sm">
-                              <Text size="sm" c="red.6">
-                                {clas.setsLost}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td ta="center" fw={600} visibleFrom="sm">
-                              <Text size="sm" c="blue.6">
-                                {clas.pointsWon}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td ta="center" fw={600} visibleFrom="sm">
-                              <Text size="sm" c="red.6">
-                                {clas.pointsLost}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td ta="center" fw={600}>
-                              <Text
-                                size="sm"
-                                c={clas.pointsWon - clas.pointsLost > 0 ? 'green.6' : 'red.6'}
-                              >
-                                {clas.pointsWon - clas.pointsLost}
-                              </Text>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
+                        {currentGroupClas.map((clas) => {
+                          const sC = Array.isArray(clas.player?.stats)
+                            ? clas.player?.stats[0]
+                            : clas.player?.stats;
+                          return (
+                            <Table.Tr key={clas.id}>
+                              <Table.Td>
+                                <Badge
+                                  color={
+                                    clas.visualPosition <= (tournament?.playersKnockout || 2)
+                                      ? 'green'
+                                      : 'gray'
+                                  }
+                                  variant="filled"
+                                >
+                                  {clas.visualPosition}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td fw={500}>
+                                {clas.player?.name} {clas.player?.surname || ''}
+                              </Table.Td>
+                              <Table.Td fw={500}>
+                                <Badge color="blue" variant="light" size="lg">
+                                  {sC?.elo || 500}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td ta="center" fw={700}>
+                                <Badge color="green" variant="light" size="lg">
+                                  {clas.pointsClas} pts
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td ta="center">
+                                {clas.gamesWon}-{clas.gamesLost}
+                              </Table.Td>
+                              <Table.Td ta="center" fw={600} visibleFrom="sm">
+                                <Text size="sm" c="teal.6">
+                                  {clas.setsWon}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td ta="center" fw={600} visibleFrom="sm">
+                                <Text size="sm" c="red.6">
+                                  {clas.setsLost}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td ta="center" fw={600} visibleFrom="sm">
+                                <Text size="sm" c="blue.6">
+                                  {clas.pointsWon}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td ta="center" fw={600} visibleFrom="sm">
+                                <Text size="sm" c="red.6">
+                                  {clas.pointsLost}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td ta="center" fw={600}>
+                                <Text
+                                  size="sm"
+                                  c={clas.pointsWon - clas.pointsLost > 0 ? 'green.6' : 'red.6'}
+                                >
+                                  {clas.pointsWon - clas.pointsLost}
+                                </Text>
+                              </Table.Td>
+                            </Table.Tr>
+                          );
+                        })}
                         {currentGroupClas.length === 0 && (
                           <Table.Tr>
                             <Table.Td colSpan={6} ta="center">

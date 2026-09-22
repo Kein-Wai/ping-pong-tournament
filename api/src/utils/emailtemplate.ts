@@ -96,3 +96,17 @@ export const templateAceptacionClub = (nombre: string, club: any) => {
 
   return baseTemplate(contenidoEspecifico);
 };
+
+export const templateResetPassword = (nombre: string, token: string) => {
+  const contenidoEspecifico = `
+    <h1 style="color: #111827;">Recuperación de contraseña, ${nombre} 🏓</h1>
+    <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta.</p>
+    <p>Haz clic en el botón de abajo para crear una nueva contraseña. Este enlace es válido durante 1 hora.</p>
+    <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
+      <a href="${process.env.CLIENT_URL}/reset-password?token=${token}" class="btn">Restablecer Contraseña</a>
+    </div>
+    <p style="font-size: 12px; color: #6b7280;">Si no has solicitado este cambio, puedes ignorar este correo de forma segura. Tu cuenta seguirá protegida.</p>
+  `;
+
+  return baseTemplate(contenidoEspecifico);
+};

@@ -26,6 +26,8 @@ import { AnalisisList } from './pages/Analisis/AnalisisList';
 import { ManualMatchTracker } from './pages/Analisis/ManualMatchTracker';
 import { EntrenamientosGenerales } from './pages/Entrenamientos/EntrenamientosGenerales';
 import { FeedbackPage } from './pages/Feedback/FeedbackPage';
+import { ForgotPassword } from './pages/Auth/ForgotPassword';
+import { ResetPassword } from './pages/Auth/ResetPassword';
 
 import { Equipos } from './pages/Equipos/Equipos';
 import { EquipoNuevo } from './pages/Equipos/EquipoNuevo';
@@ -141,7 +143,8 @@ function AppContent() {
         <Routes>
           {/* Ruta pública */}
           <Route path={APP_ROUTES.LOGIN} element={<Login />} />
-
+          <Route path={APP_ROUTES.FORGOT_PASSWORD} element={<ForgotPassword />} />
+          <Route path={APP_ROUTES.RESET_PASSWORD} element={<ResetPassword />} />
           {/* Bloque de seguridad de Rutas Protegidas */}
           <Route element={<ProtectedRoute />}>
             <Route path={APP_ROUTES.SETUP_CLUB} element={<ClubSetup />} />

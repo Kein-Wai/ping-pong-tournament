@@ -40,6 +40,7 @@ import { ENDPOINTS } from '../../api/endpoints';
 import { useAuthStore } from '../../store/authStore';
 import { openAppConfirmModal } from '../../utils/modals';
 import { getPlayerAvatar } from '../../utils/avatar';
+import { returnEloColor } from '../../utils/helpers';
 
 interface User {
   id: string;
@@ -57,6 +58,7 @@ interface User {
     setWon: number;
     setLost: number;
   };
+  club?: { name: string } | null;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -161,10 +163,12 @@ export const Jugadores = () => {
     if (!adminClubId) return;
 
     if (isApprove) {
-      // Si el entrenador lo aprueba, le abrimos el Modal RPG para evaluar los Stats
       const playerToApprove = players.find((p) => p.id === playerId) || null;
+      const pStats = Array.isArray(playerToApprove?.stats)
+        ? playerToApprove?.stats[0]
+        : playerToApprove?.stats;
       setApproveModal({ opened: true, player: playerToApprove });
-      setStartingElo(playerToApprove?.stats?.elo || 500);
+      setStartingElo(pStats?.elo || 500); // 👈 Modificado
       return;
     }
 
@@ -239,7 +243,8 @@ export const Jugadores = () => {
 
   // --- LÓGICA DE EDICIÓN DE ELO ---
   const openEditElo = (player: User) => {
-    setNewElo(player.stats?.elo || 500);
+    const pStats = Array.isArray(player.stats) ? player.stats[0] : player.stats;
+    setNewElo(pStats?.elo || 500); // 👈 Modificado
     setEditEloModal({ opened: true, player });
   };
 
@@ -280,13 +285,6 @@ export const Jugadores = () => {
     setPage(1);
   };
 
-  const returnEloColor = (elo: number) => {
-    if (elo < 500) return 'red';
-    if (elo >= 500 && elo < 750) return 'yellow';
-    if (elo >= 750 && elo < 1000) return 'blue';
-    return 'green';
-  };
-
   if (loading) {
     return (
       <Center h={400}>
@@ -298,9 +296,9 @@ export const Jugadores = () => {
   const rows = paginatedPlayers.map((player) => {
     if (!player) return null;
 
-    const totalMatches = (player.stats?.matchWon || 0) + (player.stats?.matchLost || 0);
-    const winRate =
-      totalMatches > 0 ? Math.round(((player.stats?.matchWon || 0) / totalMatches) * 100) : 0;
+    const s = Array.isArray(player.stats) ? player.stats[0] : player.stats; // 👈 Modificado
+    const totalMatches = (s?.matchWon || 0) + (s?.matchLost || 0);
+    const winRate = totalMatches > 0 ? Math.round(((s?.matchWon || 0) / totalMatches) * 100) : 0;
     const fullName = `${player.name} ${player.surname || ''}`;
 
     return (
@@ -315,19 +313,13 @@ export const Jugadores = () => {
               <Text fz="xs" c="dimmed">
                 {player?.nickname || 'Sin mote'}
               </Text>
-              <Text c="dimmed" fz="xs" visibleFrom="sm">
-                {player?.email || 'Sin correo'}
-              </Text>
             </div>
           </Group>
         </Table.Td>
 
         <Table.Td>
-          <Badge
-            color={player.stats?.elo ? returnEloColor(player.stats?.elo) : 'gray'}
-            variant="light"
-          >
-            {player.stats?.elo || 500} ELO
+          <Badge color={s?.elo ? returnEloColor(s?.elo) : 'gray'} variant="light">
+            {s?.elo || 500} ELO
           </Badge>
         </Table.Td>
 
@@ -339,7 +331,7 @@ export const Jugadores = () => {
             {/* Opcional: Mostrar el ID del club o el nombre si lo trajéramos del backend */}
             {isSuperAdmin && player.clubId && (
               <Text size="xs" c="dimmed">
-                ID: {player.clubId.substring(0, 6)}
+                {player.club?.name || 'Sin club'}
               </Text>
             )}
           </Table.Td>
@@ -348,11 +340,11 @@ export const Jugadores = () => {
         <Table.Td visibleFrom="sm">
           <Text fz="sm" fw={500}>
             <Text component="span" c="green">
-              {player.stats?.matchWon || 0}V
+              {s?.matchWon || 0}V
             </Text>{' '}
             -{' '}
             <Text component="span" c="red">
-              {player.stats?.matchLost || 0}D
+              {s?.matchLost || 0}D
             </Text>
           </Text>
           <Text fz="xs" c="dimmed">

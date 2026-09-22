@@ -55,8 +55,8 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
                     });
 
                     if (standing.position === 1) {
-                      await tx.stats.update({
-                        where: { userId: standing.playerId },
+                      await tx.stats.updateMany({
+                        where: { userId: standing.playerId, seasonId: tournament.seasonId }, // 👈 AÑADIR seasonId
                         data: { tournamentWon: { increment: 1 } },
                       });
                     }

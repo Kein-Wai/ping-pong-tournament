@@ -28,6 +28,7 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { PodioHonor } from '../../components/common/PodioHonor';
+import { returnEloColor } from '../../utils/helpers';
 
 interface PlayerStats {
   id: string;
@@ -64,7 +65,11 @@ export const Estadisticas = () => {
         let data: PlayerStats[] = resUsers.data.data || resUsers.data;
         data = data
           .filter((p) => p.stats !== null)
-          .sort((a, b) => (b.stats?.elo || 0) - (a.stats?.elo || 0));
+          .sort((a, b) => {
+            const sA = Array.isArray(a.stats) ? a.stats[0] : a.stats;
+            const sB = Array.isArray(b.stats) ? b.stats[0] : b.stats;
+            return (sB?.elo || 0) - (sA?.elo || 0);
+          });
 
         setPlayers(data);
         setMatches(resMatches.data);
@@ -92,7 +97,8 @@ export const Estadisticas = () => {
   // --- 1. CÁLCULO DE DATOS PARA EL GRÁFICO DE BARRAS (Distribución ELO) ---
   const eloSegments = { novice: 0, intermediate: 0, advanced: 0, expert: 0 };
   players.forEach((p) => {
-    const elo = p.stats?.elo || 500;
+    const s = Array.isArray(p.stats) ? p.stats[0] : p.stats;
+    const elo = s?.elo || 500;
     if (elo < 500) eloSegments.novice++;
     else if (elo < 750) eloSegments.intermediate++;
     else if (elo < 1000) eloSegments.advanced++;
@@ -232,10 +238,11 @@ export const Estadisticas = () => {
             </Table.Thead>
             <Table.Tbody>
               {paginatedPlayers.map((p, index) => {
-                const totalMatches = (p.stats.matchWon || 0) + (p.stats.matchLost || 0);
+                const s = Array.isArray(p.stats) ? p.stats[0] : p.stats;
+                const totalMatches = (s?.matchWon || 0) + (s?.matchLost || 0);
                 const winRate =
-                  totalMatches > 0 ? Math.round(((p.stats.matchWon || 0) / totalMatches) * 100) : 0;
-                const setDiff = (p.stats.setWon || 0) - (p.stats.setLost || 0);
+                  totalMatches > 0 ? Math.round(((s?.matchWon || 0) / totalMatches) * 100) : 0;
+                const setDiff = (s?.setWon || 0) - (s?.setLost || 0);
 
                 return (
                   <Table.Tr key={p.id}>
@@ -251,10 +258,10 @@ export const Estadisticas = () => {
                     <Table.Td>
                       <Badge
                         size={index < 3 ? 'lg' : 'md'}
-                        color={p.stats.elo >= 1000 ? 'green' : p.stats.elo >= 750 ? 'blue' : 'gray'}
+                        color={s?.elo ? returnEloColor(s?.elo) : 'gray'}
                         variant={index < 3 ? 'filled' : 'light'}
                       >
-                        {p.stats.elo}
+                        {s?.elo}
                       </Badge>
                     </Table.Td>
                     <Table.Td ta="center">
@@ -265,11 +272,11 @@ export const Estadisticas = () => {
                     <Table.Td ta="center">
                       <Text size="sm">
                         <Text component="span" c="green" fw={600}>
-                          {p.stats.matchWon || 0}
+                          {s?.matchWon || 0}
                         </Text>{' '}
                         -{' '}
                         <Text component="span" c="red" fw={600}>
-                          {p.stats.matchLost || 0}
+                          {s?.matchLost || 0}
                         </Text>
                       </Text>
                     </Table.Td>

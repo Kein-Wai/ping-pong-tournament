@@ -3,6 +3,7 @@ import prisma from '../db';
 import { updateSkillsSchema } from '../schemas/user'; // O desde '../schemas/club' donde lo hayas definido
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
+import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -35,12 +36,20 @@ router.put('/:playerId', requireAdminClub, async (req, res) => {
       });
     }
 
+    const currentSeason = await getCurrentSeason(prisma);
     // 3. Upsert: Si el jugador no tenía ficha de skills, se crea; si ya la tiene, se actualiza
     const updatedSkills = await prisma.playerSkills.upsert({
-      where: { userId: playerId },
+      where: {
+        userId_seasonId: {
+          // 👈 USAR CLAVE COMPUESTA
+          userId: playerId,
+          seasonId: currentSeason.id,
+        },
+      },
       update: validation.data,
       create: {
         userId: playerId,
+        seasonId: currentSeason.id, // 👈 INYECTAR TEMPORADA
         ...validation.data,
       },
     });
@@ -68,12 +77,23 @@ router.put('/:playerId/consolidate', requireAdminClub, async (req, res) => {
       return res.status(403).json({ error: 'No tienes permiso.' });
     }
 
+    const currentSeason = await getCurrentSeason(prisma);
     // Transacción: Guardamos los nuevos valores y vaciamos la "bandeja de pendientes"
     await prisma.$transaction(async (tx) => {
       await tx.playerSkills.upsert({
-        where: { userId: playerId },
+        where: {
+          userId_seasonId: {
+            // 👈 USAR CLAVE COMPUESTA
+            userId: playerId,
+            seasonId: currentSeason.id,
+          },
+        },
         update: validation.data,
-        create: { userId: playerId, ...validation.data },
+        create: {
+          userId: playerId,
+          seasonId: currentSeason.id, // 👈 INYECTAR TEMPORADA
+          ...validation.data,
+        },
       });
 
       await tx.playerSkillUpdate.updateMany({

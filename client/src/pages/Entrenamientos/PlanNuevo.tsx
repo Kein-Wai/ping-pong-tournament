@@ -64,15 +64,6 @@ export const PlanNuevo = () => {
       // 1. Guardamos la respuesta del backend
       const response = await api.post(ENDPOINTS.TRAININGS.BASE, payload);
 
-      // 2. Mostramos feedback visual de éxito
-      import('@mantine/notifications').then(({ notifications }) => {
-        notifications.show({
-          title: '¡Plan Creado con Éxito!',
-          message: 'El macrociclo y las sesiones se han generado correctamente.',
-          color: 'green',
-        });
-      });
-
       // 3. Extraemos el ID del nuevo plan y navegamos DIRECTAMENTE a sus detalles
       const newPlanId = response.data.data.id;
       navigate(APP_ROUTES.ENTRENAMIENTOS.DETAILS(newPlanId));

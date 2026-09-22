@@ -4,6 +4,9 @@ import { MatchStatus } from '@prisma/client';
 
 describe('Utility: handleMatchStatsUpdate', () => {
   const mockPrisma = {
+    season: {
+      findFirst: vi.fn().mockResolvedValue({ id: 'season-1', isCurrent: true }),
+    },
     stats: {
       findFirst: vi.fn(),
       update: vi.fn(),
@@ -11,6 +14,7 @@ describe('Utility: handleMatchStatsUpdate', () => {
     },
     playerSkills: {
       findUnique: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue({ fortalezaMental: 50, experiencia: 50 }),
     },
     playerSkillUpdate: {
       createMany: vi.fn(),
@@ -67,7 +71,7 @@ describe('Utility: handleMatchStatsUpdate', () => {
         pointWon: 22,
         pointLost: 14,
         tournamentWon: 0,
-        tournamentLost: 0,
+        tournamentPart: 0,
       },
     });
   });

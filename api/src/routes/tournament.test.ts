@@ -6,6 +6,19 @@ import { verifyToken, requireAdminClub } from '../../src/middleware/auth.middlew
 
 vi.mock('../../src/db', () => ({
   default: {
+    season: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      update: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+    },
     tournament: {
       create: vi.fn(),
       findUnique: vi.fn(),
@@ -212,10 +225,10 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
       } as any);
 
       vi.mocked(prisma.tournamentParticipant.findMany).mockResolvedValue([
-        { playerId: 'p1', player: { stats: { elo: 800 } } },
-        { playerId: 'p2', player: { stats: { elo: 1200 } } },
-        { playerId: 'p3', player: { stats: { elo: 600 } } },
-        { playerId: 'p4', player: { stats: { elo: 1000 } } },
+        { playerId: 'p1', player: { stats: [{ elo: 800, seasonId: 'season-1' }] } },
+        { playerId: 'p2', player: { stats: [{ elo: 1200, seasonId: 'season-1' }] } },
+        { playerId: 'p3', player: { stats: [{ elo: 600, seasonId: 'season-1' }] } },
+        { playerId: 'p4', player: { stats: [{ elo: 1000, seasonId: 'season-1' }] } },
       ] as any);
 
       vi.mocked(prisma.tournamentGroup.create).mockResolvedValue({ id: 'grupo-falso-123' } as any);

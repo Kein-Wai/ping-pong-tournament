@@ -2,10 +2,10 @@ import { Router } from 'express';
 import prisma from '../db';
 import { createMatchSchema, baseMatchObject, validateMatchBusinessRules } from '../schemas/match';
 import { z } from 'zod';
-import { MatchStatus } from '@prisma/client';
 import { handleMatchStatsUpdate } from '../utils/stats';
 import { processMatchResult } from '../utils/match-processor';
 import { updateGroupStandings } from '../utils/standings';
+import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -122,11 +122,12 @@ router.post('/', async (req, res) => {
       res.status(400).json({ error: 'Un jugador no puede enfrentarse a sí mismo' });
       return;
     }
-
+    const currentSeason = await getCurrentSeason(prisma);
     const newMatch = await prisma.match.create({
       data: {
         playerOneId,
         playerTwoId,
+        seasonId: currentSeason.id,
         dateStart: dateStart ? new Date(dateStart) : new Date(),
         status: status,
         tournamentId,

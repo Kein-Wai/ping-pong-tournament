@@ -59,11 +59,6 @@ export const FeedbackPage = () => {
     setSaving(true);
     try {
       await api.post(ENDPOINTS.FEEDBACK.BASE, { type, content });
-      notifications.show({
-        title: 'Enviado',
-        message: 'Gracias por ayudarnos a mejorar.',
-        color: 'green',
-      });
       setContent('');
       fetchData(); // Recargamos para que aparezca abajo en su historial
     } catch (error) {

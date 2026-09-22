@@ -4,6 +4,7 @@ import prisma from '../db';
 import { createUserSchema, updateUserSchema, updateProfileSchema } from '../schemas/user';
 import { z } from 'zod';
 import { requireSuperAdmin, requireAdminClub } from '../middleware/auth.middleware';
+import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -54,6 +55,7 @@ router.get('/', async (req, res) => {
         clubStatus: true,
         stats: true,
         level: true,
+        club: { select: { name: true } },
       },
     });
 
@@ -98,7 +100,7 @@ router.post('/', requireAdminClub, async (req, res) => {
       finalClubId = adminClubId;
       finalClubStatus = 'Aprobado';
     }
-
+    const currentSeason = await getCurrentSeason(prisma);
     const newUser = await prisma.user.create({
       data: {
         ...userData,
@@ -108,6 +110,7 @@ router.post('/', requireAdminClub, async (req, res) => {
         clubStatus: finalClubStatus as any,
         stats: {
           create: {
+            seasonId: currentSeason.id,
             elo: userData.elo,
           },
         },
@@ -293,23 +296,29 @@ router.put('/:id', requireAdminClub, async (req, res) => {
       delete dataToUpdate.clubId;
       delete dataToUpdate.clubStatus;
     }
+    const currentSeason = await getCurrentSeason(prisma);
 
     const updatedUser = await prisma.user.update({
       where: { id: id },
       data: {
-        ...dataToUpdate, // 👈 Ahora dataToUpdate ya no contiene la propiedad 'elo'
+        ...dataToUpdate,
         ...(elo !== undefined && {
           stats: {
             upsert: {
-              create: { elo: elo },
+              // 👇 Usamos la clave compuesta
+              where: {
+                userId_seasonId: {
+                  userId: id,
+                  seasonId: currentSeason.id,
+                },
+              },
+              create: { seasonId: currentSeason.id, elo: elo },
               update: { elo: elo },
             },
           },
         }),
       },
-      include: {
-        stats: true, // Incluimos stats en la respuesta para que el Frontend reciba el nuevo ELO
-      },
+      include: { stats: true },
     });
 
     res.json(updatedUser);

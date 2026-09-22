@@ -30,7 +30,12 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
   }
 
   const playersWithElo = participants.map((p) => {
-    const elo = p.player.stats?.elo ? p.player.stats.elo : 500;
+    // 👇 Buscamos los stats que coincidan con la temporada del torneo
+    const currentStats = p.player.stats.find((s) => s.seasonId === tournament.seasonId);
+
+    // 👇 Leemos el ELO del objeto encontrado (o 500 por defecto)
+    const elo = currentStats?.elo ? currentStats.elo : 500;
+
     return { playerId: p.playerId, elo };
   });
 

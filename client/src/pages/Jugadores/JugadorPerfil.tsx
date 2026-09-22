@@ -69,7 +69,7 @@ interface UserProfile {
     pointWon: number;
     pointLost: number;
     tournamentWon: number;
-    tournamentLost: number;
+    tournamentPart: number;
   };
   skills?: {
     derechaPlano: number;
@@ -274,11 +274,13 @@ export const JugadorPerfil = () => {
   }
 
   // --- 1. CÁLCULO DE DATOS (Eficiencia) ---
-  const s = player.stats;
+  const s = Array.isArray(player.stats) ? player.stats[0] : player.stats;
+  const currentSkills = Array.isArray(player.skills) ? player.skills[0] : player.skills;
   const totalMatches = (s?.matchWon || 0) + (s?.matchLost || 0);
   const totalSets = (s?.setWon || 0) + (s?.setLost || 0);
   const totalPoints = (s?.pointWon || 0) + (s?.pointLost || 0);
-  const totalTournaments = (s?.tournamentWon || 0) + (s?.tournamentLost || 0);
+  const totalTournaments = s?.tournamentPart || 0;
+  console.log(s);
 
   const matchWinRate = totalMatches > 0 ? Math.round(((s?.matchWon || 0) / totalMatches) * 100) : 0;
 
@@ -362,93 +364,93 @@ export const JugadorPerfil = () => {
             Derrotas: totalPoints > 0 ? Math.round(((s?.pointLost || 0) / totalPoints) * 100) : 0,
           },
           {
-            metric: 'Torneos',
+            metric: 'Campeon Torneos',
             Victorias:
               totalTournaments > 0
                 ? Math.round(((s?.tournamentWon || 0) / totalTournaments) * 100)
                 : 0,
-            Derrotas:
+            Participaciones:
               totalTournaments > 0
-                ? Math.round(((s?.tournamentLost || 0) / totalTournaments) * 100)
+                ? Math.round(((s?.tournamentPart || 0) / totalTournaments) * 100)
                 : 0,
           },
         ]
       : [];
 
   // --- 2. CÁLCULO DE DATOS RPG (SKILLS) ---
-  const skillsData = player.skills
+  const skillsData = currentSkills
     ? [
         {
           attribute: 'Plano Der.',
-          value: player.skills.derechaPlano,
+          value: currentSkills.derechaPlano,
           pending: player.pendingSkills?.derechaPlano || 0,
-          potential: player.skills.derechaPlano + (player.pendingSkills?.derechaPlano || 0),
+          potential: currentSkills.derechaPlano + (player.pendingSkills?.derechaPlano || 0),
         },
         {
           attribute: 'Plano Rev.',
-          value: player.skills.revesPlano,
+          value: currentSkills.revesPlano,
           pending: player.pendingSkills?.revesPlano || 0,
-          potential: player.skills.revesPlano + (player.pendingSkills?.revesPlano || 0),
+          potential: currentSkills.revesPlano + (player.pendingSkills?.revesPlano || 0),
         },
         {
           attribute: 'Top Der.',
-          value: player.skills.topspinDerecha,
+          value: currentSkills.topspinDerecha,
           pending: player.pendingSkills?.topspinDerecha || 0,
-          potential: player.skills.topspinDerecha + (player.pendingSkills?.topspinDerecha || 0),
+          potential: currentSkills.topspinDerecha + (player.pendingSkills?.topspinDerecha || 0),
         },
         {
           attribute: 'Top Rev.',
-          value: player.skills.topspinReves,
+          value: currentSkills.topspinReves,
           pending: player.pendingSkills?.topspinReves || 0,
-          potential: player.skills.topspinReves + (player.pendingSkills?.topspinReves || 0),
+          potential: currentSkills.topspinReves + (player.pendingSkills?.topspinReves || 0),
         },
         {
           attribute: 'Corte',
-          value: player.skills.corte,
+          value: currentSkills.corte,
           pending: player.pendingSkills?.corte || 0,
-          potential: player.skills.corte + (player.pendingSkills?.corte || 0),
+          potential: currentSkills.corte + (player.pendingSkills?.corte || 0),
         },
         {
           attribute: 'Bloqueo Der.',
-          value: player.skills.bloqueoDerecha,
+          value: currentSkills.bloqueoDerecha,
           pending: player.pendingSkills?.bloqueoDerecha || 0,
-          potential: player.skills.bloqueoDerecha + (player.pendingSkills?.bloqueoDerecha || 0),
+          potential: currentSkills.bloqueoDerecha + (player.pendingSkills?.bloqueoDerecha || 0),
         },
         {
           attribute: 'Bloqueo Rev.',
-          value: player.skills.bloqueoReves,
+          value: currentSkills.bloqueoReves,
           pending: player.pendingSkills?.bloqueoReves || 0,
-          potential: player.skills.bloqueoReves + (player.pendingSkills?.bloqueoReves || 0),
+          potential: currentSkills.bloqueoReves + (player.pendingSkills?.bloqueoReves || 0),
         },
         {
           attribute: 'Servicio',
-          value: player.skills.servicio,
+          value: currentSkills.servicio,
           pending: player.pendingSkills?.servicio || 0,
-          potential: player.skills.servicio + (player.pendingSkills?.servicio || 0),
+          potential: currentSkills.servicio + (player.pendingSkills?.servicio || 0),
         },
         {
           attribute: 'Recepción',
-          value: player.skills.recepcion,
+          value: currentSkills.recepcion,
           pending: player.pendingSkills?.recepcion || 0,
-          potential: player.skills.recepcion + (player.pendingSkills?.recepcion || 0),
+          potential: currentSkills.recepcion + (player.pendingSkills?.recepcion || 0),
         },
         {
           attribute: 'Movilidad',
-          value: player.skills.movilidad,
+          value: currentSkills.movilidad,
           pending: player.pendingSkills?.movilidad || 0,
-          potential: player.skills.movilidad + (player.pendingSkills?.movilidad || 0),
+          potential: currentSkills.movilidad + (player.pendingSkills?.movilidad || 0),
         },
         {
           attribute: 'Mentalidad',
-          value: player.skills.fortalezaMental,
+          value: currentSkills.fortalezaMental,
           pending: player.pendingSkills?.fortalezaMental || 0,
-          potential: player.skills.fortalezaMental + (player.pendingSkills?.fortalezaMental || 0),
+          potential: currentSkills.fortalezaMental + (player.pendingSkills?.fortalezaMental || 0),
         },
         {
           attribute: 'Experiencia',
-          value: player.skills.experiencia,
+          value: currentSkills.experiencia,
           pending: player.pendingSkills?.experiencia || 0,
-          potential: player.skills.experiencia + (player.pendingSkills?.experiencia || 0),
+          potential: currentSkills.experiencia + (player.pendingSkills?.experiencia || 0),
         },
       ]
     : [];
@@ -498,10 +500,10 @@ export const JugadorPerfil = () => {
     try {
       // Sumamos la base actual + lo que el entrenador haya dejado en los inputs
       const finalSkills: Record<string, number> = {};
-      SKILL_KEYS.forEach((s) => {
-        const base = player.skills?.[s.key as keyof typeof player.skills] || 0;
-        const gain = approvedGains[s.key] || 0;
-        finalSkills[s.key] = Number((base + gain).toFixed(2)); // Evitar decimales infinitos
+      SKILL_KEYS.forEach((sKey) => {
+        const base = currentSkills?.[sKey.key as keyof typeof currentSkills] || 0;
+        const gain = approvedGains[sKey.key] || 0;
+        finalSkills[sKey.key] = Number((base + gain).toFixed(2));
       });
 
       await api.put(ENDPOINTS.SKILLS.CONSOLIDATE(id), finalSkills);
@@ -910,7 +912,7 @@ export const JugadorPerfil = () => {
           </Group>
           <Group align="flex-end" gap="xs" mt={25}>
             <Text size="xl" fw={700}>
-              {(s?.tournamentWon || 0) + (s?.tournamentLost || 0)}
+              {totalTournaments}
             </Text>
           </Group>
           <Text size="sm" c="dimmed" mt={7}>

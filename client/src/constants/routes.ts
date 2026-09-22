@@ -6,6 +6,9 @@ export const APP_ROUTES = {
   LOGIN: '/login',
   SETUP_CLUB: '/setup-club',
 
+  FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD: '/reset-password',
+
   // Paneles Generales
   CLUB_SELECTION: '/club-selection',
   MI_CLUB: '/mi-club',
