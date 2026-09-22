@@ -236,9 +236,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
     }
 
     // Validamos usando tu esquema nativo (UserClubStatus.Aprobado | UserClubStatus.Rechazado)
-    console.log(req.body);
     const validation = updateMemberStatusSchema.safeParse(req.body);
-    console.log(validation);
     if (!validation.success) {
       res.status(400).json({ error: 'Estado inválido. Debe ser Aprobado o Rechazado.' });
       return;

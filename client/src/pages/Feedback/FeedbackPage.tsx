@@ -19,7 +19,6 @@ import {
   Paper,
 } from '@mantine/core';
 import { IconBug, IconMessageCircle, IconCheck, IconEye } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { useAuthStore } from '../../store/authStore';

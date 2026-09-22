@@ -15,7 +15,6 @@ import { IconArrowLeft, IconMail } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
-import { notifications } from '@mantine/notifications';
 
 export const ForgotPassword = () => {
   const [email, setEmail] = useState('');

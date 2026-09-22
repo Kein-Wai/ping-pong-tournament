@@ -13,8 +13,7 @@ import {
   ThemeIcon,
   Badge,
 } from '@mantine/core';
-import { IconBuildingCommunity, IconCheck, IconX, IconClock, IconUsers } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { IconBuildingCommunity, IconCheck, IconClock, IconUsers } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { useAuthStore } from '../../store/authStore';
 import { openAppConfirmModal } from '../../utils/modals';
