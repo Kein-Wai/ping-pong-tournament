@@ -444,7 +444,9 @@ export const PlanDetalles = () => {
         title={
           <Group gap="xs">
             <IconBarbell color="orange" />
-            <Title order={4}>Asignar Ejercicio</Title>
+            <Text fw={700} size="lg">
+              Asignar Ejercicio
+            </Text>
           </Group>
         }
         centered
@@ -518,7 +520,9 @@ export const PlanDetalles = () => {
         title={
           <Group gap="xs">
             <IconCopy color="blue" />
-            <Title order={4}>Clonar Ejercicios a Sesión {targetSession?.number}</Title>
+            <Text fw={700} size="lg">
+              Clonar Ejercicios a Sesión {targetSession?.number}
+            </Text>{' '}
           </Group>
         }
         centered

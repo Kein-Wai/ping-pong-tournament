@@ -16,101 +16,78 @@ import {
   ScrollArea,
   Badge,
   Table,
+  Textarea,
+  NumberInput,
 } from '@mantine/core';
 import {
   IconArrowLeft,
   IconArrowBackUp,
   IconEdit,
-  IconCheck,
   IconTrophy,
+  IconDeviceFloppy,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
-import { isValidTableTennisSet } from '../../utils/matchValidation'; // 👈 TU FUNCIÓN SALVADORA
+import { isValidTableTennisSet } from '../../utils/matchValidation';
 
-// --- CATÁLOGOS MAPADOS EXACTAMENTE A LOS ENUMS DE PRISMA ---
-
-const WINNING_BASE_STROKES = [
-  { label: 'Top Cruzado Der.', side: 'Derecha', technique: 'Top', placement: 'Cruzado' },
-  { label: 'Top Cruzado Rev.', side: 'Reves', technique: 'Top', placement: 'Cruzado' },
-  { label: 'Top Paralelo Der.', side: 'Derecha', technique: 'Top', placement: 'Paralelo' },
-  { label: 'Top Paralelo Rev.', side: 'Reves', technique: 'Top', placement: 'Paralelo' },
-
-  { label: 'Push Cruzado Der.', side: 'Derecha', technique: 'Push', placement: 'Cruzado' },
-  { label: 'Push Cruzado Rev.', side: 'Reves', technique: 'Push', placement: 'Cruzado' },
-  { label: 'Push Paralelo Der.', side: 'Derecha', technique: 'Push', placement: 'Paralelo' },
-  { label: 'Push Paralelo Rev.', side: 'Reves', technique: 'Push', placement: 'Paralelo' },
-
-  { label: 'Flip Cruzado Der.', side: 'Derecha', technique: 'Flip', placement: 'Cruzado' },
-  { label: 'Flip Cruzado Rev.', side: 'Reves', technique: 'Flip', placement: 'Cruzado' },
-  { label: 'Flip Paralelo Der.', side: 'Derecha', technique: 'Flip', placement: 'Paralelo' },
-  { label: 'Flip Paralelo Rev.', side: 'Reves', technique: 'Flip', placement: 'Paralelo' },
-
-  { label: 'Corto Cruzado Der.', side: 'Derecha', technique: 'Corto', placement: 'Cruzado' },
-  { label: 'Corto Cruzado Rev.', side: 'Reves', technique: 'Corto', placement: 'Cruzado' },
-  { label: 'Corto Paralelo Der.', side: 'Derecha', technique: 'Corto', placement: 'Paralelo' },
-  { label: 'Corto Paralelo Rev.', side: 'Reves', technique: 'Corto', placement: 'Paralelo' },
+// --- NUEVA TAXONOMÍA EN ÁRBOL (Categoría -> Subcategoría -> Ubicación) ---
+const PLACEMENTS = [
+  { label: 'Derecha', placement: 'Derecha' },
+  { label: 'Revés', placement: 'Reves' },
+  { label: 'Centro/Codo', placement: 'Centro' },
 ];
 
-const DEFENSE_STROKES = [
-  { label: 'Bloqueo Der. Cruzado', side: 'Derecha', technique: 'Bloqueo', placement: 'Cruzado' },
-  { label: 'Bloqueo Der. Paralelo', side: 'Derecha', technique: 'Bloqueo', placement: 'Paralelo' },
-  { label: 'Bloqueo Rev. Cruzado', side: 'Reves', technique: 'Bloqueo', placement: 'Cruzado' },
-  { label: 'Bloqueo Rev. Paralelo', side: 'Reves', technique: 'Bloqueo', placement: 'Paralelo' },
-  { label: 'Corte Der. Cruzado', side: 'Derecha', technique: 'Corte', placement: 'Cruzado' },
-  { label: 'Corte Der. Paralelo', side: 'Derecha', technique: 'Corte', placement: 'Paralelo' },
-  { label: 'Corte Rev. Cruzado', side: 'Reves', technique: 'Corte', placement: 'Cruzado' },
-  { label: 'Corte Rev. Paralelo', side: 'Reves', technique: 'Corte', placement: 'Paralelo' },
+const RESTO_PLACEMENTS = [
+  { label: 'A Mi Derecha', placement: 'Derecha' },
+  { label: 'A Mi Revés', placement: 'Reves' },
 ];
 
-// --- 2. CATÁLOGO DE PUNTOS GANADOS (BOTÓN VERDE) ---
+const WON_TREE = [
+  {
+    label: 'Servicio',
+    category: 'Servicio',
+    next: [
+      { label: 'Cortado', subcategory: 'Cortado', next: PLACEMENTS },
+      { label: 'Topeado', subcategory: 'Topeado', next: PLACEMENTS },
+      { label: 'Sin Efecto', subcategory: 'SinEfecto', next: PLACEMENTS },
+    ],
+  },
+  {
+    label: 'Ataque',
+    category: 'Ataque',
+    next: [
+      { label: 'Con Derecha', subcategory: 'Derecha', next: PLACEMENTS },
+      { label: 'Con Revés', subcategory: 'Reves', next: PLACEMENTS },
+    ],
+  },
+  {
+    label: 'Defensa',
+    category: 'Defensa',
+    next: [
+      { label: 'Corte', subcategory: 'Cortado', next: PLACEMENTS },
+      { label: 'Bloqueo', subcategory: 'SinEfecto', next: PLACEMENTS },
+    ],
+  },
+  { label: 'Error No Forzado (del Rival)', category: 'ErrorNoForzado' },
+  { label: 'Punto Sin Razón', category: 'SinRazon' },
+];
 
-const ACTIONS_WON: Record<string, any[]> = {
-  Servicio: [
-    { label: 'Largo Cruzado (Der)', technique: 'Largo', placement: 'Cruzado', side: 'Derecha' },
-    { label: 'Largo Paralelo (Rev)', technique: 'Largo', placement: 'Paralelo', side: 'Reves' },
-    { label: 'Corto Derecha', technique: 'Corto', side: 'Derecha' },
-    { label: 'Corto Revés', technique: 'Corto', side: 'Reves' },
-    { label: 'Saque Directo (Ace)', technique: 'Ace' }, // Opcional, pero muy común
-  ],
-  Resto: WINNING_BASE_STROKES,
-  TerceraBola: WINNING_BASE_STROKES,
-  // Para Rally, reutilizamos la base pero quitamos los 'Flip' porque en peloteo abierto no hay Flips
-  Rally: WINNING_BASE_STROKES.filter((stroke) => stroke.technique !== 'Flip'),
-  Defensa: DEFENSE_STROKES,
-  ErrorRival: [
-    { label: 'Fallo Saque', phase: 'Servicio', technique: 'Error' },
-    { label: 'Resto Fuera/Red', phase: 'Resto', technique: 'Error' },
-    { label: 'Top Fuera/Red', phase: 'Rally', technique: 'Error' },
-    { label: 'Bloqueo Fuera/Red', phase: 'Defensa', technique: 'Error' },
-  ],
-};
-
-// --- 3. CATÁLOGO DE PUNTOS PERDIDOS (BOTÓN ROJO) ---
-
-const ACTIONS_LOST_BASE: Record<string, any[]> = {
-  Servicio: [
-    { label: 'Saque a la Red', technique: 'Error', errorModifier: 'Red' },
-    { label: 'Saque Fuera', technique: 'Error', errorModifier: 'Fuera' },
-  ],
-  Resto: WINNING_BASE_STROKES, // Usamos la misma base simétrica
-  TerceraBola: WINNING_BASE_STROKES,
-  Rally: WINNING_BASE_STROKES.filter((stroke) => stroke.technique !== 'Flip'),
-  Defensa: DEFENSE_STROKES,
-
-  JuegoPies: [
-    { label: 'Mal Posicionamiento', technique: 'JuegoPies' },
-    { label: 'Mal Movimiento / Lento', technique: 'JuegoPies' },
-  ],
-};
-
-// --- 4. MODIFICADORES (El 3º Clic) ---
-const ERROR_MODIFIERS = [
-  { label: 'A la Red', modifier: 'Red', color: 'red.7' },
-  { label: 'Fuera / Largo', modifier: 'Fuera', color: 'orange.6' },
-  { label: 'Me hizo Bloqueo Winner', modifier: 'BloqueoRival', color: 'blue.6' },
-  { label: 'Me hizo Winner', modifier: 'WinnerRival', color: 'grape.6' },
+const LOST_TREE = [
+  { label: 'Fallo Saque', category: 'FalloSaque' },
+  {
+    label: 'Fallo Resto',
+    category: 'Resto',
+    next: [
+      { label: 'Saque Cortado', subcategory: 'Cortado', next: RESTO_PLACEMENTS },
+      { label: 'Saque Topeado', subcategory: 'Topeado', next: RESTO_PLACEMENTS },
+      { label: 'Saque Sin Efecto', subcategory: 'SinEfecto', next: RESTO_PLACEMENTS },
+    ],
+  },
+  { label: 'Error No Forzado', category: 'ErrorNoForzado' },
+  { label: 'Error Forzado (Buen tiro rival)', category: 'ErrorForzado' },
+  { label: 'Mala Movilidad', category: 'Movilidad' },
+  { label: 'Punto Sin Razón', category: 'SinRazon' },
 ];
 
 export const ManualMatchTracker = () => {
@@ -122,52 +99,99 @@ export const ManualMatchTracker = () => {
 
   // Scoring State
   const [currentSet, setCurrentSet] = useState(1);
-  const [mySetsWon, setMySetsWon] = useState(0);
-  const [oppSetsWon, setOppSetsWon] = useState(0);
+  const [mySetsWon, setMySetsWon] = useState<number | string>(0);
+  const [oppSetsWon, setOppSetsWon] = useState<number | string>(0);
 
-  // UX State
-  const [activePhase, setActivePhase] = useState<string | null>(null);
+  // Tree Flow State
   const [isWonState, setIsWonState] = useState<boolean | null>(null);
-  const [pendingErrorAction, setPendingErrorAction] = useState<any | null>(null);
+  const [currentNodes, setCurrentNodes] = useState<any[] | null>(null);
+  const [pointPath, setPointPath] = useState<any>({});
+  const [lightNotes, setLightNotes] = useState('');
 
   const [editRivalModal, setEditRivalModal] = useState(false);
   const [editOppName, setEditOppName] = useState('');
 
-  // Modales de validación
+  // Modales
   const [showEndSetModal, setShowEndSetModal] = useState(false);
   const [showEndMatchModal, setShowEndMatchModal] = useState(false);
+  const [viewingSetSummary, setViewingSetSummary] = useState<number | null>(null);
 
   useEffect(() => {
     api.get(ENDPOINTS.MANUAL_MATCHES.BY_ID(id!)).then((res) => {
       const data = res.data.data;
       setMatch(data);
       setEditOppName(data.opponentName);
+      setLightNotes(data.lightNotes || '');
+      setMySetsWon(data.mySets || 0);
+      setOppSetsWon(data.opponentSets || 0);
 
       const pts = data.points || [];
       setPointHistory(pts);
 
-      // Calcular sets jugados y ganados históricamente
+      let activeSet = 1;
       if (pts.length > 0) {
         const lastPt = pts[pts.length - 1];
-        setCurrentSet(lastPt.setNumber);
-      }
+        const lastSetPts = pts.filter((p: any) => p.setNumber === lastPt.setNumber);
+        const myS = lastSetPts.filter((p: any) => p.isWon).length;
+        const oppS = lastSetPts.filter((p: any) => !p.isWon).length;
 
-      setMySetsWon(data.mySets || 0);
-      setOppSetsWon(data.opponentSets || 0);
+        if (isValidTableTennisSet(myS, oppS)) {
+          activeSet = lastPt.setNumber + 1;
+        } else {
+          activeSet = lastPt.setNumber;
+        }
+      }
+      setCurrentSet(activeSet);
     });
   }, [id]);
 
-  // Calcular puntos DEL SET ACTUAL
   const currentSetPoints = pointHistory.filter((p) => p.setNumber === currentSet);
   const myScore = currentSetPoints.filter((p) => p.isWon).length;
   const oppScore = currentSetPoints.filter((p) => !p.isWon).length;
 
-  // Lógica para detectar final de Set
   useEffect(() => {
-    if (isValidTableTennisSet(myScore, oppScore)) {
+    if (isValidTableTennisSet(myScore, oppScore) && match?.status !== 'Completado') {
       setShowEndSetModal(true);
     }
-  }, [myScore, oppScore]);
+  }, [myScore, oppScore, match]);
+
+  // 👇 CÁLCULOS DINÁMICOS DE RESUMEN
+  const getPointLabel = (p: any) => {
+    if (!p.category) return 'Rápido / Sin detalle';
+    let label = p.category;
+    if (p.subcategory) label += ` > ${p.subcategory}`;
+    if (p.placement) label += ` (${p.placement})`;
+    return label;
+  };
+
+  const getSetSummary = (setNum: number) => {
+    const pts = pointHistory.filter((p) => p.setNumber === setNum);
+    const wonCategories = pts
+      .filter((p) => p.isWon)
+      .reduce((acc: any, p) => {
+        const label = getPointLabel(p);
+        acc[label] = (acc[label] || 0) + 1;
+        return acc;
+      }, {});
+    const lostCategories = pts
+      .filter((p) => !p.isWon)
+      .reduce((acc: any, p) => {
+        const label = getPointLabel(p);
+        acc[label] = (acc[label] || 0) + 1;
+        return acc;
+      }, {});
+
+    const sMyScore = pts.filter((p) => p.isWon).length;
+    const sOppScore = pts.filter((p) => !p.isWon).length;
+
+    return { wonCategories, lostCategories, myScore: sMyScore, oppScore: sOppScore };
+  };
+
+  const getSortedCategories = (catObj: any) =>
+    Object.entries(catObj).sort((a: any, b: any) => b[1] - a[1]);
+
+  const activeSummary = getSetSummary(currentSet);
+  const viewSummary = viewingSetSummary ? getSetSummary(viewingSetSummary) : null;
 
   const handleUpdateRival = async () => {
     try {
@@ -179,26 +203,46 @@ export const ManualMatchTracker = () => {
     }
   };
 
-  const handleRegisterPoint = async (actionDef: any) => {
-    if (isWonState === null || activePhase === null) return;
+  const resetFlow = () => {
+    setIsWonState(null);
+    setCurrentNodes(null);
+    setPointPath({});
+  };
 
+  const handleStartPoint = (isWon: boolean) => {
+    setIsWonState(isWon);
+    setCurrentNodes(isWon ? WON_TREE : LOST_TREE);
+    setPointPath({});
+  };
+
+  const handleNodeClick = (node: any) => {
+    const newPath = { ...pointPath };
+    if (node.category) newPath.category = node.category;
+    if (node.subcategory) newPath.subcategory = node.subcategory;
+    if (node.placement) newPath.placement = node.placement;
+
+    if (node.next) {
+      setPointPath(newPath);
+      setCurrentNodes(node.next);
+    } else {
+      handleRegisterPoint({ ...newPath, isWon: isWonState });
+      resetFlow();
+    }
+  };
+
+  const handleRegisterPoint = async (data: any) => {
     const payload = {
       setNumber: currentSet,
       pointOrder: currentSetPoints.length + 1,
-      isWon: isWonState,
-      phase: actionDef.phase || activePhase,
-      side: actionDef.side,
-      technique: actionDef.technique,
-      placement: actionDef.placement,
-      errorModifier: actionDef.errorModifier || null, // 👈 Se envía limpio a Prisma
+      isWon: data.isWon,
+      category: data.category || null,
+      subcategory: data.subcategory || null,
+      placement: data.placement || null,
     };
 
     try {
       const res = await api.post(ENDPOINTS.MANUAL_MATCHES.ADD_POINT(id!), payload);
       setPointHistory([...pointHistory, res.data.data]);
-      setActivePhase(null);
-      setIsWonState(null);
-      setPendingErrorAction(null);
     } catch (error) {
       console.error(error);
     }
@@ -211,9 +255,7 @@ export const ManualMatchTracker = () => {
     try {
       await api.delete(ENDPOINTS.MANUAL_MATCHES.DELETE_POINT(id!, lastPoint.id));
       setPointHistory(pointHistory.slice(0, -1));
-      setActivePhase(null);
-      setIsWonState(null);
-      setPendingErrorAction(null);
+      resetFlow();
     } catch (error) {
       console.error(error);
     }
@@ -221,27 +263,40 @@ export const ManualMatchTracker = () => {
 
   const handleConfirmSetEnd = async () => {
     const iWonSet = myScore > oppScore;
-    const newMySets = iWonSet ? mySetsWon + 1 : mySetsWon;
-    const newOppSets = !iWonSet ? oppSetsWon + 1 : oppSetsWon;
+    const newMySets = iWonSet ? Number(mySetsWon) + 1 : Number(mySetsWon);
+    const newOppSets = !iWonSet ? Number(oppSetsWon) + 1 : Number(oppSetsWon);
 
     setMySetsWon(newMySets);
     setOppSetsWon(newOppSets);
     setShowEndSetModal(false);
 
-    // 👇 AHORA ES DINÁMICO
     const requiredSets = match.setsToWin || 3;
 
     if (newMySets === requiredSets || newOppSets === requiredSets) {
       setShowEndMatchModal(true);
-      await api.put(ENDPOINTS.MANUAL_MATCHES.COMPLETE(id!), {
-        mySets: newMySets,
-        opponentSets: newOppSets,
-        status: 'Completado', // Aseguramos que se marca como completado
-      });
-      // Actualizamos el estado local para que salte a la vista de Reporte
-      setMatch({ ...match, status: 'Completado' });
     } else {
       setCurrentSet(currentSet + 1);
+    }
+  };
+
+  const executeCompleteMatch = async () => {
+    try {
+      await api.put(ENDPOINTS.MANUAL_MATCHES.COMPLETE(id!), {
+        mySets: Number(mySetsWon),
+        opponentSets: Number(oppSetsWon),
+        lightNotes,
+        status: 'Completado',
+      });
+      setMatch({
+        ...match,
+        status: 'Completado',
+        mySets: Number(mySetsWon),
+        opponentSets: Number(oppSetsWon),
+        lightNotes,
+      });
+      setShowEndMatchModal(false);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -252,7 +307,7 @@ export const ManualMatchTracker = () => {
       </Center>
     );
 
-  // 👇 INTERCEPTOR: SI EL PARTIDO ESTÁ COMPLETADO, MOSTRAMOS EL REPORTE
+  // --- 1. REPORTE FINAL (Ambos modos) ---
   if (match.status === 'Completado') {
     return (
       <Stack gap="xl" style={{ maxWidth: 1000, margin: '0 auto' }}>
@@ -277,7 +332,7 @@ export const ManualMatchTracker = () => {
               <Text
                 fz={80}
                 fw={900}
-                c={mySetsWon > oppSetsWon ? 'green.4' : 'gray.5'}
+                c={Number(mySetsWon) > Number(oppSetsWon) ? 'green.4' : 'gray.5'}
                 style={{ lineHeight: 1 }}
               >
                 {mySetsWon}
@@ -293,7 +348,7 @@ export const ManualMatchTracker = () => {
               <Text
                 fz={80}
                 fw={900}
-                c={oppSetsWon > mySetsWon ? 'red.4' : 'gray.5'}
+                c={Number(oppSetsWon) > Number(mySetsWon) ? 'red.4' : 'gray.5'}
                 style={{ lineHeight: 1 }}
               >
                 {oppSetsWon}
@@ -302,68 +357,144 @@ export const ManualMatchTracker = () => {
           </Group>
         </Paper>
 
-        <Title order={4} mt="md">
-          Desglose Punto a Punto
-        </Title>
-        <Paper withBorder radius="md">
-          <ScrollArea h={500}>
-            <Table striped highlightOnHover stickyHeader>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Set</Table.Th>
-                  <Table.Th>Nº Punto</Table.Th>
-                  <Table.Th>Resultado</Table.Th>
-                  <Table.Th>Fase</Table.Th>
-                  <Table.Th>Golpe Técnico</Table.Th>
-                  <Table.Th>Detalle / Error</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {pointHistory.map((p, idx) => (
-                  <Table.Tr key={idx}>
-                    <Table.Td fw={700}>Set {p.setNumber}</Table.Td>
-                    <Table.Td>{p.pointOrder}</Table.Td>
-                    <Table.Td>
-                      <Badge color={p.isWon ? 'green' : 'red'} variant="light">
-                        {p.isWon ? 'Punto Ganado' : 'Punto Perdido'}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge color="gray" variant="dot">
-                        {p.phase}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td fw={500}>
-                      {p.side ? `${p.side} ` : ''}
-                      {p.technique}
-                    </Table.Td>
-                    <Table.Td>
-                      {p.placement ? `${p.placement}` : ''}
-                      {p.errorModifier ? (
-                        <Text span c="red.6" fw={700}>
-                          {' '}
-                          ({p.errorModifier})
-                        </Text>
-                      ) : (
-                        ''
-                      )}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
+        {match.lightNotes && (
+          <Paper withBorder p="md" radius="md" bg="blue.0" c="blue.9">
+            <Text fw={700} mb="xs">
+              Sensaciones y Notas:
+            </Text>
+            <Text style={{ whiteSpace: 'pre-wrap' }}>{match.lightNotes}</Text>
+          </Paper>
+        )}
+
+        {/* Solo mostramos la tabla si es DEEP y hay puntos */}
+        {match.analysisType === 'Deep' && pointHistory.length > 0 && (
+          <>
+            <Title order={4} mt="md">
+              Desglose Punto a Punto
+            </Title>
+            <Paper withBorder radius="md">
+              <ScrollArea h={500}>
+                <Table striped highlightOnHover stickyHeader>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Set</Table.Th>
+                      <Table.Th>Nº</Table.Th>
+                      <Table.Th>Resultado</Table.Th>
+                      <Table.Th>Categoría</Table.Th>
+                      <Table.Th>Detalle</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {pointHistory.map((p, idx) => (
+                      <Table.Tr key={idx}>
+                        <Table.Td fw={700}>Set {p.setNumber}</Table.Td>
+                        <Table.Td>{p.pointOrder}</Table.Td>
+                        <Table.Td>
+                          <Badge color={p.isWon ? 'green' : 'red'} variant="light">
+                            {p.isWon ? 'Mío' : 'Rival'}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          {p.category ? (
+                            <Badge color="gray" variant="dot">
+                              {p.category}
+                            </Badge>
+                          ) : (
+                            '-'
+                          )}
+                        </Table.Td>
+                        <Table.Td fw={500}>
+                          {p.subcategory || ''} {p.placement ? `(${p.placement})` : ''}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            </Paper>
+          </>
+        )}
+      </Stack>
+    );
+  }
+
+  // --- 2. FLUJO LIGHT (Formulario Rápido) ---
+  if (match.analysisType === 'Light') {
+    const isReadyToComplete =
+      Number(mySetsWon) === match.setsToWin || Number(oppSetsWon) === match.setsToWin;
+
+    return (
+      <Stack gap="xl" style={{ maxWidth: 600, margin: '0 auto' }}>
+        <Group>
+          <Button
+            variant="subtle"
+            color="gray"
+            leftSection={<IconArrowLeft size={16} />}
+            onClick={() => navigate(APP_ROUTES.ANALISIS.LIST)}
+          >
+            Volver a Análisis
+          </Button>
+        </Group>
+
+        <Paper withBorder p="xl" radius="md">
+          <Group justify="space-between" mb="lg">
+            <Title order={3}>Resultado (Modo Rápido)</Title>
+            <Badge color="blue" variant="light">
+              Al mejor de {match.setsToWin} Sets
+            </Badge>
+          </Group>
+
+          <SimpleGrid cols={2} mb="lg">
+            <NumberInput
+              label="Tus Sets Ganados"
+              min={0}
+              max={match.setsToWin}
+              value={mySetsWon}
+              onChange={setMySetsWon}
+              size="md"
+            />
+            <NumberInput
+              label={`Sets de ${match.opponentName}`}
+              min={0}
+              max={match.setsToWin}
+              value={oppSetsWon}
+              onChange={setOppSetsWon}
+              size="md"
+            />
+          </SimpleGrid>
+
+          <Textarea
+            label="Sensaciones, Conclusiones y Táctica"
+            placeholder="¿Qué ha funcionado? ¿Dónde te ha hecho daño? Escribe aquí tus notas para repasarlas en el futuro..."
+            minRows={5}
+            value={lightNotes}
+            onChange={(e) => setLightNotes(e.currentTarget.value)}
+            mb="xl"
+          />
+
+          <Button
+            fullWidth
+            color="green"
+            size="md"
+            leftSection={<IconDeviceFloppy size={20} />}
+            onClick={executeCompleteMatch}
+            disabled={!isReadyToComplete}
+          >
+            Guardar y Finalizar Partido
+          </Button>
+          {!isReadyToComplete && (
+            <Text c="red" size="xs" ta="center" mt="sm">
+              Uno de los dos jugadores debe ganar {match.setsToWin} sets para finalizar el partido.
+            </Text>
+          )}
         </Paper>
       </Stack>
     );
   }
 
-  const activeCatalog = isWonState ? ACTIONS_WON : ACTIONS_LOST_BASE;
-  const activePhaseList = Object.keys(activeCatalog);
-
+  // --- 3. FLUJO DEEP (Árbitro Punto a Punto) ---
   return (
-    <Stack gap="md" style={{ maxWidth: 1000, margin: '0 auto', touchAction: 'manipulation' }}>
-      {/* 1. BREADCRUMBS / BACK */}
+    <Stack gap="md" style={{ maxWidth: 800, margin: '0 auto', touchAction: 'manipulation' }}>
       <Group>
         <Button
           variant="subtle"
@@ -371,246 +502,152 @@ export const ManualMatchTracker = () => {
           leftSection={<IconArrowLeft size={16} />}
           onClick={() => navigate(APP_ROUTES.ANALISIS.LIST)}
         >
-          Volver a Análisis
+          Salir del Árbitro
         </Button>
       </Group>
 
-      <Group align="flex-start" wrap="wrap">
-        {/* 2. HISTORIAL DE PUNTOS LATERAL */}
-        <Paper
-          withBorder
-          p="sm"
-          radius="md"
-          style={{ flex: '1 1 250px', minWidth: 250, maxHeight: '80vh' }}
-        >
-          <Text fw={700} mb="sm" ta="center">
-            Historial del Set {currentSet}
-          </Text>
-          <ScrollArea h={500} offsetScrollbars>
-            <Stack gap="xs">
-              {currentSetPoints
-                .slice()
-                .reverse()
-                .map((p, idx) => (
-                  <Paper key={idx} p="xs" radius="sm" bg={p.isWon ? 'green.9' : 'red.9'} c="white">
-                    <Group justify="space-between" mb={4}>
-                      <Text size="xs" fw={700}>
-                        Punto {p.pointOrder}
-                      </Text>
-                      <Badge size="xs" color="gray" variant="white">
-                        {p.phase}
-                      </Badge>
-                    </Group>
-                    <Text size="sm" lh={1.2}>
-                      {p.side ? `${p.side} ` : ''}
-                      {p.technique} {p.placement ? `(${p.placement})` : ''}
-                      {p.errorModifier ? ` - ${p.errorModifier}` : ''}
-                    </Text>
-                  </Paper>
-                ))}
-              {currentSetPoints.length === 0 && (
-                <Text c="dimmed" size="sm" ta="center">
-                  No hay puntos aún
-                </Text>
-              )}
-            </Stack>
-          </ScrollArea>
-        </Paper>
-
-        {/* 3. TRACKER PRINCIPAL (MARCADOR + BOTONES) */}
-        <Stack style={{ flex: '3 1 500px', minWidth: 300 }}>
-          <Paper withBorder p="md" radius="md" bg="dark.7">
-            <Group justify="space-between" mb="xs">
-              <Badge color="blue" size="lg" variant="filled">
-                Set {currentSet}
-              </Badge>
-              <Group gap="xs">
-                <Badge color="gray" variant="outline">
-                  {mySetsWon} Sets a {oppSetsWon}
-                </Badge>
-                <ActionIcon color="red" variant="light" size="lg" onClick={handleUndoPoint}>
-                  <IconArrowBackUp size={20} />
-                </ActionIcon>
-              </Group>
-            </Group>
-
-            <Group justify="center" gap={40}>
-              <Stack align="center" gap={0}>
-                <Text c="dimmed" size="sm" fw={600}>
-                  TÚ
-                </Text>
-                <Text fz={70} fw={900} c="green.4" style={{ lineHeight: 1 }}>
-                  {myScore}
-                </Text>
-              </Stack>
-              <Text fz={40} fw={900} c="dimmed">
-                -
-              </Text>
-              <Stack align="center" gap={0}>
-                <Group
-                  gap={4}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setEditRivalModal(true)}
-                >
-                  <Text c="dimmed" size="sm" fw={600}>
-                    {match.opponentName.substring(0, 8).toUpperCase()}
-                  </Text>
-                  <IconEdit size={14} color="var(--mantine-color-dimmed)" />
-                </Group>
-                <Text fz={70} fw={900} c="red.4" style={{ lineHeight: 1 }}>
-                  {oppScore}
-                </Text>
-              </Stack>
-            </Group>
-          </Paper>
-
-          {/* FLUJO DE TOQUES */}
-          {isWonState === null ? (
-            <SimpleGrid cols={2} mt="xl">
-              <Button h={140} color="green" radius="md" fz={24} onClick={() => setIsWonState(true)}>
-                PUNTO MÍO
-              </Button>
-              <Button h={140} color="red" radius="md" fz={24} onClick={() => setIsWonState(false)}>
-                PUNTO RIVAL
-              </Button>
-            </SimpleGrid>
-          ) : activePhase === null ? (
-            <Stack mt="sm">
-              <Title order={3} ta="center" c={isWonState ? 'green' : 'red'}>
-                ¿Fase de Juego?
-              </Title>
-              <SimpleGrid cols={{ base: 2, sm: 3 }}>
-                {activePhaseList.map((phase) => (
-                  <Button
-                    key={phase}
-                    h={80}
-                    variant="light"
-                    color={isWonState ? 'green' : 'red'}
-                    onClick={() => setActivePhase(phase)}
-                  >
-                    {phase}
-                  </Button>
-                ))}
-              </SimpleGrid>
-              <Button variant="subtle" color="gray" mt="md" onClick={() => setIsWonState(null)}>
-                Atrás
-              </Button>
-            </Stack>
-          ) : pendingErrorAction !== null ? (
-            <Stack mt="sm">
-              <Title order={3} ta="center" c="red">
-                ¿Cuál fue el Error?
-              </Title>
-              <SimpleGrid cols={2}>
-                {ERROR_MODIFIERS.map((mod, i) => (
-                  <Button
-                    key={i}
-                    h={120}
-                    color={mod.color}
-                    fz={18}
-                    styles={{
-                      root: { padding: '8px' },
-                      label: { whiteSpace: 'normal', textAlign: 'center' },
-                    }}
-                    onClick={() => {
-                      handleRegisterPoint({ ...pendingErrorAction, errorModifier: mod.modifier });
-                    }}
-                  >
-                    {mod.label}
-                  </Button>
-                ))}
-              </SimpleGrid>
-              <Button
-                variant="subtle"
-                color="gray"
-                mt="md"
-                onClick={() => setPendingErrorAction(null)}
-              >
-                Atrás
-              </Button>
-            </Stack>
-          ) : (
-            <Stack mt="sm">
-              <Title order={3} ta="center">
-                {activePhase}
-              </Title>
-              {(() => {
-                const currentActions = activeCatalog[activePhase] || [];
-                const techniques = Array.from(
-                  new Set(currentActions.map((a) => a.technique).filter(Boolean)),
-                );
-                if (techniques.length <= 1) {
-                  return (
-                    <SimpleGrid cols={{ base: 2, sm: 3 }}>
-                      {currentActions.map((action, i) => (
-                        <Button
-                          key={i}
-                          color={isWonState ? 'green' : 'red'}
-                          variant="outline"
-                          styles={{
-                            root: { height: 'auto', minHeight: 80, padding: '8px' },
-                            label: { whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2 },
-                          }}
-                          onClick={() =>
-                            isWonState || activePhase === 'Servicio' || activePhase === 'JuegoPies'
-                              ? handleRegisterPoint(action)
-                              : setPendingErrorAction(action)
-                          }
-                        >
-                          {action.label}
-                        </Button>
-                      ))}
-                    </SimpleGrid>
-                  );
-                }
+      {/* MARCADOR Y BOTONES PRIMERO */}
+      <Paper withBorder p="md" radius="md" bg="dark.7">
+        <Group justify="space-between" mb="xs">
+          <ScrollArea w={{ base: 200, sm: 300 }} type="never">
+            <Group gap="xs" wrap="nowrap" pb={4}>
+              {Array.from({ length: currentSet }, (_, i) => i + 1).map((setNum) => {
+                const isCurrent = setNum === currentSet;
                 return (
-                  <SimpleGrid
-                    cols={{ base: 2, sm: techniques.length > 2 ? techniques.length : 2 }}
-                    spacing="md"
+                  <Button
+                    key={setNum}
+                    size="xs"
+                    variant={isCurrent ? 'filled' : 'light'}
+                    color="blue"
+                    onClick={() => !isCurrent && setViewingSetSummary(setNum)}
+                    style={{ flexShrink: 0 }}
                   >
-                    {techniques.map((tech) => (
-                      <Stack key={tech} gap="xs">
-                        <Text ta="center" fw={700} size="sm" c="dimmed" tt="uppercase">
-                          {tech}
-                        </Text>
-                        {currentActions
-                          .filter((a) => a.technique === tech)
-                          .map((action, i) => (
-                            <Button
-                              key={i}
-                              color={isWonState ? 'green' : 'red'}
-                              variant="outline"
-                              styles={{
-                                root: { height: 'auto', minHeight: 80, padding: '8px' },
-                                label: {
-                                  whiteSpace: 'normal',
-                                  textAlign: 'center',
-                                  lineHeight: 1.2,
-                                },
-                              }}
-                              onClick={() =>
-                                isWonState
-                                  ? handleRegisterPoint(action)
-                                  : setPendingErrorAction(action)
-                              }
-                            >
-                              {action.label}
-                            </Button>
-                          ))}
-                      </Stack>
-                    ))}
-                  </SimpleGrid>
+                    Set {setNum}
+                  </Button>
                 );
-              })()}
-              <Button variant="subtle" color="gray" mt="md" onClick={() => setActivePhase(null)}>
-                Atrás
-              </Button>
-            </Stack>
-          )}
-        </Stack>
-      </Group>
+              })}
+            </Group>
+          </ScrollArea>
+          <Group gap="xs">
+            <Badge color="gray" variant="outline">
+              {mySetsWon} Sets a {oppSetsWon}
+            </Badge>
+            <ActionIcon color="red" variant="light" size="lg" onClick={handleUndoPoint}>
+              <IconArrowBackUp size={20} />
+            </ActionIcon>
+          </Group>
+        </Group>
 
-      {/* MODALES DE CONTROL */}
+        <Group justify="center" gap={50} my="sm">
+          <Stack align="center" gap={0}>
+            <Text c="dimmed" size="md" fw={600}>
+              TÚ
+            </Text>
+            <Text fz={80} fw={900} c="green.4" style={{ lineHeight: 1 }}>
+              {myScore}
+            </Text>
+          </Stack>
+          <Text fz={50} fw={900} c="dimmed">
+            -
+          </Text>
+          <Stack align="center" gap={0}>
+            <Group gap={4} style={{ cursor: 'pointer' }} onClick={() => setEditRivalModal(true)}>
+              <Text c="dimmed" size="md" fw={600}>
+                {match.opponentName.substring(0, 10).toUpperCase()}
+              </Text>
+              <IconEdit size={16} color="var(--mantine-color-dimmed)" />
+            </Group>
+            <Text fz={80} fw={900} c="red.4" style={{ lineHeight: 1 }}>
+              {oppScore}
+            </Text>
+          </Stack>
+        </Group>
+      </Paper>
+
+      {/* FLUJO DE BOTONES DE DECISIÓN (TREE) */}
+      <Paper withBorder p="md" radius="md">
+        {isWonState === null ? (
+          <SimpleGrid cols={2}>
+            <Button
+              h={140}
+              color="green"
+              radius="md"
+              fz={24}
+              onClick={() => handleStartPoint(true)}
+            >
+              PUNTO MÍO
+            </Button>
+            <Button h={140} color="red" radius="md" fz={24} onClick={() => handleStartPoint(false)}>
+              PUNTO RIVAL
+            </Button>
+          </SimpleGrid>
+        ) : (
+          <Stack>
+            <Title order={3} ta="center" c={isWonState ? 'green' : 'red'}>
+              Selecciona Categoría
+            </Title>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              {currentNodes?.map((node, i) => (
+                <Button
+                  key={i}
+                  h={70}
+                  variant="outline"
+                  color={isWonState ? 'green' : 'red'}
+                  onClick={() => handleNodeClick(node)}
+                >
+                  {node.label}
+                </Button>
+              ))}
+            </SimpleGrid>
+            <Button variant="subtle" color="gray" mt="sm" onClick={resetFlow}>
+              Cancelar (Volver a Punto Mío/Rival)
+            </Button>
+          </Stack>
+        )}
+      </Paper>
+
+      {/* HISTORIAL COMPACTO DEBAJO */}
+      <Paper withBorder p="sm" radius="md">
+        <Text fw={700} mb="sm">
+          Historial del Set {currentSet}
+        </Text>
+        <ScrollArea h={250} offsetScrollbars>
+          <Stack gap="xs">
+            {currentSetPoints
+              .slice()
+              .reverse()
+              .map((p, idx) => (
+                <Group
+                  key={idx}
+                  justify="space-between"
+                  p="xs"
+                  bg={p.isWon ? 'green.9' : 'red.9'}
+                  c="white"
+                  style={{ borderRadius: 8 }}
+                >
+                  <Group gap="sm">
+                    <Text size="sm" fw={700}>
+                      #{p.pointOrder}
+                    </Text>
+                    <Badge size="xs" color="gray" variant="white">
+                      {p.category || 'Light'}
+                    </Badge>
+                  </Group>
+                  <Text size="sm">
+                    {p.subcategory || ''} {p.placement ? `(${p.placement})` : ''}
+                  </Text>
+                </Group>
+              ))}
+            {currentSetPoints.length === 0 && (
+              <Text c="dimmed" size="sm" ta="center">
+                El set acaba de empezar.
+              </Text>
+            )}
+          </Stack>
+        </ScrollArea>
+      </Paper>
+
+      {/* MODALES */}
       <Modal
         opened={editRivalModal}
         onClose={() => setEditRivalModal(false)}
@@ -633,35 +670,160 @@ export const ManualMatchTracker = () => {
         withCloseButton={false}
         centered
         closeOnClickOutside={false}
+        size="lg"
       >
         <Stack align="center">
           <IconTrophy size={50} color="var(--mantine-color-yellow-5)" />
           <Title order={3}>¡Set Finalizado!</Title>
           <Text size="lg" fw={700}>
-            {myScore > oppScore ? 'Has ganado el set' : 'El rival ganó el set'} ({myScore} -{' '}
-            {oppScore})
+            {myScore > oppScore ? 'Has ganado' : 'Rival gana'} ({myScore} - {oppScore})
           </Text>
-          <Button
-            fullWidth
-            color="green"
-            mt="md"
-            leftSection={<IconCheck />}
-            onClick={handleConfirmSetEnd}
-          >
-            Confirmar y Avanzar
-          </Button>
-          <Button
-            fullWidth
-            variant="subtle"
-            color="red"
-            onClick={() => {
-              setShowEndSetModal(false);
-              handleUndoPoint();
-            }}
-          >
-            Deshacer último punto
-          </Button>
+
+          <SimpleGrid cols={2} w="100%" mt="md">
+            <Paper p="sm" bg="green.0" c="green.9" radius="md">
+              <Text fw={700} mb="xs" ta="center">
+                Tus Fortalezas (Ganados)
+              </Text>
+              <ScrollArea h={160} offsetScrollbars>
+                <Stack gap={6}>
+                  {getSortedCategories(activeSummary.wonCategories).length === 0 ? (
+                    <Text size="xs" ta="center" c="dimmed">
+                      Ninguno
+                    </Text>
+                  ) : (
+                    getSortedCategories(activeSummary.wonCategories).map(([label, count]: any) => (
+                      <Group key={label} justify="space-between" wrap="nowrap" align="flex-start">
+                        <Text size="xs" fw={600} lh={1.2} style={{ flex: 1 }}>
+                          {label}
+                        </Text>
+                        <Text size="sm" fw={900}>
+                          {count}
+                        </Text>
+                      </Group>
+                    ))
+                  )}
+                </Stack>
+              </ScrollArea>
+            </Paper>
+            <Paper p="sm" bg="red.0" c="red.9" radius="md">
+              <Text fw={700} mb="xs" ta="center">
+                A Mejorar (Perdidos)
+              </Text>
+              <ScrollArea h={160} offsetScrollbars>
+                <Stack gap={6}>
+                  {getSortedCategories(activeSummary.lostCategories).length === 0 ? (
+                    <Text size="xs" ta="center" c="dimmed">
+                      Ninguno
+                    </Text>
+                  ) : (
+                    getSortedCategories(activeSummary.lostCategories).map(([label, count]: any) => (
+                      <Group key={label} justify="space-between" wrap="nowrap" align="flex-start">
+                        <Text size="xs" fw={600} lh={1.2} style={{ flex: 1 }}>
+                          {label}
+                        </Text>
+                        <Text size="sm" fw={900}>
+                          {count}
+                        </Text>
+                      </Group>
+                    ))
+                  )}
+                </Stack>
+              </ScrollArea>
+            </Paper>
+          </SimpleGrid>
+
+          <Group grow w="100%" mt="md">
+            <Button
+              variant="subtle"
+              color="red"
+              onClick={() => {
+                setShowEndSetModal(false);
+                handleUndoPoint();
+              }}
+            >
+              Deshacer Último Punto
+            </Button>
+            <Button color="blue" onClick={handleConfirmSetEnd}>
+              Avanzar al Siguiente Set
+            </Button>
+          </Group>
         </Stack>
+      </Modal>
+
+      <Modal
+        opened={viewingSetSummary !== null}
+        onClose={() => setViewingSetSummary(null)}
+        title={
+          <Text fw={700} size="lg">
+            Resumen del Set {viewingSetSummary}
+          </Text>
+        }
+        centered
+        size="lg"
+      >
+        {viewSummary && (
+          <Stack align="center">
+            <Text size="lg" fw={700}>
+              Resultado: {viewSummary.myScore > viewSummary.oppScore ? 'Ganaste' : 'Rival ganó'} (
+              {viewSummary.myScore} - {viewSummary.oppScore})
+            </Text>
+            <SimpleGrid cols={2} w="100%" mt="sm">
+              <Paper p="sm" bg="green.0" c="green.9" radius="md">
+                <Text fw={700} mb="xs" ta="center">
+                  Tus Fortalezas
+                </Text>
+                <ScrollArea h={160} offsetScrollbars>
+                  <Stack gap={6}>
+                    {getSortedCategories(viewSummary.wonCategories).length === 0 ? (
+                      <Text size="xs" ta="center" c="dimmed">
+                        Ninguno
+                      </Text>
+                    ) : (
+                      getSortedCategories(viewSummary.wonCategories).map(([label, count]: any) => (
+                        <Group key={label} justify="space-between" wrap="nowrap" align="flex-start">
+                          <Text size="xs" fw={600} lh={1.2} style={{ flex: 1 }}>
+                            {label}
+                          </Text>
+                          <Text size="sm" fw={900}>
+                            {count}
+                          </Text>
+                        </Group>
+                      ))
+                    )}
+                  </Stack>
+                </ScrollArea>
+              </Paper>
+              <Paper p="sm" bg="red.0" c="red.9" radius="md">
+                <Text fw={700} mb="xs" ta="center">
+                  A Mejorar
+                </Text>
+                <ScrollArea h={160} offsetScrollbars>
+                  <Stack gap={6}>
+                    {getSortedCategories(viewSummary.lostCategories).length === 0 ? (
+                      <Text size="xs" ta="center" c="dimmed">
+                        Ninguno
+                      </Text>
+                    ) : (
+                      getSortedCategories(viewSummary.lostCategories).map(([label, count]: any) => (
+                        <Group key={label} justify="space-between" wrap="nowrap" align="flex-start">
+                          <Text size="xs" fw={600} lh={1.2} style={{ flex: 1 }}>
+                            {label}
+                          </Text>
+                          <Text size="sm" fw={900}>
+                            {count}
+                          </Text>
+                        </Group>
+                      ))
+                    )}
+                  </Stack>
+                </ScrollArea>
+              </Paper>
+            </SimpleGrid>
+            <Button fullWidth mt="md" onClick={() => setViewingSetSummary(null)}>
+              Cerrar Resumen
+            </Button>
+          </Stack>
+        )}
       </Modal>
 
       <Modal
@@ -675,13 +837,20 @@ export const ManualMatchTracker = () => {
           <IconTrophy size={60} color="var(--mantine-color-blue-5)" />
           <Title order={2}>¡Partido Finalizado!</Title>
           <Text size="xl" fw={700}>
-            Resultado: {mySetsWon} - {oppSetsWon}
+            Resultado Final: {mySetsWon} - {oppSetsWon}
           </Text>
-          <Text c="dimmed" ta="center">
-            Los datos se han guardado. Ya puedes consultar tus estadísticas en el perfil.
-          </Text>
-          <Button fullWidth color="blue" mt="md" onClick={() => navigate(APP_ROUTES.ANALISIS.LIST)}>
-            Volver a Mis Análisis
+
+          <Textarea
+            w="100%"
+            label="Conclusiones rápidas"
+            placeholder="Ej: He sacado mal, me costaba leer el efecto..."
+            minRows={3}
+            value={lightNotes}
+            onChange={(e) => setLightNotes(e.currentTarget.value)}
+          />
+
+          <Button fullWidth color="blue" mt="md" onClick={executeCompleteMatch}>
+            Guardar Conclusiones y Cerrar
           </Button>
         </Stack>
       </Modal>

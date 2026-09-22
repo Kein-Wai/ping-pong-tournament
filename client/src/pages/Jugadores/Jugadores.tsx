@@ -472,7 +472,12 @@ export const Jugadores = () => {
       <Modal
         opened={approveModal.opened}
         onClose={() => setApproveModal({ opened: false, player: null })}
-        title={<Title order={4}>Evaluación Inicial de Nivel</Title>}
+        // 👇 CAMBIADO DE Title A Text
+        title={
+          <Text fw={700} size="lg">
+            Evaluación Inicial de Nivel
+          </Text>
+        }
         size="xl"
         centered
         overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
@@ -569,7 +574,11 @@ export const Jugadores = () => {
       <Modal
         opened={editEloModal.opened}
         onClose={() => setEditEloModal({ opened: false, player: null })}
-        title={<Title order={4}>Ajuste Manual de ELO</Title>}
+        title={
+          <Text fw={700} size="lg">
+            Ajuste Manual de ELO
+          </Text>
+        }
         centered
         overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
       >

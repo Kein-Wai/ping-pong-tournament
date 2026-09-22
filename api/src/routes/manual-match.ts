@@ -162,6 +162,7 @@ router.put('/:id/complete', async (req, res) => {
           status: MatchStatus.Completado,
           mySets: validation.data.mySets,
           opponentSets: validation.data.opponentSets,
+          lightNotes: validation.data.lightNotes,
         },
       });
 

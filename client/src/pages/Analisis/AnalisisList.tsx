@@ -33,6 +33,7 @@ export const AnalisisList = () => {
   const [opponentName, setOppName] = useState('');
   const [matchType, setMatchType] = useState('Amistoso');
   const [matchFormat, setMatchFormat] = useState<string>('Individual');
+  const [analysisType, setAnalysisType] = useState<string>('Deep'); // 👈 NUEVO
   const [opponentHand, setOpponentHand] = useState<string | null>(null);
   const [opponentStyle, setOpponentStyle] = useState<string | null>(null);
   const [opponentLevel, setOpponentLevel] = useState<string | null>(null);
@@ -53,8 +54,9 @@ export const AnalisisList = () => {
       const res = await api.post(ENDPOINTS.MANUAL_MATCHES.BASE, {
         opponentName,
         matchType,
-        location: 'Casa', // Valores por defecto para ir rápido
+        location: 'Casa',
         format: matchFormat,
+        analysisType, // 👈 ENVIAMOS EL TIPO DE ANÁLISIS
         opponentHand,
         opponentStyle,
         opponentLevel,
@@ -71,7 +73,6 @@ export const AnalisisList = () => {
 
   return (
     <Stack gap="lg">
-      {/* 👇 1. CABECERA ESTANDARIZADA (Icono con fondo + Botón) */}
       <Group justify="space-between" align="center" mb="sm">
         <Group gap="sm">
           <ThemeIcon size={40} radius="md" color="blue" variant="light">
@@ -84,7 +85,6 @@ export const AnalisisList = () => {
         </Button>
       </Group>
 
-      {/* 👇 2. RENDERIZADO CONDICIONAL CON ESTADO VACÍO */}
       {loading ? (
         <Center h={400}>
           <Loader color="blue" type="bars" />
@@ -116,10 +116,9 @@ export const AnalisisList = () => {
                   <Text fw={700} size="lg">
                     vs {m.opponentName}
                   </Text>
-
                   <Text c="dimmed" size="sm">
                     {m.date ? new Date(m.date).toLocaleDateString('es-ES') : 'Sin fecha'} · Formato:{' '}
-                    {m.format} · {m.matchType}
+                    {m.format} · {m.matchType} ({m.analysisType})
                   </Text>
                 </div>
                 <Group>
@@ -145,15 +144,31 @@ export const AnalisisList = () => {
         onClose={() => setModalOpen(false)}
         title={<Text fw={700}>Configurar Partido</Text>}
         centered
+        size="lg"
       >
         <Stack gap="md">
-          <DateInput
-            label="Fecha del Partido"
-            value={matchDate}
-            onChange={(val) => setMatchDate(val ? new Date(val) : null)}
-            maxDate={new Date()} // No permitir fechas futuras
-            clearable
-          />
+          <SimpleGrid cols={2}>
+            <DateInput
+              label="Fecha del Partido"
+              value={matchDate}
+              onChange={(val) => setMatchDate(val ? new Date(val) : null)}
+              maxDate={new Date()}
+              clearable
+            />
+            <Select
+              label="Nivel de Detalle"
+              description="Light = Marcador | Deep = Puntos y Técnica"
+              data={[
+                { value: 'Light', label: 'Rápido (Light)' },
+                { value: 'Deep', label: 'Profundo (Deep)' },
+              ]}
+              value={analysisType}
+              onChange={(val) => setAnalysisType(val!)}
+              allowDeselect={false}
+              required
+            />
+          </SimpleGrid>
+
           <TextInput
             label="Nombre del Rival"
             required
@@ -180,7 +195,6 @@ export const AnalisisList = () => {
           <SimpleGrid cols={2}>
             <Select
               label="Mano del Rival"
-              placeholder="Opcional"
               data={['Diestro', 'Zurdo']}
               value={opponentHand}
               onChange={setOpponentHand}
@@ -188,7 +202,6 @@ export const AnalisisList = () => {
             />
             <Select
               label="Estilo del Rival"
-              placeholder="Opcional"
               data={['Ofensivo', 'Defensivo']}
               value={opponentStyle}
               onChange={setOpponentStyle}
@@ -198,7 +211,6 @@ export const AnalisisList = () => {
           <SimpleGrid cols={2}>
             <Select
               label="Nivel del Rival"
-              placeholder="Opcional"
               data={['Peor', 'Igual', 'Mejor']}
               value={opponentLevel}
               onChange={setOpponentLevel}

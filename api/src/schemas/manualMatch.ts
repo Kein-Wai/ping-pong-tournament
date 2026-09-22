@@ -6,11 +6,10 @@ import {
   OpponentLevel,
   DominantHand,
   Playstyle,
-  PointPhase,
-  StrokeSide,
-  StrokeTechnique,
-  StrokePlacement,
-  ErrorModifier,
+  AnalysisType,
+  PointCategory,
+  PointSubcategory,
+  PointPlacement,
 } from '@prisma/client';
 
 export const createManualMatchSchema = z.object({
@@ -18,6 +17,7 @@ export const createManualMatchSchema = z.object({
   location: z.enum(MatchLocation),
   matchType: z.enum(ManualMatchType),
   format: z.enum(MatchFormat),
+  analysisType: z.enum(AnalysisType).default('Deep'), // 👈 Añadido
 
   opponentName: z.string().min(1, 'El nombre del rival es obligatorio'),
   opponentHand: z.enum(DominantHand).optional().nullable(),
@@ -31,17 +31,16 @@ export const addPointSchema = z.object({
   pointOrder: z.number().int().min(1),
   isWon: z.boolean(),
 
-  // Los 4 niveles de tu estructura (pueden ser nulos si es un error no forzado, por ejemplo)
-  phase: z.enum(PointPhase).optional().nullable(),
-  side: z.enum(StrokeSide).optional().nullable(),
-  technique: z.enum(StrokeTechnique).optional().nullable(),
-  placement: z.enum(StrokePlacement).optional().nullable(),
-  errorModifier: z.enum(ErrorModifier).optional().nullable(),
+  // 👇 Nueva taxonomía opcional para soportar tanto puntos completos como rápidos
+  category: z.enum(PointCategory).optional().nullable(),
+  subcategory: z.enum(PointSubcategory).optional().nullable(),
+  placement: z.enum(PointPlacement).optional().nullable(),
 });
 
 export const completeMatchSchema = z.object({
   mySets: z.number().int().min(0),
   opponentSets: z.number().int().min(0),
+  lightNotes: z.string().optional().nullable(), // 👈 Añadido para el modo Light
 });
 
 export const updateManualMatchSchema = z.object({
@@ -49,4 +48,5 @@ export const updateManualMatchSchema = z.object({
   opponentHand: z.enum(DominantHand).optional().nullable(),
   opponentStyle: z.enum(Playstyle).optional().nullable(),
   opponentLevel: z.enum(OpponentLevel).optional().nullable(),
+  lightNotes: z.string().optional().nullable(),
 });

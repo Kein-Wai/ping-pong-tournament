@@ -8,20 +8,35 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum PointPhase {
-  Servicio
-  Resto
-  TerceraBola
-  Rally
-  Defensa
-  JuegoPies
-  ErrorRival
-  WinnerRival
+enum AnalysisType {
+  Light
+  Deep
 }
 
-enum StrokeSide {
+enum PointCategory {
+  Servicio
+  Ataque
+  Defensa
+  Resto
+  FalloSaque
+  ErrorNoForzado
+  ErrorForzado
+  Movilidad
+  SinRazon
+}
+
+enum PointSubcategory {
+  Cortado
+  Topeado
+  SinEfecto
   Derecha
   Reves
+}
+
+enum PointPlacement {
+  Derecha
+  Reves
+  Centro
 }
 
 enum KnockoutType {
@@ -29,38 +44,7 @@ enum KnockoutType {
   B
 }
 
-enum StrokeTechnique {
-  Ace
-  Corto
-  Largo
-  Flip
-  Corte
-  Push
-  Ataque
-  Top
-  Contra
-  Smash
-  Bloqueo
-  Globo
-  JuegoPies
-  Error
-  Winner
-}
 
-enum StrokePlacement {
-  Cruzado
-  Paralelo
-  Medio
-  Corto
-  Largo
-}
-
-enum ErrorModifier {
-  Red
-  Fuera
-  BloqueoRival
-  WinnerRival
-}
 
 enum MatchLocation {
   Casa
@@ -649,6 +633,10 @@ model ManualMatch {
   status          MatchStatus      @default(Programado)
   mySets          Int              @default(0) @map("my_sets")
   opponentSets    Int              @default(0) @map("opponent_sets")
+
+  // 👇 NUEVOS CAMPOS PARA LIGHT VS DEEP
+  analysisType    AnalysisType     @default(Deep) @map("analysis_type")
+  lightNotes      String?          @db.Text @map("light_notes")
   
   // Relaciones
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -666,11 +654,10 @@ model PointAnalysis {
   pointOrder      Int              @map("point_order")
   isWon           Boolean          @map("is_won")      
   
-  phase           PointPhase?  
-  side            StrokeSide?  
-  technique       StrokeTechnique? 
-  placement       StrokePlacement? 
-  errorModifier   ErrorModifier?   @map("error_modifier") 
+  // 👇 NUEVA TAXONOMÍA DE PUNTOS
+  category        PointCategory?  
+  subcategory     PointSubcategory?  
+  placement       PointPlacement? 
   
   // Relaciones
   match           ManualMatch      @relation(fields: [manualMatchId], references: [id], onDelete: Cascade)

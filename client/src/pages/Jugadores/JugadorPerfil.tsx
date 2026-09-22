@@ -1275,7 +1275,11 @@ export const JugadorPerfil = () => {
       <Modal
         opened={editModalOpened}
         onClose={() => setEditModalOpened(false)}
-        title={<Title order={4}>Editar Mis Datos</Title>}
+        title={
+          <Text fw={700} size="lg">
+            Editar Mis Datos
+          </Text>
+        }
         centered
       >
         <Stack gap="md">
@@ -1325,7 +1329,11 @@ export const JugadorPerfil = () => {
       <Modal
         opened={consolidateModalOpened}
         onClose={() => setConsolidateModalOpened(false)}
-        title={<Title order={4}>Consolidar Progreso</Title>}
+        title={
+          <Text fw={700} size="lg">
+            Consolidar Progreso
+          </Text>
+        }
         size="lg"
         centered
       >
