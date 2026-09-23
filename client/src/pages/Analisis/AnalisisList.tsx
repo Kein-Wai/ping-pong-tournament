@@ -14,6 +14,7 @@ import {
   Select,
   ThemeIcon,
   SimpleGrid,
+  Badge,
 } from '@mantine/core';
 import { IconDeviceAnalytics, IconPlus } from '@tabler/icons-react';
 import { api } from '../../api/axios';
@@ -28,6 +29,7 @@ export const AnalisisList = () => {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [currentSeason, setCurrentSeason] = useState<string>('');
 
   // Formulario rápido
   const [opponentName, setOppName] = useState('');
@@ -41,9 +43,13 @@ export const AnalisisList = () => {
   const [matchDate, setMatchDate] = useState<Date | null>(new Date());
 
   useEffect(() => {
-    api
-      .get(ENDPOINTS.MANUAL_MATCHES.BASE)
-      .then((res) => setMatches(res.data.data))
+    // 👇 Cargamos partidos y temporada a la vez
+    Promise.all([api.get(ENDPOINTS.MANUAL_MATCHES.BASE), api.get(ENDPOINTS.SEASONS.BASE)])
+      .then(([matchesRes, seasonsRes]) => {
+        setMatches(matchesRes.data.data);
+        const activeS = seasonsRes.data.data.find((s: any) => s.isCurrent);
+        if (activeS) setCurrentSeason(activeS.name);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -78,7 +84,12 @@ export const AnalisisList = () => {
           <ThemeIcon size={40} radius="md" color="blue" variant="light">
             <IconDeviceAnalytics size={24} />
           </ThemeIcon>
-          <Title order={2}>Mis Análisis Pro</Title>
+          <div>
+            <Title order={2}>Mis Análisis Pro</Title>
+            <Badge color="grape" variant="light" size="xs">
+              {currentSeason || 'Cargando temporada...'}
+            </Badge>
+          </div>
         </Group>
         <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpen(true)}>
           Nuevo Partido

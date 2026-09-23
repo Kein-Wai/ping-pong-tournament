@@ -19,6 +19,7 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/clubs', clubRoutes);
+router.use('/webhooks', webhookRoutes);
 router.use('/user-types', verifyToken, userTypeRoutes);
 router.use('/users', verifyToken, userRoutes);
 router.use('/matches', verifyToken, matchRoutes);
@@ -26,7 +27,7 @@ router.use('/tournaments', verifyToken, tournamentRoutes);
 router.use('/exercises', verifyToken, exerciseRoutes);
 router.use('/trainings', verifyToken, trainingRoutes);
 router.use('/manual-matches', verifyToken, manualMatchRoutes);
-router.use('/webhooks', webhookRoutes);
+
 router.use('/skills', verifyToken, skillsRoutes);
 router.use('/general-trainings', verifyToken, generalTrainingRoutes);
 router.use('/teams', verifyToken, teamRoutes);

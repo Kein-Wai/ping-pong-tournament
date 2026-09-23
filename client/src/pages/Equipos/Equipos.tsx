@@ -24,14 +24,18 @@ export const Equipos = () => {
   const navigate = useNavigate();
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentSeason, setCurrentSeason] = useState<string>('');
 
   const canCreate = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
 
   useEffect(() => {
     if (user?.clubId) {
-      api
-        .get(ENDPOINTS.TEAMS.BY_CLUB(user.clubId))
-        .then((res) => setTeams(res.data.data))
+      Promise.all([api.get(ENDPOINTS.TEAMS.BY_CLUB(user.clubId)), api.get(ENDPOINTS.SEASONS.BASE)])
+        .then(([teamsRes, seasonsRes]) => {
+          setTeams(teamsRes.data.data);
+          const activeS = seasonsRes.data.data.find((s: any) => s.isCurrent);
+          if (activeS) setCurrentSeason(activeS.name);
+        })
         .catch(console.error)
         .finally(() => setLoading(false));
     } else {
@@ -53,7 +57,12 @@ export const Equipos = () => {
           <ThemeIcon size={40} radius="md" color="blue" variant="light">
             <IconShield size={24} />
           </ThemeIcon>
-          <Title order={2}>Equipos del Club</Title>
+          <div>
+            <Title order={2}>Equipos del Club</Title>
+            <Badge color="grape" variant="light" size="xs">
+              {currentSeason || 'Cargando temporada...'}
+            </Badge>
+          </div>
         </Group>
         {canCreate && (
           <Button

@@ -1,4 +1,7 @@
 export const ENDPOINTS = {
+  SEASONS: {
+    BASE: '/seasons',
+  },
   AUTH: {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',

@@ -122,7 +122,7 @@ export const JugadorPerfil = () => {
   const [player, setPlayer] = useState<UserProfile | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [currentSeason, setCurrentSeason] = useState<string>('');
   const [editModalOpened, setEditModalOpened] = useState(false);
   const [consolidateModalOpened, setConsolidateModalOpened] = useState(false);
   const [approvedGains, setApprovedGains] = useState<Record<string, number>>({});
@@ -170,10 +170,14 @@ export const JugadorPerfil = () => {
 
   const fetchPlayerInfo = async () => {
     try {
-      const [playerRes, matchesRes] = await Promise.all([
+      const [playerRes, matchesRes, seasonsRes] = await Promise.all([
         api.get(ENDPOINTS.USERS.BY_ID(id!)),
         api.get(ENDPOINTS.MATCHES.BASE),
+        api.get(ENDPOINTS.SEASONS.BASE),
       ]);
+
+      const activeS = seasonsRes.data.data.find((s: any) => s.isCurrent);
+      if (activeS) setCurrentSeason(activeS.name);
 
       const playerData = playerRes.data.data || playerRes.data;
       setPlayer(playerData);
@@ -544,6 +548,9 @@ export const JugadorPerfil = () => {
               <Title order={1}>
                 {player.name} {player.surname}
               </Title>
+              <Badge color="grape" variant="light" mb="xs">
+                {currentSeason}
+              </Badge>
               {player.nickname && (
                 <Text c="dimmed" size="md" fs="italic">
                   "{player.nickname}"
@@ -818,66 +825,6 @@ export const JugadorPerfil = () => {
             </Center>
           )}
         </Card>
-
-        {/* ANÁLISIS TÉCNICO CUALITATIVO (PLANES) */}
-        {canViewTrainings && (
-          <Card withBorder radius="md" shadow="sm" p="lg" style={{ gridColumn: '1 / -1' }}>
-            <Group gap="xs" mb="md">
-              <ThemeIcon color="orange" variant="light">
-                <IconClipboardList size={18} />
-              </ThemeIcon>
-              <Title order={4}>Último Análisis Técnico</Title>
-            </Group>
-
-            {latestPlan ? (
-              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-                <Paper
-                  withBorder
-                  p="sm"
-                  bg="var(--mantine-color-gray-0)"
-                  style={{ darkHidden: true }}
-                >
-                  <Group gap="xs" mb={4}>
-                    <IconTrendingUp size={16} color="var(--mantine-color-green-6)" />
-                    <Text fw={600} size="sm">
-                      Fortalezas
-                    </Text>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    {latestPlan.strengths}
-                  </Text>
-                </Paper>
-
-                <Paper
-                  withBorder
-                  p="sm"
-                  bg="var(--mantine-color-gray-0)"
-                  style={{ darkHidden: true }}
-                >
-                  <Group gap="xs" mb={4}>
-                    <IconTrendingDown size={16} color="var(--mantine-color-red-6)" />
-                    <Text fw={600} size="sm">
-                      A Mejorar
-                    </Text>
-                  </Group>
-                  <Text size="sm" c="dimmed">
-                    {latestPlan.weaknesses}
-                  </Text>
-                </Paper>
-              </SimpleGrid>
-            ) : (
-              <Center
-                h={100}
-                bg="var(--mantine-color-gray-0)"
-                style={{ borderRadius: 8, darkHidden: true }}
-              >
-                <Text c="dimmed" size="sm" ta="center">
-                  El entrenador aún no ha creado un macrociclo para ti.
-                </Text>
-              </Center>
-            )}
-          </Card>
-        )}
       </SimpleGrid>
 
       {/* ESTADÍSTICAS TRADICIONALES */}
@@ -1209,7 +1156,7 @@ export const JugadorPerfil = () => {
       </Card>
 
       {/* SECCIÓN DE HISTORIAL DE MACROCICLOS */}
-      {canViewTrainings && (
+      {canViewTrainings && (isAdmin || (trainings.length > 0 && isOwnProfile)) && (
         <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
           <Group justify="space-between" mb="md">
             <Group gap="sm">
@@ -1267,6 +1214,66 @@ export const JugadorPerfil = () => {
                 </Card>
               ))}
             </SimpleGrid>
+          )}
+        </Card>
+      )}
+
+      {/* ANÁLISIS TÉCNICO CUALITATIVO (PLANES) */}
+      {canViewTrainings && (isAdmin || (trainings.length > 0 && isOwnProfile)) && (
+        <Card withBorder radius="md" shadow="sm" p="lg" style={{ gridColumn: '1 / -1' }}>
+          <Group gap="xs" mb="md">
+            <ThemeIcon color="orange" variant="light">
+              <IconClipboardList size={18} />
+            </ThemeIcon>
+            <Title order={4}>Último Análisis Técnico</Title>
+          </Group>
+
+          {latestPlan ? (
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+              <Paper
+                withBorder
+                p="sm"
+                bg="var(--mantine-color-gray-0)"
+                style={{ darkHidden: true }}
+              >
+                <Group gap="xs" mb={4}>
+                  <IconTrendingUp size={16} color="var(--mantine-color-green-6)" />
+                  <Text fw={600} size="sm">
+                    Fortalezas
+                  </Text>
+                </Group>
+                <Text size="sm" c="dimmed">
+                  {latestPlan.strengths}
+                </Text>
+              </Paper>
+
+              <Paper
+                withBorder
+                p="sm"
+                bg="var(--mantine-color-gray-0)"
+                style={{ darkHidden: true }}
+              >
+                <Group gap="xs" mb={4}>
+                  <IconTrendingDown size={16} color="var(--mantine-color-red-6)" />
+                  <Text fw={600} size="sm">
+                    A Mejorar
+                  </Text>
+                </Group>
+                <Text size="sm" c="dimmed">
+                  {latestPlan.weaknesses}
+                </Text>
+              </Paper>
+            </SimpleGrid>
+          ) : (
+            <Center
+              h={100}
+              bg="var(--mantine-color-gray-0)"
+              style={{ borderRadius: 8, darkHidden: true }}
+            >
+              <Text c="dimmed" size="sm" ta="center">
+                El entrenador aún no ha creado un macrociclo para ti.
+              </Text>
+            </Center>
           )}
         </Card>
       )}
