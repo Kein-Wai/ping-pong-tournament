@@ -33,6 +33,7 @@ import {
   IconCalendarEvent,
   IconShield,
   IconBug,
+  IconCalendarStats,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes';
@@ -165,6 +166,12 @@ export const MainLayout = () => {
       show: true,
       badge:
         notificationsBadge.pendingTournaments > 0 ? notificationsBadge.pendingTournaments : null, // 👈 AÑADIDO
+    },
+    {
+      label: 'Calendario Oficial',
+      icon: IconCalendarStats,
+      path: APP_ROUTES.CALENDARIO,
+      show: true,
     },
     {
       label: 'Entrenamientos Grupales',

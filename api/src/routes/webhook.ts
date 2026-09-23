@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../db';
 import { enviarCorreoGenerico } from '../services/email';
-import { templateRecordatorioTorneo } from '../utils/emailtemplate';
+import { templateRecordatorioTorneo, templateRecordatorioEvento } from '../utils/emailtemplate';
 
 const router = Router();
 
@@ -57,10 +57,43 @@ router.post('/daily-reminders', async (req, res) => {
       });
     });
 
-    // 5. Responder inmediatamente al servidor Cron para cerrar la conexión con éxito
+    const endOfToday = new Date(hoy);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const pendingReminders = await prisma.eventReminder.findMany({
+      where: {
+        isSent: false,
+        notifyAt: { lte: endOfToday }, // Menor o igual a hoy
+      },
+      include: {
+        user: true,
+        event: true,
+      },
+    });
+
+    // Enviamos los emails (Fire-and-forget)
+    pendingReminders.forEach((reminder) => {
+      if (reminder.user.email && reminder.user.name) {
+        enviarCorreoGenerico(
+          reminder.user.email,
+          `Recordatorio: ${reminder.event.name}`,
+          templateRecordatorioEvento(reminder.user.name, reminder.event),
+        ).catch((err) => console.error(`Error correo evento a ${reminder.user.email}:`, err));
+      }
+    });
+
+    // Marcamos todos estos recordatorios como "Enviados" para que no vuelvan a saltar mañana
+    const reminderIds = pendingReminders.map((r) => r.id);
+    if (reminderIds.length > 0) {
+      await prisma.eventReminder.updateMany({
+        where: { id: { in: reminderIds } },
+        data: { isSent: true },
+      });
+    }
+
     return res.status(200).json({
       success: true,
-      message: `Procesados ${torneosManana.length} torneos para mañana.`,
+      message: `Procesados ${torneosManana.length} torneos y ${pendingReminders.length} eventos de calendario.`,
     });
   } catch (error) {
     console.error('Error crítico en el webhook de recordatorios:', error);

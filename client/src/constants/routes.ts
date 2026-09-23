@@ -58,4 +58,5 @@ export const APP_ROUTES = {
   },
   ENTRENAMIENTOS_GENERALES: '/entrenamientos-generales',
   FEEDBACK: '/sugerencias',
+  CALENDARIO: '/calendario',
 } as const;

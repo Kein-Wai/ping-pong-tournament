@@ -234,6 +234,16 @@ enum FeedbackStatus {
   Resuelto
 }
 
+enum EventRegion {
+  Club
+  Local
+  Regional
+  Provincial
+  Autonomico
+  Nacional
+  Internacional
+}
+
 model Club {
   id        String     @id @default(uuid())
   name      String     @unique @db.VarChar(255)
@@ -254,7 +264,7 @@ model Club {
   generalTrainings   GeneralTraining[]
   generalAttendances GeneralTrainingAttendance[]
   teams              Team[]
-
+  events             ClubEvent[]
   @@map("club")
 }
 
@@ -275,7 +285,7 @@ model Season {
   manualMatches    ManualMatch[]
   leagues          League[]
   playerTrainings  PlayerTraining[]
-
+  events           ClubEvent[]
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("season")
@@ -321,7 +331,7 @@ model User {
   generalAttendances            GeneralTrainingAttendance[]
   teams                         Team[]
   feedbacks                     AppFeedback[]
-
+  eventReminders                EventReminder[]
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
 }
@@ -852,4 +862,37 @@ model AppFeedback {
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("app_feedback")
+}
+
+
+model ClubEvent {
+  id        String   @id @default(uuid())
+  clubId    String   @map("club_id")
+  seasonId  String?  @map("season_id")
+  name      String   @db.VarChar(255)
+  region    EventRegion @default(Club)
+  date      DateTime
+  location  String?  @db.VarChar(255)
+  color     String   @default("blue")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relaciones
+  club      Club            @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  season    Season?         @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  reminders EventReminder[]
+
+  @@map("club_event")
+}
+
+model EventReminder {
+  id        String   @id @default(uuid())
+  eventId   String   @map("event_id")
+  userId    String   @map("user_id")
+  notifyAt  DateTime @db.Date @map("notify_at")
+  isSent    Boolean  @default(false) @map("is_sent")
+
+  event     ClubEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("event_reminder")
 }

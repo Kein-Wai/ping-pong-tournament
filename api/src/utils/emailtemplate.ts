@@ -110,3 +110,21 @@ export const templateResetPassword = (nombre: string, token: string) => {
 
   return baseTemplate(contenidoEspecifico);
 };
+
+export const templateRecordatorioEvento = (nombre: string, evento: any) => {
+  const contenidoEspecifico = `
+    <h1 style="color: #111827;">¡Recordatorio de Evento, ${nombre}! 📅</h1>
+    <p>Tienes un evento marcado en el calendario del club que se acerca rápidamente.</p>
+    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <h3 style="margin-top: 0; color: #1f2937;">${evento.name}</h3>
+      <p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date(evento.date).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })}</p>
+      <p style="margin: 5px 0;"><strong>Lugar:</strong> ${evento.location || 'Por determinar'}</p>
+    </div>
+    <p>¡Asegúrate de preparar todo el material con antelación!</p>
+    <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
+      <a href="${process.env.CLIENT_URL}/login" class="btn">Abrir Aplicación</a>
+    </div>
+  `;
+
+  return baseTemplate(contenidoEspecifico);
+};

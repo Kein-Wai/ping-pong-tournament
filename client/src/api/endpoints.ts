@@ -96,4 +96,9 @@ export const ENDPOINTS = {
     BASE: '/feedback',
     UPDATE_STATUS: (id: string) => `/feedback/${id}/status`,
   },
+  EVENTS: {
+    BASE: '/events',
+    BY_CLUB: (clubId: string) => `/events/club/${clubId}`,
+    REMINDERS: (id: string) => `/events/${id}/reminders`,
+  },
 } as const;

@@ -28,6 +28,7 @@ import { EntrenamientosGenerales } from './pages/Entrenamientos/EntrenamientosGe
 import { FeedbackPage } from './pages/Feedback/FeedbackPage';
 import { ForgotPassword } from './pages/Auth/ForgotPassword';
 import { ResetPassword } from './pages/Auth/ResetPassword';
+import { CalendarioEventos } from './pages/Eventos/CalendarioEventos';
 
 import { Equipos } from './pages/Equipos/Equipos';
 import { EquipoNuevo } from './pages/Equipos/EquipoNuevo';
@@ -185,6 +186,7 @@ function AppContent() {
                 <Route path={APP_ROUTES.EQUIPOS.NEW} element={<EquipoNuevo />} />
                 <Route path={APP_ROUTES.EQUIPOS.DETAILS_PATH} element={<EquipoDetalles />} />
                 <Route path={APP_ROUTES.FEEDBACK} element={<FeedbackPage />} />
+                <Route path={APP_ROUTES.CALENDARIO} element={<CalendarioEventos />} />
               </Route>
             </Route>
           </Route>
