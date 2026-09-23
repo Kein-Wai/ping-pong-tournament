@@ -22,6 +22,7 @@ import {
   IconChartBar,
   IconPingPong,
   IconTrendingUp,
+  IconCalendarEvent,
 } from '@tabler/icons-react';
 import { BarChart, DonutChart } from '@mantine/charts'; // 👈 Importamos los gráficos
 import { api } from '../../api/axios';
@@ -49,7 +50,8 @@ const ITEMS_PER_PAGE = 10;
 
 export const Estadisticas = () => {
   const [players, setPlayers] = useState<PlayerStats[]>([]);
-  const [matches, setMatches] = useState<any[]>([]); // 👈 Guardaremos los partidos aquí
+  const [matches, setMatches] = useState<any[]>([]);
+  const [trainings, setTrainings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
 
@@ -57,9 +59,10 @@ export const Estadisticas = () => {
     const fetchDashboardData = async () => {
       try {
         // Traemos Jugadores y Partidos al mismo tiempo
-        const [resUsers, resMatches] = await Promise.all([
+        const [resUsers, resMatches, resTrainings] = await Promise.all([
           api.get(ENDPOINTS.USERS.BASE),
           api.get(ENDPOINTS.MATCHES.BASE),
+          api.get(ENDPOINTS.GENERAL_TRAININGS.BASE),
         ]);
 
         let data: PlayerStats[] = resUsers.data.data || resUsers.data;
@@ -73,6 +76,7 @@ export const Estadisticas = () => {
 
         setPlayers(data);
         setMatches(resMatches.data);
+        setTrainings(resTrainings.data.data);
       } catch (error) {
         console.error('Error cargando estadísticas:', error);
       } finally {
@@ -128,6 +132,44 @@ export const Estadisticas = () => {
     { name: 'Pendientes', value: pendingMatches, color: 'blue.6' },
     { name: 'Cancelados', value: cancelledMatches, color: 'red.6' },
   ];
+
+  const attendanceCount: Record<string, number> = {};
+  const scheduleStats: Record<string, { total: number; count: number }> = {};
+
+  trainings.forEach((t: any) => {
+    // Media por horario
+    if (t.schedule?.name) {
+      const name = t.schedule.name;
+      if (!scheduleStats[name]) scheduleStats[name] = { total: 0, count: 0 };
+      scheduleStats[name].count += 1;
+      scheduleStats[name].total += t.attendances?.length || 0;
+    }
+
+    // Top asistencias
+    t.attendances?.forEach((a: any) => {
+      if (a.attended) {
+        attendanceCount[a.playerId] = (attendanceCount[a.playerId] || 0) + 1;
+      }
+    });
+  });
+
+  const top10Asistencias = Object.entries(attendanceCount)
+    .map(([id, count]) => {
+      const p = players.find((user) => user.id === id);
+      return {
+        id,
+        name: p ? `${p.name} ${p.surname || ''}` : 'Desconocido',
+        avatarUrl: p?.avatarUrl,
+        count: count as number,
+      };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  const chartDataSchedules = Object.entries(scheduleStats).map(([name, stat]) => ({
+    Horario: name,
+    Media: Number((stat.total / stat.count).toFixed(1)),
+  }));
 
   const getRankBadge = (index: number, page: number) => {
     if (page == 1) {
@@ -217,6 +259,74 @@ export const Estadisticas = () => {
             </Group>
           )}
         </Paper>
+      </SimpleGrid>
+      {/* NUEVA SECCIÓN: ENTRENAMIENTOS GRUPALES */}
+      <Title order={3} mt="xl">
+        Rendimiento en Entrenamientos Grupales
+      </Title>
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        {/* TOP 10 ASISTENCIAS */}
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Group gap="xs" mb="md">
+            <ThemeIcon color="orange" variant="light">
+              <IconTrophy size={18} />
+            </ThemeIcon>
+            <Title order={4}>Top 10 Asistencias (Ironmans)</Title>
+          </Group>
+          <ScrollArea h={250} offsetScrollbars>
+            <Stack gap="sm">
+              {top10Asistencias.length === 0 ? (
+                <Text c="dimmed" ta="center" mt="md">
+                  No hay datos de asistencia aún.
+                </Text>
+              ) : (
+                top10Asistencias.map((p, idx) => (
+                  <Group key={p.id} justify="space-between" wrap="nowrap">
+                    <Group gap="sm">
+                      <Badge
+                        color={idx < 3 ? 'orange' : 'gray'}
+                        variant={idx < 3 ? 'filled' : 'light'}
+                      >
+                        {idx + 1}º
+                      </Badge>
+                      <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="sm" />
+                      <Text size="sm" fw={600} truncate maw={150}>
+                        {p.name}
+                      </Text>
+                    </Group>
+                    <Text size="sm" fw={700} c="blue">
+                      {p.count} Sesiones
+                    </Text>
+                  </Group>
+                ))
+              )}
+            </Stack>
+          </ScrollArea>
+        </Card>
+
+        {/* AFLUENCIA POR HORARIO */}
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Group gap="xs" mb="xl">
+            <ThemeIcon color="cyan" variant="light">
+              <IconCalendarEvent size={18} />
+            </ThemeIcon>
+            <Title order={4}>Afluencia Media por Horario</Title>
+          </Group>
+          {chartDataSchedules.length === 0 ? (
+            <Center h={200}>
+              <Text c="dimmed">No hay clases registradas aún.</Text>
+            </Center>
+          ) : (
+            <BarChart
+              h={220}
+              data={chartDataSchedules}
+              dataKey="Horario"
+              series={[{ name: 'Media', color: 'cyan.6' }]}
+              tickLine="y"
+            />
+          )}
+        </Card>
       </SimpleGrid>
 
       {/* RANKING GLOBAL (LA TABLA) */}

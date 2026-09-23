@@ -223,6 +223,11 @@ router.get('/:id', async (req, res) => {
             },
           },
         },
+        generalAttendances: {
+          include: {
+            generalTraining: { select: { date: true } },
+          },
+        },
       },
     });
     if (!user) {

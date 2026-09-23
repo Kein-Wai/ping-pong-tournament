@@ -1,0 +1,2297 @@
+import { PrismaClient, TypeUser } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import {
+  createKnockoutDraw,
+  saveKnockoutBracket,
+  harvestKnockoutPlayers,
+  processKnockoutAdvancement,
+} from '../src/utils/knockout';
+const prisma = new PrismaClient();
+
+const BYE_USER_ID = '00000000-0000-0000-0000-000000000000';
+const TBD_USER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+
+const EJERCICIOS_BASE = [
+  // 1. Control de contra top spin (CT)
+  { code: '11', category: 'Control_CT', description: 'Contra top spin de drive, (CT de D)' },
+  { code: '12', category: 'Control_CT', description: 'Contra top spin de revés, (CT de R)' },
+  {
+    code: '13',
+    category: 'Control_CT',
+    description:
+      'Contra top spin comenzando de PD a PD cruzado y luego ir cambiando de a poco hasta terminar de PR a PR',
+  },
+  {
+    code: '14',
+    category: 'Control_CT',
+    description: 'B Servicio corto, A recibe intermedio, B Ataca Medio Derecha y A CT Libre',
+  },
+  {
+    code: '15',
+    category: 'Control_CT',
+    description: 'Contra top spin, B CT de D tira una a cada lado y A un CT de D y un CT de R',
+  },
+  {
+    code: '16',
+    category: 'Control_CT',
+    description: 'Contra topspin medio a medio hasta que te abren a la derecha, A CT paralelo',
+  },
+
+  // 2. Ejercicios de bloqueos y contraataque
+  {
+    code: '21',
+    category: 'Bloqueo_Contraataque',
+    description: '2 Pelotas: Jug B Topea una a cada lado, Jug A bloquea a mismo lado',
+  },
+  {
+    code: '22',
+    category: 'Bloqueo_Contraataque',
+    description: '2 Pelotas: Jug B Topea una a cada lado, Jug A bloquea una a cada lado',
+  },
+  {
+    code: '23',
+    category: 'Bloqueo_Contraataque',
+    description: '3 Pelotas: Jug B Topea dos al medio y una a cualquiera de las dos puntas',
+  },
+  {
+    code: '24',
+    category: 'Bloqueo_Contraataque',
+    description: '4 Pelotas: Jug B topea una o dos cada lado, Jug A bloquea al mismo lado',
+  },
+  {
+    code: '25',
+    category: 'Bloqueo_Contraataque',
+    description:
+      'Con servicio y Recepción: Jug A saca largo o intermedio, Jug B ataca libre, Jug A bloquea o contraataataca',
+  },
+  {
+    code: '26',
+    category: 'Bloqueo_Contraataque',
+    description: 'A Bloqueo cruzado y cuando quiere bloquea paralelo, sigue libre B.',
+  },
+  {
+    code: '27',
+    category: 'Bloqueo_Contraataque',
+    description: 'B topea medio reves libre, A bloquea, cuando B tira a la derecha A contraataca',
+  },
+  {
+    code: '28',
+    category: 'Bloqueo_Contraataque',
+    description:
+      'A saca corto al R de B, B flip de reves cruzado, A bloquea 2 suaves, 1 con mas velocidad.',
+  },
+  { code: '29', category: 'Bloqueo_Contraataque', description: 'Bloqueo Libre' },
+
+  // 3. Movilidad lateral
+  { code: '31', category: 'Movilidad_Lateral', description: 'Drive, Medio, Drive, Revés' },
+  { code: '32', category: 'Movilidad_Lateral', description: 'Revés, Medio, Revés, Derecha' },
+  {
+    code: '33',
+    category: 'Movilidad_Lateral',
+    description: 'Drive, Medio, Revés, Medio, Cualquiera de las dos puntas, vuelve a empezar',
+  },
+  { code: '34', category: 'Movilidad_Lateral', description: 'Dos revés, medio, derecha' },
+  {
+    code: '35',
+    category: 'Movilidad_Lateral',
+    description:
+      'Dos Revés cerca, dos Revés media distancia, Dos derecha cerca, dos Derecha media distancia',
+  },
+
+  // 4. Movilidad de Pivot
+  { code: '41', category: 'Movilidad_Pivot', description: 'Dos Revés, Dos pivot' },
+  { code: '42', category: 'Movilidad_Pivot', description: 'Revés, Medio, Pivot' },
+  { code: '43', category: 'Movilidad_Pivot', description: 'Drive, Medio, Revés, Pivot' },
+  { code: '44', category: 'Movilidad_Pivot', description: '3/4 de Pivot fijo' },
+  {
+    code: '45',
+    category: 'Movilidad_Pivot',
+    description: 'Jug A Saca, Jug B recibe al revés, Jug A pivot Cruzado',
+  },
+  {
+    code: '46',
+    category: 'Movilidad_Pivot',
+    description: 'Jug A Saca, Jug B recibe al revés, Jug A pivot paralelo',
+  },
+  { code: '47', category: 'Movilidad_Pivot', description: 'Revés, Medio, Pivot, Derecha' },
+  { code: '48', category: 'Movilidad_Pivot', description: 'Drive, Medio, Pivot, vuelve a empezar' },
+
+  // 5. SEMI-VARIABLES
+  { code: '51', category: 'Semi_Variables', description: 'Dos Revés, una o dos a la derecha' },
+  { code: '52', category: 'Semi_Variables', description: 'Dos Derecha, una o dos al Revés' },
+  {
+    code: '53',
+    category: 'Semi_Variables',
+    description: '3/4 de pivot hasta que abren a la derecha',
+  },
+  {
+    code: '54',
+    category: 'Semi_Variables',
+    description:
+      'Dos revés, una a la derecha, un par de pelotas de revés hasta que B abre a la derecha',
+  },
+  {
+    code: '55',
+    category: 'Semi_Variables',
+    description: 'Una al medio y una a cualquiera de las dos puntas',
+  },
+  { code: '56', category: 'Semi_Variables', description: 'Atacar todo al revés o derecha' },
+  { code: '57', category: 'Semi_Variables', description: '3/4 de Derecha' },
+
+  // 6. Recepción con FLIP DE REVES
+  {
+    code: '61',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B Saque al reves o ME luego BL una a la PD y una a PR, A recepción con flip al R y luego T de D y T de R',
+  },
+  {
+    code: '62',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B Saque 3/4 y luego 2 BL a PR y 1 a PD, A recep con Flip de R y luego R, D y D o R R D',
+  },
+  {
+    code: '63',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B- saque 3/4 de la mesa y luego bloqueo 3/4, A - Recepción flip de R y luego T D a PR',
+  },
+  {
+    code: '64',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B- Saque 3/4 de la mesa y luego CT de D, A -Rece con Flip de R al D y luego CT de D',
+  },
+  {
+    code: '65',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B- Saque 3/4, A- Rece con flip de R a la PR y luego Pivot ataque fuerte paralelo o medio (puede ser revés o pivot)',
+  },
+  {
+    code: '66',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B-Saque 3/4 - A Recibe con flip a Punta Derecha, B toquea medio o derecha, A Contratopsin libre',
+  },
+  {
+    code: '67',
+    category: 'Recepcion_Flip_Reves',
+    description:
+      'B-Saque 3/4 - A Recibe con flip a Punta REVES, Un par de reves libre hasta que te abren a la derecha',
+  },
+
+  // 7. RECEPCIONES CORTAS
+  {
+    code: '71',
+    category: 'Recepciones_Cortas',
+    description:
+      'B- Saque corto LI, A recepción al R corto, B corte de R al D de A y top de D continuo cruzado.',
+  },
+  {
+    code: '72',
+    category: 'Recepciones_Cortas',
+    description: 'B Saque corto LI, A recepción corta al D, B tercera pelota corta o larga LI',
+  },
+  {
+    code: '73',
+    category: 'Recepciones_Cortas',
+    description: 'B saque corto LI, A recepción corta LI, B tercera pelota LI, A punto libre',
+  },
+  {
+    code: '74',
+    category: 'Recepciones_Cortas',
+    description: 'B Saque corto LI, A Recepcion Corta Libre, B tira largo libre, A Ataca libre',
+  },
+
+  // 8. RECEPCIONES LARGAS
+  {
+    code: '81',
+    category: 'Recepciones_Largas',
+    description: 'B- Saque corto LI, A- recepción larga PD, B- T de D cruzado, A- CT de D',
+  },
+  {
+    code: '82',
+    category: 'Recepciones_Largas',
+    description: 'B- Saque corto LI, A- recepción larga PR, B- T de R cruzado, A- BL de R L',
+  },
+  {
+    code: '83',
+    category: 'Recepciones_Largas',
+    description:
+      'B- Saque corto LI, A- recepción larga PR, B- T de D de Pivote o revés cruzado, B- BL de R L',
+  },
+  {
+    code: '84',
+    category: 'Recepciones_Largas',
+    description: 'B- Saque corto LI, A- recepción larga LI, B- T de D o R LI, A- BL o CT',
+  },
+
+  // 9. RECEPCIONES CORTAS O LARGAS
+  {
+    code: '91',
+    category: 'Recepciones_Cortas_Largas',
+    description:
+      'B- Saque corto LI, A- rec Corta LI o Larga PD, B- si va corta LI y si va larga PD hacer TD cruzado, A CT de D LI',
+  },
+  {
+    code: '92',
+    category: 'Recepciones_Cortas_Largas',
+    description:
+      'B- Saque corto LI, A- rec corta LI o Larga PR, B- si va corta LI y si va larga PR hacer TR cruzado, A Bloqueo LI',
+  },
+  {
+    code: '93',
+    category: 'Recepciones_Cortas_Largas',
+    description:
+      'B-Saque corto LI, A-rec Corta LI o larga o intermedia al ME, B si va corto LI y si sale al ME TD, A CT LI o Bloqueo LI',
+  },
+
+  // 10. RECEPCIONAR saques intermedios
+  {
+    code: '101',
+    category: 'Recepcion_Saques_Intermedios',
+    description:
+      'B- Saque corto o un poco largo al D o ME, A- si va corto vuelve a dejar corto, si va un poco largo TD LI',
+  },
+  {
+    code: '102',
+    category: 'Recepcion_Saques_Intermedios',
+    description:
+      'B- Saque corto o un poco largo al D o ME, A- si va corto deja Largo al LI, si va largo TD LI',
+  },
+
+  // 11. SACAR O RECIBIR Saques Largos
+  {
+    code: '111',
+    category: 'Saques_Largos',
+    description: 'B- Saque Largo a PR, A- Recepción con TR a PR, B- CT de pivot o revés',
+  },
+  {
+    code: '112',
+    category: 'Saques_Largos',
+    description: 'B Saque LI y que salga poco de la mesa, A- TD al ME, B - CT de D LI',
+  },
+
+  // 12. Servicios para atacar
+  {
+    code: '121',
+    category: 'Servicios_Ataque',
+    description: 'A Servicio Corto, B recibe Libre, A ataca libre',
+  },
+  {
+    code: '122',
+    category: 'Servicios_Ataque',
+    description:
+      'A Servicio Corto, B Recibe Corto libre, A Flip al PR, B bloquea o ataca al medio revés, A CT',
+  },
+  {
+    code: '123',
+    category: 'Servicios_Ataque',
+    description:
+      'A Servicio Corto, B recibe corto Libre o Largo al revés, A ataca Cruzado y luego Pivot (o fuerte revés)',
+  },
+  {
+    code: '124',
+    category: 'Servicios_Ataque',
+    description: 'A Servicio Corto o intermedio, B ataca, A contraataque',
+  },
+  {
+    code: '125',
+    category: 'Servicios_Ataque',
+    description: 'A servicio Corto o largo para contratacar',
+  },
+  {
+    code: '126',
+    category: 'Servicios_Ataque',
+    description:
+      'A servicio principal para jugada para atacar y mantener el ataque (saque cortado y apertura de reves)',
+  },
+  {
+    code: '127',
+    category: 'Servicios_Ataque',
+    description:
+      'A Servicio Corto, B recibe corto o largo al revés, A ataca todo al revés, B bloquea 3/4 sobre el revés hasta que abre',
+  },
+  {
+    code: '128',
+    category: 'Servicios_Ataque',
+    description:
+      'A servicio corto, B recibe corto a cualquier lado o largo a la derecha (medio), A ataca 3/4 sobre el revés hasta que abren',
+  },
+  {
+    code: '129',
+    category: 'Servicios_Ataque',
+    description: 'A Servicio Corto, B Recibe al revés, A Pivot fuerte al medio',
+  },
+
+  // 13. Ejercicios individuales
+  {
+    code: '131',
+    category: 'Individuales',
+    description: 'B servicio corto al reves. A Flip, luego a elección (de acuerdo al jugador)',
+  },
+  {
+    code: '132',
+    category: 'Individuales',
+    description: 'B servicio corto a la derecha. A Flip, luego a elección (de acuerdo al jugador)',
+  },
+  {
+    code: '133',
+    category: 'Individuales',
+    description:
+      'B Servicio Corto a la derecha. B tira largo al revés, luego a eleccion (de acuerdo al jugador)',
+  },
+  {
+    code: '134',
+    category: 'Individuales',
+    description: 'B Servicio Corto o intermedio a la derecha, luego libre',
+  },
+  {
+    code: '135',
+    category: 'Individuales',
+    description: 'B Servicio Corto a la derecha o largo al revés, tira todo al revés de B',
+  },
+  {
+    code: '136',
+    category: 'Individuales',
+    description:
+      'A Servicio, B tira largo al revés o al medio, A Ataca todo paralelo hasta que abre cruzado (para zurdos)',
+  },
+  { code: '137', category: 'Individuales', description: 'B servicio largo, A ataca todo al revés' },
+  {
+    code: '138',
+    category: 'Individuales',
+    description:
+      'A Servicio Corto, B recibe largo a cualquiera de las dos puntas, A ataca paralelo y luego cruzado',
+  },
+];
+
+// Helper para calcular la curva de progresión
+const getGrowth = (stat?: number | null) => {
+  const val = stat || 0;
+  if (val < 20) return 0.25;
+  if (val < 40) return 0.2;
+  if (val < 60) return 0.15;
+  if (val < 80) return 0.07;
+  return 0.01;
+};
+
+// Función para inyectar subidas de experiencia tras cada partido de torneo
+const addMatchSkillUpdates = async (matchId: string, p1Id: string, p2Id: string) => {
+  const updates = [];
+
+  if (p1Id !== BYE_USER_ID && p1Id !== TBD_USER_ID) {
+    const p1Skills = await prisma.playerSkills.findFirst({ where: { userId: p1Id } });
+    updates.push({
+      playerId: p1Id,
+      matchId: matchId,
+      sourceType: 'Partido' as any,
+      status: 'EXPECTED' as any,
+      fortalezaMental: getGrowth(p1Skills?.fortalezaMental),
+      experiencia: getGrowth(p1Skills?.experiencia),
+    });
+  }
+
+  if (p2Id !== BYE_USER_ID && p2Id !== TBD_USER_ID) {
+    const p2Skills = await prisma.playerSkills.findFirst({ where: { userId: p2Id } });
+    updates.push({
+      playerId: p2Id,
+      matchId: matchId,
+      sourceType: 'Partido' as any,
+      status: 'EXPECTED' as any,
+      fortalezaMental: getGrowth(p2Skills?.fortalezaMental),
+      experiencia: getGrowth(p2Skills?.experiencia),
+    });
+  }
+
+  if (updates.length > 0) {
+    await prisma.playerSkillUpdate.createMany({ data: updates });
+  }
+};
+
+async function main() {
+  console.log('🧹 Limpiando datos de torneos y clubes anteriores para evitar duplicados...');
+  await prisma.generalTrainingAttendance.deleteMany();
+  await prisma.playerSkillUpdate.deleteMany();
+  await prisma.generalTraining.deleteMany();
+  await prisma.skillUpdateTemplate.deleteMany();
+  await prisma.generalTrainingSchedule.deleteMany();
+
+  await prisma.match.deleteMany();
+  await prisma.tournamentKnockout.deleteMany();
+  await prisma.tournamentParticipant.deleteMany();
+
+  await prisma.tournamentClas.deleteMany();
+  await prisma.tournamentGroupClas.deleteMany();
+  await prisma.tournamentGroup.deleteMany();
+  await prisma.tournament.deleteMany();
+
+  await prisma.stats.deleteMany();
+  await prisma.user.deleteMany();
+
+  await prisma.season.deleteMany();
+  await prisma.club.deleteMany();
+
+  console.log('📚 Generando Catálogo Global de Ejercicios...');
+
+  await prisma.sessionExercise.deleteMany();
+  await prisma.trainingSession.deleteMany();
+  await prisma.playerTraining.deleteMany();
+  await prisma.exercise.deleteMany();
+
+  await prisma.exercise.createMany({
+    data: EJERCICIOS_BASE.map((ej) => ({
+      name: `Ejercicio ${ej.code}`,
+      category: ej.category as any,
+      description: ej.description,
+      clubId: null,
+    })),
+  });
+  console.log(`✅ ${EJERCICIOS_BASE.length} ejercicios creados en el catálogo.`);
+
+  console.log('🌱 Iniciando el proceso de Seed Multi-tenant...');
+
+  const types = [
+    { name: TypeUser.SuperAdmin },
+    { name: TypeUser.AdminClub },
+    { name: TypeUser.Player },
+  ];
+  let savedTypes = [];
+
+  for (const type of types) {
+    savedTypes.push(
+      await prisma.userType.upsert({
+        where: { name: type.name },
+        update: {},
+        create: type,
+      }),
+    );
+  }
+  const superAdminRoleId = savedTypes[0].id;
+  const adminClubRoleId = savedTypes[1].id;
+  const playerRoleId = savedTypes[2].id;
+
+  console.log('📅 Generando Temporada Actual...');
+  const currentSeason = await prisma.season.create({
+    data: {
+      name: 'Temporada 2026/2027',
+      startDate: new Date('2026-08-01T00:00:00Z'),
+      endDate: new Date('2027-07-31T23:59:59Z'),
+      isCurrent: true,
+    },
+  });
+
+  console.log('🏢 Generando Clubes...');
+  const clubA = await prisma.club.create({
+    data: {
+      name: 'Club Tenis de Mesa Castellón',
+      status: 'Aprobado',
+      city: 'Castellon de la Plana',
+    },
+  });
+
+  const clubB = await prisma.club.create({
+    data: { name: 'PingPong Club Valencia', status: 'Aprobado', city: 'Valencia' },
+  });
+
+  const hashedPasswordSuper = await bcrypt.hash('112233cheung', 10);
+  const superAdmin = await prisma.user.create({
+    data: {
+      email: 'keinwaisuperadmin@hotmail.com',
+      name: 'Kein-Wai',
+      surname: 'Cheung',
+      nickname: 'Quinguaichun',
+      userTypeId: superAdminRoleId,
+      password: hashedPasswordSuper,
+      authProvider: 'LOCAL',
+      active: true,
+    },
+  });
+
+  const hashedPasswordClub = await bcrypt.hash('112233club', 10);
+
+  const adminA = await prisma.user.create({
+    data: {
+      email: 'admin@castellon.local',
+      name: 'Admin',
+      surname: 'Castellón',
+      userTypeId: adminClubRoleId,
+      password: hashedPasswordClub,
+      clubId: clubA.id,
+      clubStatus: 'Aprobado',
+      authProvider: 'LOCAL',
+      active: true,
+    },
+  });
+
+  const adminB = await prisma.user.create({
+    data: {
+      email: 'admin@valencia.local',
+      name: 'Admin',
+      surname: 'Valencia',
+      userTypeId: adminClubRoleId,
+      password: hashedPasswordClub,
+      clubId: clubB.id,
+      clubStatus: 'Aprobado',
+      authProvider: 'LOCAL',
+      active: true,
+    },
+  });
+
+  console.log('====================================================');
+  console.log(`👤 Admin Club A (Castellón): ${adminA.email} | PW: 112233club`);
+  console.log(`👤 Admin Club B (Valencia):  ${adminB.email} | PW: 112233club`);
+  console.log('====================================================');
+
+  await prisma.user.upsert({
+    where: { id: BYE_USER_ID },
+    update: {},
+    create: {
+      id: BYE_USER_ID,
+      email: 'exento@torneo.local',
+      name: 'EXENTO',
+      surname: '(Pasa de ronda)',
+      userTypeId: playerRoleId,
+      active: true,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { id: TBD_USER_ID },
+    update: {},
+    create: {
+      id: TBD_USER_ID,
+      email: 'tbd@torneo.local',
+      name: 'Por',
+      surname: 'Determinar',
+      userTypeId: playerRoleId,
+      active: true,
+    },
+  });
+
+  console.log('👥 Generando 60 jugadores con niveles y skills realistas...');
+  const playersClubA = [];
+  const playersClubB = [];
+
+  const nombres = [
+    'Alejandro',
+    'Lucía',
+    'Mateo',
+    'Sofía',
+    'Hugo',
+    'Martina',
+    'Martín',
+    'María',
+    'Lucas',
+    'Julia',
+    'Leo',
+    'Paula',
+    'Daniel',
+    'Valeria',
+    'Pablo',
+    'Emma',
+    'Álvaro',
+    'Daniela',
+    'Adrián',
+    'Carla',
+    'Joaquín',
+    'Alba',
+    'Diego',
+    'Noa',
+    'Carlos',
+    'Carmen',
+    'Javier',
+    'Elena',
+    'Marcos',
+    'Sara',
+  ];
+
+  const apellidos = [
+    'García',
+    'Rodríguez',
+    'González',
+    'Fernández',
+    'López',
+    'Martínez',
+    'Sánchez',
+    'Pérez',
+    'Gómez',
+    'Martín',
+    'Ruiz',
+    'Hernández',
+    'Jiménez',
+    'Díaz',
+    'Álvarez',
+    'Moreno',
+    'Muñoz',
+    'Alonso',
+    'Romero',
+    'Navarro',
+    'Gutiérrez',
+    'Torres',
+    'Domínguez',
+    'Gil',
+    'Vázquez',
+    'Serrano',
+    'Ramos',
+    'Blanco',
+    'Castro',
+    'Suárez',
+  ];
+
+  const levelRanges = [
+    { level: 'Iniciacion', minElo: 100, maxElo: 300, minSkill: 0, maxSkill: 10 },
+    { level: 'Principiante', minElo: 300, maxElo: 500, minSkill: 10, maxSkill: 30 },
+    { level: 'Intermedio', minElo: 500, maxElo: 750, minSkill: 30, maxSkill: 50 },
+    { level: 'Avanzado', minElo: 750, maxElo: 1200, minSkill: 40, maxSkill: 60 },
+  ];
+
+  const getRandomInRange = (min: number, max: number) =>
+    Math.floor(Math.random() * (max - min + 1)) + min;
+
+  await prisma.user.create({
+    data: {
+      email: `keinwaiplayer@hotmail.com`,
+      name: `Kein-Wai`,
+      surname: `Cheung`,
+      userTypeId: playerRoleId,
+      clubId: clubA.id,
+      clubStatus: 'Aprobado',
+      level: 'Avanzado',
+      password: hashedPasswordSuper,
+      authProvider: 'LOCAL',
+      active: true,
+      stats: {
+        create: {
+          seasonId: currentSeason.id,
+          elo: 1200,
+          matchWon: 0,
+          matchLost: 0,
+          setWon: 0,
+          setLost: 0,
+          pointWon: 0,
+          pointLost: 0,
+          tournamentWon: 0,
+          tournamentPart: 0,
+        },
+      },
+      skills: {
+        create: {
+          seasonId: currentSeason.id,
+          derechaPlano: 60,
+          revesPlano: 60,
+          topspinDerecha: 60,
+          topspinReves: 60,
+          corte: 60,
+          bloqueoDerecha: 60,
+          bloqueoReves: 60,
+          servicio: 60,
+          recepcion: 60,
+          movilidad: 60,
+          fortalezaMental: 60,
+          experiencia: 60,
+        },
+      },
+    },
+    include: { stats: true },
+  });
+
+  const hashedPasswordJ = await bcrypt.hash('pechofrioygay', 10);
+  await prisma.user.create({
+    data: {
+      email: `jlevin@hotmail.com`,
+      name: `Julian`,
+      surname: `Levin`,
+      userTypeId: playerRoleId,
+      clubId: clubA.id,
+      clubStatus: 'Aprobado',
+      level: 'Avanzado',
+      password: hashedPasswordJ,
+      authProvider: 'LOCAL',
+      active: true,
+      stats: {
+        create: {
+          seasonId: currentSeason.id,
+          elo: 1200,
+          matchWon: 0,
+          matchLost: 0,
+          setWon: 0,
+          setLost: 0,
+          pointWon: 0,
+          pointLost: 0,
+          tournamentWon: 0,
+          tournamentPart: 0,
+        },
+      },
+      skills: {
+        create: {
+          seasonId: currentSeason.id,
+          derechaPlano: 60,
+          revesPlano: 60,
+          topspinDerecha: 60,
+          topspinReves: 60,
+          corte: 60,
+          bloqueoDerecha: 60,
+          bloqueoReves: 60,
+          servicio: 60,
+          recepcion: 60,
+          movilidad: 60,
+          fortalezaMental: 60,
+          experiencia: 60,
+        },
+      },
+    },
+    include: { stats: true },
+  });
+
+  for (let i = 1; i <= 60; i++) {
+    const assignedClub = i <= 40 ? clubA.id : clubB.id;
+    const nombre = nombres[Math.floor(Math.random() * nombres.length)];
+    const apellido = apellidos[Math.floor(Math.random() * apellidos.length)];
+    const hand = Math.random() < 0.8 ? 'Diestro' : 'Zurdo';
+    const style = Math.random() < 0.85 ? 'Ofensivo' : 'Defensivo';
+
+    const randomLevelData = levelRanges[Math.floor(Math.random() * levelRanges.length)];
+    const startingElo = getRandomInRange(randomLevelData.minElo, randomLevelData.maxElo);
+    const getSkill = () => getRandomInRange(randomLevelData.minSkill, randomLevelData.maxSkill);
+
+    const p = await prisma.user.create({
+      data: {
+        email: `${nombre}${i}-${apellido}@pingpong.local`,
+        name: nombre,
+        surname: apellido,
+        userTypeId: playerRoleId,
+        clubId: assignedClub,
+        clubStatus: 'Aprobado',
+        level: randomLevelData.level as any,
+        dominantHand: hand as any,
+        playstyle: style as any,
+        active: true,
+        stats: {
+          create: {
+            seasonId: currentSeason.id,
+            elo: startingElo,
+            matchWon: 0,
+            matchLost: 0,
+            setWon: 0,
+            setLost: 0,
+            pointWon: 0,
+            pointLost: 0,
+            tournamentWon: 0,
+            tournamentPart: 0,
+          },
+        },
+        skills: {
+          create: {
+            seasonId: currentSeason.id,
+            derechaPlano: getSkill(),
+            revesPlano: getSkill(),
+            topspinDerecha: getSkill(),
+            topspinReves: getSkill(),
+            corte: getSkill(),
+            bloqueoDerecha: getSkill(),
+            bloqueoReves: getSkill(),
+            servicio: getSkill(),
+            recepcion: getSkill(),
+            movilidad: getSkill(),
+            fortalezaMental: getSkill(),
+            experiencia: getSkill(),
+          },
+        },
+      },
+      include: { stats: true },
+    });
+
+    if (i <= 40) playersClubA.push(p);
+    else playersClubB.push(p);
+  }
+
+  const sortedA = [...playersClubA].sort((a, b) => (b.stats[0]?.elo || 0) - (a.stats[0]?.elo || 0));
+  const sortedB = [...playersClubB].sort((a, b) => (b.stats[0]?.elo || 0) - (a.stats[0]?.elo || 0));
+
+  // ============================================================================
+  // 🔥 NUEVO: GENERAR ENTRENAMIENTOS GRUPALES Y SUBIDAS (AGOSTO 2026)
+  // ============================================================================
+  console.log('\n📅 Generando Calendario de Entrenamientos Grupales (Agosto 2026)...');
+  const schedule = await prisma.generalTrainingSchedule.create({
+    data: {
+      clubId: clubA.id,
+      name: 'Clase Avanzada (L-X-V)',
+      startTime: '17:00',
+      endTime: '19:00',
+      daysOfWeek: [1, 3, 5],
+    },
+  });
+
+  const template = await prisma.skillUpdateTemplate.create({
+    data: {
+      name: 'Mejora Ofensiva y Movilidad',
+      sourceType: 'EntrenamientoGeneral',
+      derechaPlano: true,
+      topspinDerecha: true,
+      servicio: true,
+      movilidad: true,
+    },
+  });
+
+  const augustDates = [3, 5, 7, 10, 12, 14, 17, 19, 21, 24, 26, 28, 31];
+
+  const allSkillsA = await prisma.playerSkills.findMany({
+    where: { userId: { in: playersClubA.map((p) => p.id) } },
+  });
+
+  for (const day of augustDates) {
+    const date = new Date(2026, 7, day, 17, 0, 0); // Agosto = 7
+
+    const training = await prisma.generalTraining.create({
+      data: {
+        clubId: clubA.id,
+        seasonId: currentSeason.id,
+        description: `Entrenamiento General ${day} de Agosto`,
+        date: date,
+        scheduleId: schedule.id,
+        templateId: template.id,
+      },
+    });
+
+    const attendanceData = [];
+    const updatesData = [];
+
+    for (const player of playersClubA) {
+      attendanceData.push({
+        generalTrainingId: training.id,
+        clubId: clubA.id,
+        playerId: player.id,
+        attended: true,
+      });
+
+      const pSkill = allSkillsA.find((s) => s.userId === player.id);
+
+      updatesData.push({
+        playerId: player.id,
+        sourceType: 'EntrenamientoGeneral' as any,
+        generalTrainingId: training.id,
+        status: 'EXPECTED' as any,
+        derechaPlano: getGrowth(pSkill?.derechaPlano),
+        topspinDerecha: getGrowth(pSkill?.topspinDerecha),
+        servicio: getGrowth(pSkill?.servicio),
+        movilidad: getGrowth(pSkill?.movilidad),
+      });
+    }
+
+    await prisma.generalTrainingAttendance.createMany({ data: attendanceData });
+    await prisma.playerSkillUpdate.createMany({ data: updatesData });
+  }
+
+  // --- MOTOR DE PARTIDOS Y TORNEOS ---
+
+  // NUEVA FUNCIÓN HELPER PARA INSCRIBIR EN TORNEOS Y SUMAR PARTICIPACIÓN
+  const registerParticipants = async (tournamentId: string, players: any[]) => {
+    await prisma.tournamentParticipant.createMany({
+      data: players.map((p) => ({ tournamentId, playerId: p.id, status: 'Confirmado' })),
+    });
+
+    await prisma.stats.updateMany({
+      where: { userId: { in: players.map((p) => p.id) }, seasonId: currentSeason.id },
+      data: { tournamentPart: { increment: 1 } },
+    });
+  };
+
+  async function simulateAndSaveMatch(
+    tournamentId: string,
+    p1Id: string,
+    p2Id: string,
+    groupId: string | null = null,
+    knockoutId: string | null = null,
+    clas1Id: string | null = null,
+    clas2Id: string | null = null,
+    matchOrder: number = 0,
+  ) {
+    let p1SetsWon = 0;
+    let p2SetsWon = 0;
+    let ptsP1 = 0;
+    let ptsP2 = 0;
+    const setScores: { s1: number; s2: number }[] = [];
+
+    while (p1SetsWon < 3 && p2SetsWon < 3) {
+      const p1WinsThisSet = Math.random() > 0.5;
+      const isDeuce = Math.random() > 0.85;
+      let s1 = 0,
+        s2 = 0;
+
+      if (isDeuce) {
+        const base = 10 + Math.floor(Math.random() * 3);
+        s1 = p1WinsThisSet ? base + 2 : base;
+        s2 = p1WinsThisSet ? base : base + 2;
+      } else {
+        const loserScore = Math.floor(Math.random() * 9);
+        s1 = p1WinsThisSet ? 11 : loserScore;
+        s2 = p1WinsThisSet ? loserScore : 11;
+      }
+
+      setScores.push({ s1, s2 });
+      ptsP1 += s1;
+      ptsP2 += s2;
+
+      if (p1WinsThisSet) p1SetsWon++;
+      else p2SetsWon++;
+    }
+
+    const p1WinsMatch = p1SetsWon === 3;
+
+    const createdMatch = await prisma.match.create({
+      data: {
+        dateStart: new Date(),
+        seasonId: currentSeason.id,
+        tournamentId,
+        groupId,
+        knockoutId,
+        matchOrder,
+        playerOneId: p1Id,
+        playerTwoId: p2Id,
+        setOnePlayerOne: setScores[0]?.s1 ?? 0,
+        setOnePlayerTwo: setScores[0]?.s2 ?? 0,
+        setTwoPlayerOne: setScores[1]?.s1 ?? 0,
+        setTwoPlayerTwo: setScores[1]?.s2 ?? 0,
+        setThreePlayerOne: setScores[2]?.s1 ?? 0,
+        setThreePlayerTwo: setScores[2]?.s2 ?? 0,
+        setFourPlayerOne: setScores[3]?.s1 ?? 0,
+        setFourPlayerTwo: setScores[3]?.s2 ?? 0,
+        setFivePlayerOne: setScores[4]?.s1 ?? 0,
+        setFivePlayerTwo: setScores[4]?.s2 ?? 0,
+        status: 'Completado',
+      },
+    });
+
+    // 👇 Inyectar habilidades de partido
+    await addMatchSkillUpdates(createdMatch.id, p1Id, p2Id);
+
+    await prisma.stats.updateMany({
+      where: { userId: p1Id, seasonId: currentSeason.id },
+      data: {
+        matchWon: { increment: p1WinsMatch ? 1 : 0 },
+        matchLost: { increment: p1WinsMatch ? 0 : 1 },
+        setWon: { increment: p1SetsWon },
+        setLost: { increment: p2SetsWon },
+        pointWon: { increment: ptsP1 },
+        pointLost: { increment: ptsP2 },
+      },
+    });
+
+    await prisma.stats.updateMany({
+      where: { userId: p2Id, seasonId: currentSeason.id },
+      data: {
+        matchWon: { increment: p1WinsMatch ? 0 : 1 },
+        matchLost: { increment: p1WinsMatch ? 1 : 0 },
+        setWon: { increment: p2SetsWon },
+        setLost: { increment: p1SetsWon },
+        pointWon: { increment: ptsP2 },
+        pointLost: { increment: ptsP1 },
+      },
+    });
+
+    if (groupId && clas1Id && clas2Id) {
+      await prisma.tournamentGroupClas.update({
+        where: { id: clas1Id },
+        data: {
+          played: { increment: 1 },
+          gamesWon: { increment: p1WinsMatch ? 1 : 0 },
+          gamesLost: { increment: p1WinsMatch ? 0 : 1 },
+          setsWon: { increment: p1SetsWon },
+          setsLost: { increment: p2SetsWon },
+          pointsWon: { increment: ptsP1 },
+          pointsLost: { increment: ptsP2 },
+          pointsClas: { increment: p1WinsMatch ? 3 : 0 },
+        },
+      });
+      await prisma.tournamentGroupClas.update({
+        where: { id: clas2Id },
+        data: {
+          played: { increment: 1 },
+          gamesWon: { increment: p1WinsMatch ? 0 : 1 },
+          gamesLost: { increment: p1WinsMatch ? 1 : 0 },
+          setsWon: { increment: p2SetsWon },
+          setsLost: { increment: p1SetsWon },
+          pointsWon: { increment: ptsP2 },
+          pointsLost: { increment: ptsP1 },
+          pointsClas: { increment: p1WinsMatch ? 0 : 3 },
+        },
+      });
+    }
+
+    return {
+      matchId: createdMatch.id,
+      winner: p1WinsMatch ? p1Id : p2Id,
+      loser: p1WinsMatch ? p2Id : p1Id,
+    };
+  }
+
+  console.log('\n🏆 Generando Torneo 1 (Club A | Completado - 32 Jugadores)...');
+  const t1Players = sortedA.slice(0, 32);
+
+  const t1 = await prisma.tournament.create({
+    data: {
+      name: 'Grand Slam Castellón 2026',
+      dateStart: new Date(),
+      clubId: clubA.id,
+      seasonId: currentSeason.id,
+      numPlayers: 32,
+      numGroup: 8,
+      numGroupPlayers: 4,
+      typeTournament: 'Interno',
+      levelTournament: 'Avanzado',
+      rounds: 'GruposKnockout',
+      status: 'Completado',
+      typeKnockout: 'LlaveA',
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      groupsCreated: true,
+      knockoutCreated: true,
+    },
+  });
+
+  await registerParticipants(t1.id, t1Players);
+
+  const t1Groups = [];
+  for (let i = 1; i <= 8; i++) {
+    t1Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t1.id, group: i, status: 'Completado' },
+      }),
+    );
+  }
+
+  const snakeGroupsT1: any[][] = Array.from({ length: 8 }, () => []);
+  for (let i = 0; i < t1Players.length; i++) {
+    const cycle = Math.floor(i / 8);
+    const index = cycle % 2 === 0 ? i % 8 : 7 - (i % 8);
+    snakeGroupsT1[index].push(t1Players[i]);
+  }
+
+  for (let g = 0; g < 8; g++) {
+    const groupDb = t1Groups[g];
+    const groupPlayers = snakeGroupsT1[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (let i = 0; i < groupPlayers.length; i++) {
+      for (let j = i + 1; j < groupPlayers.length; j++) {
+        await simulateAndSaveMatch(
+          t1.id,
+          groupPlayers[i].id,
+          groupPlayers[j].id,
+          groupDb.id,
+          null,
+          clasRecords[i].clasId,
+          clasRecords[j].clasId,
+        );
+      }
+    }
+  }
+
+  const advancingT1 = [];
+  for (const g of t1Groups) {
+    const clas = await prisma.tournamentGroupClas.findMany({
+      where: { tournamentGroupId: g.id },
+      orderBy: [{ pointsClas: 'desc' }, { setsWon: 'desc' }],
+    });
+    for (let pos = 0; pos < clas.length; pos++) {
+      await prisma.tournamentGroupClas.update({
+        where: { id: clas[pos].id },
+        data: { position: pos + 1 },
+      });
+
+      if (pos >= 2) {
+        await prisma.tournamentClas.create({
+          data: {
+            tournamentId: t1.id,
+            playerId: clas[pos].playerId,
+            position: pos === 2 ? 17 : 25,
+          },
+        });
+      }
+    }
+    advancingT1.push(clas[0].playerId, clas[1].playerId);
+  }
+
+  const kOctavosT1 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t1.id, round: 'Octavos', status: 'Completado' },
+  });
+  const kCuartosT1 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t1.id, round: 'Cuartos', status: 'Completado' },
+  });
+  const kSemisT1 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t1.id, round: 'Semifinales', status: 'Completado' },
+  });
+  const kFinalT1 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t1.id, round: 'Final', status: 'Completado' },
+  });
+
+  const bracket16 = [0, 15, 7, 8, 4, 11, 3, 12, 2, 13, 5, 10, 6, 9, 1, 14];
+
+  const octavosMatchesT1 = [];
+  for (let i = 0; i < 16; i += 2) {
+    const res = await simulateAndSaveMatch(
+      t1.id,
+      advancingT1[bracket16[i]],
+      advancingT1[bracket16[i + 1]],
+      null,
+      kOctavosT1.id,
+      null,
+      null,
+      i / 2,
+    );
+    octavosMatchesT1.push(res);
+    await prisma.tournamentClas.create({
+      data: { tournamentId: t1.id, playerId: res.loser, lastRound: 'Octavos', position: 9 },
+    });
+  }
+
+  const cuartosMatchesT1 = [];
+  for (let i = 0; i < 8; i += 2) {
+    const res = await simulateAndSaveMatch(
+      t1.id,
+      octavosMatchesT1[i].winner,
+      octavosMatchesT1[i + 1].winner,
+      null,
+      kCuartosT1.id,
+      null,
+      null,
+      i / 2,
+    );
+    cuartosMatchesT1.push(res);
+    await prisma.match.update({
+      where: { id: octavosMatchesT1[i].matchId },
+      data: { winnerGoesToMatchId: res.matchId },
+    });
+    await prisma.match.update({
+      where: { id: octavosMatchesT1[i + 1].matchId },
+      data: { winnerGoesToMatchId: res.matchId },
+    });
+    await prisma.tournamentClas.create({
+      data: { tournamentId: t1.id, playerId: res.loser, lastRound: 'Cuartos', position: 5 },
+    });
+  }
+
+  const semisMatchesT1 = [];
+  for (let i = 0; i < 4; i += 2) {
+    const res = await simulateAndSaveMatch(
+      t1.id,
+      cuartosMatchesT1[i].winner,
+      cuartosMatchesT1[i + 1].winner,
+      null,
+      kSemisT1.id,
+      null,
+      null,
+      i / 2,
+    );
+    semisMatchesT1.push(res);
+    await prisma.match.update({
+      where: { id: cuartosMatchesT1[i].matchId },
+      data: { winnerGoesToMatchId: res.matchId },
+    });
+    await prisma.match.update({
+      where: { id: cuartosMatchesT1[i + 1].matchId },
+      data: { winnerGoesToMatchId: res.matchId },
+    });
+    await prisma.tournamentClas.create({
+      data: { tournamentId: t1.id, playerId: res.loser, lastRound: 'Semifinales', position: 3 },
+    });
+  }
+
+  const finalMatchT1 = await simulateAndSaveMatch(
+    t1.id,
+    semisMatchesT1[0].winner,
+    semisMatchesT1[1].winner,
+    null,
+    kFinalT1.id,
+    null,
+    null,
+    0,
+  );
+  await prisma.match.update({
+    where: { id: semisMatchesT1[0].matchId },
+    data: { winnerGoesToMatchId: finalMatchT1.matchId },
+  });
+  await prisma.match.update({
+    where: { id: semisMatchesT1[1].matchId },
+    data: { winnerGoesToMatchId: finalMatchT1.matchId },
+  });
+
+  await prisma.stats.updateMany({
+    where: { userId: finalMatchT1.winner, seasonId: currentSeason.id },
+    data: { tournamentWon: { increment: 1 } },
+  });
+  await prisma.tournamentClas.create({
+    data: { tournamentId: t1.id, playerId: finalMatchT1.loser, lastRound: 'Final', position: 2 },
+  });
+  await prisma.tournamentClas.create({
+    data: { tournamentId: t1.id, playerId: finalMatchT1.winner, lastRound: 'Final', position: 1 },
+  });
+
+  console.log('\n📅 Generando Torneo 2 (Club A | Programado - 18/32 Inscritos)...');
+  const t2 = await prisma.tournament.create({
+    data: {
+      name: 'Challenger Castellón de Otoño',
+      dateStart: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      clubId: clubA.id,
+      seasonId: currentSeason.id,
+      numPlayers: 32,
+      numGroup: 8,
+      numGroupPlayers: 4,
+      typeTournament: 'Abierto',
+      levelTournament: 'Intermedio',
+      rounds: 'GruposKnockout',
+      status: 'Programado',
+      typeKnockout: 'LlaveA',
+      sortGroups: 'Snake',
+      groupsCreated: false,
+      knockoutCreated: false,
+    },
+  });
+
+  const t2Players = sortedA.slice(15, 33);
+  await registerParticipants(t2.id, t2Players);
+
+  console.log('\n🔥 Generando Torneo 3 (Club B | En Juego - Cuartos de Final)...');
+  const t3Players = sortedB.slice(0, 16);
+
+  const t3 = await prisma.tournament.create({
+    data: {
+      name: 'Masters 1000 Valencia',
+      dateStart: new Date(new Date().setDate(new Date().getDate() - 2)),
+      clubId: clubB.id,
+      seasonId: currentSeason.id,
+      numPlayers: 16,
+      numGroup: 4,
+      numGroupPlayers: 4,
+      typeTournament: 'Interno',
+      levelTournament: 'Federado',
+      rounds: 'GruposKnockout',
+      status: 'Cuartos',
+      typeKnockout: 'LlaveA',
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      groupsCreated: true,
+      knockoutCreated: true,
+    },
+  });
+
+  await registerParticipants(t3.id, t3Players);
+
+  const t3Groups = [];
+  for (let i = 1; i <= 4; i++) {
+    t3Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t3.id, group: i, status: 'Completado' },
+      }),
+    );
+  }
+
+  const snakeGroupsT3: any[][] = Array.from({ length: 4 }, () => []);
+  for (let i = 0; i < t3Players.length; i++) {
+    const cycle = Math.floor(i / 4);
+    const index = cycle % 2 === 0 ? i % 4 : 3 - (i % 4);
+    snakeGroupsT3[index].push(t3Players[i]);
+  }
+
+  for (let g = 0; g < 4; g++) {
+    const groupDb = t3Groups[g];
+    const groupPlayers = snakeGroupsT3[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (let i = 0; i < groupPlayers.length; i++) {
+      for (let j = i + 1; j < groupPlayers.length; j++) {
+        await simulateAndSaveMatch(
+          t3.id,
+          groupPlayers[i].id,
+          groupPlayers[j].id,
+          groupDb.id,
+          null,
+          clasRecords[i].clasId,
+          clasRecords[j].clasId,
+        );
+      }
+    }
+  }
+
+  const advancingT3 = [];
+  for (const g of t3Groups) {
+    const clas = await prisma.tournamentGroupClas.findMany({
+      where: { tournamentGroupId: g.id },
+      orderBy: [{ pointsClas: 'desc' }, { setsWon: 'desc' }],
+    });
+    for (let pos = 0; pos < clas.length; pos++) {
+      await prisma.tournamentGroupClas.update({
+        where: { id: clas[pos].id },
+        data: { position: pos + 1 },
+      });
+      if (pos >= 2) {
+        await prisma.tournamentClas.create({
+          data: { tournamentId: t3.id, playerId: clas[pos].playerId, position: pos === 2 ? 9 : 13 },
+        });
+      }
+    }
+    advancingT3.push(clas[0].playerId, clas[1].playerId);
+  }
+
+  const t3CuartosKnockout = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t3.id, round: 'Cuartos', status: 'Programado' },
+  });
+  const t3SemisKnockout = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t3.id, round: 'Semifinales', status: 'Programado' },
+  });
+  const t3FinalKnockout = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t3.id, round: 'Final', status: 'Programado' },
+  });
+
+  const t3FinalMatch = await prisma.match.create({
+    data: {
+      dateStart: new Date(),
+      seasonId: currentSeason.id,
+      tournamentId: t3.id,
+      knockoutId: t3FinalKnockout.id,
+      playerOneId: TBD_USER_ID,
+      playerTwoId: TBD_USER_ID,
+      status: 'Programado',
+      matchOrder: 0,
+    },
+  });
+
+  const t3SemisMatches = [];
+  for (let i = 0; i < 2; i++) {
+    const m = await prisma.match.create({
+      data: {
+        dateStart: new Date(),
+        seasonId: currentSeason.id,
+        tournamentId: t3.id,
+        knockoutId: t3SemisKnockout.id,
+        playerOneId: TBD_USER_ID,
+        playerTwoId: TBD_USER_ID,
+        status: 'Programado',
+        matchOrder: i,
+        winnerGoesToMatchId: t3FinalMatch.id,
+      },
+    });
+    t3SemisMatches.push(m);
+  }
+
+  const bracket8 = [0, 7, 3, 4, 2, 5, 1, 6];
+  for (let i = 0; i < 8; i += 2) {
+    const matchOrder = i / 2;
+    await prisma.match.create({
+      data: {
+        dateStart: new Date(),
+        seasonId: currentSeason.id,
+        tournamentId: t3.id,
+        knockoutId: t3CuartosKnockout.id,
+        playerOneId: advancingT3[bracket8[i]],
+        playerTwoId: advancingT3[bracket8[i + 1]],
+        status: 'Programado',
+        matchOrder: matchOrder,
+        winnerGoesToMatchId: t3SemisMatches[Math.floor(matchOrder / 2)].id,
+      },
+    });
+  }
+
+  console.log('\n🏆 Generando Torneo 4 (Club B | Completado - 16 Jugadores)...');
+  const t4Players = sortedB.slice(4, 20);
+
+  const t4 = await prisma.tournament.create({
+    data: {
+      name: 'Liga de Primavera Valencia',
+      dateStart: new Date(),
+      clubId: clubB.id,
+      seasonId: currentSeason.id,
+      numPlayers: 16,
+      numGroup: 4,
+      numGroupPlayers: 4,
+      typeTournament: 'Interno',
+      levelTournament: 'Avanzado',
+      rounds: 'GruposKnockout',
+      status: 'Completado',
+      typeKnockout: 'LlaveA',
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      groupsCreated: true,
+      knockoutCreated: true,
+    },
+  });
+
+  await registerParticipants(t4.id, t4Players);
+
+  const t4Groups = [];
+  for (let i = 1; i <= 4; i++) {
+    t4Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t4.id, group: i, status: 'Completado' },
+      }),
+    );
+  }
+
+  const snakeGroupsT4: any[][] = Array.from({ length: 4 }, () => []);
+  for (let i = 0; i < t4Players.length; i++) {
+    const cycle = Math.floor(i / 4);
+    const index = cycle % 2 === 0 ? i % 4 : 3 - (i % 4);
+    snakeGroupsT4[index].push(t4Players[i]);
+  }
+
+  for (let g = 0; g < 4; g++) {
+    const groupDb = t4Groups[g];
+    const groupPlayers = snakeGroupsT4[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (let i = 0; i < groupPlayers.length; i++) {
+      for (let j = i + 1; j < groupPlayers.length; j++) {
+        await simulateAndSaveMatch(
+          t4.id,
+          groupPlayers[i].id,
+          groupPlayers[j].id,
+          groupDb.id,
+          null,
+          clasRecords[i].clasId,
+          clasRecords[j].clasId,
+        );
+      }
+    }
+  }
+
+  const advancingT4 = [];
+  for (const g of t4Groups) {
+    const clas = await prisma.tournamentGroupClas.findMany({
+      where: { tournamentGroupId: g.id },
+      orderBy: [{ pointsClas: 'desc' }, { setsWon: 'desc' }],
+    });
+    for (let pos = 0; pos < clas.length; pos++) {
+      await prisma.tournamentGroupClas.update({
+        where: { id: clas[pos].id },
+        data: { position: pos + 1 },
+      });
+      if (pos >= 2) {
+        await prisma.tournamentClas.create({
+          data: { tournamentId: t4.id, playerId: clas[pos].playerId, position: pos === 2 ? 9 : 13 },
+        });
+      }
+    }
+    advancingT4.push(clas[0].playerId, clas[1].playerId);
+  }
+
+  const kCuartosT4 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t4.id, round: 'Cuartos', status: 'Completado' },
+  });
+  const kSemisT4 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t4.id, round: 'Semifinales', status: 'Completado' },
+  });
+  const kFinalT4 = await prisma.tournamentKnockout.create({
+    data: { type: 'A', tournamentId: t4.id, round: 'Final', status: 'Completado' },
+  });
+
+  const cuartosMatchesT4 = [];
+  for (let i = 0; i < 8; i += 2) {
+    const res = await simulateAndSaveMatch(
+      t4.id,
+      advancingT4[bracket8[i]],
+      advancingT4[bracket8[i + 1]],
+      null,
+      kCuartosT4.id,
+      null,
+      null,
+      i / 2,
+    );
+    cuartosMatchesT4.push(res);
+    await prisma.tournamentClas.create({
+      data: { tournamentId: t4.id, playerId: res.loser, lastRound: 'Cuartos', position: 5 },
+    });
+  }
+
+  const semisMatchesT4 = [];
+  for (let i = 0; i < 4; i += 2) {
+    const res = await simulateAndSaveMatch(
+      t4.id,
+      cuartosMatchesT4[i].winner,
+      cuartosMatchesT4[i + 1].winner,
+      null,
+      kSemisT4.id,
+      null,
+      null,
+      i / 2,
+    );
+    semisMatchesT4.push(res);
+    await prisma.match.update({
+      where: { id: cuartosMatchesT4[i].matchId },
+      data: { winnerGoesToMatchId: res.matchId },
+    });
+    await prisma.match.update({
+      where: { id: cuartosMatchesT4[i + 1].matchId },
+      data: { winnerGoesToMatchId: res.matchId },
+    });
+    await prisma.tournamentClas.create({
+      data: { tournamentId: t4.id, playerId: res.loser, lastRound: 'Semifinales', position: 3 },
+    });
+  }
+
+  const finalMatchT4 = await simulateAndSaveMatch(
+    t4.id,
+    semisMatchesT4[0].winner,
+    semisMatchesT4[1].winner,
+    null,
+    kFinalT4.id,
+    null,
+    null,
+    0,
+  );
+  await prisma.match.update({
+    where: { id: semisMatchesT4[0].matchId },
+    data: { winnerGoesToMatchId: finalMatchT4.matchId },
+  });
+  await prisma.match.update({
+    where: { id: semisMatchesT4[1].matchId },
+    data: { winnerGoesToMatchId: finalMatchT4.matchId },
+  });
+
+  await prisma.tournamentClas.create({
+    data: { tournamentId: t4.id, playerId: finalMatchT4.loser, lastRound: 'Final', position: 2 },
+  });
+  await prisma.tournamentClas.create({
+    data: { tournamentId: t4.id, playerId: finalMatchT4.winner, lastRound: 'Final', position: 1 },
+  });
+  await prisma.stats.updateMany({
+    where: { userId: finalMatchT4.winner, seasonId: currentSeason.id },
+    data: { tournamentWon: { increment: 1 } },
+  });
+
+  console.log('\n🧪 Generando Torneo 5 (Club A | Grupos - Falta 1 partido para el Knockout)...');
+
+  const t5 = await prisma.tournament.create({
+    data: {
+      name: 'Torneo Testing Manual 2026',
+      dateStart: new Date(new Date().setDate(new Date().getDate() + 5)),
+      clubId: clubA.id,
+      seasonId: currentSeason.id,
+      numPlayers: 16,
+      numGroup: 4,
+      numGroupPlayers: 4,
+      typeTournament: 'Interno',
+      levelTournament: 'Mixto',
+      rounds: 'GruposKnockout',
+      status: 'Grupos',
+      typeKnockout: 'LlaveAB',
+      playersKnockout: 2,
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      allPos: false,
+      groupsCreated: true,
+      knockoutCreated: false,
+      setsToWinGroup: 2,
+      setsToWinKnockout: 3,
+    },
+  });
+
+  const t5Players = sortedA.slice(0, 16);
+  await registerParticipants(t5.id, t5Players);
+
+  const t5Groups = [];
+  for (let i = 1; i <= 4; i++) {
+    t5Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t5.id, group: i, status: 'Programado' },
+      }),
+    );
+  }
+
+  const snakeGroupsT5: any[][] = Array.from({ length: 4 }, () => []);
+  for (let i = 0; i < t5Players.length; i++) {
+    const cycle = Math.floor(i / 4);
+    const index = cycle % 2 === 0 ? i % 4 : 3 - (i % 4);
+    snakeGroupsT5[index].push(t5Players[i]);
+  }
+
+  async function simulateExistingMatch(
+    matchId: string,
+    p1Id: string,
+    p2Id: string,
+    clas1Id: string,
+    clas2Id: string,
+  ) {
+    let p1SetsWon = 0,
+      p2SetsWon = 0,
+      ptsP1 = 0,
+      ptsP2 = 0;
+    const setScores: { s1: number; s2: number }[] = [];
+
+    while (p1SetsWon < 2 && p2SetsWon < 2) {
+      const p1WinsThisSet = Math.random() > 0.5;
+      const loserScore = Math.floor(Math.random() * 9);
+      const s1 = p1WinsThisSet ? 11 : loserScore;
+      const s2 = p1WinsThisSet ? loserScore : 11;
+
+      setScores.push({ s1, s2 });
+      ptsP1 += s1;
+      ptsP2 += s2;
+
+      if (p1WinsThisSet) p1SetsWon++;
+      else p2SetsWon++;
+    }
+
+    const p1WinsMatch = p1SetsWon === 2;
+    const eloExchanged = 15;
+
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        setOnePlayerOne: setScores[0]?.s1 ?? 0,
+        setOnePlayerTwo: setScores[0]?.s2 ?? 0,
+        setTwoPlayerOne: setScores[1]?.s1 ?? 0,
+        setTwoPlayerTwo: setScores[1]?.s2 ?? 0,
+        setThreePlayerOne: setScores[2]?.s1 ?? 0,
+        setThreePlayerTwo: setScores[2]?.s2 ?? 0,
+        status: 'Completado',
+      },
+    });
+
+    // 👇 Inyectar habilidades de partido
+    await addMatchSkillUpdates(matchId, p1Id, p2Id);
+
+    await prisma.stats.updateMany({
+      where: { userId: p1Id, seasonId: currentSeason.id },
+      data: {
+        elo: { increment: p1WinsMatch ? -eloExchanged : eloExchanged },
+        matchWon: { increment: p1WinsMatch ? 1 : 0 },
+        matchLost: { increment: p1WinsMatch ? 0 : 1 },
+        setWon: { increment: p1SetsWon },
+        setLost: { increment: p2SetsWon },
+        pointWon: { increment: ptsP1 },
+        pointLost: { increment: ptsP2 },
+      },
+    });
+
+    await prisma.stats.updateMany({
+      where: { userId: p2Id, seasonId: currentSeason.id },
+      data: {
+        elo: { increment: p1WinsMatch ? -eloExchanged : eloExchanged },
+        matchWon: { increment: p1WinsMatch ? 0 : 1 },
+        matchLost: { increment: p1WinsMatch ? 1 : 0 },
+        setWon: { increment: p2SetsWon },
+        setLost: { increment: p1SetsWon },
+        pointWon: { increment: ptsP2 },
+        pointLost: { increment: ptsP1 },
+      },
+    });
+
+    await prisma.tournamentGroupClas.update({
+      where: { id: clas1Id },
+      data: {
+        played: { increment: 1 },
+        gamesWon: { increment: p1WinsMatch ? 1 : 0 },
+        gamesLost: { increment: p1WinsMatch ? 0 : 1 },
+        setsWon: { increment: p1SetsWon },
+        setsLost: { increment: p2SetsWon },
+        pointsWon: { increment: ptsP1 },
+        pointsLost: { increment: ptsP2 },
+        pointsClas: { increment: p1WinsMatch ? 2 : 1 },
+      },
+    });
+    await prisma.tournamentGroupClas.update({
+      where: { id: clas2Id },
+      data: {
+        played: { increment: 1 },
+        gamesWon: { increment: p1WinsMatch ? 0 : 1 },
+        gamesLost: { increment: p1WinsMatch ? 1 : 0 },
+        setsWon: { increment: p2SetsWon },
+        setsLost: { increment: p1SetsWon },
+        pointsWon: { increment: ptsP2 },
+        pointsLost: { increment: ptsP1 },
+        pointsClas: { increment: p1WinsMatch ? 1 : 2 },
+      },
+    });
+  }
+
+  const MATCH_MATRIX_4 = [
+    [1, 3],
+    [2, 4],
+    [1, 2],
+    [3, 4],
+    [1, 4],
+    [2, 3],
+  ];
+  const allT5Matches = [];
+
+  for (let g = 0; g < 4; g++) {
+    const groupDb = t5Groups[g];
+    const groupPlayers = snakeGroupsT5[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (const [p1Index, p2Index] of MATCH_MATRIX_4) {
+      const p1 = groupPlayers[p1Index - 1];
+      const p2 = groupPlayers[p2Index - 1];
+      const clas1 = clasRecords[p1Index - 1];
+      const clas2 = clasRecords[p2Index - 1];
+
+      const m = await prisma.match.create({
+        data: {
+          seasonId: currentSeason.id,
+          tournamentId: t5.id,
+          groupId: groupDb.id,
+          playerOneId: p1.id,
+          playerTwoId: p2.id,
+          status: 'Programado',
+          dateStart: new Date(),
+        },
+      });
+      allT5Matches.push({
+        matchId: m.id,
+        p1Id: p1.id,
+        p2Id: p2.id,
+        clas1Id: clas1.clasId,
+        clas2Id: clas2.clasId,
+      });
+    }
+  }
+
+  console.log(`Simulando 23 de los 24 partidos de grupos del Torneo 5...`);
+  for (let i = 0; i < allT5Matches.length - 1; i++) {
+    const m = allT5Matches[i];
+    await simulateExistingMatch(m.matchId, m.p1Id, m.p2Id, m.clas1Id, m.clas2Id);
+  }
+
+  console.log(
+    '\n🧪 Generando Torneo 6 (4x6 Jugadores | Grupos - Falta 1 partido para el Knockout)...',
+  );
+
+  const t6 = await prisma.tournament.create({
+    data: {
+      name: 'Torneo 24 Jugadores (4 Grupos x 6)',
+      dateStart: new Date(new Date().setDate(new Date().getDate() + 7)),
+      clubId: clubA.id,
+      seasonId: currentSeason.id,
+      numPlayers: 24,
+      numGroup: 4,
+      numGroupPlayers: 6,
+      typeTournament: 'Interno',
+      levelTournament: 'Mixto',
+      rounds: 'GruposKnockout',
+      status: 'Grupos',
+      typeKnockout: 'LlaveAB',
+      playersKnockout: 3,
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      allPos: false,
+      groupsCreated: true,
+      knockoutCreated: false,
+      setsToWinGroup: 2,
+      setsToWinKnockout: 3,
+    },
+  });
+
+  const t6Players = sortedA.slice(0, 24);
+  await registerParticipants(t6.id, t6Players);
+
+  const t6Groups = [];
+  for (let i = 1; i <= 4; i++) {
+    t6Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t6.id, group: i, status: 'Programado' },
+      }),
+    );
+  }
+
+  const snakeGroupsT6: any[][] = Array.from({ length: 4 }, () => []);
+  for (let i = 0; i < t6Players.length; i++) {
+    const cycle = Math.floor(i / 4);
+    const index = cycle % 2 === 0 ? i % 4 : 3 - (i % 4);
+    snakeGroupsT6[index].push(t6Players[i]);
+  }
+
+  const MATCH_MATRIX_6 = [
+    [1, 6],
+    [2, 5],
+    [3, 4],
+    [1, 5],
+    [6, 4],
+    [2, 3],
+    [1, 4],
+    [5, 3],
+    [6, 2],
+    [1, 3],
+    [4, 2],
+    [5, 6],
+    [1, 2],
+    [3, 6],
+    [4, 5],
+  ];
+
+  const allT6Matches = [];
+  for (let g = 0; g < 4; g++) {
+    const groupDb = t6Groups[g];
+    const groupPlayers = snakeGroupsT6[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id, position: 0 },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (const [p1Index, p2Index] of MATCH_MATRIX_6) {
+      const p1 = groupPlayers[p1Index - 1];
+      const p2 = groupPlayers[p2Index - 1];
+      const clas1 = clasRecords[p1Index - 1];
+      const clas2 = clasRecords[p2Index - 1];
+
+      const m = await prisma.match.create({
+        data: {
+          seasonId: currentSeason.id,
+          tournamentId: t6.id,
+          groupId: groupDb.id,
+          playerOneId: p1.id,
+          playerTwoId: p2.id,
+          status: 'Programado',
+          dateStart: new Date(),
+        },
+      });
+      allT6Matches.push({
+        matchId: m.id,
+        p1Id: p1.id,
+        p2Id: p2.id,
+        clas1Id: clas1.clasId,
+        clas2Id: clas2.clasId,
+      });
+    }
+  }
+
+  console.log(`Simulando 59 de los 60 partidos de grupos del Torneo 6...`);
+  for (let i = 0; i < allT6Matches.length - 1; i++) {
+    const m = allT6Matches[i];
+    await simulateExistingMatch(m.matchId, m.p1Id, m.p2Id, m.clas1Id, m.clas2Id);
+  }
+
+  for (const g of t6Groups) {
+    const clas = await prisma.tournamentGroupClas.findMany({ where: { tournamentGroupId: g.id } });
+    clas.sort((a, b) => {
+      if (b.pointsClas !== a.pointsClas) return (b.pointsClas || 0) - (a.pointsClas || 0);
+      const diffA = (a.setsWon || 0) - (a.setsLost || 0);
+      const diffB = (b.setsWon || 0) - (b.setsLost || 0);
+      if (diffA !== diffB) return diffB - diffA;
+      return (b.pointsWon || 0) - (b.pointsLost || 0) - ((a.pointsWon || 0) - (a.pointsLost || 0));
+    });
+
+    for (let pos = 0; pos < clas.length; pos++) {
+      await prisma.tournamentGroupClas.update({
+        where: { id: clas[pos].id },
+        data: { position: pos + 1 },
+      });
+    }
+  }
+
+  console.log('\n🧪 Generando Torneo 7 (16 Jugadores | Full Bracket allPos: true)...');
+  const t7 = await prisma.tournament.create({
+    data: {
+      name: 'Torneo Brújula (Compass Draw 16)',
+      dateStart: new Date(new Date().setDate(new Date().getDate() + 10)),
+      clubId: clubA.id,
+      seasonId: currentSeason.id,
+      numPlayers: 16,
+      typeTournament: 'Interno',
+      levelTournament: 'Avanzado',
+      rounds: 'Knockout',
+      status: 'Programado',
+      typeKnockout: 'LlaveA',
+      sortKnockout: 'Siembra',
+      allPos: true,
+      groupsCreated: false,
+      knockoutCreated: false,
+      setsToWinKnockout: 3,
+    },
+  });
+
+  const t7Players = sortedA.slice(0, 16);
+  await registerParticipants(t7.id, t7Players);
+
+  const t7Participants = t7Players.map((p, index) => ({ playerId: p.id, position: index + 1 }));
+  const matchesT7 = createKnockoutDraw(t7Participants, 'Siembra', true);
+  await saveKnockoutBracket(prisma, t7.id, 'A', matchesT7, new Date(), true);
+
+  console.log(
+    '\n🏆 Generando Torneo 8 (La Prueba Definitiva | 100% Simulado A y B con Todas las Posiciones)...',
+  );
+  const t8 = await prisma.tournament.create({
+    data: {
+      name: 'Gran Máster Final (Todas las Posiciones)',
+      dateStart: new Date(new Date().setDate(new Date().getDate() - 2)),
+      clubId: clubA.id,
+      seasonId: currentSeason.id,
+      numPlayers: 24,
+      numGroup: 4,
+      numGroupPlayers: 6,
+      typeTournament: 'Interno',
+      levelTournament: 'Federado',
+      rounds: 'GruposKnockout',
+      status: 'Grupos',
+      typeKnockout: 'LlaveAB',
+      playersKnockout: 3,
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      allPos: true,
+      groupsCreated: true,
+      knockoutCreated: false,
+      setsToWinGroup: 2,
+      setsToWinKnockout: 3,
+    },
+  });
+
+  const t8Players = sortedA.slice(0, 24);
+  await registerParticipants(t8.id, t8Players);
+
+  const t8Groups = [];
+  for (let i = 1; i <= 4; i++) {
+    t8Groups.push(
+      await prisma.tournamentGroup.create({
+        data: { tournamentId: t8.id, group: i, status: 'Programado' },
+      }),
+    );
+  }
+
+  const snakeGroupsT8: any[][] = Array.from({ length: 4 }, () => []);
+  for (let i = 0; i < t8Players.length; i++) {
+    const cycle = Math.floor(i / 4);
+    const index = cycle % 2 === 0 ? i % 4 : 3 - (i % 4);
+    snakeGroupsT8[index].push(t8Players[i]);
+  }
+
+  const allT8Matches = [];
+  for (let g = 0; g < 4; g++) {
+    const groupDb = t8Groups[g];
+    const groupPlayers = snakeGroupsT8[g];
+    const clasRecords = [];
+
+    for (const p of groupPlayers) {
+      const c = await prisma.tournamentGroupClas.create({
+        data: { tournamentGroupId: groupDb.id, playerId: p.id, position: 0 },
+      });
+      clasRecords.push({ playerId: p.id, clasId: c.id });
+    }
+
+    for (const [p1Index, p2Index] of MATCH_MATRIX_6) {
+      const p1 = groupPlayers[p1Index - 1];
+      const p2 = groupPlayers[p2Index - 1];
+      const clas1 = clasRecords[p1Index - 1];
+      const clas2 = clasRecords[p2Index - 1];
+
+      const m = await prisma.match.create({
+        data: {
+          seasonId: currentSeason.id,
+          tournamentId: t8.id,
+          groupId: groupDb.id,
+          playerOneId: p1.id,
+          playerTwoId: p2.id,
+          status: 'Programado',
+          dateStart: new Date(),
+        },
+      });
+      allT8Matches.push({
+        matchId: m.id,
+        p1Id: p1.id,
+        p2Id: p2.id,
+        clas1Id: clas1.clasId,
+        clas2Id: clas2.clasId,
+      });
+    }
+  }
+
+  console.log(`Fase 1: Simulando los 60 partidos de grupos...`);
+  for (const m of allT8Matches) {
+    await simulateExistingMatch(m.matchId, m.p1Id, m.p2Id, m.clas1Id, m.clas2Id);
+  }
+
+  for (const g of t8Groups) {
+    const clas = await prisma.tournamentGroupClas.findMany({ where: { tournamentGroupId: g.id } });
+    clas.sort((a, b) => {
+      if (b.pointsClas !== a.pointsClas) return (b.pointsClas || 0) - (a.pointsClas || 0);
+      const diffA = (a.setsWon || 0) - (a.setsLost || 0);
+      const diffB = (b.setsWon || 0) - (b.setsLost || 0);
+      if (diffA !== diffB) return diffB - diffA;
+      return (b.pointsWon || 0) - (b.pointsLost || 0) - ((a.pointsWon || 0) - (a.pointsLost || 0));
+    });
+
+    for (let pos = 0; pos < clas.length; pos++) {
+      await prisma.tournamentGroupClas.update({
+        where: { id: clas[pos].id },
+        data: { position: pos + 1 },
+      });
+    }
+  }
+
+  console.log(`Fase 2: Generando árboles de Eliminatorias A y B (Todas las posiciones)...`);
+  const harvest = await harvestKnockoutPlayers(prisma, t8.id);
+
+  if (harvest.bracketA.length > 0) {
+    const matchesA = createKnockoutDraw(harvest.bracketA, 'Siembra', true);
+    await saveKnockoutBracket(prisma, t8.id, 'A', matchesA, new Date(), true);
+  }
+
+  if (harvest.bracketB.length > 0) {
+    const matchesB = createKnockoutDraw(harvest.bracketB, 'Siembra', true);
+    await saveKnockoutBracket(prisma, t8.id, 'B', matchesB, new Date(), true);
+  }
+
+  await prisma.tournament.update({ where: { id: t8.id }, data: { knockoutCreated: true } });
+
+  async function playKnockoutMatch(matchId: string, p1Id: string, p2Id: string) {
+    const isP1Bye = p1Id === BYE_USER_ID;
+    const isP2Bye = p2Id === BYE_USER_ID;
+
+    let p1SetsWon = 0,
+      p2SetsWon = 0,
+      ptsP1 = 0,
+      ptsP2 = 0;
+    const setScores: { s1: number; s2: number }[] = [];
+
+    if (isP1Bye || isP2Bye) {
+      const p1WinsMatch = !isP1Bye || (isP1Bye && isP2Bye);
+      for (let i = 0; i < 3; i++) {
+        setScores.push({ s1: p1WinsMatch ? 11 : 0, s2: p1WinsMatch ? 0 : 11 });
+      }
+      p1SetsWon = p1WinsMatch ? 3 : 0;
+      p2SetsWon = p1WinsMatch ? 0 : 3;
+    } else {
+      while (p1SetsWon < 3 && p2SetsWon < 3) {
+        const p1WinsThisSet = Math.random() > 0.5;
+        const loserScore = Math.floor(Math.random() * 9);
+        const s1 = p1WinsThisSet ? 11 : loserScore;
+        const s2 = p1WinsThisSet ? loserScore : 11;
+        setScores.push({ s1, s2 });
+        ptsP1 += s1;
+        ptsP2 += s2;
+        if (p1WinsThisSet) p1SetsWon++;
+        else p2SetsWon++;
+      }
+    }
+
+    const p1WinsMatch = p1SetsWon === 3;
+    const eloExchanged = 20;
+
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        setOnePlayerOne: setScores[0]?.s1 ?? 0,
+        setOnePlayerTwo: setScores[0]?.s2 ?? 0,
+        setTwoPlayerOne: setScores[1]?.s1 ?? 0,
+        setTwoPlayerTwo: setScores[1]?.s2 ?? 0,
+        setThreePlayerOne: setScores[2]?.s1 ?? 0,
+        setThreePlayerTwo: setScores[2]?.s2 ?? 0,
+        setFourPlayerOne: setScores[3]?.s1 ?? 0,
+        setFourPlayerTwo: setScores[3]?.s2 ?? 0,
+        setFivePlayerOne: setScores[4]?.s1 ?? 0,
+        setFivePlayerTwo: setScores[4]?.s2 ?? 0,
+        status: 'Completado',
+      },
+    });
+
+    // 👇 Inyectar habilidades de partido
+    await addMatchSkillUpdates(matchId, p1Id, p2Id);
+
+    if (!isP1Bye && !isP2Bye) {
+      await prisma.stats.updateMany({
+        where: { userId: p1Id, seasonId: currentSeason.id },
+        data: { elo: { increment: p1WinsMatch ? eloExchanged : -eloExchanged } },
+      });
+      await prisma.stats.updateMany({
+        where: { userId: p2Id, seasonId: currentSeason.id },
+        data: { elo: { increment: p1WinsMatch ? -eloExchanged : eloExchanged } },
+      });
+    }
+
+    await processKnockoutAdvancement(prisma, matchId);
+  }
+
+  console.log(`Fase 3: Jugando TODOS los partidos de eliminatorias en cascada...`);
+  let playableKnockouts = await prisma.match.findMany({
+    where: {
+      tournamentId: t8.id,
+      groupId: null,
+      status: 'Programado',
+      playerOneId: { not: TBD_USER_ID },
+      playerTwoId: { not: TBD_USER_ID },
+    },
+  });
+
+  while (playableKnockouts.length > 0) {
+    for (const m of playableKnockouts) {
+      await playKnockoutMatch(m.id, m.playerOneId, m.playerTwoId);
+    }
+    playableKnockouts = await prisma.match.findMany({
+      where: {
+        tournamentId: t8.id,
+        groupId: null,
+        status: 'Programado',
+        playerOneId: { not: TBD_USER_ID },
+        playerTwoId: { not: TBD_USER_ID },
+      },
+    });
+  }
+
+  console.log(`¡Torneo 8 completado al 100%! Se han repartido todas las posiciones del 1 al 24.`);
+
+  console.log('\n🏆 Generando Torneo 9 (Todos vs Todos | 8 Jugadores - Falta 1 partido)...');
+  const t9 = await prisma.tournament.create({
+    data: {
+      name: 'Liga Master Todos vs Todos',
+      dateStart: new Date(new Date().setDate(new Date().getDate() + 14)),
+      clubId: clubA.id,
+      seasonId: currentSeason.id,
+      numPlayers: 8,
+      numGroup: 1,
+      numGroupPlayers: 8,
+      typeTournament: 'Interno',
+      levelTournament: 'Avanzado',
+      rounds: 'TodosvsTodos',
+      status: 'Grupos',
+      typeKnockout: 'LlaveA',
+      playersKnockout: 0,
+      sortGroups: 'Snake',
+      sortKnockout: 'Siembra',
+      allPos: false,
+      groupsCreated: true,
+      knockoutCreated: false,
+      setsToWinGroup: 2,
+      setsToWinKnockout: 3,
+    },
+  });
+
+  const t9Players = sortedB.slice(0, 8);
+  await registerParticipants(t9.id, t9Players);
+
+  const t9Group = await prisma.tournamentGroup.create({
+    data: { tournamentId: t9.id, group: 1, status: 'Programado' },
+  });
+  const clasRecordsT9 = [];
+  for (const p of t9Players) {
+    const c = await prisma.tournamentGroupClas.create({
+      data: { tournamentGroupId: t9Group.id, playerId: p.id, position: 0 },
+    });
+    clasRecordsT9.push({ playerId: p.id, clasId: c.id });
+  }
+
+  const MATCH_MATRIX_8 = [
+    [1, 8],
+    [2, 7],
+    [3, 6],
+    [4, 5],
+    [1, 7],
+    [8, 6],
+    [2, 5],
+    [3, 4],
+    [1, 6],
+    [7, 5],
+    [8, 4],
+    [2, 3],
+    [1, 5],
+    [6, 4],
+    [7, 3],
+    [8, 2],
+    [1, 4],
+    [5, 3],
+    [6, 2],
+    [7, 8],
+    [1, 3],
+    [4, 2],
+    [5, 8],
+    [6, 7],
+    [1, 2],
+    [3, 8],
+    [4, 7],
+    [5, 6],
+  ];
+
+  const allT9Matches = [];
+  for (const [p1Index, p2Index] of MATCH_MATRIX_8) {
+    const p1 = t9Players[p1Index - 1];
+    const p2 = t9Players[p2Index - 1];
+    const clas1 = clasRecordsT9[p1Index - 1];
+    const clas2 = clasRecordsT9[p2Index - 1];
+
+    const m = await prisma.match.create({
+      data: {
+        seasonId: currentSeason.id,
+        tournamentId: t9.id,
+        groupId: t9Group.id,
+        playerOneId: p1.id,
+        playerTwoId: p2.id,
+        status: 'Programado',
+        dateStart: new Date(),
+      },
+    });
+    allT9Matches.push({
+      matchId: m.id,
+      p1Id: p1.id,
+      p2Id: p2.id,
+      clas1Id: clas1.clasId,
+      clas2Id: clas2.clasId,
+    });
+  }
+
+  console.log(`Simulando 27 de los 28 partidos de la Liga Todos vs Todos...`);
+  for (let i = 0; i < allT9Matches.length - 1; i++) {
+    const m = allT9Matches[i];
+    await simulateExistingMatch(m.matchId, m.p1Id, m.p2Id, m.clas1Id, m.clas2Id);
+  }
+
+  const clasT9 = await prisma.tournamentGroupClas.findMany({
+    where: { tournamentGroupId: t9Group.id },
+  });
+  clasT9.sort((a, b) => {
+    if (b.pointsClas !== a.pointsClas) return (b.pointsClas || 0) - (a.pointsClas || 0);
+    const diffA = (a.setsWon || 0) - (a.setsLost || 0);
+    const diffB = (b.setsWon || 0) - (b.setsLost || 0);
+    if (diffA !== diffB) return diffB - diffA;
+    return (b.pointsWon || 0) - (b.pointsLost || 0) - ((a.pointsWon || 0) - (a.pointsLost || 0));
+  });
+
+  for (let pos = 0; pos < clasT9.length; pos++) {
+    await prisma.tournamentGroupClas.update({
+      where: { id: clasT9[pos].id },
+      data: { position: pos + 1 },
+    });
+  }
+
+  console.log('\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar el Frontend!');
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

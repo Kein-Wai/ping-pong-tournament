@@ -32,7 +32,7 @@ const calculateGrowth = (isTrained: boolean, currentStat: number): number => {
 // ==========================================
 // 1. HORARIOS FIJOS (Schedules)
 // ==========================================
-router.get('/schedules', requireAdminClub, async (req, res) => {
+router.get('/schedules', async (req, res) => {
   try {
     const schedules = await prisma.generalTrainingSchedule.findMany({
       where: getClubWhere(req),
@@ -118,7 +118,7 @@ router.delete('/schedules/:id', requireAdminClub, async (req, res) => {
 // ==========================================
 // 2. CALENDARIO DE ENTRENAMIENTOS GENERALES
 // ==========================================
-router.get('/', requireAdminClub, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const trainings = await prisma.generalTraining.findMany({
       where: getClubWhere(req),

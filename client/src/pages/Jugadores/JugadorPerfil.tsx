@@ -112,6 +112,9 @@ interface UserProfile {
       status: string;
     }[];
   }[];
+  generalAttendances?: {
+    generalTraining: { date: string };
+  }[];
 }
 
 export const JugadorPerfil = () => {
@@ -284,7 +287,15 @@ export const JugadorPerfil = () => {
   const totalSets = (s?.setWon || 0) + (s?.setLost || 0);
   const totalPoints = (s?.pointWon || 0) + (s?.pointLost || 0);
   const totalTournaments = s?.tournamentPart || 0;
-  console.log(s);
+  const totalAsistencias = player.generalAttendances?.length || 0;
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const asistenciasMes =
+    player.generalAttendances?.filter((a) => {
+      const d = new Date(a.generalTraining.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length || 0;
 
   const matchWinRate = totalMatches > 0 ? Math.round(((s?.matchWon || 0) / totalMatches) * 100) : 0;
 
@@ -910,6 +921,43 @@ export const JugadorPerfil = () => {
           </Group>
           <Text size="sm" c="dimmed" mt={7}>
             Ratio: {s?.pointLost ? ((s.pointWon || 0) / s.pointLost).toFixed(2) : 0}
+          </Text>
+        </Paper>
+        <Paper withBorder p="md" radius="md" shadow="sm">
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+              Asistencias Totales
+            </Text>
+            <ThemeIcon color="cyan" variant="light" size={38} radius="md">
+              <IconCalendarEvent size={24} />
+            </ThemeIcon>
+          </Group>
+          <Group align="flex-end" gap="xs" mt={25}>
+            <Text size="xl" fw={700}>
+              {totalAsistencias}
+            </Text>
+          </Group>
+          <Text size="sm" c="dimmed" mt={7}>
+            Clases grupales atendidas
+          </Text>
+        </Paper>
+
+        <Paper withBorder p="md" radius="md" shadow="sm">
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+              Asistencias este Mes
+            </Text>
+            <ThemeIcon color="green" variant="light" size={38} radius="md">
+              <IconTrendingUp size={24} />
+            </ThemeIcon>
+          </Group>
+          <Group align="flex-end" gap="xs" mt={25}>
+            <Text size="xl" fw={700}>
+              {asistenciasMes}
+            </Text>
+          </Group>
+          <Text size="sm" c="dimmed" mt={7}>
+            En {new Date().toLocaleString('es-ES', { month: 'long' })}
           </Text>
         </Paper>
       </SimpleGrid>
