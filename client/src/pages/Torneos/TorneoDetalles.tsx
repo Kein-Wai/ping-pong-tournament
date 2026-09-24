@@ -25,6 +25,7 @@ import {
   Tooltip,
   NumberInput,
   Checkbox,
+  Alert,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -41,6 +42,8 @@ import {
   IconRocket,
   IconSettings,
   IconTrash,
+  IconArrowsExchange,
+  IconLock,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import confetti from 'canvas-confetti';
@@ -243,8 +246,22 @@ export const TorneoDetalles = () => {
   const [checkedToEnroll, setCheckedToEnroll] = useState<string[]>([]);
   const [enrolling, setEnrolling] = useState(false);
 
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [swapPlayerA, setSwapPlayerA] = useState<string | null>(null);
+  const [swapPlayerB, setSwapPlayerB] = useState<string | null>(null);
+  const [isSwapping, setIsSwapping] = useState(false);
+
   const myParticipation = participants?.find((p) => p.player.id === user?.id);
   const isEnrolled = !!myParticipation;
+
+  const swapOptions = useMemo(() => {
+    const confirmed = participants?.filter((p) => p.status === 'Confirmado') || [];
+    // Solo permitimos intercambiar jugadores reales confirmados. Cero fantasmas.
+    return confirmed.map((p) => ({
+      value: p.player.id,
+      label: `${p.player.name} ${p.player.surname || ''}`,
+    }));
+  }, [participants]);
 
   const fetchParticipants = async () => {
     if (!id) return;
@@ -579,6 +596,41 @@ export const TorneoDetalles = () => {
         }
       },
     });
+  };
+
+  const handleSwapPlayers = async () => {
+    if (!id || !swapPlayerA || !swapPlayerB) return;
+    setIsSwapping(true);
+    try {
+      await api.put(ENDPOINTS.TOURNAMENTS.SWAP_PLAYERS(id), {
+        playerAId: swapPlayerA,
+        playerBId: swapPlayerB,
+      });
+      setSwapModalOpen(false);
+      setSwapPlayerA(null);
+      setSwapPlayerB(null);
+
+      // Recargamos todo para que la pantalla refresque los cuadros y los grupos
+      await fetchTournamentInfo();
+      if (activeTab === 'grupos') {
+        const [resClas, resMatches] = await Promise.all([
+          api.get(ENDPOINTS.TOURNAMENTS.GROUPS(id)),
+          api.get(ENDPOINTS.TOURNAMENTS.GROUPMATCHES(id)),
+        ]);
+        setGroupsClas(resClas.data.data);
+        setGroupMatches(resMatches.data.data);
+      } else if (activeTab === 'bracketA') {
+        const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=A`);
+        setBracketA(res.data.data);
+      } else if (activeTab === 'bracketB') {
+        const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=B`);
+        setBracketB(res.data.data);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSwapping(false);
+    }
   };
 
   const handleGenerateTournament = () => {
@@ -1090,55 +1142,76 @@ export const TorneoDetalles = () => {
             </Group>
           </div>
 
-          {isProgramado && (
+          {(isProgramado || (isAdmin && (isGrupos || isKnockoutPhase))) && (
             <Stack align="flex-end" gap="xs">
               <Group>
                 {isAdmin && (
                   <>
-                    <Tooltip label="Eliminar este torneo">
-                      <ActionIcon
-                        color="red"
+                    {/* BOTONES SOLO PARA FASE DE GRUPOS O ELIMINATORIAS */}
+                    {(isGrupos || isKnockoutPhase) && (
+                      <Button
+                        color="violet"
                         variant="light"
-                        size="input-sm"
-                        onClick={handleDeleteTournament}
+                        size="md"
+                        onClick={() => setSwapModalOpen(true)}
+                        leftSection={<IconArrowsExchange size={18} />}
                       >
-                        <IconTrash size={18} />
-                      </ActionIcon>
-                    </Tooltip>
+                        Intercambiar Jugadores
+                      </Button>
+                    )}
 
-                    <Button
-                      color="gray"
-                      variant="light"
-                      size="md"
-                      onClick={openEditFormat}
-                      leftSection={<IconSettings size={18} />}
-                    >
-                      Ajustar Formato
-                    </Button>
-                    <Button
-                      color="blue"
-                      variant="light"
-                      size="md"
-                      onClick={handleOpenEnrollModal}
-                      leftSection={<IconUsers size={18} />}
-                      disabled={(participants?.length || 0) >= (tournament?.numPlayers || 0)}
-                    >
-                      Añadir Inscritos
-                    </Button>
-                    <Button
-                      color={
-                        confirmedPlayersCount < (tournament.numPlayers || 0) ? 'red' : 'orange'
-                      }
-                      size="md"
-                      loading={isGenerating}
-                      onClick={handleGenerateTournament}
-                      leftSection={<IconRocket size={18} />}
-                    >
-                      Iniciar Torneo
-                    </Button>
+                    {/* BOTONES SOLO PARA ANTES DE EMPEZAR EL TORNEO */}
+                    {isProgramado && (
+                      <>
+                        <Tooltip label="Eliminar este torneo">
+                          <ActionIcon
+                            color="red"
+                            variant="light"
+                            size="input-sm"
+                            onClick={handleDeleteTournament}
+                          >
+                            <IconTrash size={18} />
+                          </ActionIcon>
+                        </Tooltip>
+
+                        <Button
+                          color="gray"
+                          variant="light"
+                          size="md"
+                          onClick={openEditFormat}
+                          leftSection={<IconSettings size={18} />}
+                        >
+                          Ajustar Formato
+                        </Button>
+                        <Button
+                          color="blue"
+                          variant="light"
+                          size="md"
+                          onClick={handleOpenEnrollModal}
+                          leftSection={<IconUsers size={18} />}
+                          disabled={(participants?.length || 0) >= (tournament?.numPlayers || 0)}
+                        >
+                          Añadir Inscritos
+                        </Button>
+                        <Button
+                          color={
+                            confirmedPlayersCount < (tournament.numPlayers || 0) ? 'red' : 'orange'
+                          }
+                          size="md"
+                          loading={isGenerating}
+                          onClick={handleGenerateTournament}
+                          leftSection={<IconRocket size={18} />}
+                        >
+                          Iniciar Torneo
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
-                {user?.role === 'Player' &&
+
+                {/* BOTONES DEL JUGADOR (Solo se ven antes de empezar) */}
+                {isProgramado &&
+                  user?.role === 'Player' &&
                   (isEnrolled ? (
                     <Button
                       color={myParticipation.status === 'Confirmado' ? 'green' : 'orange'}
@@ -1162,10 +1235,13 @@ export const TorneoDetalles = () => {
                   ))}
               </Group>
 
-              <Text size="xs" c="dimmed">
-                {plazasDisponibles > 0 ? `Quedan ${plazasDisponibles} plazas` : 'Lista de espera'}
-                {isAdmin && ` · Confirmados: ${confirmedPlayersCount}`}
-              </Text>
+              {/* INFO DE PLAZAS (Solo antes de empezar) */}
+              {isProgramado && (
+                <Text size="xs" c="dimmed">
+                  {plazasDisponibles > 0 ? `Quedan ${plazasDisponibles} plazas` : 'Lista de espera'}
+                  {isAdmin && ` · Confirmados: ${confirmedPlayersCount}`}
+                </Text>
+              )}
             </Stack>
           )}
         </Group>
@@ -2216,6 +2292,54 @@ export const TorneoDetalles = () => {
             </Button>
           </Stack>
         )}
+      </Modal>
+      <Modal
+        opened={swapModalOpen}
+        onClose={() => setSwapModalOpen(false)}
+        title={<Text fw={700}>Intercambiar Jugadores</Text>}
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Selecciona dos jugadores reales inscritos. Sus posiciones y partidos en la fase actual
+            se intercambiarán automáticamente.
+          </Text>
+
+          <Alert color="orange" title="Bloqueo de Sorteo" icon={<IconLock size={16} />}>
+            Esta opción solo es válida <b>antes</b> de que comience el primer partido de la fase
+            actual. Una vez ruede la bola, el sorteo queda cerrado.
+          </Alert>
+
+          <Select
+            label="Jugador A"
+            placeholder="Selecciona jugador..."
+            data={swapOptions}
+            value={swapPlayerA}
+            onChange={setSwapPlayerA}
+            searchable
+          />
+          <Center>
+            <IconArrowsExchange size={24} color="var(--mantine-color-gray-5)" />
+          </Center>
+          <Select
+            label="Jugador B (Sustituto)"
+            placeholder="Selecciona jugador..."
+            data={swapOptions}
+            value={swapPlayerB}
+            onChange={setSwapPlayerB}
+            searchable
+          />
+
+          <Button
+            fullWidth
+            color="violet"
+            loading={isSwapping}
+            onClick={handleSwapPlayers}
+            disabled={!swapPlayerA || !swapPlayerB || swapPlayerA === swapPlayerB}
+          >
+            Realizar Intercambio
+          </Button>
+        </Stack>
       </Modal>
     </Stack>
   );

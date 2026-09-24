@@ -45,7 +45,7 @@ router.post('/daily-reminders', async (req, res) => {
       torneo.participants.forEach((participante) => {
         const user = participante.player;
 
-        if (user.email && user.name) {
+        if (user.email && user.name && !user.email.endsWith('.local')) {
           enviarCorreoGenerico(
             user.email,
             `Recordatorio: Tu torneo ${torneo.name} es mañana`,

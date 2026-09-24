@@ -14,6 +14,7 @@ export const ENDPOINTS = {
     BASE: '/users',
     BY_ID: (id: string) => `/users/${id}`,
     ME: '/users/me',
+    CREATE_GUEST: '/users/guest',
   },
   PLAYERS: {
     BASE: '/users',
@@ -44,6 +45,7 @@ export const ENDPOINTS = {
     REGISTER: (id: string) => `/tournaments/${id}/register`,
     REGISTER_BULK: (id: string) => `/tournaments/${id}/register-bulk`,
     ENROLLED: (playerId: string) => `/tournaments/player/${playerId}/enrolled`,
+    SWAP_PLAYERS: (id: string) => `/tournaments/${id}/swap-players`,
   },
   MATCHES: {
     BASE: '/matches',

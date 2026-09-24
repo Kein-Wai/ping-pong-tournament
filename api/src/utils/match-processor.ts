@@ -119,6 +119,31 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
                   );
                 }
 
+                const advancingToA = harvest.bracketA.map((p) => p.playerId);
+                const advancingToB =
+                  harvest.typeKnockout === 'LlaveAB' ? harvest.bracketB.map((p) => p.playerId) : [];
+                const allAdvancing = new Set([...advancingToA, ...advancingToB]);
+
+                // 2. Buscamos todas las clasificaciones de grupos
+                const allGroupClas = await prisma.tournamentGroupClas.findMany({
+                  where: { tournamentGroup: { tournamentId: tournament.id } },
+                });
+
+                // 3. Filtramos a los que se han quedado fuera (Eliminados en grupos)
+                const eliminatedClas = allGroupClas.filter((c) => !allAdvancing.has(c.playerId));
+
+                // 4. Preparamos y guardamos su posición final matemática
+                const eliminatedData = eliminatedClas.map((clas) => ({
+                  tournamentId: tournament.id,
+                  playerId: clas.playerId,
+                  position: (clas.position - 1) * harvest.numGroups + 1,
+                  lastRound: null,
+                }));
+
+                if (eliminatedData.length > 0) {
+                  await prisma.tournamentClas.createMany({ data: eliminatedData });
+                }
+
                 await prisma.tournament.update({
                   where: { id: tournament.id },
                   data: { knockoutCreated: true },

@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../db';
-import { createUserSchema, updateUserSchema, updateProfileSchema } from '../schemas/user';
+import {
+  createUserSchema,
+  updateUserSchema,
+  updateProfileSchema,
+  createGuestSchema,
+} from '../schemas/user';
 import { z } from 'zod';
-import { requireSuperAdmin, requireAdminClub } from '../middleware/auth.middleware';
+import { requireAdminClub } from '../middleware/auth.middleware';
 import { getCurrentSeason } from '../utils/season';
 
 const router = Router();
@@ -361,6 +366,90 @@ router.delete('/:id', requireAdminClub, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al borrar el usuario' });
+  }
+});
+
+// POST: Crear cuenta de Invitado (Solo AdminClub)
+router.post('/guest', requireAdminClub, async (req, res) => {
+  try {
+    // 👇 1. VALIDACIÓN ESTRICTA CON ZOD
+    const validation = createGuestSchema.safeParse(req.body);
+
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Datos de entrada inválidos',
+        details: z.treeifyError(validation.error),
+      });
+    }
+
+    // 👇 2. EXTRAER DATOS LIMPIOS Y SEGUROS
+    const { name, surname, level, dominantHand, playstyle, elo } = validation.data;
+    const clubId = req.user?.clubId;
+
+    if (!clubId) return res.status(403).json({ error: 'No tienes club asignado' });
+
+    const currentSeason = await getCurrentSeason(prisma);
+
+    const playerRole = await prisma.userType.findFirst({ where: { name: 'Player' } });
+
+    const fakeEmail = `invitado_${Date.now()}@pingpong.local`;
+    const fakePassword = await bcrypt.hash(Math.random().toString(36), 10);
+
+    const baseSkill = Math.min(100, Math.max(5, Math.floor(Number(elo) / 20)));
+
+    // 👇 3. GUARDAR EN BASE DE DATOS
+    const newGuest = await prisma.user.create({
+      data: {
+        email: fakeEmail,
+        name,
+        surname: surname || '',
+        userTypeId: playerRole!.id,
+        clubId,
+        clubStatus: 'Aprobado',
+        level,
+        dominantHand,
+        playstyle,
+        password: fakePassword,
+        authProvider: 'LOCAL',
+        active: true,
+        stats: {
+          create: {
+            seasonId: currentSeason.id,
+            elo: Number(elo),
+            matchWon: 0,
+            matchLost: 0,
+            setWon: 0,
+            setLost: 0,
+            pointWon: 0,
+            pointLost: 0,
+            tournamentWon: 0,
+            tournamentPart: 0,
+          },
+        },
+        skills: {
+          create: {
+            seasonId: currentSeason.id,
+            derechaPlano: baseSkill,
+            revesPlano: baseSkill,
+            topspinDerecha: baseSkill,
+            topspinReves: baseSkill,
+            corte: baseSkill,
+            bloqueoDerecha: baseSkill,
+            bloqueoReves: baseSkill,
+            servicio: baseSkill,
+            recepcion: baseSkill,
+            movilidad: baseSkill,
+            fortalezaMental: baseSkill,
+            experiencia: baseSkill,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({ success: true, data: newGuest });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error creando la cuenta de invitado' });
   }
 });
 

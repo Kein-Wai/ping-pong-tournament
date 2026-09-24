@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UserClubStatus, DominantHand, Playstyle } from '@prisma/client';
+import { UserClubStatus, DominantHand, Playstyle, PlayerLevel } from '@prisma/client';
 
 export const loginLocalSchema = z.object({
   email: z.email(),
@@ -116,3 +116,33 @@ export const resetPasswordSchema = z
     message: 'Las contraseñas no coinciden',
     path: ['confirmPassword'],
   });
+
+export const createGuestSchema = z.object({
+  name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
+  surname: z.string().optional().nullable(),
+  level: z
+    .enum([
+      PlayerLevel.Iniciacion,
+      PlayerLevel.Principiante,
+      PlayerLevel.Intermedio,
+      PlayerLevel.Avanzado,
+      PlayerLevel.Profesional,
+    ])
+    .optional()
+    .default(PlayerLevel.Iniciacion),
+  dominantHand: z
+    .enum([DominantHand.Diestro, DominantHand.Zurdo])
+    .optional()
+    .default(DominantHand.Diestro),
+  playstyle: z
+    .enum([Playstyle.Ofensivo, Playstyle.Defensivo])
+    .optional()
+    .default(Playstyle.Ofensivo),
+  elo: z
+    .number()
+    .int()
+    .min(0, 'El ELO no puede ser negativo')
+    .max(3500, 'El ELO máximo es 3500')
+    .optional()
+    .default(500),
+});

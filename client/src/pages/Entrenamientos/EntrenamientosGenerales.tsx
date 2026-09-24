@@ -28,6 +28,8 @@ import {
   IconTrash,
   IconChevronLeft,
   IconChevronRight,
+  IconEdit,
+  IconInfoCircle,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -72,6 +74,9 @@ export const EntrenamientosGenerales = () => {
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [trainingModalOpen, setTrainingModalOpen] = useState(false);
 
+  const [viewAttendeesModalOpen, setViewAttendeesModalOpen] = useState(false);
+  const [selectedAttendees, setSelectedAttendees] = useState<any[]>([]);
+
   // Modal de Detalle de un Día (Punto de entrada para pasar lista)
   const [dayModalOpen, setDayModalOpen] = useState(false);
   const [selectedDayTrainings, setSelectedDayTrainings] = useState<any[]>([]);
@@ -94,6 +99,13 @@ export const EntrenamientosGenerales = () => {
   const [trainDates, setTrainDates] = useState<[Date | null, Date | null]>([null, null]);
   const [trainScheduleId, setTrainScheduleId] = useState<string | null>(null);
   const [trainSkills, setTrainSkills] = useState<Record<string, boolean>>({});
+
+  // Estados para Editar Horarios
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+
+  // Estados para Ver Detalles del Programa
+  const [programModalOpen, setProgramModalOpen] = useState(false);
+  const [programDetails, setProgramDetails] = useState<any>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -119,20 +131,70 @@ export const EntrenamientosGenerales = () => {
   }, []);
 
   // --- ACCIONES API ---
-  const handleCreateSchedule = async () => {
+  const handleOpenScheduleModal = (sch?: any) => {
+    if (sch) {
+      setEditingScheduleId(sch.id);
+      setSchedName(sch.name);
+      setSchedStart(sch.startTime);
+      setSchedEnd(sch.endTime);
+      setSchedDays(sch.daysOfWeek);
+    } else {
+      setEditingScheduleId(null);
+      setSchedName('');
+      setSchedStart('17:00');
+      setSchedEnd('19:00');
+      setSchedDays([]);
+    }
+    setScheduleModalOpen(true);
+  };
+
+  const handleSaveSchedule = async () => {
     try {
-      await api.post(ENDPOINTS.GENERAL_TRAININGS.SCHEDULES, {
+      const payload = {
         name: schedName,
         startTime: schedStart,
         endTime: schedEnd,
         daysOfWeek: schedDays,
-      });
+      };
+
+      if (editingScheduleId) {
+        await api.put(`${ENDPOINTS.GENERAL_TRAININGS.SCHEDULES}/${editingScheduleId}`, payload);
+      } else {
+        await api.post(ENDPOINTS.GENERAL_TRAININGS.SCHEDULES, payload);
+      }
+
       setScheduleModalOpen(false);
       setSchedDays([]);
       fetchData();
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const handleViewProgram = (training: any) => {
+    // 1. Buscamos todas las sesiones que pertenecen a este mismo "Bloque"
+    const programTrainings = trainings.filter(
+      (t) => t.templateId === training.templateId && t.scheduleId === training.scheduleId,
+    );
+    if (programTrainings.length === 0) return;
+
+    // 2. Calculamos inicio y fin
+    const dates = programTrainings.map((t) => new Date(t.date).getTime());
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+
+    // 3. Extraemos las habilidades marcadas como TRUE
+    const activeSkills = SKILLS.filter((s) => training.template?.[s.key] === true);
+
+    setProgramDetails({
+      description: training.description,
+      scheduleName: training.schedule?.name,
+      minDate,
+      maxDate,
+      sessionCount: programTrainings.length,
+      activeSkills,
+    });
+    setProgramModalOpen(true);
   };
 
   const handleCreateTraining = async () => {
@@ -171,6 +233,17 @@ export const EntrenamientosGenerales = () => {
         }
       },
     });
+  };
+
+  const openViewAttendees = (training: any) => {
+    // Sacamos los IDs de los que tienen attended: true
+    const attendedIds =
+      training.attendances?.filter((a: any) => a.attended).map((a: any) => a.playerId) || [];
+    // Filtramos la lista global de jugadores que ya tenemos en memoria
+    const attendees = players.filter((p) => attendedIds.includes(p.id));
+
+    setSelectedAttendees(attendees);
+    setViewAttendeesModalOpen(true);
   };
 
   const openAttendanceModal = (training: any) => {
@@ -253,7 +326,7 @@ export const EntrenamientosGenerales = () => {
         <Card shadow="sm" p="md" radius="md" withBorder>
           <Group justify="space-between" mb="md">
             <Title order={4}>Clases Fijas</Title>
-            <ActionIcon color="blue" variant="light" onClick={() => setScheduleModalOpen(true)}>
+            <ActionIcon color="blue" variant="light" onClick={() => handleOpenScheduleModal(true)}>
               <IconPlus size={18} />
             </ActionIcon>
           </Group>
@@ -286,13 +359,22 @@ export const EntrenamientosGenerales = () => {
                       )}
                     </Group>
                   </div>
-                  <ActionIcon
-                    color="red"
-                    variant="subtle"
-                    onClick={() => handleDeleteSchedule(sch.id, sch.name)}
-                  >
-                    <IconTrash size={16} />
-                  </ActionIcon>
+                  <Group gap={4}>
+                    <ActionIcon
+                      color="blue"
+                      variant="subtle"
+                      onClick={() => handleOpenScheduleModal(sch)}
+                    >
+                      <IconEdit size={16} />
+                    </ActionIcon>
+                    <ActionIcon
+                      color="red"
+                      variant="subtle"
+                      onClick={() => handleDeleteSchedule(sch.id, sch.name)}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
                 </Group>
               </Paper>
             ))}
@@ -436,25 +518,44 @@ export const EntrenamientosGenerales = () => {
               return (
                 <Paper key={tr.id} withBorder p="md" radius="md">
                   <Group justify="space-between" align="center">
-                    <div>
+                    <Group gap="xs">
                       <Text fw={700}>{tr.description || 'Entrenamiento Grupal'}</Text>
-                      {tr.schedule ? (
-                        <Text size="sm" c="dimmed">
-                          {tr.schedule.name} ({tr.schedule.startTime} - {tr.schedule.endTime})
-                        </Text>
-                      ) : (
-                        <Badge variant="light" color="gray" mt={4}>
-                          Horario Antiguo
-                        </Badge>
+                      <ActionIcon
+                        size="sm"
+                        variant="light"
+                        color="blue"
+                        onClick={() => handleViewProgram(tr)}
+                      >
+                        <IconInfoCircle size={16} />
+                      </ActionIcon>
+                    </Group>
+                    {tr.schedule ? (
+                      <Text size="sm" c="dimmed">
+                        {tr.schedule.name} ({tr.schedule.startTime} - {tr.schedule.endTime})
+                      </Text>
+                    ) : (
+                      <Badge variant="light" color="gray" mt={4}>
+                        Horario Antiguo
+                      </Badge>
+                    )}
+                    <Group gap="xs">
+                      {isPast && tr.attendances?.length > 0 && (
+                        <Button variant="light" color="cyan" onClick={() => openViewAttendees(tr)}>
+                          Ver Asistentes ({tr.attendances.length})
+                        </Button>
                       )}
-                    </div>
-                    <Button
-                      variant={isPast ? 'filled' : 'light'}
-                      color={isPast ? 'green' : 'gray'}
-                      onClick={() => openAttendanceModal(tr)}
-                    >
-                      {isPast ? 'Pasar Lista' : 'Ver Inscritos'}
-                    </Button>
+                      <Button
+                        variant={isPast ? 'filled' : 'light'}
+                        color={isPast ? 'green' : 'gray'}
+                        onClick={() => openAttendanceModal(tr)}
+                      >
+                        {isPast
+                          ? tr.attendances?.length > 0
+                            ? 'Editar Lista'
+                            : 'Pasar Lista'
+                          : 'Ver Inscritos'}
+                      </Button>
+                    </Group>
                   </Group>
                 </Paper>
               );
@@ -630,7 +731,7 @@ export const EntrenamientosGenerales = () => {
             ))}
           </Group>
           <Button
-            onClick={handleCreateSchedule}
+            onClick={handleSaveSchedule}
             color="blue"
             fullWidth
             disabled={schedDays.length === 0}
@@ -638,6 +739,107 @@ export const EntrenamientosGenerales = () => {
             Guardar Horario
           </Button>
         </Stack>
+      </Modal>
+      {/* --- MODAL VER DETALLES DEL PROGRAMA --- */}
+      <Modal
+        opened={programModalOpen}
+        onClose={() => setProgramModalOpen(false)}
+        title={
+          <Text size="lg" fw={700}>
+            Detalles del Programa
+          </Text>
+        }
+        centered
+      >
+        {programDetails && (
+          <Stack gap="md">
+            <Paper withBorder p="sm" bg="var(--mantine-color-gray-0)" style={{ darkHidden: true }}>
+              <Text fw={600} size="sm">
+                Descripción del Bloque
+              </Text>
+              <Text size="sm" c="dimmed">
+                {programDetails.description || 'Sin descripción especial.'}
+              </Text>
+            </Paper>
+
+            <SimpleGrid cols={2}>
+              <Paper withBorder p="sm" ta="center">
+                <Text fw={600} size="xs" c="dimmed" tt="uppercase">
+                  Fecha de Inicio
+                </Text>
+                <Text fw={700} size="lg" c="blue.7">
+                  {programDetails.minDate.toLocaleDateString('es-ES')}
+                </Text>
+              </Paper>
+              <Paper withBorder p="sm" ta="center">
+                <Text fw={600} size="xs" c="dimmed" tt="uppercase">
+                  Fecha de Fin
+                </Text>
+                <Text fw={700} size="lg" c="red.7">
+                  {programDetails.maxDate.toLocaleDateString('es-ES')}
+                </Text>
+              </Paper>
+            </SimpleGrid>
+
+            <Group justify="space-between">
+              <Text size="sm">
+                <b>Horario Base:</b> {programDetails.scheduleName || 'Antiguo/Desconocido'}
+              </Text>
+              <Badge color="blue" variant="light" size="lg">
+                {programDetails.sessionCount} Sesiones Totales
+              </Badge>
+            </Group>
+
+            <Text fw={600} size="sm" mt="sm">
+              Habilidades a entrenar:
+            </Text>
+            <Group gap="xs">
+              {programDetails.activeSkills.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  No se seleccionó ninguna habilidad específica.
+                </Text>
+              ) : (
+                programDetails.activeSkills.map((s: any) => (
+                  <Badge key={s.key} color="orange" variant="dot">
+                    {s.label}
+                  </Badge>
+                ))
+              )}
+            </Group>
+          </Stack>
+        )}
+      </Modal>
+      {/* --- MODAL VER ASISTENTES --- */}
+      <Modal
+        opened={viewAttendeesModalOpen}
+        onClose={() => setViewAttendeesModalOpen(false)}
+        title={
+          <Text size="lg" fw={700}>
+            Jugadores que asistieron
+          </Text>
+        }
+        centered
+      >
+        <ScrollArea h={300} offsetScrollbars>
+          <Stack gap="sm">
+            {selectedAttendees.length === 0 ? (
+              <Center py="xl">
+                <Text c="dimmed">No hay registros de asistencia.</Text>
+              </Center>
+            ) : (
+              selectedAttendees.map((p) => (
+                <Paper key={p.id} withBorder p="xs" radius="md">
+                  <Group wrap="nowrap">
+                    <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="sm" />
+                    <Text size="sm" fw={600}>
+                      {p.name} {p.surname}
+                    </Text>
+                  </Group>
+                </Paper>
+              ))
+            )}
+          </Stack>
+        </ScrollArea>
       </Modal>
     </Stack>
   );

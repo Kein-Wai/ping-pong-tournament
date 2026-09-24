@@ -34,6 +34,7 @@ import {
   IconEdit,
   IconUsers,
   IconClipboardList,
+  IconUserPlus,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -110,6 +111,17 @@ export const Jugadores = () => {
     opened: false,
     player: null,
   });
+
+  const [guestModal, setGuestModal] = useState(false);
+  const [creatingGuest, setCreatingGuest] = useState(false);
+  const [guestData, setGuestData] = useState({
+    name: '',
+    surname: '',
+    level: 'Iniciacion',
+    dominantHand: 'Diestro',
+    playstyle: 'Ofensivo',
+    elo: 500,
+  });
   const [playerLevel, setPlayerLevel] = useState<string | null>(null);
   const [startingElo, setStartingElo] = useState<number | string>(500);
   const [skills, setSkills] = useState<Record<string, number | ''>>({
@@ -131,6 +143,28 @@ export const Jugadores = () => {
   const isAdminClub = currentUser?.role === 'AdminClub';
   const isSuperAdmin = currentUser?.role === 'SuperAdmin';
   const canManage = isAdminClub || isSuperAdmin;
+
+  const handleCreateGuest = async () => {
+    if (!guestData.name) return;
+    setCreatingGuest(true);
+    try {
+      await api.post(ENDPOINTS.USERS.CREATE_GUEST, guestData);
+      setGuestModal(false);
+      setGuestData({
+        name: '',
+        surname: '',
+        level: 'Iniciacion',
+        dominantHand: 'Diestro',
+        playstyle: 'Ofensivo',
+        elo: 500,
+      });
+      await fetchPlayers();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setCreatingGuest(false);
+    }
+  };
 
   const fetchPlayers = async () => {
     try {
@@ -409,6 +443,17 @@ export const Jugadores = () => {
             <IconUsers size={24} />
           </ThemeIcon>
           <Title order={2}>Plantilla de Jugadores</Title>
+          {canManage && (
+            <Button
+              size="sm"
+              variant="light"
+              color="blue"
+              leftSection={<IconUserPlus size={16} />}
+              onClick={() => setGuestModal(true)}
+            >
+              Añadir Invitado
+            </Button>
+          )}
         </Group>
 
         <Group gap="xs" style={{ flexGrow: 1, justifyRight: 'true', maxWidth: 500 }}>
@@ -617,6 +662,87 @@ export const Jugadores = () => {
             </Group>
           </Stack>
         )}
+      </Modal>
+      {/* --- MODAL CREAR INVITADO --- */}
+      <Modal
+        opened={guestModal}
+        onClose={() => setGuestModal(false)}
+        title={
+          <Text fw={700} size="lg">
+            Añadir Jugador Invitado
+          </Text>
+        }
+        centered
+        overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Crea una cuenta sin correo electrónico ni contraseña para jugadores que no usan la
+            aplicación, pero que participarán en torneos y clasificaciones del club.
+          </Text>
+
+          <Group grow>
+            <TextInput
+              label="Nombre"
+              placeholder="Ej. Martín"
+              required
+              value={guestData.name}
+              onChange={(e) => setGuestData({ ...guestData, name: e.currentTarget.value })}
+              data-autofocus
+            />
+            <TextInput
+              label="Apellido"
+              placeholder="Ej. López"
+              value={guestData.surname}
+              onChange={(e) => setGuestData({ ...guestData, surname: e.currentTarget.value })}
+            />
+          </Group>
+
+          <SimpleGrid cols={2}>
+            <Select
+              label="Mano Dominante"
+              data={['Diestro', 'Zurdo']}
+              value={guestData.dominantHand}
+              onChange={(val) => setGuestData({ ...guestData, dominantHand: val! })}
+              allowDeselect={false}
+            />
+            <Select
+              label="Estilo de Juego"
+              data={['Ofensivo', 'Defensivo']}
+              value={guestData.playstyle}
+              onChange={(val) => setGuestData({ ...guestData, playstyle: val! })}
+              allowDeselect={false}
+            />
+            <Select
+              label="Nivel General"
+              data={Object.keys(LEVEL_BASE_STATS)}
+              value={guestData.level}
+              onChange={(val) => setGuestData({ ...guestData, level: val! })}
+              allowDeselect={false}
+            />
+            <NumberInput
+              label="Puntuación ELO Inicial"
+              min={0}
+              max={3500}
+              value={guestData.elo}
+              onChange={(val) => setGuestData({ ...guestData, elo: Number(val) || 500 })}
+            />
+          </SimpleGrid>
+
+          <Group justify="flex-end" mt="md">
+            <Button variant="subtle" color="gray" onClick={() => setGuestModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              color="blue"
+              onClick={handleCreateGuest}
+              loading={creatingGuest}
+              disabled={!guestData.name}
+            >
+              Crear Invitado
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </Stack>
   );

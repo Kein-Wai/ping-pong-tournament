@@ -138,3 +138,7 @@ export const registerParticipantSchema = z.object({
   registeredAt: z.iso.datetime('Formato de fecha inválido').optional(),
   status: z.enum(PlayerTournamentStatus).optional(),
 });
+export const swapPlayersSchema = z.object({
+  playerAId: z.uuid('El ID del Jugador A debe ser un UUID válido'),
+  playerBId: z.uuid('El ID del Jugador B debe ser un UUID válido'),
+});
