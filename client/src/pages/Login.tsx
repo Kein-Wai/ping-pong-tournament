@@ -136,6 +136,7 @@ export const Login = () => {
       clubStatus: decodedPayload.clubStatus || null,
       dominantHand: decodedPayload.dominantHand || null,
       playstyle: decodedPayload.playstyle || null,
+      birthDate: decodedPayload.birthDate || null,
     };
 
     login(token, loggedUser);

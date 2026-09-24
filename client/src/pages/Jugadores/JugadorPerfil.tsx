@@ -25,6 +25,8 @@ import {
   NumberInput,
   Pagination,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
+import '@mantine/dates/styles.css';
 import {
   IconArrowLeft,
   IconTrophy,
@@ -41,6 +43,7 @@ import {
   IconSwords,
   IconCalendarEvent,
   IconMapPin,
+  IconUserMinus,
 } from '@tabler/icons-react';
 import { RadarChart, BarChart } from '@mantine/charts';
 import { api } from '../../api/axios';
@@ -60,6 +63,8 @@ interface UserProfile {
   dominantHand?: 'Diestro' | 'Zurdo' | null;
   playstyle?: 'Ofensivo' | 'Defensivo' | null;
   level?: string | null;
+  clubId?: string | null;
+  birthDate?: string | null;
   stats?: {
     elo: number;
     matchWon: number;
@@ -131,35 +136,41 @@ export const JugadorPerfil = () => {
   const [approvedGains, setApprovedGains] = useState<Record<string, number>>({});
   const [consolidating, setConsolidating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editData, setEditData] = useState({
+  const [editData, setEditData] = useState<{
+    name: string;
+    surname: string;
+    nickname: string;
+    avatarUrl: string;
+    dominantHand: string;
+    playstyle: string;
+    birthDate: Date | null;
+  }>({
     name: '',
     surname: '',
     nickname: '',
     avatarUrl: '',
     dominantHand: '',
     playstyle: '',
+    birthDate: null,
   });
   const [trainings, setTrainings] = useState<any[]>([]);
-  // 👇 AÑADE ESTO PARA LA LÓGICA DE PARTIDOS DE EQUIPO
+
   const [teamMatchPage, setTeamMatchPage] = useState(1);
   const TEAM_MATCHES_PER_PAGE = 4;
 
-  // Extraemos todos los partidos de todos los equipos del jugador
   const allTeamMatches =
     player?.teams?.flatMap((t) => t.matches.map((m) => ({ ...m, teamName: t.name }))) || [];
 
-  // 1. Encontramos el "Próximisimo" partido (Programado y fecha futura o actual)
   const now = new Date().getTime();
   const upcomingMatches = allTeamMatches
     .filter((m) => m.status === 'Programado' && new Date(m.date).getTime() >= now)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Ordenamos por el más inminente
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const nextMatch = upcomingMatches.length > 0 ? upcomingMatches[0] : null;
 
-  // 2. El resto de partidos (los completados, cancelados, y los futuros que no son "el próximo")
   const otherTeamMatches = allTeamMatches
     .filter((m) => m.id !== nextMatch?.id)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // De más reciente a más antiguo
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalTeamMatchPages = Math.ceil(otherTeamMatches.length / TEAM_MATCHES_PER_PAGE);
   const paginatedTeamMatches = otherTeamMatches.slice(
@@ -168,8 +179,16 @@ export const JugadorPerfil = () => {
   );
 
   const isOwnProfile = currentUser?.id === id;
+  const isSuperAdmin = currentUser?.role === 'SuperAdmin';
   const isAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === 'AdminClub';
   const canViewTrainings = isOwnProfile || isAdmin;
+
+  // Puede expulsar si es Admin, no es su propio perfil, y el jugador pertenece a su club (o es SuperAdmin)
+  const canKickPlayer =
+    isAdmin &&
+    !isOwnProfile &&
+    player?.clubId &&
+    (isSuperAdmin || player.clubId === currentUser?.clubId);
 
   const fetchPlayerInfo = async () => {
     try {
@@ -212,6 +231,29 @@ export const JugadorPerfil = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  const handleKickPlayer = () => {
+    openAppConfirmModal({
+      title: 'Dar de baja del club',
+      icon: <IconUserMinus size={18} />,
+      color: 'red',
+      description: '¿Estás seguro de que deseas expulsar a este jugador del club?',
+      highlightText: `${player?.name} ${player?.surname || ''}`,
+      warningText:
+        'El jugador perderá acceso a los torneos internos y al calendario del club. Su cuenta no se borrará, pasará a ser un Jugador Libre.',
+      confirmLabel: 'Sí, dar de baja',
+      onConfirm: async () => {
+        try {
+          await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(player!.clubId!, player!.id), {
+            status: 'Rechazado',
+          });
+          navigate(APP_ROUTES.JUGADORES.LIST);
+        } catch (error) {
+          console.error('Error al dar de baja al jugador:', error);
+        }
+      },
+    });
+  };
+
   const handleOpenEdit = () => {
     if (player) {
       setEditData({
@@ -221,6 +263,7 @@ export const JugadorPerfil = () => {
         avatarUrl: player.avatarUrl || '',
         dominantHand: player.dominantHand || '',
         playstyle: player.playstyle || '',
+        birthDate: player.birthDate ? new Date(player.birthDate) : null,
       });
       setEditModalOpened(true);
     }
@@ -229,7 +272,10 @@ export const JugadorPerfil = () => {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      await api.put(ENDPOINTS.USERS.ME, editData);
+      await api.put(ENDPOINTS.USERS.ME, {
+        ...editData,
+        birthDate: editData.birthDate ? editData.birthDate.toISOString() : null,
+      });
       setEditModalOpened(false);
       updateUserFields({
         name: editData.name,
@@ -280,7 +326,6 @@ export const JugadorPerfil = () => {
     );
   }
 
-  // --- 1. CÁLCULO DE DATOS (Eficiencia) ---
   const s = Array.isArray(player.stats) ? player.stats[0] : player.stats;
   const currentSkills = Array.isArray(player.skills) ? player.skills[0] : player.skills;
   const totalMatches = (s?.matchWon || 0) + (s?.matchLost || 0);
@@ -359,7 +404,6 @@ export const JugadorPerfil = () => {
     },
   ];
 
-  // AHORA ESTE DATA VA A UN BARCHART APILADO HORIZONTAL
   const efficiencyData =
     totalMatches > 0
       ? [
@@ -392,7 +436,6 @@ export const JugadorPerfil = () => {
         ]
       : [];
 
-  // --- 2. CÁLCULO DE DATOS RPG (SKILLS) ---
   const skillsData = currentSkills
     ? [
         {
@@ -494,7 +537,6 @@ export const JugadorPerfil = () => {
     { key: 'experiencia', label: 'Experiencia / Táctica' },
   ];
 
-  // Verificamos si hay alguna skill con subida pendiente mayor a 0
   const hasPendingSkills =
     player?.pendingSkills &&
     Object.values(player.pendingSkills).some((val) => val !== null && val > 0);
@@ -513,7 +555,6 @@ export const JugadorPerfil = () => {
     if (!id || !player) return;
     setConsolidating(true);
     try {
-      // Sumamos la base actual + lo que el entrenador haya dejado en los inputs
       const finalSkills: Record<string, number> = {};
       SKILL_KEYS.forEach((sKey) => {
         const base = currentSkills?.[sKey.key as keyof typeof currentSkills] || 0;
@@ -610,6 +651,17 @@ export const JugadorPerfil = () => {
           </Group>
 
           <Stack align="flex-end">
+            {canKickPlayer && (
+              <Button
+                variant="light"
+                color="red"
+                leftSection={<IconUserMinus size={16} />}
+                onClick={handleKickPlayer}
+              >
+                Dar de Baja
+              </Button>
+            )}
+
             {isOwnProfile && (
               <Button
                 variant="light"
@@ -620,7 +672,7 @@ export const JugadorPerfil = () => {
                 Editar Perfil
               </Button>
             )}
-            {/* 👇 NUEVO BOTÓN DE CONSOLIDACIÓN */}
+
             {isAdmin && hasPendingSkills && (
               <Button
                 color="cyan"
@@ -635,11 +687,9 @@ export const JugadorPerfil = () => {
         </Group>
       </Card>
 
-      {/* 👇 NUEVA SECCIÓN: PERFIL TÉCNICO RPG */}
       <Title order={3}>Perfil Técnico (Atributos)</Title>
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        {/* CAJA 1: BARRAS DE PROGRESO INDIVIDUALES */}
         <Card withBorder radius="md" shadow="sm" p="lg">
           <Group gap="xs" mb="md">
             <ThemeIcon color="orange" variant="light">
@@ -670,7 +720,6 @@ export const JugadorPerfil = () => {
                       </Text>
                     </Group>
 
-                    {/* 👇 Usamos Progress.Root para apilar el nivel actual + la mejora pendiente */}
                     <Progress.Root size="md" radius="xl">
                       <Progress.Section value={skill.value} color={getSkillColor(skill.value)} />
                       {skill.pending > 0 && (
@@ -694,7 +743,6 @@ export const JugadorPerfil = () => {
           )}
         </Card>
 
-        {/* CAJA 2: RADAR CHART */}
         <Card withBorder radius="md" shadow="sm" p="lg">
           <Group gap="xs" mb="lg">
             <ThemeIcon color="grape" variant="light">
@@ -714,9 +762,7 @@ export const JugadorPerfil = () => {
                 withPolarRadiusAxis
                 polarRadiusAxisProps={{ domain: [0, 100] }}
                 series={[
-                  // 👇 Capa base del radar (Más grande, con el potencial total)
                   { name: 'potential', color: 'cyan.5', opacity: 0.3 },
-                  // 👇 Capa real consolidada (Dibujada encima)
                   { name: 'value', color: 'grape.5', opacity: 0.7 },
                 ]}
               />
@@ -735,13 +781,11 @@ export const JugadorPerfil = () => {
         </Card>
       </SimpleGrid>
 
-      {/* SECCIÓN DE ANÁLISIS DE RENDIMIENTO */}
       <Title order={3} mt="md">
         Estadísticas Competitivas
       </Title>
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        {/* GRÁFICO BARRAS APILADAS: EFICIENCIA */}
         <Card withBorder radius="md" shadow="sm" p="lg">
           <Group gap="xs" mb="lg">
             <ThemeIcon color="blue" variant="light">
@@ -781,7 +825,6 @@ export const JugadorPerfil = () => {
           )}
         </Card>
 
-        {/* GRÁFICO BARRAS APILADAS: VS RIVALES */}
         <Card withBorder radius="md" shadow="sm" p="lg">
           <Group gap="xs" mb="lg">
             <ThemeIcon color="orange" variant="light">
@@ -838,7 +881,6 @@ export const JugadorPerfil = () => {
         </Card>
       </SimpleGrid>
 
-      {/* ESTADÍSTICAS TRADICIONALES */}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mt="md">
         <Paper withBorder p="md" radius="md" shadow="sm">
           <Group justify="space-between">
@@ -961,7 +1003,7 @@ export const JugadorPerfil = () => {
           </Text>
         </Paper>
       </SimpleGrid>
-      {/* 👇 NUEVA SECCIÓN DE PRÓXIMOS PARTIDOS DE LIGA */}
+
       {/* SECCIÓN DE PARTIDOS DE EQUIPO */}
       {allTeamMatches.length > 0 && (
         <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
@@ -971,7 +1013,6 @@ export const JugadorPerfil = () => {
           </Group>
 
           <Stack gap="md">
-            {/* 1. EL PRÓXIMISIMO PARTIDO (DESTACADO) */}
             {nextMatch && (
               <Card
                 withBorder
@@ -1018,14 +1059,12 @@ export const JugadorPerfil = () => {
               </Card>
             )}
 
-            {/* 2. EL RESTO DE PARTIDOS (PAGINADOS) */}
             {otherTeamMatches.length > 0 && (
               <Stack gap="sm">
                 <Text size="sm" fw={700} c="dimmed" mt="sm">
                   Historial y Resto del Calendario
                 </Text>
                 {paginatedTeamMatches.map((m: any) => {
-                  // Lógica para detectar si se ganó, perdió o empató (usando la BD del paso anterior)
                   const isWin =
                     m.ourScore !== null && m.rivalScore !== null && m.ourScore > m.rivalScore;
                   const isLoss =
@@ -1069,7 +1108,6 @@ export const JugadorPerfil = () => {
                         </Stack>
 
                         <Group gap="xs">
-                          {/* Si está completado y hay marcador, lo mostramos */}
                           {m.status === 'Completado' &&
                             m.ourScore !== null &&
                             m.rivalScore !== null && (
@@ -1090,7 +1128,6 @@ export const JugadorPerfil = () => {
               </Stack>
             )}
 
-            {/* PAGINACIÓN */}
             {totalTeamMatchPages > 1 && (
               <Center mt="sm">
                 <Pagination
@@ -1361,6 +1398,13 @@ export const JugadorPerfil = () => {
             value={editData.avatarUrl || ''}
             onChange={(e) => setEditData({ ...editData, avatarUrl: e.currentTarget.value })}
           />
+          <DateInput
+            label="Fecha de Nacimiento"
+            placeholder="Opcional"
+            value={editData.birthDate}
+            onChange={(val) => setEditData({ ...editData, birthDate: val ? new Date(val) : null })}
+            clearable
+          />
           <SimpleGrid cols={2}>
             <Select
               label="Mano Dominante"
@@ -1380,6 +1424,7 @@ export const JugadorPerfil = () => {
           </Button>
         </Stack>
       </Modal>
+
       {/* MODAL DE CONSOLIDACIÓN DE SKILLS */}
       <Modal
         opened={consolidateModalOpened}
@@ -1415,7 +1460,6 @@ export const JugadorPerfil = () => {
                   const gain = approvedGains[s.key] || 0;
                   const final = base + gain;
 
-                  // Solo mostramos las filas donde hay algo que subir o donde la base ya existe para no saturar
                   if (gain === 0 && base === 0) return null;
 
                   return (

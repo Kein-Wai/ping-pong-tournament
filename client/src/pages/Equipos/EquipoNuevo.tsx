@@ -84,6 +84,7 @@ export const EquipoNuevo = () => {
                   'División de Honor',
                   '1ª Nacional',
                   '2ª Nacional',
+                  '3ª Nacional (Superautonomica)',
                   '1ª Autonómica',
                   '2ª Autonómica',
                   'Liga Local',

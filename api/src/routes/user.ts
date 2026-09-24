@@ -170,6 +170,7 @@ router.put('/me', async (req, res) => {
     if (req.body.avatarUrl) updateData.avatarUrl = req.body.avatarUrl;
     if (data.dominantHand !== undefined) updateData.dominantHand = data.dominantHand;
     if (data.playstyle !== undefined) updateData.playstyle = data.playstyle;
+    if (data.birthDate !== undefined) updateData.birthDate = data.birthDate;
 
     if (data.newPassword) {
       if (user.password) {
@@ -200,6 +201,7 @@ router.put('/me', async (req, res) => {
         nickname: true,
         dominantHand: true,
         playstyle: true,
+        birthDate: true,
       },
     });
 

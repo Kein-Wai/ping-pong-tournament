@@ -36,6 +36,19 @@ import { ENDPOINTS } from '../../api/endpoints';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { openAppConfirmModal } from '../../utils/modals';
 
+const SCHEDULE_COLORS = [
+  'blue',
+  'teal',
+  'grape',
+  'orange',
+  'cyan',
+  'pink',
+  'lime',
+  'violet',
+  'yellow',
+  'indigo',
+];
+
 const SKILLS = [
   { key: 'derechaPlano', label: 'Derecha Plano' },
   { key: 'revesPlano', label: 'Revés Plano' },
@@ -106,6 +119,13 @@ export const EntrenamientosGenerales = () => {
   // Estados para Ver Detalles del Programa
   const [programModalOpen, setProgramModalOpen] = useState(false);
   const [programDetails, setProgramDetails] = useState<any>(null);
+
+  const getScheduleColor = (scheduleId: string | null) => {
+    if (!scheduleId) return 'gray';
+    const index = schedules.findIndex((s) => s.id === scheduleId);
+    if (index === -1) return 'gray';
+    return SCHEDULE_COLORS[index % SCHEDULE_COLORS.length];
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -342,9 +362,19 @@ export const EntrenamientosGenerales = () => {
               >
                 <Group justify="space-between">
                   <div>
-                    <Text fw={600} size="sm">
-                      {sch.name}
-                    </Text>
+                    <Group gap="xs">
+                      <Box
+                        w={12}
+                        h={12}
+                        style={{
+                          borderRadius: '50%',
+                          backgroundColor: `var(--mantine-color-${getScheduleColor(sch.id)}-5)`,
+                        }}
+                      />
+                      <Text fw={600} size="sm">
+                        {sch.name}
+                      </Text>
+                    </Group>
                     <Text size="xs" c="dimmed">
                       {sch.startTime} - {sch.endTime}
                     </Text>
@@ -479,8 +509,8 @@ export const EntrenamientosGenerales = () => {
                         <Badge
                           key={ev.id}
                           size="xs"
-                          color={new Date(ev.date) < new Date() ? 'gray' : 'blue'}
-                          variant="filled"
+                          color={getScheduleColor(ev.scheduleId)}
+                          variant={new Date(ev.date) < new Date() ? 'light' : 'filled'}
                           fullWidth
                           style={{ overflow: 'hidden' }}
                         >
@@ -519,6 +549,15 @@ export const EntrenamientosGenerales = () => {
                 <Paper key={tr.id} withBorder p="md" radius="md">
                   <Group justify="space-between" align="center">
                     <Group gap="xs">
+                      {/* NUEVO: Circulito de color */}
+                      <Box
+                        w={14}
+                        h={14}
+                        style={{
+                          borderRadius: '50%',
+                          backgroundColor: `var(--mantine-color-${getScheduleColor(tr.scheduleId)}-5)`,
+                        }}
+                      />
                       <Text fw={700}>{tr.description || 'Entrenamiento Grupal'}</Text>
                       <ActionIcon
                         size="sm"
@@ -544,17 +583,19 @@ export const EntrenamientosGenerales = () => {
                           Ver Asistentes ({tr.attendances.length})
                         </Button>
                       )}
-                      <Button
-                        variant={isPast ? 'filled' : 'light'}
-                        color={isPast ? 'green' : 'gray'}
-                        onClick={() => openAttendanceModal(tr)}
-                      >
-                        {isPast
-                          ? tr.attendances?.length > 0
-                            ? 'Editar Lista'
-                            : 'Pasar Lista'
-                          : 'Ver Inscritos'}
-                      </Button>
+                      {tr.schedule && (
+                        <Button
+                          variant={isPast ? 'filled' : 'light'}
+                          color={isPast ? 'green' : 'gray'}
+                          onClick={() => openAttendanceModal(tr)}
+                        >
+                          {isPast
+                            ? tr.attendances?.length > 0
+                              ? 'Editar Lista'
+                              : 'Pasar Lista'
+                            : 'Ver Inscritos'}
+                        </Button>
+                      )}
                     </Group>
                   </Group>
                 </Paper>

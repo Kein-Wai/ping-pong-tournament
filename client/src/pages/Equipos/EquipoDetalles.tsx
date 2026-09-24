@@ -56,12 +56,18 @@ export const EquipoDetalles = () => {
   const [checkedPlayers, setCheckedPlayers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Estados para Editar Equipo
+  const [editTeamModalOpen, setEditTeamModalOpen] = useState(false);
+  const [editTeamName, setEditTeamName] = useState('');
+  const [editTeamCategory, setEditTeamCategory] = useState<string | null>('');
+  const [editTeamLevel, setEditTeamLevel] = useState<string | null>('');
+
   // Formulario Partido
   const [rivalName, setRivalName] = useState('');
   const [matchDate, setMatchDate] = useState<Date | null>(new Date());
   const [isHome, setIsHome] = useState(true);
   const [location, setLocation] = useState('');
-  // ... debajo de tus otros estados ...
+
   const [editMatchModalOpen, setEditMatchModalOpen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
 
@@ -77,7 +83,6 @@ export const EquipoDetalles = () => {
 
   const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
 
-  // Comprobar si el usuario logueado es parte de la plantilla
   const isTeamMember = team?.players?.some((p: any) => p.id === user?.id);
   const canEditMatch = isAdmin || isTeamMember;
 
@@ -86,7 +91,7 @@ export const EquipoDetalles = () => {
     try {
       const [teamRes, playersRes] = await Promise.all([
         api.get(ENDPOINTS.TEAMS.BY_CLUB(user.clubId)),
-        api.get(ENDPOINTS.USERS.BASE), // Trae los jugadores del club
+        api.get(ENDPOINTS.USERS.BASE),
       ]);
       const currentTeam = teamRes.data.data.find((t: any) => t.id === id);
       setTeam(currentTeam);
@@ -105,6 +110,31 @@ export const EquipoDetalles = () => {
   useEffect(() => {
     fetchData();
   }, [id, user]);
+
+  const handleOpenEditTeam = () => {
+    setEditTeamName(team.name);
+    setEditTeamCategory(team.category);
+    setEditTeamLevel(team.level);
+    setEditTeamModalOpen(true);
+  };
+
+  const handleUpdateTeam = async () => {
+    if (!editTeamName || !editTeamCategory || !editTeamLevel) return;
+    setSaving(true);
+    try {
+      await api.put(ENDPOINTS.TEAMS.UPDATE(id!), {
+        name: editTeamName,
+        category: editTeamCategory,
+        level: editTeamLevel,
+      });
+      setEditTeamModalOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleOpenRoster = () => {
     setCheckedPlayers(team.players.map((p: any) => p.id));
@@ -149,7 +179,7 @@ export const EquipoDetalles = () => {
       icon: <IconTrash size={18} />,
       color: 'red',
       description: '¿Estás seguro de que deseas eliminar este equipo de competición?',
-      highlightText: team.name, // 👈 AÑADIDO: El texto central destacado
+      highlightText: team.name,
       warningText:
         'Se borrarán todos los partidos programados en su calendario. Los jugadores quedarán desvinculados del equipo, pero seguirán formando parte de la plantilla del club.',
       confirmLabel: 'Sí, Eliminar Equipo',
@@ -218,6 +248,15 @@ export const EquipoDetalles = () => {
     });
   };
 
+  const handleToggleAttendance = async (matchId: string) => {
+    try {
+      await api.post(ENDPOINTS.TEAMS.TOGGLE_AVAILABILITY(matchId));
+      fetchData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   if (loading)
     return (
       <Center h={400}>
@@ -231,6 +270,15 @@ export const EquipoDetalles = () => {
       </Center>
     );
 
+  const upcomingMatches = team.matches
+    .filter(
+      (m: any) => m.status === 'Programado' && new Date(m.date).getTime() >= new Date().getTime(),
+    )
+    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const nextMatch = upcomingMatches[0] || null;
+
+  const nextMatchConfirmed = nextMatch?.availabilities?.some((a: any) => a.playerId === user?.id);
+
   return (
     <Stack gap="xl">
       <div>
@@ -243,10 +291,8 @@ export const EquipoDetalles = () => {
         </Button>
       </div>
 
-      {/* CABECERA PRINCIPAL CON BOTONES ESTILO TORNEO */}
       <Card shadow="sm" padding="xl" radius="md" withBorder>
         <Group justify="space-between" align="flex-start">
-          {/* Lado Izquierdo: Info del Equipo */}
           <Group gap="md">
             <ThemeIcon size={60} radius="md" color="blue" variant="light">
               <IconShield size={32} />
@@ -264,7 +310,6 @@ export const EquipoDetalles = () => {
             </div>
           </Group>
 
-          {/* Lado Derecho: Acciones de Admin */}
           <Stack align="flex-end" gap="xs">
             <Group>
               {isAdmin && (
@@ -281,11 +326,21 @@ export const EquipoDetalles = () => {
                   </Tooltip>
 
                   <Button
+                    color="blue"
+                    variant="light"
+                    size="md"
+                    onClick={handleOpenEditTeam}
+                    leftSection={<IconEdit size={18} />}
+                  >
+                    Editar Info
+                  </Button>
+
+                  <Button
                     color="gray"
                     variant="light"
                     size="md"
                     onClick={handleOpenRoster}
-                    leftSection={<IconEdit size={18} />}
+                    leftSection={<IconUsers size={18} />}
                   >
                     Ajustar Plantilla
                   </Button>
@@ -329,15 +384,15 @@ export const EquipoDetalles = () => {
             ) : (
               <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
                 {team.players.map((p: any) => {
-                  const s = Array.isArray(p.stats) ? p.stats[0] : p.stats; // 👈 Modificado
+                  const s = Array.isArray(p.stats) ? p.stats[0] : p.stats;
                   return (
                     <Paper
                       key={p.id}
                       withBorder
                       p="md"
                       radius="md"
-                      className="hover-card" // 👈 AÑADIDO: Efecto visual
-                      onClick={() => navigate(APP_ROUTES.JUGADORES.PROFILE(p.id))} // 👈 AÑADIDO: Navegación
+                      className="hover-card"
+                      onClick={() => navigate(APP_ROUTES.JUGADORES.PROFILE(p.id))}
                     >
                       <Group wrap="nowrap">
                         <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="md" />
@@ -384,102 +439,252 @@ export const EquipoDetalles = () => {
               </Center>
             ) : (
               <Stack gap="sm">
-                {team.matches.map((m: any) => (
-                  <Card key={m.id} withBorder shadow="sm" radius="md">
+                {/* 1. EL PRÓXIMISIMO PARTIDO DESTACADO */}
+                {nextMatch && (
+                  <Card
+                    withBorder
+                    shadow="md"
+                    radius="md"
+                    p="md"
+                    bg="blue.0"
+                    style={{ borderColor: 'var(--mantine-color-blue-5)', borderWidth: 2 }}
+                    mb="md"
+                  >
+                    <Text size="xs" fw={800} c="blue.7" tt="uppercase" mb="xs">
+                      🔥 Siguiente Compromiso
+                    </Text>
                     <Group justify="space-between" align="center" wrap="nowrap">
                       <Stack gap={4}>
-                        <Text fw={700} size="lg">
-                          {m.isHome ? team.name : m.rivalName}
-                          <Text span c="dimmed" mx="sm">
-                            vs
+                        <Text fw={800} size="lg" c="blue.9">
+                          {nextMatch.isHome ? team.name : nextMatch.rivalName}
+                          <Text span c="blue.5" mx="sm">
+                            VS
                           </Text>
-                          {m.isHome ? m.rivalName : team.name}
+                          {nextMatch.isHome ? nextMatch.rivalName : team.name}
                         </Text>
                         <Group gap="sm">
-                          <Text size="sm" c="dimmed" fw={600}>
-                            {new Date(m.date).toLocaleString('es-ES', {
-                              dateStyle: 'short',
+                          <Text size="sm" c="blue.8" fw={600}>
+                            {new Date(nextMatch.date).toLocaleString('es-ES', {
+                              dateStyle: 'full',
                               timeStyle: 'short',
                             })}
                           </Text>
-                          {m.location && (
-                            <Text size="sm" c="dimmed">
+                          {nextMatch.location && (
+                            <Text size="sm" c="blue.8">
                               <IconMapPin
                                 size={14}
                                 style={{ verticalAlign: 'middle', marginRight: 4 }}
                               />
-                              {m.location}
+                              {nextMatch.location}
                             </Text>
                           )}
                         </Group>
                       </Stack>
+                      <Badge color="blue" variant="filled" size="lg">
+                        {nextMatch.status}
+                      </Badge>
+                    </Group>
 
-                      <Group gap="sm" align="center">
-                        {/* Si hay marcador, lo enseñamos grande */}
-                        {m.status === 'Completado' &&
-                          m.ourScore !== null &&
-                          m.rivalScore !== null && (
-                            <Group gap="xs">
-                              <Badge
-                                size="lg"
-                                variant="filled"
-                                color={
-                                  m.ourScore > m.rivalScore
-                                    ? 'green'
-                                    : m.ourScore < m.rivalScore
-                                      ? 'red'
-                                      : 'yellow'
-                                }
-                              >
-                                {m.ourScore > m.rivalScore
-                                  ? '🏆 VICTORIA'
-                                  : m.ourScore < m.rivalScore
-                                    ? '❌ DERROTA'
-                                    : '🤝 EMPATE'}
-                              </Badge>
-
-                              <Badge
-                                size="xl"
-                                variant="outline"
-                                color={
-                                  m.ourScore > m.rivalScore
-                                    ? 'green'
-                                    : m.ourScore < m.rivalScore
-                                      ? 'red'
-                                      : 'yellow'
-                                }
-                              >
-                                {m.isHome
-                                  ? `${m.ourScore} - ${m.rivalScore}`
-                                  : `${m.rivalScore} - ${m.ourScore}`}
-                              </Badge>
-                            </Group>
-                          )}
-
-                        <Badge
-                          color={
-                            m.status === 'Completado'
-                              ? 'green'
-                              : m.status === 'Cancelado'
-                                ? 'red'
-                                : 'blue'
+                    <Group justify="space-between" mt="md" w="100%">
+                      <Group gap="xs">
+                        <Tooltip
+                          label={
+                            nextMatchConfirmed ? 'Cancelar asistencia' : 'Confirmar asistencia'
                           }
-                          variant={m.status === 'Completado' ? 'filled' : 'light'}
-                          size="lg"
                         >
-                          {m.status}
-                        </Badge>
+                          <Checkbox
+                            checked={nextMatchConfirmed}
+                            onChange={() => handleToggleAttendance(nextMatch.id)}
+                            color="green"
+                            size="md"
+                            radius="xl"
+                            label={
+                              <Text fw={600} size="sm">
+                                Voy a ir
+                              </Text>
+                            }
+                            disabled={!isTeamMember}
+                          />
+                        </Tooltip>
+                      </Group>
 
-                        {/* Botón de actualizar (Solo Admins o Miembros de ESTE equipo) */}
-                        {canEditMatch && (
-                          <Button variant="light" size="xs" onClick={() => openEditMatchModal(m)}>
-                            Actualizar
-                          </Button>
+                      <Group gap={4}>
+                        {nextMatch.availabilities?.map((av: any) => (
+                          <Tooltip key={av.playerId} label={av.player.name}>
+                            <Avatar
+                              src={getPlayerAvatar(av.player.name, av.player.avatarUrl)}
+                              radius="xl"
+                              size="sm"
+                              style={{ border: '2px solid var(--mantine-color-green-5)' }}
+                            />
+                          </Tooltip>
+                        ))}
+                        {nextMatch.availabilities?.length === 0 && (
+                          <Text c="dimmed" size="xs">
+                            Sin confirmar
+                          </Text>
                         )}
                       </Group>
                     </Group>
                   </Card>
-                ))}
+                )}
+
+                {/* 2. EL RESTO DE PARTIDOS */}
+                {team.matches
+                  .filter((m: any) => m.id !== nextMatch?.id)
+                  .map((m: any) => {
+                    const isWin =
+                      m.ourScore !== null && m.rivalScore !== null && m.ourScore > m.rivalScore;
+                    const isLoss =
+                      m.ourScore !== null && m.rivalScore !== null && m.ourScore < m.rivalScore;
+
+                    let statusColor = 'gray';
+                    if (m.status === 'Programado') statusColor = 'blue';
+                    if (m.status === 'Cancelado') statusColor = 'red';
+                    if (m.status === 'Completado') {
+                      if (isWin) statusColor = 'green';
+                      else if (isLoss) statusColor = 'red';
+                      else statusColor = 'yellow';
+                    }
+
+                    const amIConfirmed = m.availabilities?.some(
+                      (a: any) => a.playerId === user?.id,
+                    );
+
+                    return (
+                      <Card key={m.id} withBorder shadow="sm" radius="md">
+                        <Group justify="space-between" align="center" wrap="nowrap">
+                          <Stack gap={4}>
+                            <Text fw={700} size="lg">
+                              {m.isHome ? team.name : m.rivalName}
+                              <Text span c="dimmed" mx="sm">
+                                vs
+                              </Text>
+                              {m.isHome ? m.rivalName : team.name}
+                            </Text>
+                            <Group gap="sm">
+                              <Text size="sm" c="dimmed" fw={600}>
+                                {new Date(m.date).toLocaleString('es-ES', {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })}
+                              </Text>
+                              {m.location && (
+                                <Text size="sm" c="dimmed">
+                                  <IconMapPin
+                                    size={14}
+                                    style={{ verticalAlign: 'middle', marginRight: 4 }}
+                                  />
+                                  {m.location}
+                                </Text>
+                              )}
+                            </Group>
+                          </Stack>
+
+                          <Group gap="sm" align="center">
+                            {m.status === 'Completado' &&
+                              m.ourScore !== null &&
+                              m.rivalScore !== null && (
+                                <Group gap="xs">
+                                  <Badge
+                                    size="lg"
+                                    variant="filled"
+                                    color={
+                                      m.ourScore > m.rivalScore
+                                        ? 'green'
+                                        : m.ourScore < m.rivalScore
+                                          ? 'red'
+                                          : 'yellow'
+                                    }
+                                  >
+                                    {m.ourScore > m.rivalScore
+                                      ? '🏆 VICTORIA'
+                                      : m.ourScore < m.rivalScore
+                                        ? '❌ DERROTA'
+                                        : '🤝 EMPATE'}
+                                  </Badge>
+
+                                  <Badge
+                                    size="xl"
+                                    variant="outline"
+                                    color={
+                                      m.ourScore > m.rivalScore
+                                        ? 'green'
+                                        : m.ourScore < m.rivalScore
+                                          ? 'red'
+                                          : 'yellow'
+                                    }
+                                  >
+                                    {m.isHome
+                                      ? `${m.ourScore} - ${m.rivalScore}`
+                                      : `${m.rivalScore} - ${m.ourScore}`}
+                                  </Badge>
+                                </Group>
+                              )}
+
+                            <Badge
+                              color={statusColor}
+                              variant={m.status === 'Completado' ? 'filled' : 'light'}
+                              size="lg"
+                            >
+                              {m.status}
+                            </Badge>
+
+                            {canEditMatch && (
+                              <Button
+                                variant="light"
+                                size="xs"
+                                onClick={() => openEditMatchModal(m)}
+                              >
+                                Actualizar
+                              </Button>
+                            )}
+                          </Group>
+                        </Group>
+
+                        {/* 👇 BLOQUE DE ASISTENCIA */}
+                        <Group justify="space-between" mt="md" w="100%">
+                          <Group gap="xs">
+                            <Tooltip
+                              label={amIConfirmed ? 'Cancelar asistencia' : 'Confirmar asistencia'}
+                            >
+                              <Checkbox
+                                checked={amIConfirmed}
+                                onChange={() => handleToggleAttendance(m.id)}
+                                color="green"
+                                size="md"
+                                radius="xl"
+                                label={
+                                  <Text fw={600} size="sm">
+                                    Voy a ir
+                                  </Text>
+                                }
+                                disabled={m.status !== 'Programado' || !isTeamMember}
+                              />
+                            </Tooltip>
+                          </Group>
+
+                          <Group gap={4}>
+                            {m.availabilities?.map((av: any) => (
+                              <Tooltip key={av.playerId} label={av.player.name}>
+                                <Avatar
+                                  src={getPlayerAvatar(av.player.name, av.player.avatarUrl)}
+                                  radius="xl"
+                                  size="sm"
+                                  style={{ border: '2px solid var(--mantine-color-green-5)' }}
+                                />
+                              </Tooltip>
+                            ))}
+                            {m.availabilities?.length === 0 && (
+                              <Text c="dimmed" size="xs">
+                                Sin confirmar
+                              </Text>
+                            )}
+                          </Group>
+                        </Group>
+                      </Card>
+                    );
+                  })}
               </Stack>
             )}
           </Stack>
@@ -509,7 +714,6 @@ export const EquipoDetalles = () => {
                     withBorder
                     p="xs"
                     radius="sm"
-
                     onClick={() =>
                       setCheckedPlayers((prev) =>
                         isChecked ? prev.filter((id) => id !== p.id) : [...prev, p.id],
@@ -545,6 +749,64 @@ export const EquipoDetalles = () => {
         </Stack>
       </Modal>
 
+      {/* MODAL EDITAR INFORMACIÓN DEL EQUIPO */}
+      <Modal
+        opened={editTeamModalOpen}
+        onClose={() => setEditTeamModalOpen(false)}
+        title={<Text fw={700}>Editar Información del Equipo</Text>}
+        centered
+      >
+        <Stack gap="md">
+          <TextInput
+            label="Nombre del Equipo"
+            required
+            value={editTeamName}
+            onChange={(e) => setEditTeamName(e.currentTarget.value)}
+          />
+
+          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            <Select
+              label="Categoría de Liga"
+              data={[
+                'Superdivisión',
+                'División de Honor',
+                '1ª Nacional',
+                '2ª Nacional',
+                '3ª Nacional (Superautonomica)',
+                '1ª Autonómica',
+                '2ª Autonómica',
+                'Liga Local',
+              ]}
+              value={editTeamCategory}
+              onChange={setEditTeamCategory}
+              required
+              allowDeselect={false}
+              searchable
+            />
+
+            <Select
+              label="Nivel Base Inicial"
+              data={['Iniciacion', 'Principiante', 'Intermedio', 'Avanzado', 'Profesional']}
+              value={editTeamLevel}
+              onChange={setEditTeamLevel}
+              required
+              allowDeselect={false}
+            />
+          </SimpleGrid>
+
+          <Button
+            fullWidth
+            color="blue"
+            mt="md"
+            onClick={handleUpdateTeam}
+            loading={saving}
+            disabled={!editTeamName || !editTeamCategory || !editTeamLevel}
+          >
+            Guardar Cambios
+          </Button>
+        </Stack>
+      </Modal>
+
       {/* MODAL PARTIDO */}
       <Modal
         opened={matchModalOpen}
@@ -565,7 +827,7 @@ export const EquipoDetalles = () => {
             required
             value={matchDate}
             onChange={(val) => setMatchDate(val ? new Date(val) : null)}
-            valueFormat="DD MMM YYYY HH:mm" // 👈 Formato visual claro
+            valueFormat="DD MMM YYYY HH:mm"
           />
           <Group grow>
             <Button
@@ -601,6 +863,7 @@ export const EquipoDetalles = () => {
           </Button>
         </Stack>
       </Modal>
+
       {/* MODAL EDITAR RESULTADO / PARTIDO */}
       <Modal
         opened={editMatchModalOpen}
@@ -609,7 +872,6 @@ export const EquipoDetalles = () => {
         centered
       >
         <Stack gap="md">
-          {/* Metadatos del partido */}
           <TextInput
             label="Rival"
             value={editRivalName}
@@ -643,7 +905,6 @@ export const EquipoDetalles = () => {
             onChange={(e) => setEditLocation(e.currentTarget.value)}
           />
 
-          {/* Estado y Puntuación */}
           <Select
             label="Estado del Encuentro"
             data={['Programado', 'Completado', 'Cancelado']}

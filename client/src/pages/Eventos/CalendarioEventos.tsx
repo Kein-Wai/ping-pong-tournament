@@ -16,10 +16,11 @@ import {
   Center,
   Loader,
   Paper,
-  Indicator,
   Tooltip,
+  Box,
+  ScrollArea,
 } from '@mantine/core';
-import { DatePicker, DateTimePicker } from '@mantine/dates';
+import { DateTimePicker } from '@mantine/dates';
 import {
   IconCalendarEvent,
   IconMapPin,
@@ -27,6 +28,8 @@ import {
   IconBell,
   IconBellRinging,
   IconTrash,
+  IconChevronLeft,
+  IconChevronRight,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -43,6 +46,7 @@ const REGIONES = [
   'Nacional',
   'Internacional',
 ];
+
 const COLORES_MANTINE = [
   { value: 'blue', label: 'Azul (Por defecto)' },
   { value: 'red', label: 'Rojo (Importante)' },
@@ -59,9 +63,10 @@ export const CalendarioEventos = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados visuales del Calendario
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  // Estados visuales del Calendario Gigante
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [selectedDateForModal, setSelectedDateForModal] = useState<Date | null>(null);
+  const [dayModalOpen, setDayModalOpen] = useState(false);
 
   // Modal Crear Evento
   const [modalOpen, setModalOpen] = useState(false);
@@ -89,6 +94,7 @@ export const CalendarioEventos = () => {
 
   useEffect(() => {
     fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // --- ACCIONES ADMIN ---
@@ -141,23 +147,28 @@ export const CalendarioEventos = () => {
     }
   };
 
-  // --- FILTROS Y RENDERIZADO ---
-  const eventsOnSelectedDate = selectedDate
-    ? events.filter((e) => new Date(e.date).toDateString() === selectedDate.toDateString())
-    : events.filter((e) => new Date(e.date).getTime() >= new Date().getTime() - 86400000); // Si no hay fecha, mostramos próximos
+  // --- LÓGICA DEL CALENDARIO GIGANTE ---
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  let firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+  if (firstDayOfMonth === 0) firstDayOfMonth = 7; // Ajuste Lunes a Domingo
 
-  const renderDayWithEvent = (dateParam: string | Date | any) => {
-    const date = new Date(dateParam);
-    const dayEvents = events.filter((e) => new Date(e.date).toDateString() === date.toDateString());
-    if (dayEvents.length > 0) {
-      return (
-        <Indicator size={6} color={dayEvents[0].color} offset={-2}>
-          <div>{date.getDate()}</div>
-        </Indicator>
-      );
-    }
-    return <div>{date.getDate()}</div>;
+  const blanks = Array.from({ length: firstDayOfMonth - 1 });
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const prevMonth = () =>
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  const nextMonth = () =>
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+
+  const handleDayClick = (dayNumber: number) => {
+    const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNumber);
+    setSelectedDateForModal(clickedDate);
+    setDayModalOpen(true);
   };
+
+  const eventsOnSelectedDate = selectedDateForModal
+    ? events.filter((e) => new Date(e.date).toDateString() === selectedDateForModal.toDateString())
+    : [];
 
   if (loading)
     return (
@@ -191,137 +202,207 @@ export const CalendarioEventos = () => {
         )}
       </Group>
 
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        {/* COLUMNA IZQUIERDA: CALENDARIO VISUAL */}
-        <Card withBorder shadow="sm" radius="md" p="md">
-          <Center>
-            <DatePicker
-              value={selectedDate}
-              onChange={(val) => setSelectedDate(val ? new Date(val) : null)} // 👈 Modificado
-              date={currentMonth}
-              onDateChange={(val) => setCurrentMonth(new Date(val))} // 👈 Modificado
-              renderDay={renderDayWithEvent}
-              size="md"
-            />
-          </Center>
-          {selectedDate && (
-            <Button
-              variant="subtle"
-              color="gray"
-              fullWidth
-              mt="sm"
-              onClick={() => setSelectedDate(null)}
-            >
-              Mostrar todos los próximos
-            </Button>
-          )}
-        </Card>
+      {/* CALENDARIO GIGANTE A ANCHO COMPLETO */}
+      <Card shadow="sm" p="md" radius="md" withBorder>
+        <Group justify="space-between" mb="md">
+          <Group>
+            <ActionIcon variant="light" onClick={prevMonth}>
+              <IconChevronLeft size={18} />
+            </ActionIcon>
+            <Title order={3}>
+              {currentDate
+                .toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+                .toUpperCase()}
+            </Title>
+            <ActionIcon variant="light" onClick={nextMonth}>
+              <IconChevronRight size={18} />
+            </ActionIcon>
+          </Group>
+        </Group>
 
-        {/* COLUMNA DERECHA: LISTA DE EVENTOS */}
-        <Stack gap="sm">
-          <Title order={4} mb="xs">
-            {selectedDate
-              ? `Eventos del ${selectedDate.toLocaleDateString('es-ES')}`
-              : 'Próximos Eventos'}
-          </Title>
+        <Box>
+          <SimpleGrid cols={7} spacing={4} mb="xs">
+            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+              <Text key={day} ta="center" size="sm" fw={700} c="dimmed">
+                {day}
+              </Text>
+            ))}
+          </SimpleGrid>
 
-          {eventsOnSelectedDate.length === 0 ? (
-            <Paper
-              withBorder
-              p="xl"
-              radius="md"
-              bg="var(--mantine-color-gray-0)"
-              style={{ darkHidden: true }}
-            >
-              <Center>
-                <Text c="dimmed">No hay eventos para esta fecha.</Text>
-              </Center>
-            </Paper>
-          ) : (
-            eventsOnSelectedDate.map((ev) => {
-              const hasReminder = ev.reminders && ev.reminders.length > 0;
-              const isPast = new Date(ev.date) < new Date();
+          <SimpleGrid cols={7} spacing={4}>
+            {blanks.map((_, i) => (
+              <Box
+                key={`blank-${i}`}
+                style={{
+                  minHeight: 100,
+                  backgroundColor: 'var(--mantine-color-gray-1)',
+                  opacity: 0.5,
+                  borderRadius: 8,
+                }}
+              />
+            ))}
+
+            {days.map((dayNum) => {
+              const dateStr = new Date(
+                currentDate.getFullYear(),
+                currentDate.getMonth(),
+                dayNum,
+              ).toDateString();
+              const isToday = new Date().toDateString() === dateStr;
+              const dayEvents = events.filter((e) => new Date(e.date).toDateString() === dateStr);
 
               return (
-                <Card
-                  key={ev.id}
+                <Paper
+                  key={dayNum}
                   withBorder
-                  shadow="sm"
+                  p={4}
                   radius="md"
-                  style={{ borderLeft: `6px solid var(--mantine-color-${ev.color}-5)` }}
+                  style={{
+                    minHeight: 100,
+                    cursor: 'pointer',
+                    borderColor: isToday ? 'var(--mantine-color-blue-filled)' : undefined,
+                  }}
+                  onClick={() => handleDayClick(dayNum)}
                 >
-                  <Group justify="space-between" align="flex-start" wrap="nowrap">
-                    <Stack gap={4} style={{ flex: 1 }}>
-                      <Text fw={700} size="lg">
+                  <Text
+                    size="sm"
+                    fw={isToday ? 900 : 500}
+                    c={isToday ? 'blue' : undefined}
+                    ta="right"
+                    mb={4}
+                  >
+                    {dayNum}
+                  </Text>
+                  <Stack gap={2}>
+                    {dayEvents.map((ev) => (
+                      <Badge
+                        key={ev.id}
+                        size="xs"
+                        color={ev.color || 'blue'}
+                        variant="filled"
+                        fullWidth
+                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}
+                      >
                         {ev.name}
-                      </Text>
-                      <Group gap="sm">
-                        <Text size="sm" c="dimmed" fw={600}>
-                          {new Date(ev.date).toLocaleString('es-ES', {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </Text>
-                        {ev.location && (
-                          <Text size="sm" c="dimmed">
-                            <IconMapPin
-                              size={14}
-                              style={{ verticalAlign: 'middle', marginRight: 4 }}
-                            />
-                            {ev.location}
-                          </Text>
-                        )}
-                      </Group>
-                      <Group gap="xs" mt={4}>
-                        <Badge size="xs" variant="light" color={ev.color}>
-                          {ev.region}
-                        </Badge>
-                        {isPast && (
-                          <Badge size="xs" color="gray">
-                            Finalizado
-                          </Badge>
-                        )}
-                      </Group>
-                    </Stack>
-
-                    <Stack align="flex-end" gap="xs">
-                      {isAdmin && (
-                        <ActionIcon
-                          color="red"
-                          variant="subtle"
-                          onClick={() => handleDelete(ev.id, ev.name)}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      )}
-
-                      {!isPast && (
-                        <Tooltip
-                          label={hasReminder ? 'Desactivar recordatorios' : 'Avisarme por correo'}
-                        >
-                          <ActionIcon
-                            color={hasReminder ? 'yellow' : 'gray'}
-                            variant={hasReminder ? 'filled' : 'light'}
-                            size="lg"
-                            onClick={() => toggleReminder(ev.id, hasReminder)}
-                          >
-                            {hasReminder ? <IconBellRinging size={20} /> : <IconBell size={20} />}
-                          </ActionIcon>
-                        </Tooltip>
-                      )}
-                    </Stack>
-                  </Group>
-                </Card>
+                      </Badge>
+                    ))}
+                  </Stack>
+                </Paper>
               );
-            })
+            })}
+          </SimpleGrid>
+        </Box>
+      </Card>
+
+      {/* --- MODAL PARA MOSTRAR EVENTOS DE UN DÍA ESPECÍFICO --- */}
+      <Modal
+        opened={dayModalOpen}
+        onClose={() => setDayModalOpen(false)}
+        title={
+          <Text size="lg" fw={700}>
+            Eventos del {selectedDateForModal?.toLocaleDateString('es-ES')}
+          </Text>
+        }
+        centered
+        size="lg"
+      >
+        <Stack gap="sm">
+          {eventsOnSelectedDate.length === 0 ? (
+            <Center py="xl">
+              <Text c="dimmed">No hay eventos para esta fecha.</Text>
+            </Center>
+          ) : (
+            <ScrollArea h={400} offsetScrollbars>
+              <Stack gap="sm">
+                {eventsOnSelectedDate.map((ev) => {
+                  const hasReminder = ev.reminders && ev.reminders.length > 0;
+                  const isPast = new Date(ev.date) < new Date();
+
+                  return (
+                    <Card
+                      key={ev.id}
+                      withBorder
+                      shadow="sm"
+                      radius="md"
+                      style={{ borderLeft: `6px solid var(--mantine-color-${ev.color}-5)` }}
+                    >
+                      <Group justify="space-between" align="flex-start" wrap="nowrap">
+                        <Stack gap={4} style={{ flex: 1 }}>
+                          <Text fw={700} size="lg">
+                            {ev.name}
+                          </Text>
+                          <Group gap="sm">
+                            <Text size="sm" c="dimmed" fw={600}>
+                              {new Date(ev.date).toLocaleString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </Text>
+                            {ev.location && (
+                              <Text size="sm" c="dimmed">
+                                <IconMapPin
+                                  size={14}
+                                  style={{ verticalAlign: 'middle', marginRight: 4 }}
+                                />
+                                {ev.location}
+                              </Text>
+                            )}
+                          </Group>
+                          <Group gap="xs" mt={4}>
+                            <Badge size="xs" variant="light" color={ev.color}>
+                              {ev.region}
+                            </Badge>
+                            {isPast && (
+                              <Badge size="xs" color="gray">
+                                Finalizado
+                              </Badge>
+                            )}
+                          </Group>
+                        </Stack>
+
+                        <Stack align="flex-end" gap="xs">
+                          {isAdmin && (
+                            <ActionIcon
+                              color="red"
+                              variant="subtle"
+                              onClick={() => handleDelete(ev.id, ev.name)}
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          )}
+
+                          {!isPast && (
+                            <Tooltip
+                              label={
+                                hasReminder ? 'Desactivar recordatorio' : 'Avisarme por correo'
+                              }
+                            >
+                              <ActionIcon
+                                color={hasReminder ? 'yellow' : 'gray'}
+                                variant={hasReminder ? 'filled' : 'light'}
+                                size="lg"
+                                onClick={() => toggleReminder(ev.id, hasReminder)}
+                              >
+                                {hasReminder ? (
+                                  <IconBellRinging size={20} />
+                                ) : (
+                                  <IconBell size={20} />
+                                )}
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      </Group>
+                    </Card>
+                  );
+                })}
+              </Stack>
+            </ScrollArea>
           )}
         </Stack>
-      </SimpleGrid>
+      </Modal>
 
-      {/* MODAL CREAR EVENTO */}
+      {/* --- MODAL CREAR EVENTO --- */}
       <Modal
         opened={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -340,7 +421,7 @@ export const CalendarioEventos = () => {
             label="Fecha y Hora"
             required
             value={newEvent.date}
-            onChange={(val) => val && setNewEvent({ ...newEvent, date: new Date(val) })} // 👈 Modificado
+            onChange={(val) => val && setNewEvent({ ...newEvent, date: new Date(val) })}
             minDate={new Date()}
           />
           <TextInput

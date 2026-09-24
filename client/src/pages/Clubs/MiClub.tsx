@@ -15,6 +15,7 @@ import {
   SimpleGrid,
   Paper,
   ActionIcon,
+  Avatar,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import {
@@ -39,6 +40,7 @@ interface ClubDetails {
   city: string;
   address: string | null;
   foundedAt: string | null;
+  logoUrl: string | null;
   status: string;
   _count: {
     users: number;
@@ -59,6 +61,7 @@ export const MiClub = () => {
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [foundedAt, setFoundedAt] = useState<Date | null>(null);
+  const [logoUrl, setLogoUrl] = useState('');
 
   const fetchClubDetails = async () => {
     if (!user?.clubId) return;
@@ -73,6 +76,7 @@ export const MiClub = () => {
       setCity(data.city);
       setAddress(data.address || '');
       setFoundedAt(data.foundedAt ? new Date(data.foundedAt) : null);
+      setLogoUrl(data.logoUrl || '');
     } catch (error) {
       console.error('Error cargando los detalles del club:', error);
     } finally {
@@ -94,6 +98,7 @@ export const MiClub = () => {
         city,
         address: address || null,
         foundedAt: foundedAt ? foundedAt.toISOString() : null,
+        logoUrl: logoUrl || null,
       };
 
       await api.put(ENDPOINTS.CLUBS.UPDATE(user.clubId), payload);
@@ -157,7 +162,11 @@ export const MiClub = () => {
           <Stack gap="lg">
             <Group wrap="nowrap" align="flex-start">
               <ThemeIcon size={80} radius="md" color="orange" variant="light">
-                <IconBuildingCommunity size={40} />
+                {club.logoUrl ? (
+                  <Avatar radius="md" size="80" src={club.logoUrl} />
+                ) : (
+                  <IconBuildingCommunity size={40} />
+                )}
               </ThemeIcon>
               <div>
                 <Title order={1}>{club.name}</Title>
@@ -231,6 +240,11 @@ export const MiClub = () => {
                 placeholder="Ej. Pabellón Municipal, Calle Mayor 12"
                 value={address}
                 onChange={(e) => setAddress(e.currentTarget.value)}
+              />
+              <TextInput
+                label="URL del Logo"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.currentTarget.value)}
               />
             </SimpleGrid>
             <DateInput

@@ -88,11 +88,13 @@ export const ENDPOINTS = {
   TEAMS: {
     BASE: '/teams',
     BY_CLUB: (clubId: string) => `/teams/club/${clubId}`,
+    UPDATE: (teamId: string) => `/teams/${teamId}`,
     UPDATE_PLAYERS: (teamId: string) => `/teams/${teamId}/players`,
     MATCHES: (teamId: string) => `/teams/${teamId}/matches`,
     DELETE: (teamId: string) => `/teams/${teamId}`,
     UPDATE_MATCH: (matchId: string) => `/teams/matches/${matchId}`,
     DELETE_MATCH: (matchId: string) => `/teams/matches/${matchId}`,
+    TOGGLE_AVAILABILITY: (matchId: string) => `/teams/matches/${matchId}/availability`,
   },
   FEEDBACK: {
     BASE: '/feedback',

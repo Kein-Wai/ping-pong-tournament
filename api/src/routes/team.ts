@@ -7,6 +7,7 @@ import {
   updateTeamPlayersSchema,
   createTeamMatchSchema,
   updateTeamMatchSchema,
+  updateTeamSchema,
 } from '../schemas/team';
 import { getCurrentSeason } from '../utils/season';
 
@@ -59,6 +60,11 @@ router.get('/club/:clubId', verifyToken, async (req, res) => {
         },
         matches: {
           orderBy: { date: 'asc' },
+          include: {
+            availabilities: {
+              include: { player: { select: { id: true, name: true, avatarUrl: true } } },
+            },
+          },
         },
       },
       orderBy: { createdAt: 'asc' },
@@ -257,6 +263,36 @@ router.delete('/matches/:matchId', verifyToken, requireAdminClub, async (req, re
   }
 });
 
+// PUT: Actualizar info básica de un equipo
+router.put('/:id', requireAdminClub, async (req, res) => {
+  try {
+    const teamId = req.params.id as string;
+    const adminClubId = req.user?.clubId;
+
+    const validation = updateTeamSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res
+        .status(400)
+        .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    }
+
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!team || (req.user?.role === 'AdminClub' && team.clubId !== adminClubId)) {
+      return res.status(404).json({ error: 'Equipo no encontrado o sin permisos' });
+    }
+
+    const updatedTeam = await prisma.team.update({
+      where: { id: teamId },
+      data: validation.data,
+    });
+
+    res.status(200).json({ success: true, message: 'Equipo actualizado', data: updatedTeam });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al actualizar el equipo' });
+  }
+});
+
 // DELETE: Borrar un equipo
 router.delete('/:id', verifyToken, requireAdminClub, async (req, res) => {
   try {
@@ -276,6 +312,31 @@ router.delete('/:id', verifyToken, requireAdminClub, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al eliminar el equipo' });
+  }
+});
+
+// POST: Confirmar / Cancelar asistencia a un partido
+router.post('/matches/:matchId/availability', async (req, res) => {
+  try {
+    const matchId = req.params.matchId as string;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'No autorizado' });
+
+    // Comprobar si ya existe
+    const existing = await prisma.teamMatchAvailability.findUnique({
+      where: { matchId_playerId: { matchId, playerId: userId } },
+    });
+
+    if (existing) {
+      await prisma.teamMatchAvailability.delete({ where: { id: existing.id } });
+      return res.status(200).json({ success: true, message: 'Asistencia cancelada' });
+    } else {
+      await prisma.teamMatchAvailability.create({ data: { matchId, playerId: userId } });
+      return res.status(200).json({ success: true, message: 'Asistencia confirmada' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al actualizar asistencia' });
   }
 });
 

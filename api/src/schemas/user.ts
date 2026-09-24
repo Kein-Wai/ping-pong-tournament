@@ -63,6 +63,7 @@ export const updateUserSchema = createUserSchema.partial();
 export const updateProfileSchema = z
   .object({
     name: z.string().optional(),
+    birthDate: z.iso.datetime().optional().nullable(),
     surname: z.string().optional(),
     currentPassword: z.string().optional(),
     newPassword: z

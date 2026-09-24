@@ -254,7 +254,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
     // Tu lógica original: si es Rechazado, se limpia el clubId y vuelve a Registrado (Jugador Libre)
     const updateData =
       status === 'Rechazado'
-        ? { clubId: null, clubStatus: 'Registrado' as any }
+        ? { clubId: null, clubStatus: 'Registrado' as any, teams: { set: [] } }
         : { clubStatus: status, level: level };
 
     await prisma.user.update({

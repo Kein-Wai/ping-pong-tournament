@@ -252,7 +252,7 @@ model Club {
   city      String     @db.VarChar(255)
   address   String?    @db.VarChar(255)
   foundedAt DateTime?  @map("founded_at")
-
+  logoUrl     String?
   createdAt DateTime   @default(now()) @map("created_at")
 
   // Relaciones
@@ -294,7 +294,7 @@ model Season {
 model User {
   id                 String          @id @default(uuid())
   userTypeId         String          @map("user_type_id")
-
+  birthDate          DateTime?
   clubId             String?         @map("club_id")
   clubStatus         UserClubStatus? @default(Registrado) @map("club_status")
   name               String          @db.VarChar(255)
@@ -332,6 +332,7 @@ model User {
   teams                         Team[]
   feedbacks                     AppFeedback[]
   eventReminders                EventReminder[]
+  teamAvailabilities            TeamMatchAvailability[]
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
 }
@@ -848,7 +849,21 @@ model TeamMatch {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  availabilities TeamMatchAvailability[]
+  
   @@map("team_match")
+}
+
+model TeamMatchAvailability {
+  id        String   @id @default(uuid())
+  matchId   String
+  playerId  String
+  
+  match     TeamMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player    User      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, playerId]) // Un jugador solo puede confirmar asistencia 1 vez por partido
+  @@map("team_match_availability")
 }
 
 model AppFeedback {

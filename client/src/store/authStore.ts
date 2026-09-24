@@ -12,6 +12,7 @@ export interface User {
   clubStatus: 'Registrado' | 'Pendiente' | 'Aprobado' | 'Rechazado' | null;
   dominantHand?: 'Diestro' | 'Zurdo' | null;
   playstyle?: 'Ofensivo' | 'Defensivo' | null;
+  birthDate?: Date | null;
 }
 
 interface AuthState {

@@ -9,6 +9,7 @@ export const createClubSchema = z.object({
     .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑçÇ\s-]+$/, 'El nombre de la ciudad no es válido'),
   address: z.string().optional().nullable(),
   foundedAt: z.iso.datetime().optional().nullable(),
+  logoUrl: z.string().optional().nullable(),
 });
 
 export const updateClubSchema = z.object({
@@ -17,6 +18,7 @@ export const updateClubSchema = z.object({
   address: z.string().optional().nullable(),
   foundedAt: z.iso.datetime().optional().nullable(),
   status: z.enum([ClubStatus.Pendiente, ClubStatus.Aprobado, ClubStatus.Inactivo]).optional(),
+  logoUrl: z.string().optional().nullable(),
 });
 
 const statValidator = z.number().int().min(0).max(100);

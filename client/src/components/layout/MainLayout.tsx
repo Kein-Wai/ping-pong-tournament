@@ -34,6 +34,7 @@ import {
   IconShield,
   IconBug,
   IconCalendarStats,
+  IconReportAnalytics,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes';
@@ -41,6 +42,8 @@ import { getPlayerAvatar } from '../../utils/avatar';
 import { useState, useEffect } from 'react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
+import { DateInput } from '@mantine/dates';
+import '@mantine/dates/styles.css';
 
 export const MainLayout = () => {
   const [opened, { toggle }] = useDisclosure();
@@ -48,11 +51,12 @@ export const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === 'light';
 
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [hand, setHand] = useState<string | null>(null);
   const [style, setStyle] = useState<string | null>(null);
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [savingOnboarding, setSavingOnboarding] = useState(false);
   const [notificationsBadge, setNotificationsBadge] = useState({
     pendingMembers: 0,
@@ -78,7 +82,11 @@ export const MainLayout = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user && user.role === 'Player' && (!user.dominantHand || !user.playstyle)) {
+    if (
+      user &&
+      user.role === 'Player' &&
+      (!user.dominantHand || !user.playstyle || !user.birthDate)
+    ) {
       setOnboardingOpen(true);
     } else {
       setOnboardingOpen(false);
@@ -91,14 +99,19 @@ export const MainLayout = () => {
   };
 
   const handleCompleteOnboarding = async () => {
-    if (!hand || !style) return;
+    if (!hand || !style || !birthDate) return;
     setSavingOnboarding(true);
     try {
       await api.put(ENDPOINTS.USERS.ME, {
         dominantHand: hand,
         playstyle: style,
+        birthDate: birthDate.toISOString(),
       });
-      updateUserFields({ dominantHand: hand as any, playstyle: style as any });
+      updateUserFields({
+        dominantHand: hand as any,
+        playstyle: style as any,
+        birthDate: birthDate.toISOString() as any,
+      });
       setOnboardingOpen(false);
     } catch (error) {
       console.error('Error guardando perfil:', error);
@@ -135,6 +148,20 @@ export const MainLayout = () => {
       show: isAdminClub,
     },
     {
+      label: 'Mi Perfil',
+      icon: IconUser,
+      path: APP_ROUTES.JUGADORES.PROFILE(user?.id || ''),
+      show: !!user?.id && isPlayer,
+    },
+
+    {
+      label: 'Jugadores',
+      icon: IconUsers,
+      path: APP_ROUTES.JUGADORES.LIST,
+      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+      badge: notificationsBadge.pendingMembers > 0 ? notificationsBadge.pendingMembers : null, // 👈 AÑADIDO
+    },
+    {
       label: 'Equipos',
       icon: IconShield,
       path: APP_ROUTES.EQUIPOS.LIST,
@@ -146,19 +173,7 @@ export const MainLayout = () => {
       path: APP_ROUTES.CLUB_SELECTION,
       show: isPlayer && !hasApprovedClub,
     },
-    {
-      label: 'Mi Perfil',
-      icon: IconUser,
-      path: APP_ROUTES.JUGADORES.PROFILE(user?.id || ''),
-      show: !!user?.id && isPlayer,
-    },
-    {
-      label: 'Jugadores',
-      icon: IconUsers,
-      path: APP_ROUTES.JUGADORES.LIST,
-      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
-      badge: notificationsBadge.pendingMembers > 0 ? notificationsBadge.pendingMembers : null, // 👈 AÑADIDO
-    },
+
     {
       label: 'Torneos',
       icon: IconTrophy,
@@ -186,12 +201,7 @@ export const MainLayout = () => {
       path: APP_ROUTES.EJERCICIOS.LIST,
       show: isAdminClub || isSuperAdmin,
     },
-    {
-      label: 'Análisis Pro',
-      icon: IconChartBar,
-      path: APP_ROUTES.ANALISIS.LIST,
-      show: !!user?.id && isPlayer,
-    },
+
     {
       label: 'Historial',
       icon: IconHistory,
@@ -203,6 +213,12 @@ export const MainLayout = () => {
       icon: IconChartBar,
       path: APP_ROUTES.ESTADISTICAS,
       show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
+    },
+    {
+      label: 'Análisis Pro',
+      icon: IconReportAnalytics,
+      path: APP_ROUTES.ANALISIS.LIST,
+      show: !!user?.id && isPlayer,
     },
     {
       label: isSuperAdmin ? 'Bandeja de Soporte' : 'Sugerencias y Bugs',
@@ -262,10 +278,10 @@ export const MainLayout = () => {
                 </Menu.Item>
               )}
               <Menu.Item
-                leftSection={isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+                leftSection={isDark ? <IconMoon size={16} /> : <IconSun size={16} />}
                 onClick={() => toggleColorScheme()}
               >
-                Modo {isDark ? 'Claro' : 'Oscuro'}
+                Modo {isDark ? 'Oscuro' : 'Claro'}
               </Menu.Item>
               <Menu.Divider />
               <Menu.Item color="red" leftSection={<IconLogout size={14} />} onClick={handleLogout}>
@@ -324,6 +340,17 @@ export const MainLayout = () => {
             Para poder generar tus estadísticas avanzadas y emparejamientos, necesitamos conocer un
             poco más sobre tu perfil de jugador.
           </Text>
+
+          <DateInput
+            label="Fecha de Nacimiento"
+            placeholder="Selecciona tu fecha"
+            value={birthDate}
+            onChange={(value) => setBirthDate(value ? new Date(value) : null)}
+            required
+            maxDate={new Date()} // No pueden nacer en el futuro
+            defaultLevel="decade" // Empieza la vista en años para ir más rápido
+            description="🔒 Por privacidad, ni tu edad ni tu fecha de nacimiento serán públicas ni visibles en tu perfil para el resto de usuarios."
+          />
 
           <Select
             label="Mano Dominante"

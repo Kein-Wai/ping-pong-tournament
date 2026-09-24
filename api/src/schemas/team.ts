@@ -27,3 +27,4 @@ export const updateTeamMatchSchema = z.object({
   isHome: z.boolean().optional(),
   location: z.string().optional().nullable(),
 });
+export const updateTeamSchema = createTeamSchema.partial();
