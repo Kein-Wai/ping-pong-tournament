@@ -14,7 +14,6 @@ import {
   ScrollArea,
   Pagination,
   SimpleGrid,
-  Paper,
 } from '@mantine/core';
 import {
   IconMedal,
