@@ -480,9 +480,22 @@ export const EquipoDetalles = () => {
                           )}
                         </Group>
                       </Stack>
-                      <Badge color="blue" variant="filled" size="lg">
-                        {nextMatch.status}
-                      </Badge>
+                      <Group gap="xs">
+                        <Badge color="blue" variant="filled" size="lg">
+                          {nextMatch.status}
+                        </Badge>
+                        {/* 👇 EL BOTÓN QUE FALTABA */}
+                        {canEditMatch && (
+                          <Button
+                            variant="light"
+                            size="xs"
+                            color="blue"
+                            onClick={() => openEditMatchModal(nextMatch)}
+                          >
+                            Actualizar
+                          </Button>
+                        )}
+                      </Group>
                     </Group>
 
                     <Group justify="space-between" mt="md" w="100%">

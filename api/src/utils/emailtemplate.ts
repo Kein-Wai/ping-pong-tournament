@@ -128,3 +128,21 @@ export const templateRecordatorioEvento = (nombre: string, evento: any) => {
 
   return baseTemplate(contenidoEspecifico);
 };
+
+export const templateCambioFechaEvento = (nombre: string, evento: any) => {
+  const contenidoEspecifico = `
+    <h1 style="color: #d97706;">¡Atención! Cambio de fecha 📅</h1>
+    <p>Hola ${nombre}, el evento <strong>${evento.name}</strong> al que estabas suscrito ha cambiado de fecha.</p>
+    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #f59e0b;">
+      <h3 style="margin-top: 0; color: #92400e;">Nueva Fecha Confirmada</h3>
+      <p style="margin: 5px 0; color: #92400e;"><strong>Fecha:</strong> ${new Date(evento.date).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })}</p>
+      ${evento.endDate ? `<p style="margin: 5px 0; color: #92400e;"><strong>Hasta:</strong> ${new Date(evento.endDate).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })}</p>` : ''}
+    </div>
+    <p>Por favor, revisa el calendario en la aplicación para más detalles o para ajustar tus recordatorios.</p>
+    <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
+      <a href="${process.env.CLIENT_URL}/calendario" class="btn">Ver Calendario</a>
+    </div>
+  `;
+
+  return baseTemplate(contenidoEspecifico);
+};

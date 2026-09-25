@@ -20,7 +20,7 @@ import {
   Box,
   ScrollArea,
 } from '@mantine/core';
-import { DateTimePicker } from '@mantine/dates';
+import { DatePickerInput } from '@mantine/dates';
 import {
   IconCalendarEvent,
   IconMapPin,
@@ -30,6 +30,7 @@ import {
   IconTrash,
   IconChevronLeft,
   IconChevronRight,
+  IconEdit,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -46,7 +47,6 @@ const REGIONES = [
   'Nacional',
   'Internacional',
 ];
-
 const COLORES_MANTINE = [
   { value: 'blue', label: 'Azul (Por defecto)' },
   { value: 'red', label: 'Rojo (Importante)' },
@@ -63,17 +63,19 @@ export const CalendarioEventos = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados visuales del Calendario Gigante
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDateForModal, setSelectedDateForModal] = useState<Date | null>(null);
   const [dayModalOpen, setDayModalOpen] = useState(false);
 
-  // Modal Crear Evento
+  // Modal Crear/Editar
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Usamos un array de 2 fechas para soportar inicio y fin
+  const [eventDates, setEventDates] = useState<[Date | null, Date | null]>([new Date(), null]);
   const [newEvent, setNewEvent] = useState({
     name: '',
-    date: new Date(),
     location: '',
     color: 'blue',
     region: 'Local',
@@ -97,14 +99,40 @@ export const CalendarioEventos = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // --- ACCIONES ADMIN ---
-  const handleCreateEvent = async () => {
+  const handleOpenModal = (ev?: any) => {
+    if (ev) {
+      setEditingId(ev.id);
+      setNewEvent({
+        name: ev.name,
+        location: ev.location || '',
+        color: ev.color,
+        region: ev.region,
+      });
+      setEventDates([new Date(ev.date), ev.endDate ? new Date(ev.endDate) : null]);
+    } else {
+      setEditingId(null);
+      setNewEvent({ name: '', location: '', color: 'blue', region: 'Local' });
+      setEventDates([new Date(), null]);
+    }
+    setModalOpen(true);
+  };
+
+  const handleSaveEvent = async () => {
+    if (!eventDates[0]) return;
     setSaving(true);
     try {
-      await api.post(ENDPOINTS.EVENTS.BASE, {
+      const payload = {
         ...newEvent,
-        date: newEvent.date.toISOString(),
-      });
+        date: eventDates[0].toISOString(),
+        endDate: eventDates[1] ? eventDates[1].toISOString() : null,
+      };
+
+      if (editingId) {
+        await api.put(ENDPOINTS.EVENTS.UPDATE(editingId), payload);
+      } else {
+        await api.post(ENDPOINTS.EVENTS.BASE, payload);
+      }
+
       setModalOpen(false);
       fetchEvents();
     } catch (error) {
@@ -133,7 +161,6 @@ export const CalendarioEventos = () => {
     });
   };
 
-  // --- ACCIONES JUGADOR (RECORDATORIOS) ---
   const toggleReminder = async (eventId: string, hasReminder: boolean) => {
     try {
       if (hasReminder) {
@@ -141,16 +168,39 @@ export const CalendarioEventos = () => {
       } else {
         await api.post(ENDPOINTS.EVENTS.REMINDERS(eventId));
       }
-      fetchEvents(); // Recargamos para actualizar la campanita
+      fetchEvents();
     } catch (error) {
       console.error(error);
     }
   };
 
-  // --- LÓGICA DEL CALENDARIO GIGANTE ---
+  // --- LÓGICA DE DETECCIÓN DE EVENTOS MULTIDÍA ---
+  const isDateInRange = (targetDate: Date, startStr: string, endStr: string | null) => {
+    const t = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate(),
+    ).getTime();
+
+    const startDate = new Date(startStr);
+    const s = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+    ).getTime();
+
+    if (!endStr) return t === s;
+
+    const endDate = new Date(endStr);
+    const e = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime();
+
+    return t >= s && t <= e;
+  };
+
+  // --- CALENDARIO GIGANTE ---
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   let firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-  if (firstDayOfMonth === 0) firstDayOfMonth = 7; // Ajuste Lunes a Domingo
+  if (firstDayOfMonth === 0) firstDayOfMonth = 7;
 
   const blanks = Array.from({ length: firstDayOfMonth - 1 });
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -167,7 +217,7 @@ export const CalendarioEventos = () => {
   };
 
   const eventsOnSelectedDate = selectedDateForModal
-    ? events.filter((e) => new Date(e.date).toDateString() === selectedDateForModal.toDateString())
+    ? events.filter((e) => isDateInRange(selectedDateForModal, e.date, e.endDate))
     : [];
 
   if (loading)
@@ -195,7 +245,7 @@ export const CalendarioEventos = () => {
           <Button
             color="indigo"
             leftSection={<IconPlus size={16} />}
-            onClick={() => setModalOpen(true)}
+            onClick={() => handleOpenModal()}
           >
             Añadir Evento
           </Button>
@@ -243,13 +293,9 @@ export const CalendarioEventos = () => {
             ))}
 
             {days.map((dayNum) => {
-              const dateStr = new Date(
-                currentDate.getFullYear(),
-                currentDate.getMonth(),
-                dayNum,
-              ).toDateString();
-              const isToday = new Date().toDateString() === dateStr;
-              const dayEvents = events.filter((e) => new Date(e.date).toDateString() === dateStr);
+              const loopDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNum);
+              const isToday = new Date().toDateString() === loopDate.toDateString();
+              const dayEvents = events.filter((e) => isDateInRange(loopDate, e.date, e.endDate));
 
               return (
                 <Paper
@@ -316,7 +362,9 @@ export const CalendarioEventos = () => {
               <Stack gap="sm">
                 {eventsOnSelectedDate.map((ev) => {
                   const hasReminder = ev.reminders && ev.reminders.length > 0;
-                  const isPast = new Date(ev.date) < new Date();
+                  const isPast = ev.endDate
+                    ? new Date(ev.endDate) < new Date()
+                    : new Date(ev.date) < new Date();
 
                   return (
                     <Card
@@ -334,9 +382,13 @@ export const CalendarioEventos = () => {
                           <Group gap="sm">
                             <Text size="sm" c="dimmed" fw={600}>
                               {new Date(ev.date).toLocaleString('es-ES', {
-                                hour: '2-digit',
-                                minute: '2-digit',
+                                weekday: 'short',
+                                day: 'numeric',
+                                month: 'short',
                               })}
+                              {ev.endDate
+                                ? ` - ${new Date(ev.endDate).toLocaleString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}`
+                                : ''}
                             </Text>
                             {ev.location && (
                               <Text size="sm" c="dimmed">
@@ -357,18 +409,32 @@ export const CalendarioEventos = () => {
                                 Finalizado
                               </Badge>
                             )}
+                            {ev.endDate && (
+                              <Badge size="xs" color="indigo" variant="dot">
+                                Multi-día
+                              </Badge>
+                            )}
                           </Group>
                         </Stack>
 
                         <Stack align="flex-end" gap="xs">
                           {isAdmin && (
-                            <ActionIcon
-                              color="red"
-                              variant="subtle"
-                              onClick={() => handleDelete(ev.id, ev.name)}
-                            >
-                              <IconTrash size={16} />
-                            </ActionIcon>
+                            <Group gap="xs">
+                              <ActionIcon
+                                color="blue"
+                                variant="light"
+                                onClick={() => handleOpenModal(ev)}
+                              >
+                                <IconEdit size={16} />
+                              </ActionIcon>
+                              <ActionIcon
+                                color="red"
+                                variant="subtle"
+                                onClick={() => handleDelete(ev.id, ev.name)}
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Group>
                           )}
 
                           {!isPast && (
@@ -402,11 +468,11 @@ export const CalendarioEventos = () => {
         </Stack>
       </Modal>
 
-      {/* --- MODAL CREAR EVENTO --- */}
+      {/* --- MODAL CREAR / EDITAR EVENTO --- */}
       <Modal
         opened={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={<Text fw={700}>Nuevo Evento Oficial</Text>}
+        title={<Text fw={700}>{editingId ? 'Editar Evento' : 'Nuevo Evento Oficial'}</Text>}
         centered
       >
         <Stack gap="md">
@@ -417,12 +483,17 @@ export const CalendarioEventos = () => {
             value={newEvent.name}
             onChange={(e) => setNewEvent({ ...newEvent, name: e.currentTarget.value })}
           />
-          <DateTimePicker
-            label="Fecha y Hora"
+          <DatePickerInput
+            type="range"
+            label="Fechas del Evento"
+            placeholder="Selecciona inicio y (opcional) fin"
             required
-            value={newEvent.date}
-            onChange={(val) => val && setNewEvent({ ...newEvent, date: new Date(val) })}
-            minDate={new Date()}
+            value={eventDates}
+            onChange={(val) => {
+              const start = val[0] ? new Date(val[0]) : null;
+              const end = val[1] ? new Date(val[1]) : null;
+              setEventDates([start, end]);
+            }}
           />
           <TextInput
             label="Ubicación"
@@ -451,10 +522,10 @@ export const CalendarioEventos = () => {
             color="indigo"
             mt="md"
             loading={saving}
-            onClick={handleCreateEvent}
-            disabled={!newEvent.name}
+            onClick={handleSaveEvent}
+            disabled={!newEvent.name || !eventDates[0]}
           >
-            Añadir al Calendario
+            {editingId ? 'Guardar Cambios' : 'Añadir al Calendario'}
           </Button>
         </Stack>
       </Modal>

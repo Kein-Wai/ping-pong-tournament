@@ -4,6 +4,7 @@ import { EventRegion } from '@prisma/client';
 export const createEventSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
   date: z.iso.datetime('Fecha inválida'),
+  endDate: z.iso.datetime().optional().nullable(),
   region: z
     .enum([
       EventRegion.Club,

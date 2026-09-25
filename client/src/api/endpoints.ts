@@ -103,6 +103,7 @@ export const ENDPOINTS = {
   EVENTS: {
     BASE: '/events',
     BY_CLUB: (clubId: string) => `/events/club/${clubId}`,
+    UPDATE: (id: string) => `/events/${id}`,
     REMINDERS: (id: string) => `/events/${id}/reminders`,
   },
 } as const;

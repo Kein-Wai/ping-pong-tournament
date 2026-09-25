@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import prisma from '../db';
 import { z } from 'zod';
-import { verifyToken, requireAdminClub } from '../middleware/auth.middleware';
+import { requireAdminClub } from '../middleware/auth.middleware';
 import { createEventSchema, updateEventSchema } from '../schemas/event';
 import { getCurrentSeason } from '../utils/season';
+import { enviarCorreoGenerico } from '../services/email';
+import { templateCambioFechaEvento } from '../utils/emailtemplate';
 
 const router = Router();
 
-// GET: Todos los eventos del club (incluye si el usuario actual ha activado el recordatorio)
+// GET: Todos los eventos del club
 router.get('/club/:clubId', async (req, res) => {
   try {
     const clubId = req.params.clubId as string;
@@ -18,7 +20,6 @@ router.get('/club/:clubId', async (req, res) => {
       where: { clubId, seasonId: currentSeason.id },
       orderBy: { date: 'asc' },
       include: {
-        // Traemos los recordatorios solo de este usuario para que el Frontend sepa si está suscrito
         reminders: {
           where: { userId },
           select: { id: true, notifyAt: true, isSent: true },
@@ -32,7 +33,7 @@ router.get('/club/:clubId', async (req, res) => {
   }
 });
 
-// POST: Crear un evento (Solo AdminClub)
+// POST: Crear un evento
 router.post('/', requireAdminClub, async (req, res) => {
   try {
     const validation = createEventSchema.safeParse(req.body);
@@ -60,7 +61,80 @@ router.post('/', requireAdminClub, async (req, res) => {
   }
 });
 
-// PUT y DELETE (Admin)
+// PUT: Actualizar Evento (Aviso de cambio de fecha)
+router.put('/:id', requireAdminClub, async (req, res) => {
+  try {
+    const eventId = req.params.id as string;
+    const validation = updateEventSchema.safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: 'Datos inválidos' });
+
+    const oldEvent = await prisma.clubEvent.findUnique({
+      where: { id: eventId },
+      include: { reminders: { include: { user: true } } },
+    });
+
+    if (!oldEvent) return res.status(404).json({ error: 'Evento no encontrado' });
+
+    const updatedEvent = await prisma.clubEvent.update({
+      where: { id: eventId },
+      data: validation.data,
+    });
+
+    // 🚨 Si la fecha inicial cambió, avisamos a los que tenían recordatorios y los reprogramamos
+    const oldDateStr = new Date(oldEvent.date).toDateString();
+    const newDateStr = new Date(updatedEvent.date).toDateString();
+
+    if (oldDateStr !== newDateStr && oldEvent.reminders.length > 0) {
+      // 1. Extraemos usuarios únicos afectados para no mandar correos duplicados
+      const affectedUsers = new Map();
+      for (const reminder of oldEvent.reminders) {
+        affectedUsers.set(reminder.userId, reminder.user);
+      }
+
+      for (const user of affectedUsers.values()) {
+        if (user.email && user.name && !user.email.endsWith('.local')) {
+          enviarCorreoGenerico(
+            user.email,
+            `Cambio de Fecha: ${updatedEvent.name}`,
+            templateCambioFechaEvento(user.name, updatedEvent),
+          ).catch(console.error);
+        }
+      }
+
+      // 2. Borramos los recordatorios viejos para que no suenen en la fecha incorrecta
+      await prisma.eventReminder.deleteMany({ where: { eventId } });
+
+      // 3. Calculamos y creamos los nuevos recordatorios
+      const eventDate = new Date(updatedEvent.date);
+      const today = new Date();
+
+      const oneWeekBefore = new Date(eventDate);
+      oneWeekBefore.setDate(oneWeekBefore.getDate() - 7);
+
+      const oneDayBefore = new Date(eventDate);
+      oneDayBefore.setDate(oneDayBefore.getDate() - 1);
+
+      const remindersToCreate = [];
+
+      for (const userId of affectedUsers.keys()) {
+        if (oneWeekBefore > today)
+          remindersToCreate.push({ eventId, userId, notifyAt: oneWeekBefore });
+        if (oneDayBefore > today)
+          remindersToCreate.push({ eventId, userId, notifyAt: oneDayBefore });
+      }
+
+      if (remindersToCreate.length > 0) {
+        await prisma.eventReminder.createMany({ data: remindersToCreate });
+      }
+    }
+
+    res.status(200).json({ success: true, data: updatedEvent });
+  } catch (error) {
+    res.status(500).json({ error: 'Error actualizando el evento' });
+  }
+});
+
+// DELETE
 router.delete('/:id', requireAdminClub, async (req, res) => {
   try {
     await prisma.clubEvent.delete({ where: { id: req.params.id as string } });
@@ -70,9 +144,7 @@ router.delete('/:id', requireAdminClub, async (req, res) => {
   }
 });
 
-// --- SISTEMA DE RECORDATORIOS (JUGADOR) ---
-
-// POST: Suscribirse (Crea los avisos)
+// SISTEMA DE RECORDATORIOS
 router.post('/:id/reminders', async (req, res) => {
   try {
     const eventId = req.params.id as string;
@@ -82,7 +154,6 @@ router.post('/:id/reminders', async (req, res) => {
     const event = await prisma.clubEvent.findUnique({ where: { id: eventId } });
     if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
 
-    // Calculamos las dos fechas
     const eventDate = new Date(event.date);
     const today = new Date();
 
@@ -94,13 +165,8 @@ router.post('/:id/reminders', async (req, res) => {
 
     const remindersToCreate = [];
 
-    // Solo programamos los recordatorios si esas fechas aún no han pasado
-    if (oneWeekBefore > today) {
-      remindersToCreate.push({ eventId, userId, notifyAt: oneWeekBefore });
-    }
-    if (oneDayBefore > today) {
-      remindersToCreate.push({ eventId, userId, notifyAt: oneDayBefore });
-    }
+    if (oneWeekBefore > today) remindersToCreate.push({ eventId, userId, notifyAt: oneWeekBefore });
+    if (oneDayBefore > today) remindersToCreate.push({ eventId, userId, notifyAt: oneDayBefore });
 
     if (remindersToCreate.length > 0) {
       await prisma.eventReminder.createMany({ data: remindersToCreate });
@@ -112,16 +178,11 @@ router.post('/:id/reminders', async (req, res) => {
   }
 });
 
-// DELETE: Cancelar suscripción
 router.delete('/:id/reminders', async (req, res) => {
   try {
     const eventId = req.params.id as string;
     const userId = req.user?.id;
-
-    await prisma.eventReminder.deleteMany({
-      where: { eventId, userId },
-    });
-
+    await prisma.eventReminder.deleteMany({ where: { eventId, userId } });
     res.status(200).json({ success: true, message: 'Recordatorios cancelados' });
   } catch (error) {
     res.status(500).json({ error: 'Error cancelando recordatorios' });
