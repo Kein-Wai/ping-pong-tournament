@@ -275,11 +275,11 @@ export const Estadisticas = () => {
             <Title order={4}>Podio de Honor</Title>
           </Group>
           {players.length > 0 ? (
-            <Center h={220}>
+            <Center mih={260}>
               <PodioHonor players={players} />
             </Center>
           ) : (
-            <Center h={220}>
+            <Center h={260}>
               <Text c="dimmed">No hay jugadores suficientes</Text>
             </Center>
           )}
@@ -293,7 +293,7 @@ export const Estadisticas = () => {
             <Title order={4}>Distribución de Nivel (ELO)</Title>
           </Group>
           <BarChart
-            h={220}
+            h={260}
             data={chartDataElo}
             dataKey="Nivel"
             series={[{ name: 'Jugadores', color: 'blue.6' }]}

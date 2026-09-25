@@ -920,60 +920,66 @@ const schedulesCTM = [
 ];
 
 async function main() {
-  console.log('🧹 Limpiando base de datos...');
-  await prisma.generalTrainingAttendance.deleteMany();
-  await prisma.playerSkillUpdate.deleteMany();
-  await prisma.generalTraining.deleteMany();
-  await prisma.skillUpdateTemplate.deleteMany();
-  await prisma.generalTrainingSchedule.deleteMany();
+  // console.log('🧹 Limpiando base de datos...');
+  // await prisma.generalTrainingAttendance.deleteMany();
+  // await prisma.playerSkillUpdate.deleteMany();
+  // await prisma.generalTraining.deleteMany();
+  // await prisma.skillUpdateTemplate.deleteMany();
+  // await prisma.generalTrainingSchedule.deleteMany();
 
-  await prisma.match.deleteMany();
-  await prisma.tournamentKnockout.deleteMany();
-  await prisma.tournamentParticipant.deleteMany();
-  await prisma.tournamentClas.deleteMany();
-  await prisma.tournamentGroupClas.deleteMany();
-  await prisma.tournamentGroup.deleteMany();
-  await prisma.tournament.deleteMany();
+  // await prisma.match.deleteMany();
+  // await prisma.tournamentKnockout.deleteMany();
+  // await prisma.tournamentParticipant.deleteMany();
+  // await prisma.tournamentClas.deleteMany();
+  // await prisma.tournamentGroupClas.deleteMany();
+  // await prisma.tournamentGroup.deleteMany();
+  // await prisma.tournament.deleteMany();
 
-  await prisma.stats.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.season.deleteMany();
-  await prisma.club.deleteMany();
+  // await prisma.stats.deleteMany();
+  // await prisma.user.deleteMany();
+  // await prisma.season.deleteMany();
+  // await prisma.club.deleteMany();
 
-  console.log('📚 Generando Catálogo Global de Ejercicios...');
-  await prisma.sessionExercise.deleteMany();
-  await prisma.trainingSession.deleteMany();
-  await prisma.playerTraining.deleteMany();
-  await prisma.exercise.deleteMany();
+  // await prisma.sessionExercise.deleteMany();
+  // await prisma.trainingSession.deleteMany();
+  // await prisma.playerTraining.deleteMany();
+  // await prisma.exercise.deleteMany();
 
-  console.log('🌱 Iniciando Seed Ligero (Testing)...');
+  console.log('🌱 Iniciando Seed CTM Costa Azahar...');
 
   // 1. ROLES DE USUARIO
-  const types = [
-    { name: TypeUser.SuperAdmin },
-    { name: TypeUser.AdminClub },
-    { name: TypeUser.Player },
-  ];
-  let savedTypes = [];
-  for (const type of types) {
-    savedTypes.push(
-      await prisma.userType.upsert({ where: { name: type.name }, update: {}, create: type }),
-    );
-  }
-  const superAdminRoleId = savedTypes[0].id;
-  const adminClubRoleId = savedTypes[1].id;
-  const playerRoleId = savedTypes[2].id;
+  // const types = [
+  //   { name: TypeUser.SuperAdmin },
+  //   { name: TypeUser.AdminClub },
+  //   { name: TypeUser.Player },
+  // ];
+  // let savedTypes = [];
+  // for (const type of types) {
+  //   savedTypes.push(
+  //     await prisma.userType.upsert({ where: { name: type.name }, update: {}, create: type }),
+  //   );
+  // }
+  // const superAdminRoleId = savedTypes[0].id;
+  // const adminClubRoleId = savedTypes[1].id;
+  // const playerRoleId = savedTypes[2].id;
 
-  // 2. TEMPORADA ÚNICA (2026/2027)
-  console.log('📅 Generando Temporada...');
-  const currentSeason = await prisma.season.create({
-    data: {
-      name: 'Temporada 2026/2027',
-      startDate: new Date('2026-08-01T00:00:00Z'),
-      endDate: new Date('2027-07-31T23:59:59Z'),
-      isCurrent: true,
-    },
+  const adminClubRoleId = await prisma.userType.findFirst({
+    where: { name: TypeUser.AdminClub },
   });
+  const currentSeason = await prisma.season.findFirst({
+    where: { name: 'Temporada 2026/2027' },
+  });
+
+  // // 2. TEMPORADA ÚNICA (2026/2027)
+  // console.log('📅 Generando Temporada...');
+  // const currentSeason = await prisma.season.create({
+  //   data: {
+  //     name: 'Temporada 2026/2027',
+  //     startDate: new Date('2026-08-01T00:00:00Z'),
+  //     endDate: new Date('2027-07-31T23:59:59Z'),
+  //     isCurrent: true,
+  //   },
+  // });
 
   console.log('🏢 Generando Club Principal...');
   const club = await prisma.club.create({
@@ -994,7 +1000,7 @@ async function main() {
       email: 'julianlevin@hotmail.com',
       name: 'Julian',
       surname: 'Levin',
-      userTypeId: adminClubRoleId,
+      userTypeId: adminClubRoleId?.id as string,
       password: hashedPasswordd,
       clubId: club.id,
       clubStatus: 'Aprobado',
@@ -1004,46 +1010,46 @@ async function main() {
   });
 
   // 4. ADMINISTRADOR GLOBAL
-  const hashedPassword = await bcrypt.hash('112233cheung', 10);
-  await prisma.user.create({
-    data: {
-      email: 'keinwaisuperadmin@hotmail.com',
-      name: 'Kein-Wai',
-      surname: 'Cheung',
-      nickname: 'SuperAdmin',
-      userTypeId: superAdminRoleId,
-      password: hashedPassword,
-      authProvider: 'LOCAL',
-      active: true,
-    },
-  });
+  // const hashedPassword = await bcrypt.hash('112233cheung', 10);
+  // await prisma.user.create({
+  //   data: {
+  //     email: 'keinwaisuperadmin@hotmail.com',
+  //     name: 'Kein-Wai',
+  //     surname: 'Cheung',
+  //     nickname: 'SuperAdmin',
+  //     userTypeId: superAdminRoleId,
+  //     password: hashedPassword,
+  //     authProvider: 'LOCAL',
+  //     active: true,
+  //   },
+  // });
 
   // 5. USUARIOS DEL SISTEMA (EXENTO Y TBD)
-  await prisma.user.upsert({
-    where: { id: BYE_USER_ID },
-    update: {},
-    create: {
-      id: BYE_USER_ID,
-      email: 'exento@torneo.local',
-      name: 'EXENTO',
-      surname: '(Pasa de ronda)',
-      userTypeId: playerRoleId,
-      active: true,
-    },
-  });
+  // await prisma.user.upsert({
+  //   where: { id: BYE_USER_ID },
+  //   update: {},
+  //   create: {
+  //     id: BYE_USER_ID,
+  //     email: 'exento@torneo.local',
+  //     name: 'EXENTO',
+  //     surname: '(Pasa de ronda)',
+  //     userTypeId: playerRoleId,
+  //     active: true,
+  //   },
+  // });
 
-  await prisma.user.upsert({
-    where: { id: TBD_USER_ID },
-    update: {},
-    create: {
-      id: TBD_USER_ID,
-      email: 'tbd@torneo.local',
-      name: 'Por',
-      surname: 'Determinar',
-      userTypeId: playerRoleId,
-      active: true,
-    },
-  });
+  // await prisma.user.upsert({
+  //   where: { id: TBD_USER_ID },
+  //   update: {},
+  //   create: {
+  //     id: TBD_USER_ID,
+  //     email: 'tbd@torneo.local',
+  //     name: 'Por',
+  //     surname: 'Determinar',
+  //     userTypeId: playerRoleId,
+  //     active: true,
+  //   },
+  // });
 
   console.log('🛡️ Generando Equipos...');
   const dbTeams: Record<string, string> = {};
@@ -1054,7 +1060,7 @@ async function main() {
         category: eq.category,
         level: eq.level,
         clubId: club.id,
-        seasonId: currentSeason.id,
+        seasonId: currentSeason?.id as string,
       },
     });
     dbTeams[eq.name] = created.id;
@@ -1083,7 +1089,7 @@ async function main() {
         region: ev.region as any,
         color: ev.color,
         clubId: club.id,
-        seasonId: currentSeason.id,
+        seasonId: currentSeason?.id as string,
       },
     });
   }

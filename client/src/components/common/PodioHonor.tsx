@@ -48,7 +48,7 @@ export const PodioHonor = ({ players }: { players: any[] }) => {
           radius="md"
           p="sm"
           bg={`var(--mantine-color-${color})`}
-          w={140}
+          w={{ base: 95, sm: 110, lg: 130 }}
           h={altura}
           style={{
             borderBottomLeftRadius: 0,
@@ -90,7 +90,8 @@ export const PodioHonor = ({ players }: { players: any[] }) => {
       <Group
         align="flex-end"
         justify="center"
-        gap="sm"
+        gap="xs"
+        wrap="nowrap"
         style={{ paddingBottom: 10, borderBottom: '2px solid var(--mantine-color-gray-3)' }}
       >
         <Escalón
