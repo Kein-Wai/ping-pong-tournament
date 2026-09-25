@@ -23,7 +23,10 @@ import {
   IconPingPong,
   IconTrendingUp,
   IconCalendarEvent,
+  IconCake,
+  IconUsers,
 } from '@tabler/icons-react';
+
 import { BarChart, DonutChart } from '@mantine/charts'; // 👈 Importamos los gráficos
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -199,9 +202,59 @@ export const Estadisticas = () => {
     );
   };
 
+  // --- CÁLCULO DE DEMOGRAFÍA ---
+  let totalAge = 0;
+  let validAgesCount = 0;
+  const ageRanges = { '< 18': 0, '18-25': 0, '26-35': 0, '36-50': 0, '50+': 0 };
+
+  const today = new Date();
+
+  players.forEach((u: any) => {
+    if (u.birthDate) {
+      const birthDate = new Date(u.birthDate);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      if (
+        today.getMonth() < birthDate.getMonth() ||
+        (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+      if (age >= 0) {
+        totalAge += age;
+        validAgesCount++;
+        if (age < 18) ageRanges['< 18']++;
+        else if (age <= 25) ageRanges['18-25']++;
+        else if (age <= 35) ageRanges['26-35']++;
+        else if (age <= 50) ageRanges['36-50']++;
+        else ageRanges['50+']++;
+      }
+    }
+  });
+
+  const avgAge = validAgesCount > 0 ? Math.round(totalAge / validAgesCount) : 0;
+  const chartData = Object.entries(ageRanges).map(([range, count]) => ({
+    Rango: range,
+    Jugadores: count,
+  }));
+
+  // --- TOP TORNEOS ---
+  const topTorneos = players
+    .map((p) => {
+      const s = Array.isArray(p.stats) ? p.stats[0] : p.stats;
+      return {
+        id: p.id,
+        name: `${p.name} ${p.surname || ''}`,
+        avatarUrl: p.avatarUrl,
+        count: s?.tournamentPart || 0,
+      };
+    })
+    .filter((p) => p.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
   return (
     <Stack gap="lg">
-      <Group gap="sm" align="center">
+      <Group gap="sm" align="center" mb="md">
         <ThemeIcon size={50} radius="md" color="blue" variant="light">
           <IconChartBar size={28} />
         </ThemeIcon>
@@ -213,75 +266,87 @@ export const Estadisticas = () => {
         </div>
       </Group>
 
-      {/* PODIO DE HONOR */}
-      {players.length > 0 && <PodioHonor players={players} />}
-
-      {/* GRÁFICOS VISUALES */}
+      {/* R1: PODIO Y DISTRIBUCIÓN DE ELO */}
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        {/* Gráfico de Barras */}
-        <Paper withBorder p="lg" radius="md" shadow="sm">
-          <Group gap="xs" mb="xl">
-            <ThemeIcon color="blue" variant="light">
-              <IconTrendingUp size={18} />
+        <Card withBorder padding="lg" radius="md" shadow="sm">
+          <Group gap="sm" mb="md">
+            <ThemeIcon color="yellow" variant="light" size="lg" radius="md">
+              <IconTrophy size={20} />
+            </ThemeIcon>
+            <Title order={4}>Podio de Honor</Title>
+          </Group>
+          {players.length > 0 ? (
+            <Center h={220}>
+              <PodioHonor players={players} />
+            </Center>
+          ) : (
+            <Center h={220}>
+              <Text c="dimmed">No hay jugadores suficientes</Text>
+            </Center>
+          )}
+        </Card>
+
+        <Card withBorder padding="lg" radius="md" shadow="sm">
+          <Group gap="sm" mb="md">
+            <ThemeIcon color="blue" variant="light" size="lg" radius="md">
+              <IconTrendingUp size={20} />
             </ThemeIcon>
             <Title order={4}>Distribución de Nivel (ELO)</Title>
           </Group>
           <BarChart
-            h={250}
+            h={220}
             data={chartDataElo}
             dataKey="Nivel"
             series={[{ name: 'Jugadores', color: 'blue.6' }]}
             tickLine="y"
           />
-        </Paper>
+        </Card>
+      </SimpleGrid>
 
-        {/* Gráfico de Anillo */}
-        <Paper withBorder p="lg" radius="md" shadow="sm">
-          <Group gap="xs" mb="xl">
-            <ThemeIcon color="teal" variant="light">
-              <IconPingPong size={18} />
+      {/* R2: ACTIVIDAD COMPETITIVA */}
+      <Title order={3} mt="sm">
+        Actividad Competitiva
+      </Title>
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        <Card withBorder padding="lg" radius="md" shadow="sm">
+          <Group gap="sm" mb="md">
+            <ThemeIcon color="teal" variant="light" size="lg" radius="md">
+              <IconPingPong size={20} />
             </ThemeIcon>
             <Title order={4}>Volumen de Partidos</Title>
           </Group>
           {matches.length === 0 ? (
-            <Center h={250}>
+            <Center h={220}>
               <Text c="dimmed">No hay partidos registrados aún.</Text>
             </Center>
           ) : (
-            <Group justify="center" h={250}>
+            <Group justify="center" h={220}>
               <DonutChart
                 data={chartDataMatches}
                 withLabelsLine
                 withLabels
-                size={180}
-                thickness={25}
+                size={160}
+                thickness={20}
               />
             </Group>
           )}
-        </Paper>
-      </SimpleGrid>
-      {/* NUEVA SECCIÓN: ENTRENAMIENTOS GRUPALES */}
-      <Title order={3} mt="xl">
-        Rendimiento en Entrenamientos Grupales
-      </Title>
+        </Card>
 
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        {/* TOP 10 ASISTENCIAS */}
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Group gap="xs" mb="md">
-            <ThemeIcon color="orange" variant="light">
-              <IconTrophy size={18} />
+        <Card withBorder padding="lg" radius="md" shadow="sm">
+          <Group gap="sm" mb="md">
+            <ThemeIcon color="orange" variant="light" size="lg" radius="md">
+              <IconMedal size={20} />
             </ThemeIcon>
-            <Title order={4}>Top 10 Asistencias (Ironmans)</Title>
+            <Title order={4}>Afluencia a Torneos (Top 5)</Title>
           </Group>
-          <ScrollArea h={250} offsetScrollbars>
+          <ScrollArea h={220} offsetScrollbars>
             <Stack gap="sm">
-              {top10Asistencias.length === 0 ? (
+              {topTorneos.length === 0 ? (
                 <Text c="dimmed" ta="center" mt="md">
-                  No hay datos de asistencia aún.
+                  No hay participaciones registradas aún.
                 </Text>
               ) : (
-                top10Asistencias.map((p, idx) => (
+                topTorneos.map((p, idx) => (
                   <Group key={p.id} justify="space-between" wrap="nowrap">
                     <Group gap="sm">
                       <Badge
@@ -295,7 +360,98 @@ export const Estadisticas = () => {
                         {p.name}
                       </Text>
                     </Group>
-                    <Text size="sm" fw={700} c="blue">
+                    <Text size="sm" fw={700} c="orange">
+                      {p.count} Torneos
+                    </Text>
+                  </Group>
+                ))
+              )}
+            </Stack>
+          </ScrollArea>
+        </Card>
+      </SimpleGrid>
+
+      {/* R3: DEMOGRAFÍA */}
+      <Title order={3} mt="sm">
+        Demografía del Club
+      </Title>
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        <Card withBorder padding="lg" radius="md" shadow="sm">
+          <Group gap="sm" mb="md">
+            <ThemeIcon color="grape" variant="light" size="lg" radius="md">
+              <IconCake size={20} />
+            </ThemeIcon>
+            <Title order={4}>Edad Media Global</Title>
+          </Group>
+          <Center h={220}>
+            <Stack align="center" gap={4}>
+              <Text fz={48} fw={900} c="grape.6">
+                {avgAge > 0 ? `${avgAge} años` : 'Sin datos'}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Calculado sobre {validAgesCount} jugadores
+              </Text>
+            </Stack>
+          </Center>
+        </Card>
+
+        <Card withBorder padding="lg" radius="md" shadow="sm">
+          <Group gap="sm" mb="md">
+            <ThemeIcon color="grape" variant="light" size="lg" radius="md">
+              <IconUsers size={20} />
+            </ThemeIcon>
+            <Title order={4}>Distribución por Edades</Title>
+          </Group>
+          {validAgesCount > 0 ? (
+            <BarChart
+              h={220}
+              data={chartData}
+              dataKey="Rango"
+              series={[{ name: 'Jugadores', color: 'grape.5' }]}
+              tickLine="y"
+            />
+          ) : (
+            <Center h={220}>
+              <Text c="dimmed">No hay suficientes datos registrados.</Text>
+            </Center>
+          )}
+        </Card>
+      </SimpleGrid>
+
+      {/* R4: ENTRENAMIENTOS GRUPALES */}
+      <Title order={3} mt="sm">
+        Rendimiento en Entrenamientos Grupales
+      </Title>
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Group gap="sm" mb="md">
+            <ThemeIcon color="cyan" variant="light" size="lg" radius="md">
+              <IconCalendarEvent size={20} />
+            </ThemeIcon>
+            <Title order={4}>Top 10 Asistencias (Ironmans)</Title>
+          </Group>
+          <ScrollArea h={220} offsetScrollbars>
+            <Stack gap="sm">
+              {top10Asistencias.length === 0 ? (
+                <Text c="dimmed" ta="center" mt="md">
+                  No hay datos de asistencia aún.
+                </Text>
+              ) : (
+                top10Asistencias.map((p, idx) => (
+                  <Group key={p.id} justify="space-between" wrap="nowrap">
+                    <Group gap="sm">
+                      <Badge
+                        color={idx < 3 ? 'cyan' : 'gray'}
+                        variant={idx < 3 ? 'filled' : 'light'}
+                      >
+                        {idx + 1}º
+                      </Badge>
+                      <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="sm" />
+                      <Text size="sm" fw={600} truncate maw={150}>
+                        {p.name}
+                      </Text>
+                    </Group>
+                    <Text size="sm" fw={700} c="cyan.7">
                       {p.count} Sesiones
                     </Text>
                   </Group>
@@ -305,16 +461,15 @@ export const Estadisticas = () => {
           </ScrollArea>
         </Card>
 
-        {/* AFLUENCIA POR HORARIO */}
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Group gap="xs" mb="xl">
-            <ThemeIcon color="cyan" variant="light">
-              <IconCalendarEvent size={18} />
+          <Group gap="sm" mb="md">
+            <ThemeIcon color="cyan" variant="light" size="lg" radius="md">
+              <IconChartBar size={20} />
             </ThemeIcon>
             <Title order={4}>Afluencia Media por Horario</Title>
           </Group>
           {chartDataSchedules.length === 0 ? (
-            <Center h={200}>
+            <Center h={220}>
               <Text c="dimmed">No hay clases registradas aún.</Text>
             </Center>
           ) : (
@@ -329,11 +484,17 @@ export const Estadisticas = () => {
         </Card>
       </SimpleGrid>
 
-      {/* RANKING GLOBAL (LA TABLA) */}
-      <Title order={3} mt="md">
+      {/* R5: RANKING GLOBAL */}
+      <Title order={3} mt="sm">
         Ranking Oficial
       </Title>
       <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Group gap="sm" mb="md">
+          <ThemeIcon color="dark" variant="light" size="lg" radius="md">
+            <IconTrophy size={20} />
+          </ThemeIcon>
+          <Title order={4}>Clasificación del Club</Title>
+        </Group>
         <ScrollArea>
           <Table striped highlightOnHover verticalSpacing="md" miw={700}>
             <Table.Thead>

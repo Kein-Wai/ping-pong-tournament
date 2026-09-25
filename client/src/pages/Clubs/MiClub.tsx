@@ -26,6 +26,7 @@ import {
   IconEdit,
   IconDeviceFloppy,
   IconX,
+  IconCake,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -45,6 +46,7 @@ interface ClubDetails {
   _count: {
     users: number;
   };
+  users: { birthDate: string | null }[];
 }
 
 export const MiClub = () => {
@@ -62,6 +64,7 @@ export const MiClub = () => {
   const [address, setAddress] = useState('');
   const [foundedAt, setFoundedAt] = useState<Date | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
+  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
 
   const fetchClubDetails = async () => {
     if (!user?.clubId) return;
@@ -126,6 +129,37 @@ export const MiClub = () => {
       </Center>
     );
   }
+
+  // --- CÁLCULO DE DEMOGRAFÍA Y EDAD MEDIA ---
+  const clubUsers = club.users || [];
+  let totalAge = 0;
+  let validAgesCount = 0;
+  const ageRanges = { '< 18': 0, '18-25': 0, '26-35': 0, '36-50': 0, '50+': 0 };
+
+  const today = new Date();
+  clubUsers.forEach((u) => {
+    if (u.birthDate) {
+      const birthDate = new Date(u.birthDate);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      if (
+        today.getMonth() < birthDate.getMonth() ||
+        (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+      if (age >= 0) {
+        totalAge += age;
+        validAgesCount++;
+        if (age < 18) ageRanges['< 18']++;
+        else if (age <= 25) ageRanges['18-25']++;
+        else if (age <= 35) ageRanges['26-35']++;
+        else if (age <= 50) ageRanges['36-50']++;
+        else ageRanges['50+']++;
+      }
+    }
+  });
+
+  const avgAge = validAgesCount > 0 ? Math.round(totalAge / validAgesCount) : 0;
 
   return (
     <Stack gap="xl" maw={800} mx="auto">
@@ -260,7 +294,7 @@ export const MiClub = () => {
       </Card>
 
       <Title order={3} mt="md">
-        Resumen Operativo
+        Demografía y Estadísticas
       </Title>
 
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
@@ -279,17 +313,38 @@ export const MiClub = () => {
             </Text>
           </Group>
           <Text size="sm" c="dimmed" mt={7}>
-            Miembros totales asociados a la sede
+            Miembros del club
           </Text>
-          <Button
-            variant="light"
-            color="blue"
-            fullWidth
-            mt="md"
-            onClick={() => navigate('/jugadores')}
-          >
-            Gestionar Solicitudes y Plantilla
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="light"
+              color="blue"
+              fullWidth
+              mt="md"
+              onClick={() => navigate('/jugadores')}
+            >
+              Gestionar Solicitudes y Plantilla
+            </Button>
+          )}
+        </Card>
+
+        <Card withBorder padding="lg" radius="md" shadow="sm">
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+              Edad Media de los jugadores
+            </Text>
+            <ThemeIcon color="teal" variant="light" size={38} radius="md">
+              <IconCake size={24} />
+            </ThemeIcon>
+          </Group>
+          <Group align="flex-end" gap="xs" mt={25}>
+            <Text size="xl" fw={700}>
+              {avgAge > 0 ? `${avgAge} años` : 'N/D'}
+            </Text>
+          </Group>
+          <Text size="sm" c="dimmed" mt={7}>
+            Calculado sobre {validAgesCount} jugadores con fecha de nacimiento.
+          </Text>
         </Card>
       </SimpleGrid>
     </Stack>

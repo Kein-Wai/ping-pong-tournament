@@ -60,6 +60,7 @@ router.get('/', async (req, res) => {
         clubStatus: true,
         stats: true,
         level: true,
+        birthDate: true,
         club: { select: { name: true } },
       },
     });

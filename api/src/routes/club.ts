@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import prisma from '../db';
 import { createClubSchema, updateMemberStatusSchema, updateClubSchema } from '../schemas/club';
-import { updateSkillsSchema } from '../schemas/user';
 import { z } from 'zod';
 import { verifyToken, requireAdminClub, requireSuperAdmin } from '../middleware/auth.middleware';
 import { getCurrentSeason } from '../utils/season';
+import { enviarCorreoGenerico } from '../services/email';
+import { templateAceptacionClub } from '../utils/emailtemplate';
 
 const router = Router();
 
@@ -113,7 +114,13 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const club = await prisma.club.findUnique({
       where: { id: clubId },
-      include: { _count: { select: { users: true } } },
+      include: {
+        _count: { select: { users: { where: { clubStatus: 'Aprobado' } } } },
+        users: {
+          where: { clubStatus: 'Aprobado' },
+          select: { birthDate: true },
+        },
+      },
     });
     if (!club) return res.status(404).json({ error: 'Club no encontrado' });
 
@@ -264,6 +271,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
     const currentSeason = await getCurrentSeason(prisma);
 
     if (status === 'Aprobado' && skills) {
+      const club = await prisma.club.findUnique({ where: { id: clubId } });
       if (elo !== undefined) {
         await prisma.stats.upsert({
           // 👇 Usamos la clave compuesta
@@ -294,6 +302,11 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
           ...skills, // Si es nuevo, lo creamos
         },
       });
+      enviarCorreoGenerico(
+        userToUpdate.email,
+        'Te han inscrito en un nuevo torneo',
+        templateAceptacionClub(userToUpdate.name, club),
+      ).catch(console.error);
     }
 
     res.status(200).json({

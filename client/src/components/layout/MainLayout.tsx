@@ -145,7 +145,7 @@ export const MainLayout = () => {
       label: 'Mi Club',
       icon: IconBuildingCommunity,
       path: APP_ROUTES.MI_CLUB,
-      show: isAdminClub,
+      show: isAdminClub || (isPlayer && hasApprovedClub),
     },
     {
       label: 'Mi Perfil',
@@ -186,7 +186,7 @@ export const MainLayout = () => {
       label: 'Calendario Oficial',
       icon: IconCalendarStats,
       path: APP_ROUTES.CALENDARIO,
-      show: true,
+      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
     },
     {
       label: 'Entrenamientos Grupales',
