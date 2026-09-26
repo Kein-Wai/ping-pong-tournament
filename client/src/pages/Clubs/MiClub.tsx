@@ -165,29 +165,38 @@ export const MiClub = () => {
     <Stack gap="xl" maw={800} mx="auto">
       <Group justify="space-between" align="center">
         <Title order={2}>Panel de Administración de Sede</Title>
-        {!isEditing ? (
-          <Button
-            leftSection={<IconEdit size={16} />}
-            color="orange"
-            variant="light"
-            onClick={() => setIsEditing(true)}
-          >
-            Editar Datos
-          </Button>
-        ) : (
-          <Group gap="xs">
-            <ActionIcon color="gray" variant="subtle" size="lg" onClick={() => setIsEditing(false)}>
-              <IconX size={20} />
-            </ActionIcon>
-            <Button
-              leftSection={<IconDeviceFloppy size={16} />}
-              color="green"
-              onClick={handleSave}
-              loading={saving}
-            >
-              Guardar Cambios
-            </Button>
-          </Group>
+        {isAdmin && (
+          <>
+            {!isEditing ? (
+              <Button
+                leftSection={<IconEdit size={16} />}
+                color="orange"
+                variant="light"
+                onClick={() => setIsEditing(true)}
+              >
+                Editar Datos
+              </Button>
+            ) : (
+              <Group gap="xs">
+                <ActionIcon
+                  color="gray"
+                  variant="subtle"
+                  size="lg"
+                  onClick={() => setIsEditing(false)}
+                >
+                  <IconX size={20} />
+                </ActionIcon>
+                <Button
+                  leftSection={<IconDeviceFloppy size={16} />}
+                  color="green"
+                  onClick={handleSave}
+                  loading={saving}
+                >
+                  Guardar Cambios
+                </Button>
+              </Group>
+            )}
+          </>
         )}
       </Group>
 

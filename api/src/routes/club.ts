@@ -304,7 +304,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
       });
       enviarCorreoGenerico(
         userToUpdate.email,
-        'Te han inscrito en un nuevo torneo',
+        '🏓 ¡Has sido aceptado en un club!',
         templateAceptacionClub(userToUpdate.name, club),
       ).catch(console.error);
     }
