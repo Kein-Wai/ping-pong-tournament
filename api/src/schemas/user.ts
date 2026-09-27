@@ -1,6 +1,23 @@
 import { z } from 'zod';
 import { UserClubStatus, DominantHand, Playstyle, PlayerLevel } from '@prisma/client';
 
+const statValidator = z.number().int().min(0).max(100);
+
+export const updateSkillsSchema = z.object({
+  derechaPlano: statValidator,
+  revesPlano: statValidator,
+  topspinDerecha: statValidator,
+  topspinReves: statValidator,
+  corte: statValidator,
+  bloqueoDerecha: statValidator,
+  bloqueoReves: statValidator,
+  servicio: statValidator,
+  recepcion: statValidator,
+  movilidad: statValidator,
+  fortalezaMental: statValidator,
+  experiencia: statValidator,
+});
+
 export const loginLocalSchema = z.object({
   email: z.email(),
   password: z.string().min(1),
@@ -33,10 +50,10 @@ export const registerSchema = z
   });
 
 export const createUserSchema = z.object({
-  email: z.email('El formato del email no es válido'),
+  email: z.string().email('El formato del email no es válido'),
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
-  surname: z.string().min(2, 'El apellido debe tener al menos 2 caracteres').optional(),
-  userTypeId: z.uuid('El tipo de usuario debe ser un UUID válido'),
+  surname: z.string().optional().nullable(),
+  userTypeId: z.string().uuid('El tipo de usuario debe ser un UUID válido').optional(),
   password: z
     .string()
     .min(8, 'La contraseña debe tener al menos 8 caracteres')
@@ -46,7 +63,13 @@ export const createUserSchema = z.object({
     .regex(/\d/, { message: 'Debe contener almenos un numero' })
     .regex(/[@$!%*?&]/, { message: 'Debe almenos contener un character especial' })
     .optional(),
-  elo: z.number().int().positive().optional().default(500),
+  elo: z
+    .number()
+    .int()
+    .min(0, 'El ELO no puede ser negativo')
+    .max(10000, 'El ELO máximo es 10000')
+    .optional()
+    .default(500),
   clubId: z.string().uuid('El ID del club debe ser un UUID').nullable().optional(),
   clubStatus: z
     .enum([
@@ -56,6 +79,18 @@ export const createUserSchema = z.object({
       UserClubStatus.Rechazado,
     ])
     .optional(),
+  level: z
+    .enum([
+      PlayerLevel.Iniciacion,
+      PlayerLevel.Principiante,
+      PlayerLevel.Intermedio,
+      PlayerLevel.Avanzado,
+      PlayerLevel.Profesional,
+    ])
+    .optional(),
+  dominantHand: z.enum([DominantHand.Diestro, DominantHand.Zurdo]).optional(),
+  playstyle: z.enum([Playstyle.Ofensivo, Playstyle.Defensivo]).optional(),
+  skills: updateSkillsSchema.optional(),
 });
 
 export const updateUserSchema = createUserSchema.partial();
@@ -68,7 +103,12 @@ export const updateProfileSchema = z
     currentPassword: z.string().optional(),
     newPassword: z
       .string()
-      .min(6, 'La nueva contraseña debe tener al menos 6 caracteres')
+      .min(8, 'La nueva contraseña debe tener al menos 8 caracteres')
+      .max(32, 'La contraseña no puede exceder de 32 caracteres')
+      .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
+      .regex(/[a-z]/, 'Debe contener al menos una minúscula')
+      .regex(/\d/, 'Debe contener al menos un número')
+      .regex(/[@$!%*?&]/, 'Debe contener al menos un carácter especial')
       .optional(),
     confirmPassword: z.string().optional(),
     dominantHand: z.enum([DominantHand.Diestro, DominantHand.Zurdo]).optional().nullable(),
@@ -78,23 +118,6 @@ export const updateProfileSchema = z
     message: 'Las contraseñas no coinciden',
     path: ['confirmPassword'],
   });
-
-const statValidator = z.number().int().min(0).max(100);
-
-export const updateSkillsSchema = z.object({
-  derechaPlano: statValidator,
-  revesPlano: statValidator,
-  topspinDerecha: statValidator,
-  topspinReves: statValidator,
-  corte: statValidator,
-  bloqueoDerecha: statValidator,
-  bloqueoReves: statValidator,
-  servicio: statValidator,
-  recepcion: statValidator,
-  movilidad: statValidator,
-  fortalezaMental: statValidator,
-  experiencia: statValidator,
-});
 
 export const forgotPasswordSchema = z.object({
   email: z.email('El formato del email no es válido'),
@@ -143,7 +166,8 @@ export const createGuestSchema = z.object({
     .number()
     .int()
     .min(0, 'El ELO no puede ser negativo')
-    .max(3500, 'El ELO máximo es 3500')
+    .max(10000, 'El ELO máximo es 10000')
     .optional()
     .default(500),
+  skills: updateSkillsSchema.optional(),
 });

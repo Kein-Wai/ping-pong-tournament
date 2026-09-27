@@ -146,3 +146,19 @@ export const templateCambioFechaEvento = (nombre: string, evento: any) => {
 
   return baseTemplate(contenidoEspecifico);
 };
+
+export const templateCuentaCreada = (nombre: string, email: string, pass: string) => {
+  const contenidoEspecifico = `
+    <h1 style="color: #111827;">¡Hola ${nombre}! Tu cuenta está lista 🏓</h1>
+    <p>El administrador de tu club ha creado una cuenta para que puedas participar en los torneos y ligas internas.</p>
+    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
+      <p style="margin: 5px 0;"><strong>Contraseña temporal:</strong> ${pass}</p>
+    </div>
+    <p>Por seguridad, el sistema te pedirá que cambies esta contraseña la primera vez que inicies sesión.</p>
+    <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
+      <a href="${process.env.CLIENT_URL}/login" class="btn">Iniciar Sesión</a>
+    </div>
+  `;
+  return baseTemplate(contenidoEspecifico);
+};

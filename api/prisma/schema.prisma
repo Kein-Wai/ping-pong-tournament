@@ -309,6 +309,7 @@ model User {
   verificationToken  String?         @db.VarChar(255)
   resetPasswordToken String?         @db.VarChar(255) 
   resetPasswordExpires DateTime?
+  forcePasswordChange Boolean @default(false)
   active             Boolean         @default(false)
   dominantHand       DominantHand?   @map("dominant_hand")
   playstyle          Playstyle?

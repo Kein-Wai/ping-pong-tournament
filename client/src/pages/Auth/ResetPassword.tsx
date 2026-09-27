@@ -33,6 +33,15 @@ export const ResetPassword = () => {
         color: 'red',
       });
     }
+    const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,32}$/.test(newPassword);
+    if (!isStrong) {
+      return notifications.show({
+        title: 'Contraseña débil',
+        message:
+          'Debe tener mín. 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial (@$!%*?&).',
+        color: 'red',
+      });
+    }
 
     setLoading(true);
     try {

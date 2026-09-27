@@ -10,8 +10,17 @@ import {
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
 import { getCurrentSeason } from '../utils/season';
-
+import { templateCuentaCreada } from '../utils/emailtemplate';
+import { enviarCorreoGenerico } from '../services/email';
 const router = Router();
+
+const LEVEL_BASE_STATS: Record<string, number> = {
+  Iniciacion: 0,
+  Principiante: 20,
+  Intermedio: 40,
+  Avanzado: 60,
+  Profesional: 80,
+};
 
 router.get('/', async (req, res) => {
   try {
@@ -80,44 +89,78 @@ router.post('/', requireAdminClub, async (req, res) => {
     const validation = createUserSchema.safeParse(req.body);
 
     if (!validation.success) {
-      res.status(400).json({
+      return res.status(400).json({
         error: 'Datos de entrada inválidos',
         details: z.treeifyError(validation.error),
       });
-      return;
     }
 
-    const { password, clubId, clubStatus, ...userData } = validation.data;
-    let hashedPassword = null;
+    const { password, clubId, clubStatus, userTypeId, skills, elo, ...userData } = validation.data;
 
-    if (password) {
-      hashedPassword = await bcrypt.hash(password, 10);
+    let plainPassword = password;
+    let isGenerated = false;
+
+    // Si el admin no pone contraseña, generamos una automática fuerte
+    if (!plainPassword) {
+      plainPassword = Math.random().toString(36).slice(-6) + 'A1*';
+      isGenerated = true;
     }
 
-    // LÓGICA DE CLUBES:
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
     let finalClubId = clubId;
     let finalClubStatus = clubStatus || 'Registrado';
 
     if (role === 'AdminClub') {
-      // Si eres AdminClub, el jugador se va a TU club por la fuerza y entra Aprobado
       if (!adminClubId) {
         return res.status(403).json({ error: 'No tienes un club asignado para añadir jugadores' });
       }
       finalClubId = adminClubId;
       finalClubStatus = 'Aprobado';
     }
+
     const currentSeason = await getCurrentSeason(prisma);
+
+    // Si no pasan rol, asumimos Player por defecto
+    let finalUserTypeId = userTypeId;
+    if (!finalUserTypeId) {
+      const playerRole = await prisma.userType.findFirst({ where: { name: 'Player' } });
+      finalUserTypeId = playerRole?.id;
+    }
+
+    // Le damos unos stats base para que no salga con el radar vacío
+    const baseSkill = LEVEL_BASE_STATS[userData.level as string] || 0;
+
+    const finalSkills = skills || {
+      derechaPlano: baseSkill,
+      revesPlano: baseSkill,
+      topspinDerecha: baseSkill,
+      topspinReves: baseSkill,
+      corte: baseSkill,
+      bloqueoDerecha: baseSkill,
+      bloqueoReves: baseSkill,
+      servicio: baseSkill,
+      recepcion: baseSkill,
+      movilidad: baseSkill,
+      fortalezaMental: baseSkill,
+      experiencia: baseSkill,
+    };
+
     const newUser = await prisma.user.create({
       data: {
         ...userData,
         password: hashedPassword,
-        authProvider: password ? 'LOCAL' : 'UNKNOWN',
+        forcePasswordChange: isGenerated,
+        authProvider: 'LOCAL',
         clubId: finalClubId,
         clubStatus: finalClubStatus as any,
-        stats: {
+        active: true, // Activado directamente porque lo crea el coach
+        userTypeId: finalUserTypeId as string,
+        stats: { create: { seasonId: currentSeason.id, elo: elo } },
+        skills: {
           create: {
             seasonId: currentSeason.id,
-            elo: userData.elo,
+            ...finalSkills,
           },
         },
       },
@@ -126,12 +169,19 @@ router.post('/', requireAdminClub, async (req, res) => {
         email: true,
         name: true,
         surname: true,
-        secondSurname: true,
         nickname: true,
         clubId: true,
         clubStatus: true,
       },
     });
+
+    if (isGenerated) {
+      enviarCorreoGenerico(
+        userData.email.toLowerCase(),
+        'Tu cuenta del club ha sido creada',
+        templateCuentaCreada(userData.name, userData.email.toLowerCase(), plainPassword),
+      ).catch(console.error);
+    }
 
     res.status(201).json(newUser);
   } catch (error) {
@@ -188,6 +238,7 @@ router.put('/me', async (req, res) => {
       }
 
       updateData.password = await bcrypt.hash(data.newPassword, 10);
+      updateData.forcePasswordChange = false;
     }
 
     const updatedProfile = await prisma.user.update({
@@ -302,7 +353,7 @@ router.put('/:id', requireAdminClub, async (req, res) => {
       return;
     }
 
-    const { elo, ...dataToUpdate } = validation.data;
+    const { elo, skills, ...dataToUpdate } = validation.data;
 
     // 3. Prevenir que un AdminClub cambie de club a un jugador a la fuerza por aquí
     if (role === 'AdminClub') {
@@ -386,7 +437,7 @@ router.post('/guest', requireAdminClub, async (req, res) => {
     }
 
     // 👇 2. EXTRAER DATOS LIMPIOS Y SEGUROS
-    const { name, surname, level, dominantHand, playstyle, elo } = validation.data;
+    const { name, surname, level, dominantHand, playstyle, elo, skills } = validation.data;
     const clubId = req.user?.clubId;
 
     if (!clubId) return res.status(403).json({ error: 'No tienes club asignado' });
@@ -398,7 +449,21 @@ router.post('/guest', requireAdminClub, async (req, res) => {
     const fakeEmail = `invitado_${Date.now()}@pingpong.local`;
     const fakePassword = await bcrypt.hash(Math.random().toString(36), 10);
 
-    const baseSkill = Math.min(100, Math.max(5, Math.floor(Number(elo) / 20)));
+    const baseSkill = LEVEL_BASE_STATS[level as string] || 0;
+    const finalSkills = skills || {
+      derechaPlano: baseSkill,
+      revesPlano: baseSkill,
+      topspinDerecha: baseSkill,
+      topspinReves: baseSkill,
+      corte: baseSkill,
+      bloqueoDerecha: baseSkill,
+      bloqueoReves: baseSkill,
+      servicio: baseSkill,
+      recepcion: baseSkill,
+      movilidad: baseSkill,
+      fortalezaMental: baseSkill,
+      experiencia: baseSkill,
+    };
 
     // 👇 3. GUARDAR EN BASE DE DATOS
     const newGuest = await prisma.user.create({
@@ -432,18 +497,7 @@ router.post('/guest', requireAdminClub, async (req, res) => {
         skills: {
           create: {
             seasonId: currentSeason.id,
-            derechaPlano: baseSkill,
-            revesPlano: baseSkill,
-            topspinDerecha: baseSkill,
-            topspinReves: baseSkill,
-            corte: baseSkill,
-            bloqueoDerecha: baseSkill,
-            bloqueoReves: baseSkill,
-            servicio: baseSkill,
-            recepcion: baseSkill,
-            movilidad: baseSkill,
-            fortalezaMental: baseSkill,
-            experiencia: baseSkill,
+            ...finalSkills,
           },
         },
       },

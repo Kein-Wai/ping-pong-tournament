@@ -150,6 +150,8 @@ router.post('/login', async (req, res) => {
         dominantHand: user.dominantHand,
         playstyle: user.playstyle,
         birthDate: user.birthDate,
+        authProvider: user.authProvider,
+        forcePasswordChange: user.forcePasswordChange,
       },
       JWT_SECRET,
       { expiresIn: '8h' },
@@ -236,6 +238,8 @@ router.post('/google', async (req, res) => {
         dominantHand: user.dominantHand,
         playstyle: user.playstyle,
         birthDate: user.birthDate,
+        authProvider: user.authProvider,
+        forcePasswordChange: user.forcePasswordChange,
       },
       JWT_SECRET,
       { expiresIn: '8h' },
@@ -326,6 +330,7 @@ router.post('/reset-password', async (req, res) => {
         password: hashedPassword,
         resetPasswordToken: null,
         resetPasswordExpires: null,
+        forcePasswordChange: false,
       },
     });
 

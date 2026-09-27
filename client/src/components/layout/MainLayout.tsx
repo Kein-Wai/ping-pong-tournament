@@ -13,6 +13,7 @@ import {
   Button,
   Stack,
   Badge,
+  TextInput,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -44,6 +45,7 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { DateInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
+import { notifications } from '@mantine/notifications';
 
 export const MainLayout = () => {
   const [opened, { toggle }] = useDisclosure();
@@ -62,6 +64,10 @@ export const MainLayout = () => {
     pendingMembers: 0,
     pendingTournaments: 0,
   });
+
+  const [forcePasswordOpen, setForcePasswordOpen] = useState(false);
+  const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const fetchNotifications = () => {
     if (user?.role === 'AdminClub' && user?.clubId) {
@@ -91,7 +97,45 @@ export const MainLayout = () => {
     } else {
       setOnboardingOpen(false);
     }
+    if (user && user.forcePasswordChange) {
+      setForcePasswordOpen(true);
+    } else {
+      setForcePasswordOpen(false);
+    }
   }, [user]);
+
+  const handleForcePasswordChange = async () => {
+    if (passwords.new !== passwords.confirm) {
+      return notifications.show({
+        title: 'Error',
+        message: 'Las contraseñas no coinciden.',
+        color: 'red',
+      });
+    }
+    const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,32}$/.test(passwords.new);
+    if (!isStrong) {
+      return notifications.show({
+        title: 'Contraseña débil',
+        message:
+          'Debe tener mín. 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial (@$!%*?&).',
+        color: 'red',
+      });
+    }
+    setSavingPassword(true);
+    try {
+      await api.put(ENDPOINTS.USERS.ME, {
+        currentPassword: passwords.current,
+        newPassword: passwords.new,
+        confirmPassword: passwords.confirm,
+      });
+      updateUserFields({ forcePasswordChange: false });
+      setForcePasswordOpen(false);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -387,6 +431,60 @@ export const MainLayout = () => {
             disabled={!hand || !style}
           >
             Completar mi Perfil
+          </Button>
+        </Stack>
+      </Modal>
+      {/* --- MODAL CAMBIO CONTRASEÑA OBLIGATORIO --- */}
+      <Modal
+        opened={forcePasswordOpen}
+        onClose={() => {}}
+        withCloseButton={false}
+        closeOnClickOutside={false}
+        title={
+          <Text fw={900} size="lg" c="orange">
+            Cambio de Contraseña Requerido
+          </Text>
+        }
+        centered
+        overlayProps={{ blur: 5, backgroundOpacity: 0.85 }}
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Tu cuenta fue creada por el administrador del club con una contraseña temporal. Por
+            seguridad, debes establecer tu propia contraseña ahora.
+          </Text>
+
+          <TextInput
+            type="password"
+            label="Contraseña Temporal"
+            required
+            value={passwords.current}
+            onChange={(e) => setPasswords({ ...passwords, current: e.currentTarget.value })}
+          />
+          <TextInput
+            type="password"
+            label="Nueva Contraseña"
+            required
+            value={passwords.new}
+            onChange={(e) => setPasswords({ ...passwords, new: e.currentTarget.value })}
+          />
+          <TextInput
+            type="password"
+            label="Confirmar Nueva Contraseña"
+            required
+            value={passwords.confirm}
+            onChange={(e) => setPasswords({ ...passwords, confirm: e.currentTarget.value })}
+          />
+
+          <Button
+            color="orange"
+            fullWidth
+            mt="md"
+            onClick={handleForcePasswordChange}
+            loading={savingPassword}
+            disabled={!passwords.current || !passwords.new || passwords.new !== passwords.confirm}
+          >
+            Actualizar y Entrar
           </Button>
         </Stack>
       </Modal>

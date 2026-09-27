@@ -137,6 +137,8 @@ export const Login = () => {
       dominantHand: decodedPayload.dominantHand || null,
       playstyle: decodedPayload.playstyle || null,
       birthDate: decodedPayload.birthDate || null,
+      authProvider: decodedPayload.authProvider,
+      forcePasswordChange: decodedPayload.forcePasswordChange,
     };
 
     login(token, loggedUser);

@@ -52,6 +52,7 @@ import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { openAppConfirmModal } from '../../utils/modals';
+import { notifications } from '@mantine/notifications';
 
 interface UserProfile {
   id: string;
@@ -144,6 +145,9 @@ export const JugadorPerfil = () => {
     dominantHand: string;
     playstyle: string;
     birthDate: Date | null;
+    currentPassword?: string;
+    newPassword?: string;
+    confirmPassword?: string;
   }>({
     name: '',
     surname: '',
@@ -152,6 +156,9 @@ export const JugadorPerfil = () => {
     dominantHand: '',
     playstyle: '',
     birthDate: null,
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
   const [trainings, setTrainings] = useState<any[]>([]);
 
@@ -270,12 +277,37 @@ export const JugadorPerfil = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (editData.newPassword && editData.newPassword !== editData.confirmPassword) {
+      return notifications.show({
+        title: 'Error',
+        message: 'Las contraseñas nuevas no coinciden.',
+        color: 'red',
+      });
+    }
+    if (editData.newPassword) {
+      const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,32}$/.test(
+        editData.newPassword,
+      );
+      if (!isStrong) {
+        return notifications.show({
+          title: 'Contraseña débil',
+          message:
+            'Debe tener mín. 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial (@$!%*?&).',
+          color: 'red',
+        });
+      }
+    }
     setSaving(true);
     try {
-      await api.put(ENDPOINTS.USERS.ME, {
-        ...editData,
-        birthDate: editData.birthDate ? editData.birthDate.toISOString() : null,
-      });
+      const payload: any = { ...editData };
+      if (!payload.newPassword) {
+        delete payload.currentPassword;
+        delete payload.newPassword;
+        delete payload.confirmPassword;
+      }
+      payload.birthDate = payload.birthDate ? payload.birthDate.toISOString() : null;
+
+      await api.put(ENDPOINTS.USERS.ME, payload);
       setEditModalOpened(false);
       updateUserFields({
         name: editData.name,
@@ -608,9 +640,11 @@ export const JugadorPerfil = () => {
                   "{player.nickname}"
                 </Text>
               )}
-              <Text c="dimmed" size="lg">
-                {player.email}
-              </Text>
+              {(isAdmin || isOwnProfile) && (
+                <Text c="dimmed" size="lg">
+                  {player.email}
+                </Text>
+              )}
               <Group gap="xs" mt="sm">
                 <Badge
                   size="lg"
@@ -1419,6 +1453,37 @@ export const JugadorPerfil = () => {
               onChange={(val) => setEditData({ ...editData, playstyle: val || '' })}
             />
           </SimpleGrid>
+          {(currentUser as any)?.authProvider === 'LOCAL' && isOwnProfile && (
+            <Paper withBorder p="sm" radius="md" mt="sm">
+              <Title order={6} mb="sm" c="dimmed">
+                Cambiar Contraseña (Opcional)
+              </Title>
+              <Stack gap="xs">
+                <TextInput
+                  type="password"
+                  label="Contraseña Actual"
+                  value={editData.currentPassword}
+                  onChange={(e) =>
+                    setEditData({ ...editData, currentPassword: e.currentTarget.value })
+                  }
+                />
+                <TextInput
+                  type="password"
+                  label="Nueva Contraseña"
+                  value={editData.newPassword}
+                  onChange={(e) => setEditData({ ...editData, newPassword: e.currentTarget.value })}
+                />
+                <TextInput
+                  type="password"
+                  label="Confirmar Nueva Contraseña"
+                  value={editData.confirmPassword}
+                  onChange={(e) =>
+                    setEditData({ ...editData, confirmPassword: e.currentTarget.value })
+                  }
+                />
+              </Stack>
+            </Paper>
+          )}
           <Button color="blue" fullWidth mt="md" loading={saving} onClick={handleSaveProfile}>
             Guardar Cambios
           </Button>

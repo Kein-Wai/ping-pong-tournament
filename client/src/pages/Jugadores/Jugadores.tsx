@@ -115,6 +115,7 @@ export const Jugadores = () => {
   const [guestModal, setGuestModal] = useState(false);
   const [creatingGuest, setCreatingGuest] = useState(false);
   const [guestData, setGuestData] = useState({
+    email: '',
     name: '',
     surname: '',
     level: 'Iniciacion',
@@ -138,6 +139,20 @@ export const Jugadores = () => {
     fortalezaMental: '',
     experiencia: '',
   });
+  const [guestSkills, setGuestSkills] = useState<Record<string, number | ''>>({
+    derechaPlano: '',
+    revesPlano: '',
+    topspinDerecha: '',
+    topspinReves: '',
+    corte: '',
+    bloqueoDerecha: '',
+    bloqueoReves: '',
+    servicio: '',
+    recepcion: '',
+    movilidad: '',
+    fortalezaMental: '',
+    experiencia: '',
+  });
   const [approving, setApproving] = useState(false);
 
   const isAdminClub = currentUser?.role === 'AdminClub';
@@ -147,16 +162,55 @@ export const Jugadores = () => {
   const handleCreateGuest = async () => {
     if (!guestData.name) return;
     setCreatingGuest(true);
+
+    // 👇 Calculamos los skills igual que en la aprobación
+    const baseStat = LEVEL_BASE_STATS[guestData.level] || 0;
+    const finalSkills: Record<string, number> = {};
+    SKILL_FIELDS.forEach((field) => {
+      const val = guestSkills[field.key];
+      finalSkills[field.key] = val !== '' ? Number(val) : baseStat;
+    });
+
     try {
-      await api.post(ENDPOINTS.USERS.CREATE_GUEST, guestData);
+      if (guestData.email && guestData.email.trim() !== '') {
+        await api.post(ENDPOINTS.USERS.BASE, {
+          email: guestData.email,
+          name: guestData.name,
+          surname: guestData.surname.trim() !== '' ? guestData.surname : undefined,
+          level: guestData.level,
+          dominantHand: guestData.dominantHand,
+          playstyle: guestData.playstyle,
+          elo: guestData.elo,
+          skills: finalSkills, // 👈 AÑADIDO
+        });
+      } else {
+        await api.post(ENDPOINTS.USERS.CREATE_GUEST, { ...guestData, skills: finalSkills }); // 👈 AÑADIDO
+      }
+
       setGuestModal(false);
       setGuestData({
+        email: '',
         name: '',
         surname: '',
         level: 'Iniciacion',
         dominantHand: 'Diestro',
         playstyle: 'Ofensivo',
         elo: 500,
+      });
+      // 👇 Limpiamos los skills
+      setGuestSkills({
+        derechaPlano: '',
+        revesPlano: '',
+        topspinDerecha: '',
+        topspinReves: '',
+        corte: '',
+        bloqueoDerecha: '',
+        bloqueoReves: '',
+        servicio: '',
+        recepcion: '',
+        movilidad: '',
+        fortalezaMental: '',
+        experiencia: '',
       });
       await fetchPlayers();
     } catch (error) {
@@ -451,7 +505,7 @@ export const Jugadores = () => {
               leftSection={<IconUserPlus size={16} />}
               onClick={() => setGuestModal(true)}
             >
-              Añadir Invitado
+              Añadir Jugador
             </Button>
           )}
         </Group>
@@ -663,32 +717,44 @@ export const Jugadores = () => {
           </Stack>
         )}
       </Modal>
-      {/* --- MODAL CREAR INVITADO --- */}
+      {/* --- MODAL CREAR INVITADO / JUGADOR REAL --- */}
       <Modal
         opened={guestModal}
         onClose={() => setGuestModal(false)}
         title={
           <Text fw={700} size="lg">
-            Añadir Jugador Invitado
+            Añadir Jugador al Club
           </Text>
         }
         centered
+        size="lg" /* 👈 Modal más ancho en PC */
         overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Crea una cuenta sin correo electrónico ni contraseña para jugadores que no usan la
-            aplicación, pero que participarán en torneos y clasificaciones del club.
+            Si introduces un <strong>correo electrónico</strong>, se creará una cuenta real, se le
+            enviará una contraseña temporal por correo y podrá acceder a la app. <br />
+            <br />
+            Si lo dejas <strong>en blanco</strong>, se creará una cuenta de <i>Invitado</i> para que
+            puedas inscribirlo en torneos sin que él necesite acceder.
           </Text>
 
-          <Group grow>
+          <TextInput
+            label="Correo electrónico (Opcional)"
+            placeholder="ejemplo@correo.com"
+            value={guestData.email}
+            onChange={(e) => setGuestData({ ...guestData, email: e.currentTarget.value })}
+            data-autofocus
+          />
+
+          {/* 👇 Grid responsive: 1 columna en móvil, 2 en PC */}
+          <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <TextInput
               label="Nombre"
               placeholder="Ej. Martín"
               required
               value={guestData.name}
               onChange={(e) => setGuestData({ ...guestData, name: e.currentTarget.value })}
-              data-autofocus
             />
             <TextInput
               label="Apellido"
@@ -696,9 +762,10 @@ export const Jugadores = () => {
               value={guestData.surname}
               onChange={(e) => setGuestData({ ...guestData, surname: e.currentTarget.value })}
             />
-          </Group>
+          </SimpleGrid>
 
-          <SimpleGrid cols={2}>
+          {/* 👇 Grid responsive: 1 columna en móvil, 2 en PC */}
+          <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <Select
               label="Mano Dominante"
               data={['Diestro', 'Zurdo']}
@@ -729,6 +796,30 @@ export const Jugadores = () => {
             />
           </SimpleGrid>
 
+          {guestData.level && (
+            <Card withBorder bg="var(--mantine-color-gray-0)" style={{ darkHidden: true }}>
+              <Text fw={600} size="sm" mb="xs">
+                Atributos Técnicos (Base: {LEVEL_BASE_STATS[guestData.level]})
+              </Text>
+              {/* 👇 Las skills pasan a ser 2 columnas en móvil y 3 en PC para que quepan bien los números */}
+              <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+                {SKILL_FIELDS.map((field) => (
+                  <NumberInput
+                    key={field.key}
+                    label={field.label}
+                    placeholder={`Defecto: ${LEVEL_BASE_STATS[guestData.level]}`}
+                    min={0}
+                    max={100}
+                    value={guestSkills[field.key]}
+                    onChange={(val) =>
+                      setGuestSkills({ ...guestSkills, [field.key]: val as number | '' })
+                    }
+                  />
+                ))}
+              </SimpleGrid>
+            </Card>
+          )}
+
           <Group justify="flex-end" mt="md">
             <Button variant="subtle" color="gray" onClick={() => setGuestModal(false)}>
               Cancelar
@@ -739,7 +830,7 @@ export const Jugadores = () => {
               loading={creatingGuest}
               disabled={!guestData.name}
             >
-              Crear Invitado
+              {guestData.email ? 'Crear Cuenta y Enviar Correo' : 'Crear Invitado'}
             </Button>
           </Group>
         </Stack>

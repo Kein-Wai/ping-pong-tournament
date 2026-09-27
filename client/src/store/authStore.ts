@@ -13,6 +13,7 @@ export interface User {
   dominantHand?: 'Diestro' | 'Zurdo' | null;
   playstyle?: 'Ofensivo' | 'Defensivo' | null;
   birthDate?: Date | null;
+  forcePasswordChange: boolean;
 }
 
 interface AuthState {
