@@ -651,34 +651,21 @@ export const Jugadores = () => {
               </Card>
             )}
 
-            <Checkbox
-              mt="md"
-              checked={adminConsentConfirmed}
-              onChange={(e) => setAdminConsentConfirmed(e.currentTarget.checked)}
-              label={
-                <Text size="xs" c="dimmed">
-                  Confirmo que el jugador (o su tutor legal si es menor de 14 años) me ha dado su{' '}
-                  <strong>consentimiento explícito</strong> para registrar sus datos personales,
-                  conforme a la{' '}
-                  <Anchor href="/privacidad" target="_blank">
-                    Política de Privacidad
-                  </Anchor>
-                  .
-                </Text>
-              }
-            />
-
             <Group justify="flex-end" mt="md">
-              <Button variant="subtle" color="gray" onClick={() => setGuestModal(false)}>
+              <Button
+                variant="subtle"
+                color="gray"
+                onClick={() => setApproveModal({ opened: false, player: null })}
+              >
                 Cancelar
               </Button>
               <Button
-                color="blue"
-                onClick={handleCreateGuest}
-                loading={creatingGuest}
-                disabled={!guestData.name || !adminConsentConfirmed} // 👈 BLOQUEADO SI NO ACEPTA
+                color="green"
+                onClick={handleConfirmApproval}
+                loading={approving}
+                disabled={!playerLevel}
               >
-                {guestData.email ? 'Crear Cuenta y Enviar Correo' : 'Crear Invitado'}
+                Confirmar y Aprobar Miembro
               </Button>
             </Group>
           </Stack>
@@ -836,6 +823,24 @@ export const Jugadores = () => {
             </Card>
           )}
 
+          {/* JUSTO ENCIMA DE LOS BOTONES FINALES DE GUARDAR */}
+          <Checkbox
+            mt="md"
+            checked={adminConsentConfirmed}
+            onChange={(e) => setAdminConsentConfirmed(e.currentTarget.checked)}
+            label={
+              <Text size="xs" c="dimmed">
+                Confirmo que el jugador (o su tutor legal si es menor de 14 años) me ha dado su{' '}
+                <strong>consentimiento explícito</strong> para registrar sus datos personales,
+                conforme a la{' '}
+                <Anchor href="/privacidad" target="_blank">
+                  Política de Privacidad
+                </Anchor>
+                .
+              </Text>
+            }
+          />
+
           <Group justify="flex-end" mt="md">
             <Button variant="subtle" color="gray" onClick={() => setGuestModal(false)}>
               Cancelar
@@ -844,7 +849,7 @@ export const Jugadores = () => {
               color="blue"
               onClick={handleCreateGuest}
               loading={creatingGuest}
-              disabled={!guestData.name}
+              disabled={!guestData.name || !adminConsentConfirmed} // 👈 BLOQUEADO SI NO ACEPTA
             >
               {guestData.email ? 'Crear Cuenta y Enviar Correo' : 'Crear Invitado'}
             </Button>
