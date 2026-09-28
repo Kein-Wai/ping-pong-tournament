@@ -15,6 +15,7 @@ import {
   Box,
   Overlay,
   Anchor,
+  Checkbox,
 } from '@mantine/core';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -66,6 +67,7 @@ export const Login = () => {
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
   const [secondSurname, setSecondSurname] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedRole, setSelectedRole] = useState<'Player' | 'AdminClub'>('Player');
@@ -438,12 +440,28 @@ export const Login = () => {
                   styles={inputStyles}
                   onChange={(e) => setConfirmPassword(e.currentTarget.value)}
                 />
+                <Checkbox
+                  mt="sm"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.currentTarget.checked)}
+                  label={
+                    <Text size="xs" c="white">
+                      He leído y acepto la{' '}
+                      <Anchor onClick={() => navigate(APP_ROUTES.LEGAL)} c="cyan">
+                        Política de Privacidad
+                      </Anchor>
+                      . Declaro ser mayor de 14 años o contar con autorización legal.
+                    </Text>
+                  }
+                />
+
                 <Button
                   type="submit"
                   fullWidth
                   color={selectedRole === 'AdminClub' ? 'orange' : 'green'}
                   mt="xs"
                   loading={isRegisterLoading}
+                  disabled={!acceptedTerms} // 👈 BLOQUEADO SI NO ACEPTA
                 >
                   {selectedRole === 'AdminClub' ? 'Crear Cuenta de Sede' : 'Crear Cuenta Libre'}
                 </Button>
@@ -454,6 +472,14 @@ export const Login = () => {
 
         {/* 4. RENDERIZADO CONDICIONAL DE GOOGLE LOGIN */}
         <Divider label="O continuar con" labelPosition="center" my="lg" />
+        <Text size="xs" c="dimmed" ta="center" mb="sm" px="sm">
+          Al iniciar sesión o registrarte con Google, confirmas ser mayor de 14 años y aceptas
+          nuestra{' '}
+          <Anchor onClick={() => navigate(APP_ROUTES.LEGAL)} c="cyan">
+            Política de Privacidad
+          </Anchor>
+          .
+        </Text>
         <Center>
           {Capacitor.isNativePlatform() ? (
             /* Botón nativo para iOS y Android */

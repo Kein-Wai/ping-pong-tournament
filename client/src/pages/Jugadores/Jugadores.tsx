@@ -23,6 +23,8 @@ import {
   ThemeIcon,
   SimpleGrid,
   Divider,
+  Anchor,
+  Checkbox,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -111,7 +113,7 @@ export const Jugadores = () => {
     opened: false,
     player: null,
   });
-
+  const [adminConsentConfirmed, setAdminConsentConfirmed] = useState(false);
   const [guestModal, setGuestModal] = useState(false);
   const [creatingGuest, setCreatingGuest] = useState(false);
   const [guestData, setGuestData] = useState({
@@ -188,6 +190,7 @@ export const Jugadores = () => {
       }
 
       setGuestModal(false);
+      setAdminConsentConfirmed(false);
       setGuestData({
         email: '',
         name: '',
@@ -648,21 +651,34 @@ export const Jugadores = () => {
               </Card>
             )}
 
+            <Checkbox
+              mt="md"
+              checked={adminConsentConfirmed}
+              onChange={(e) => setAdminConsentConfirmed(e.currentTarget.checked)}
+              label={
+                <Text size="xs" c="dimmed">
+                  Confirmo que el jugador (o su tutor legal si es menor de 14 años) me ha dado su{' '}
+                  <strong>consentimiento explícito</strong> para registrar sus datos personales,
+                  conforme a la{' '}
+                  <Anchor href="/privacidad" target="_blank">
+                    Política de Privacidad
+                  </Anchor>
+                  .
+                </Text>
+              }
+            />
+
             <Group justify="flex-end" mt="md">
-              <Button
-                variant="subtle"
-                color="gray"
-                onClick={() => setApproveModal({ opened: false, player: null })}
-              >
+              <Button variant="subtle" color="gray" onClick={() => setGuestModal(false)}>
                 Cancelar
               </Button>
               <Button
-                color="green"
-                onClick={handleConfirmApproval}
-                loading={approving}
-                disabled={!playerLevel}
+                color="blue"
+                onClick={handleCreateGuest}
+                loading={creatingGuest}
+                disabled={!guestData.name || !adminConsentConfirmed} // 👈 BLOQUEADO SI NO ACEPTA
               >
-                Confirmar y Aprobar Miembro
+                {guestData.email ? 'Crear Cuenta y Enviar Correo' : 'Crear Invitado'}
               </Button>
             </Group>
           </Stack>

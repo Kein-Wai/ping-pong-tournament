@@ -4,6 +4,7 @@ export const APP_ROUTES = {
   // Públicas y Setup
   HOME: '/',
   LOGIN: '/login',
+  LEGAL: '/privacidad',
   SETUP_CLUB: '/setup-club',
 
   FORGOT_PASSWORD: '/forgot-password',

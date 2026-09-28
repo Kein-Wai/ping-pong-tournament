@@ -29,6 +29,7 @@ import { FeedbackPage } from './pages/Feedback/FeedbackPage';
 import { ForgotPassword } from './pages/Auth/ForgotPassword';
 import { ResetPassword } from './pages/Auth/ResetPassword';
 import { CalendarioEventos } from './pages/Eventos/CalendarioEventos';
+import { PoliticaPrivacidad } from './pages/Legal/PoliticaPrivacidad';
 
 import { Equipos } from './pages/Equipos/Equipos';
 import { EquipoNuevo } from './pages/Equipos/EquipoNuevo';
@@ -146,6 +147,7 @@ function AppContent() {
           <Route path={APP_ROUTES.LOGIN} element={<Login />} />
           <Route path={APP_ROUTES.FORGOT_PASSWORD} element={<ForgotPassword />} />
           <Route path={APP_ROUTES.RESET_PASSWORD} element={<ResetPassword />} />
+          <Route path={APP_ROUTES.LEGAL} element={<PoliticaPrivacidad />} />
           {/* Bloque de seguridad de Rutas Protegidas */}
           <Route element={<ProtectedRoute />}>
             <Route path={APP_ROUTES.SETUP_CLUB} element={<ClubSetup />} />
