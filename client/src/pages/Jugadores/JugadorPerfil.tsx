@@ -640,7 +640,7 @@ export const JugadorPerfil = () => {
                   "{player.nickname}"
                 </Text>
               )}
-              {(isAdmin || isOwnProfile) && (
+              {(isAdmin || currentUser?.id === player.id) && (
                 <Text c="dimmed" size="lg">
                   {player.email}
                 </Text>

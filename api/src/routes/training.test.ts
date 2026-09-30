@@ -136,4 +136,24 @@ describe('CRUD Rutas de Entrenamientos (/api/trainings)', () => {
       expect(response.body.success).toBe(true);
     });
   });
+
+  describe('Clonación de Sesiones', () => {
+    it('POST /sessions/:targetId/clone-from/:sourceId - Debería copiar ejercicios entre sesiones (201)', async () => {
+      vi.mocked(prisma.sessionExercise.findMany).mockResolvedValue([
+        { exerciseId: 'ex-1', sets: 3, reps: 10, durationMinutes: null },
+      ] as any);
+      vi.mocked(prisma.sessionExercise.createMany).mockResolvedValue({ count: 1 } as any);
+
+      const response = await request(app).post(
+        '/api/trainings/sessions/target-uuid/clone-from/source-uuid',
+      );
+
+      expect(response.status).toBe(201);
+      expect(prisma.sessionExercise.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.arrayContaining([expect.objectContaining({ exerciseId: 'ex-1' })]),
+        }),
+      );
+    });
+  });
 });

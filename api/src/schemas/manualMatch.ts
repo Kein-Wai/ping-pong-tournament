@@ -10,6 +10,7 @@ import {
   PointCategory,
   PointSubcategory,
   PointPlacement,
+  MatchStatus,
 } from '@prisma/client';
 
 export const createManualMatchSchema = z.object({
@@ -18,7 +19,8 @@ export const createManualMatchSchema = z.object({
   matchType: z.enum(ManualMatchType),
   format: z.enum(MatchFormat),
   analysisType: z.enum(AnalysisType).default('Deep'), // 👈 Añadido
-
+  status: z.enum([MatchStatus.Programado, MatchStatus.Iniciado]).optional(),
+  planningNotes: z.string().optional().nullable(),
   opponentName: z.string().min(1, 'El nombre del rival es obligatorio'),
   opponentHand: z.enum(DominantHand).optional().nullable(),
   opponentStyle: z.enum(Playstyle).optional().nullable(),
@@ -49,4 +51,6 @@ export const updateManualMatchSchema = z.object({
   opponentStyle: z.enum(Playstyle).optional().nullable(),
   opponentLevel: z.enum(OpponentLevel).optional().nullable(),
   lightNotes: z.string().optional().nullable(),
+  planningNotes: z.string().optional().nullable(),
+  status: z.enum(['Programado', 'Iniciado', 'Completado', 'Cancelado']).optional(),
 });

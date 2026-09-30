@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
         userId,
         seasonId: currentSeason.id,
         date: validation.data.date ? new Date(validation.data.date) : new Date(),
-        status: MatchStatus.Iniciado,
+        status: validation.data.status || MatchStatus.Iniciado,
       },
     });
 

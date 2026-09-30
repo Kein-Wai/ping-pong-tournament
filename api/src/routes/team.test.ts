@@ -27,6 +27,7 @@ vi.mock('../../src/db', () => ({
     },
     teamMatch: { create: vi.fn() },
     user: { findMany: vi.fn() },
+    teamMatchAvailability: { findUnique: vi.fn(), create: vi.fn(), delete: vi.fn() },
   },
 }));
 
@@ -98,5 +99,38 @@ describe('CRUD Rutas de Equipos (/api/teams)', () => {
 
     expect(response.status).toBe(200);
     expect(prisma.team.delete).toHaveBeenCalledOnce();
+  });
+
+  describe('Calendario y Asistencia de Equipo', () => {
+    it('POST /:id/matches - Debería crear un partido de liga en el calendario (201)', async () => {
+      vi.mocked(prisma.team.findUnique).mockResolvedValue({
+        id: 'team-1',
+        clubId: 'club-1',
+      } as any);
+      vi.mocked(prisma.teamMatch.create).mockResolvedValue({ id: 'match-1' } as any);
+
+      const payload = {
+        rivalName: 'Club Norte',
+        date: new Date().toISOString(),
+        isHome: false,
+        location: 'Pabellón Norte',
+      };
+
+      const response = await request(app).post('/api/teams/team-1/matches').send(payload);
+
+      expect(response.status).toBe(201);
+      expect(prisma.teamMatch.create).toHaveBeenCalledOnce();
+    });
+
+    it('POST /matches/:matchId/availability - Debería crear asistencia si no existe (200)', async () => {
+      vi.mocked(prisma.teamMatchAvailability.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.teamMatchAvailability.create).mockResolvedValue({} as any);
+
+      const response = await request(app).post('/api/teams/matches/match-1/availability');
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Asistencia confirmada');
+      expect(prisma.teamMatchAvailability.create).toHaveBeenCalledOnce();
+    });
   });
 });

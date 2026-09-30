@@ -115,16 +115,16 @@ describe('Zod Schemas: Autenticación y Usuarios', () => {
 
     it('11. Debería pasar si se cambia la contraseña y coinciden', () => {
       const result = updateProfileSchema.safeParse({
-        newPassword: 'NuevaPassword123',
-        confirmPassword: 'NuevaPassword123',
+        newPassword: 'NuevaPassword123!', // 👈 AÑADIDO !
+        confirmPassword: 'NuevaPassword123!', // 👈 AÑADIDO !
       });
       expect(result.success).toBe(true);
     });
 
     it('12. Debería fallar si se envía una nueva contraseña pero no coinciden', () => {
       const result = updateProfileSchema.safeParse({
-        newPassword: 'NuevaPassword123',
-        confirmPassword: 'OtraPassword',
+        newPassword: 'NuevaPassword123!', // 👈 AÑADIDO !
+        confirmPassword: 'OtraPassword123!', // 👈 AÑADIDO !
       });
 
       expect(result.success).toBe(false);

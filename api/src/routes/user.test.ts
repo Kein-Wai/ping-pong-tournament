@@ -29,6 +29,7 @@ vi.mock('../../src/db', () => ({
     },
     userType: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     playerSkillUpdate: {
       aggregate: vi.fn(),
@@ -38,15 +39,15 @@ vi.mock('../../src/db', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => {
-    req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin' };
+    req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin', clubId: 'club-1' }; // 👈 AÑADIDO clubId
     next();
   },
   requireSuperAdmin: (req: any, res: any, next: any) => {
-    req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin' };
+    req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin', clubId: 'club-1' }; // 👈 AÑADIDO clubId
     next();
   },
   requireAdminClub: (req: any, res: any, next: any) => {
-    req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin' };
+    req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin', clubId: 'club-1' }; // 👈 AÑADIDO clubId
     next();
   },
 }));
@@ -100,8 +101,8 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
       } as any);
 
       const response = await request(app).put('/api/users/me').send({
-        newPassword: 'newpassword123',
-        confirmPassword: 'newpassword123',
+        newPassword: 'NewPassword123!', // 👈 Fuerte
+        confirmPassword: 'NewPassword123!', // 👈 Fuerte
       });
 
       expect(response.status).toBe(400);
@@ -110,9 +111,9 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
 
     it('Debería fallar (400) si newPassword y confirmPassword NO coinciden', async () => {
       const response = await request(app).put('/api/users/me').send({
-        currentPassword: 'oldpassword123',
-        newPassword: 'newpassword123',
-        confirmPassword: 'diferentepassword123',
+        currentPassword: 'OldPassword123!', // 👈 Fuerte
+        newPassword: 'NewPassword123!', // 👈 Fuerte
+        confirmPassword: 'DifferentPassword123!', // 👈 Fuerte
       });
 
       expect(response.status).toBe(400);
@@ -120,7 +121,7 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
     });
 
     it('Debería fallar (401) si la contraseña actual es incorrecta', async () => {
-      const realHash = await bcrypt.hash('mi-contraseña-real', 1);
+      const realHash = await bcrypt.hash('MiContraseñaReal123!', 1);
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue({
         id: 'user-id-123',
@@ -128,16 +129,16 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
       } as any);
 
       const response = await request(app).put('/api/users/me').send({
-        currentPassword: 'contraseña-equivocada',
-        newPassword: 'newpassword123',
-        confirmPassword: 'newpassword123',
+        currentPassword: 'ContraseñaEquivocada123!', // 👈 Fuerte
+        newPassword: 'NewPassword123!', // 👈 Fuerte
+        confirmPassword: 'NewPassword123!', // 👈 Fuerte
       });
 
       expect(response.status).toBe(401);
     });
 
     it('Debería cambiar la contraseña si la actual es correcta y las nuevas coinciden', async () => {
-      const realHash = await bcrypt.hash('mi-contraseña-real', 1);
+      const realHash = await bcrypt.hash('MiContraseñaReal123!', 1);
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue({
         id: 'user-id-123',
@@ -147,9 +148,9 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
       vi.mocked(prisma.user.update).mockResolvedValue({ id: 'user-id-123' } as any);
 
       const response = await request(app).put('/api/users/me').send({
-        currentPassword: 'mi-contraseña-real',
-        newPassword: 'newpassword123',
-        confirmPassword: 'newpassword123',
+        currentPassword: 'MiContraseñaReal123!', // 👈 Fuerte
+        newPassword: 'NewPassword123!', // 👈 Fuerte
+        confirmPassword: 'NewPassword123!', // 👈 Fuerte
       });
 
       expect(response.status).toBe(200);
@@ -266,5 +267,31 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toHaveProperty('error', 'Error al obtener los usuarios');
+  });
+  describe('Cuentas Híbridas / Invitados', () => {
+    it('POST /guest - Debería crear un invitado puro sin email real y con baseSkills (201)', async () => {
+      vi.mocked(prisma.userType.findFirst).mockResolvedValue({ id: 'player-role' } as any);
+      vi.mocked(prisma.user.create).mockResolvedValue({ id: 'guest-1', name: 'Invitado' } as any);
+
+      const payload = {
+        name: 'Invitado',
+        surname: 'Test',
+        level: 'Intermedio',
+        elo: 1000,
+      };
+
+      const response = await request(app).post('/api/users/guest').send(payload);
+
+      expect(response.status).toBe(201);
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: expect.stringContaining('invitado_'),
+            authProvider: 'LOCAL',
+            level: 'Intermedio',
+          }),
+        }),
+      );
+    });
   });
 });

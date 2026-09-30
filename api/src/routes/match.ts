@@ -11,13 +11,34 @@ const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    if (req.user) {
-      const clubId = req.user.clubId;
-      const userId = req.user.id;
-      const role = req.user.role;
+    if (!req.user) {
+      return res.status(401).json({ error: 'Usuario no autenticado' });
+    }
 
-      let whereCondition = {};
-      if (role === 'AdminClub' || (role === 'Player' && clubId)) {
+    const clubId = req.user.clubId;
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    let whereCondition: any = {};
+
+    if (role === 'SuperAdmin') {
+      // El SuperAdmin puede ver absolutamente todos los partidos del sistema
+      whereCondition = {};
+    } else if (role === 'AdminClub') {
+      // 🚨 BLOQUEO DE SEGURIDAD: Si es Admin pero su token no tiene clubId, le devolvemos vacío para evitar la fuga de nulos
+      if (!clubId) {
+        return res.status(200).json([]);
+      }
+      whereCondition = {
+        OR: [
+          { tournament: { clubId: clubId } },
+          { playerOne: { clubId: clubId } },
+          { playerTwo: { clubId: clubId } },
+        ],
+      };
+    } else if (role === 'Player') {
+      if (clubId) {
+        // Jugador con club ve los partidos de su club (Torneos internos, ligas, etc)
         whereCondition = {
           OR: [
             { tournament: { clubId: clubId } },
@@ -25,56 +46,52 @@ router.get('/', async (req, res) => {
             { playerTwo: { clubId: clubId } },
           ],
         };
-      } else if (role === 'Player' && !clubId) {
+      } else {
+        // 🚨 BLOQUEO DE SEGURIDAD: Jugador libre SOLO ve sus propios partidos, jamás los de otros libres
         whereCondition = {
           OR: [{ playerOneId: userId }, { playerTwoId: userId }],
         };
       }
-
-      const matches = await prisma.match.findMany({
-        where: whereCondition,
-        orderBy: { dateStart: 'desc' },
-        include: {
-          playerOne: {
-            select: {
-              id: true,
-              name: true,
-              surname: true,
-              email: true,
-              dominantHand: true,
-              playstyle: true,
-              club: {
-                select: { id: true, name: true, city: true },
-              },
-            },
-          },
-          playerTwo: {
-            select: {
-              id: true,
-              name: true,
-              surname: true,
-              email: true,
-              dominantHand: true,
-              playstyle: true,
-              club: {
-                select: { id: true, name: true, city: true },
-              },
-            },
-          },
-
-          tournament: true,
-          league: true,
-          group: true,
-          knockout: true,
-        },
-      });
-
-      res.status(200).json(matches);
-    } else {
-      res
-        .status(401)
-        .json({ error: 'Acceso denegado. Usuario no proporcionado o formato incorrecto.' });
     }
+
+    const matches = await prisma.match.findMany({
+      where: whereCondition,
+      orderBy: { dateStart: 'desc' },
+      include: {
+        playerOne: {
+          select: {
+            id: true,
+            name: true,
+            surname: true,
+            email: true,
+            dominantHand: true,
+            playstyle: true,
+            club: {
+              select: { id: true, name: true, city: true },
+            },
+          },
+        },
+        playerTwo: {
+          select: {
+            id: true,
+            name: true,
+            surname: true,
+            email: true,
+            dominantHand: true,
+            playstyle: true,
+            club: {
+              select: { id: true, name: true, city: true },
+            },
+          },
+        },
+        tournament: true,
+        league: true,
+        group: true,
+        knockout: true,
+      },
+    });
+
+    res.status(200).json(matches);
   } catch (error) {
     console.error('Error al obtener los partidos:', error);
     res.status(500).json({ error: 'Error interno al obtener los partidos' });

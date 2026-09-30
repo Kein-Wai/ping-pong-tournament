@@ -649,6 +649,7 @@ model ManualMatch {
   // 👇 NUEVOS CAMPOS PARA LIGHT VS DEEP
   analysisType    AnalysisType     @default(Deep) @map("analysis_type")
   lightNotes      String?          @db.Text @map("light_notes")
+  planningNotes    String?        @db.Text
   
   // Relaciones
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)

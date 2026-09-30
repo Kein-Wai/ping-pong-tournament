@@ -30,7 +30,7 @@ import {
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { getPlayerAvatar } from '../../utils/avatar';
-
+import { useAuthStore } from '../../store/authStore';
 interface Tournament {
   id: string;
   name: string;
@@ -106,6 +106,7 @@ export interface Match {
 const ITEMS_PER_PAGE = 10;
 
 export const Partidos = () => {
+  const { user } = useAuthStore();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -117,6 +118,10 @@ export const Partidos = () => {
 
   useEffect(() => {
     const fetchMatches = async () => {
+      if (user?.role === 'AdminClub' && !user?.clubId) {
+        setLoading(false);
+        return;
+      }
       try {
         const response = await api.get(ENDPOINTS.MATCHES.BASE);
         const data = response.data.sort(

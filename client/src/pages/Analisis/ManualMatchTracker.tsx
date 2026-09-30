@@ -18,6 +18,9 @@ import {
   Table,
   Textarea,
   NumberInput,
+  Checkbox,
+  Accordion,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -25,11 +28,26 @@ import {
   IconEdit,
   IconTrophy,
   IconDeviceFloppy,
+  IconClipboardList,
 } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { isValidTableTennisSet } from '../../utils/matchValidation';
+
+// --- CHECKLIST PARA MODO LIGHT ---
+const SKILLS_LIST = [
+  'Derecha plano',
+  'Revés plano',
+  'TopSpin Derecha',
+  'TopSpin Revés',
+  'Corte',
+  'Bloqueo de Derecha',
+  'Bloqueo de Revés',
+  'Servicio',
+  'Recepción',
+  'Movilidad',
+];
 
 // --- NUEVA TAXONOMÍA EN ÁRBOL (Categoría -> Subcategoría -> Ubicación) ---
 const PLACEMENTS = [
@@ -106,7 +124,21 @@ export const ManualMatchTracker = () => {
   const [isWonState, setIsWonState] = useState<boolean | null>(null);
   const [currentNodes, setCurrentNodes] = useState<any[] | null>(null);
   const [pointPath, setPointPath] = useState<any>({});
-  const [lightNotes, setLightNotes] = useState('');
+
+  // Planning State (Pre-partido)
+  const [planMyServe, setPlanMyServe] = useState('');
+  const [planTheirServe, setPlanTheirServe] = useState('');
+  const [planStrategy, setPlanStrategy] = useState('');
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  // Light Analysis State (Checkboxes)
+  const [strChecked, setStrChecked] = useState<string[]>([]);
+  const [strDetails, setStrDetails] = useState('');
+  const [weakChecked, setWeakChecked] = useState<string[]>([]);
+  const [weakDetails, setWeakDetails] = useState('');
+
+  // Deep Analysis Final Note
+  const [deepNotes, setDeepNotes] = useState('');
 
   const [editRivalModal, setEditRivalModal] = useState(false);
   const [editOppName, setEditOppName] = useState('');
@@ -121,9 +153,25 @@ export const ManualMatchTracker = () => {
       const data = res.data.data;
       setMatch(data);
       setEditOppName(data.opponentName);
-      setLightNotes(data.lightNotes || '');
       setMySetsWon(data.mySets || 0);
       setOppSetsWon(data.opponentSets || 0);
+
+      // Si existía un plan o notas previas, intentamos parsearlas
+      if (data.planningNotes) {
+        try {
+          const parsed = JSON.parse(data.planningNotes);
+          setPlanMyServe(parsed.myServe || '');
+          setPlanTheirServe(parsed.theirServe || '');
+          setPlanStrategy(parsed.strategy || '');
+        } catch {
+          // Fallback por si era un texto plano en BD
+          setPlanStrategy(data.planningNotes);
+        }
+      }
+
+      if (data.analysisType === 'Deep' && data.lightNotes) {
+        setDeepNotes(data.lightNotes);
+      }
 
       const pts = data.points || [];
       setPointHistory(pts);
@@ -193,11 +241,38 @@ export const ManualMatchTracker = () => {
   const activeSummary = getSetSummary(currentSet);
   const viewSummary = viewingSetSummary ? getSetSummary(viewingSetSummary) : null;
 
+  // --- ACTIONS ---
   const handleUpdateRival = async () => {
     try {
       await api.put(ENDPOINTS.MANUAL_MATCHES.UPDATE(id!), { opponentName: editOppName });
       setMatch({ ...match, opponentName: editOppName });
       setEditRivalModal(false);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleSavePlan = async () => {
+    setSavingPlan(true);
+    const planJSON = JSON.stringify({
+      myServe: planMyServe,
+      theirServe: planTheirServe,
+      strategy: planStrategy,
+    });
+    try {
+      await api.put(ENDPOINTS.MANUAL_MATCHES.UPDATE(id!), { planningNotes: planJSON });
+      setMatch({ ...match, planningNotes: planJSON });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const handleStartMatchNow = async () => {
+    try {
+      await api.put(ENDPOINTS.MANUAL_MATCHES.UPDATE(id!), { status: 'Iniciado' });
+      setMatch({ ...match, status: 'Iniciado' });
     } catch (error) {
       console.error(error);
     }
@@ -280,19 +355,25 @@ export const ManualMatchTracker = () => {
   };
 
   const executeCompleteMatch = async () => {
+    let finalNotes = deepNotes;
+
+    // Compilar la plantilla interactiva si es Light Mode
+    if (match.analysisType === 'Light') {
+      finalNotes = `Fortalezas durante el partido:\n${strChecked.length > 0 ? strChecked.map((s) => `- ${s}`).join('\n') : 'Ninguna'}\nDetalles:\n${strDetails || 'Sin detalles'}\n\nCosas a mejorar:\n${weakChecked.length > 0 ? weakChecked.map((s) => `- ${s}`).join('\n') : 'Ninguna'}\nDetalles:\n${weakDetails || 'Sin detalles'}`;
+    }
+
     try {
       await api.put(ENDPOINTS.MANUAL_MATCHES.COMPLETE(id!), {
         mySets: Number(mySetsWon),
         opponentSets: Number(oppSetsWon),
-        lightNotes,
-        status: 'Completado',
+        lightNotes: finalNotes,
       });
       setMatch({
         ...match,
         status: 'Completado',
         mySets: Number(mySetsWon),
         opponentSets: Number(oppSetsWon),
-        lightNotes,
+        lightNotes: finalNotes,
       });
       setShowEndMatchModal(false);
     } catch (error) {
@@ -360,7 +441,7 @@ export const ManualMatchTracker = () => {
         {match.lightNotes && (
           <Paper withBorder p="md" radius="md" bg="blue.0" c="blue.9">
             <Text fw={700} mb="xs">
-              Sensaciones y Notas:
+              Conclusiones del Partido:
             </Text>
             <Text style={{ whiteSpace: 'pre-wrap' }}>{match.lightNotes}</Text>
           </Paper>
@@ -418,13 +499,84 @@ export const ManualMatchTracker = () => {
     );
   }
 
-  // --- 2. FLUJO LIGHT (Formulario Rápido) ---
+  // --- 2. FLUJO PLANIFICACIÓN PRE-PARTIDO (Programado) ---
+  if (match.status === 'Programado') {
+    return (
+      <Stack gap="xl" style={{ maxWidth: 800, margin: '0 auto' }}>
+        <Button
+          variant="subtle"
+          color="gray"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={() => navigate(APP_ROUTES.ANALISIS.LIST)}
+          w="max-content"
+        >
+          Volver a Análisis
+        </Button>
+
+        <Paper withBorder p="xl" radius="md">
+          <Group gap="sm" mb="lg">
+            <ThemeIcon size={40} radius="md" color="orange" variant="light">
+              <IconClipboardList size={24} />
+            </ThemeIcon>
+            <Title order={3}>Plan de Partido vs {match.opponentName}</Title>
+          </Group>
+
+          <Stack gap="md">
+            <Textarea
+              label="¿Qué voy a hacer cuando saque yo?"
+              placeholder="Ej: Saque corto al revés sin efecto para buscar su flip y bloquear..."
+              minRows={3}
+              value={planMyServe}
+              onChange={(e) => setPlanMyServe(e.currentTarget.value)}
+            />
+            <Textarea
+              label="¿Qué voy a hacer cuando saque él?"
+              placeholder="Ej: Si saca largo, abrir cruzado rápido..."
+              minRows={3}
+              value={planTheirServe}
+              onChange={(e) => setPlanTheirServe(e.currentTarget.value)}
+            />
+            <Textarea
+              label="¿Cuál será mi estrategia de partido?"
+              placeholder="Ej: Mantener la bola en su revés, no entrar en duelo de cortados..."
+              minRows={4}
+              value={planStrategy}
+              onChange={(e) => setPlanStrategy(e.currentTarget.value)}
+            />
+
+            <Group grow mt="lg">
+              <Button
+                color="orange"
+                variant="light"
+                onClick={handleSavePlan}
+                loading={savingPlan}
+                leftSection={<IconDeviceFloppy size={18} />}
+              >
+                Guardar Notas
+              </Button>
+              <Button color="blue" onClick={handleStartMatchNow}>
+                Empezar Partido Ahora
+              </Button>
+            </Group>
+          </Stack>
+        </Paper>
+      </Stack>
+    );
+  }
+
+  // --- 3. FLUJO LIGHT (Formulario Rápido y Checklist) ---
+  // --- 3. FLUJO LIGHT (Formulario Rápido y Checklist) ---
   if (match.analysisType === 'Light') {
+    // 👇 1. FIX DE SETS: Aseguramos que solo un jugador alcance la meta y el otro tenga menos
+    const mySets = Number(mySetsWon);
+    const oppSets = Number(oppSetsWon);
+    const target = match.setsToWin;
+
     const isReadyToComplete =
-      Number(mySetsWon) === match.setsToWin || Number(oppSetsWon) === match.setsToWin;
+      (mySets === target && oppSets < target) || (oppSets === target && mySets < target);
 
     return (
-      <Stack gap="xl" style={{ maxWidth: 600, margin: '0 auto' }}>
+      <Stack gap="xl" style={{ maxWidth: 800, margin: '0 auto' }}>
         <Group>
           <Button
             variant="subtle"
@@ -436,6 +588,33 @@ export const ManualMatchTracker = () => {
           </Button>
         </Group>
 
+        {/* Mostrar Plan si existe */}
+        {match.planningNotes && (
+          <Accordion variant="separated">
+            <Accordion.Item value="plan">
+              <Accordion.Control
+                icon={<IconClipboardList size={20} color="var(--mantine-color-orange-6)" />}
+              >
+                <Text fw={700} c="orange.7">
+                  Ver Planificación del Partido
+                </Text>
+              </Accordion.Control>
+              <Accordion.Panel>
+                <Text style={{ whiteSpace: 'pre-wrap' }} size="sm">
+                  {(() => {
+                    try {
+                      const p = JSON.parse(match.planningNotes);
+                      return `🎯 MI SAQUE:\n${p.myServe || '-'}\n\n🛡️ SU SAQUE:\n${p.theirServe || '-'}\n\n🧠 ESTRATEGIA:\n${p.strategy || '-'}`;
+                    } catch {
+                      return match.planningNotes;
+                    }
+                  })()}
+                </Text>
+              </Accordion.Panel>
+            </Accordion.Item>
+          </Accordion>
+        )}
+
         <Paper withBorder p="xl" radius="md">
           <Group justify="space-between" mb="lg">
             <Title order={3}>Resultado (Modo Rápido)</Title>
@@ -444,7 +623,7 @@ export const ManualMatchTracker = () => {
             </Badge>
           </Group>
 
-          <SimpleGrid cols={2} mb="lg">
+          <SimpleGrid cols={2} mb="xl">
             <NumberInput
               label="Tus Sets Ganados"
               min={0}
@@ -463,12 +642,59 @@ export const ManualMatchTracker = () => {
             />
           </SimpleGrid>
 
+          <Title order={5} mb="sm" c="green.7">
+            ✅ Qué fortalezas tuve en el partido
+          </Title>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} mb="sm">
+            {SKILLS_LIST.map((skill) => (
+              <Checkbox
+                key={`str-${skill}`}
+                label={skill}
+                checked={strChecked.includes(skill)}
+                onChange={(e) => {
+                  // 👇 2. FIX DE EVENTOS REACT: Extraemos el valor ANTES de pasarlo al setState
+                  const isChecked = e.currentTarget.checked;
+                  setStrChecked((prev) =>
+                    isChecked ? [...prev, skill] : prev.filter((s) => s !== skill),
+                  );
+                }}
+              />
+            ))}
+          </SimpleGrid>
           <Textarea
-            label="Sensaciones, Conclusiones y Táctica"
-            placeholder="¿Qué ha funcionado? ¿Dónde te ha hecho daño? Escribe aquí tus notas para repasarlas en el futuro..."
-            minRows={5}
-            value={lightNotes}
-            onChange={(e) => setLightNotes(e.currentTarget.value)}
+            label="Más Detalles"
+            placeholder="Escribe más sobre tus aciertos..."
+            minRows={2}
+            value={strDetails}
+            onChange={(e) => setStrDetails(e.currentTarget.value)}
+            mb="xl"
+          />
+
+          <Title order={5} mb="sm" c="red.7">
+            ❌ Qué fallé durante el partido
+          </Title>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} mb="sm">
+            {SKILLS_LIST.map((skill) => (
+              <Checkbox
+                key={`weak-${skill}`}
+                label={skill}
+                checked={weakChecked.includes(skill)}
+                onChange={(e) => {
+                  // 👇 2. FIX DE EVENTOS REACT: Igual aquí
+                  const isChecked = e.currentTarget.checked;
+                  setWeakChecked((prev) =>
+                    isChecked ? [...prev, skill] : prev.filter((s) => s !== skill),
+                  );
+                }}
+              />
+            ))}
+          </SimpleGrid>
+          <Textarea
+            label="Más Detalles"
+            placeholder="Escribe más sobre tus fallos o cosas a mejorar..."
+            minRows={2}
+            value={weakDetails}
+            onChange={(e) => setWeakDetails(e.currentTarget.value)}
             mb="xl"
           />
 
@@ -484,7 +710,8 @@ export const ManualMatchTracker = () => {
           </Button>
           {!isReadyToComplete && (
             <Text c="red" size="xs" ta="center" mt="sm">
-              Uno de los dos jugadores debe ganar {match.setsToWin} sets para finalizar el partido.
+              Uno de los dos jugadores debe ganar exactamente {match.setsToWin} sets para finalizar
+              el partido.
             </Text>
           )}
         </Paper>
@@ -492,7 +719,7 @@ export const ManualMatchTracker = () => {
     );
   }
 
-  // --- 3. FLUJO DEEP (Árbitro Punto a Punto) ---
+  // --- 4. FLUJO DEEP (Árbitro Punto a Punto) ---
   return (
     <Stack gap="md" style={{ maxWidth: 800, margin: '0 auto', touchAction: 'manipulation' }}>
       <Group>
@@ -505,6 +732,33 @@ export const ManualMatchTracker = () => {
           Salir del Árbitro
         </Button>
       </Group>
+
+      {/* Mostrar Plan si existe */}
+      {match.planningNotes && (
+        <Accordion variant="separated" mb="sm">
+          <Accordion.Item value="plan">
+            <Accordion.Control
+              icon={<IconClipboardList size={20} color="var(--mantine-color-orange-6)" />}
+            >
+              <Text fw={700} c="orange.7">
+                Ver Planificación del Partido
+              </Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Text style={{ whiteSpace: 'pre-wrap' }} size="sm">
+                {(() => {
+                  try {
+                    const p = JSON.parse(match.planningNotes);
+                    return `🎯 MI SAQUE:\n${p.myServe || '-'}\n\n🛡️ SU SAQUE:\n${p.theirServe || '-'}\n\n🧠 ESTRATEGIA:\n${p.strategy || '-'}`;
+                  } catch {
+                    return match.planningNotes;
+                  }
+                })()}
+              </Text>
+            </Accordion.Panel>
+          </Accordion.Item>
+        </Accordion>
+      )}
 
       {/* MARCADOR Y BOTONES PRIMERO */}
       <Paper withBorder p="md" radius="md" bg="dark.7">
@@ -845,8 +1099,8 @@ export const ManualMatchTracker = () => {
             label="Conclusiones rápidas"
             placeholder="Ej: He sacado mal, me costaba leer el efecto..."
             minRows={3}
-            value={lightNotes}
-            onChange={(e) => setLightNotes(e.currentTarget.value)}
+            value={deepNotes}
+            onChange={(e) => setDeepNotes(e.currentTarget.value)}
           />
 
           <Button fullWidth color="blue" mt="md" onClick={executeCompleteMatch}>

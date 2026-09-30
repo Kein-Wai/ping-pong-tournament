@@ -29,13 +29,19 @@ export const Equipos = () => {
   const canCreate = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
 
   useEffect(() => {
+    api
+      .get(ENDPOINTS.SEASONS.BASE)
+      .then((res) => {
+        const activeS = res.data.data.find((s: any) => s.isCurrent);
+        if (activeS) setCurrentSeason(activeS.name);
+      })
+      .catch(console.error);
+
+    // 2. Cargamos los equipos SOLO si ya tenemos el ID del club
     if (user?.clubId) {
-      Promise.all([api.get(ENDPOINTS.TEAMS.BY_CLUB(user.clubId)), api.get(ENDPOINTS.SEASONS.BASE)])
-        .then(([teamsRes, seasonsRes]) => {
-          setTeams(teamsRes.data.data);
-          const activeS = seasonsRes.data.data.find((s: any) => s.isCurrent);
-          if (activeS) setCurrentSeason(activeS.name);
-        })
+      api
+        .get(ENDPOINTS.TEAMS.BY_CLUB(user.clubId))
+        .then((res) => setTeams(res.data.data))
         .catch(console.error)
         .finally(() => setLoading(false));
     } else {

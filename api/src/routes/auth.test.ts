@@ -19,7 +19,7 @@ vi.mock('../../src/db', () => ({
         .fn()
         .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
     },
-    user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
     userType: { findUnique: vi.fn() },
   },
 }));
@@ -157,6 +157,46 @@ describe('Rutas de Autenticación (/api/auth)', () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error', 'Fallo al autenticar con Google');
+    });
+  });
+
+  describe('Recuperación de Contraseña', () => {
+    it('POST /forgot-password - Debería generar token y simular envío si existe correo (200)', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@pingpong.com',
+        authProvider: 'LOCAL',
+      } as any);
+      vi.mocked(prisma.user.update).mockResolvedValue({} as any);
+
+      const response = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ email: 'test@pingpong.com' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toContain('instrucciones');
+      expect(prisma.user.update).toHaveBeenCalledOnce();
+    });
+
+    it('POST /reset-password - Debería cambiar la contraseña si el token es válido (200)', async () => {
+      const futureDate = new Date();
+      futureDate.setHours(futureDate.getHours() + 1);
+
+      vi.mocked(prisma.user.findFirst).mockResolvedValue({
+        id: 'user-1',
+        resetPasswordToken: 'valid-token',
+        resetPasswordExpires: futureDate,
+      } as any);
+      vi.mocked(prisma.user.update).mockResolvedValue({} as any);
+
+      const response = await request(app).post('/api/auth/reset-password').send({
+        token: 'valid-token',
+        newPassword: 'NewPassword123!',
+        confirmPassword: 'NewPassword123!',
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toContain('actualizada con éxito');
     });
   });
 });

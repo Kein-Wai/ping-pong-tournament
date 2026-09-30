@@ -6,6 +6,9 @@ import { verifyToken, requireAdminClub } from '../../src/middleware/auth.middlew
 
 vi.mock('../../src/db', () => ({
   default: {
+    user: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     season: {
       findFirst: vi
         .fn()
@@ -29,6 +32,7 @@ vi.mock('../../src/db', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       findMany: vi.fn(),
+      createMany: vi.fn(),
     },
     tournamentGroup: {
       create: vi.fn(),
@@ -41,10 +45,12 @@ vi.mock('../../src/db', () => ({
     match: {
       create: vi.fn(),
       findMany: vi.fn(),
+      count: vi.fn(),
     },
     tournamentKnockout: {
       findMany: vi.fn(),
     },
+    stats: { updateMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -397,6 +403,55 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('La nueva configuración rompe las reglas del torneo');
+    });
+  });
+
+  describe('Rutas Críticas Avanzadas', () => {
+    it('POST /:id/register-bulk - Debería inscribir masivamente y actualizar stats (201)', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue({
+        id: MOCK_UUID,
+        numPlayers: 16,
+        _count: { participants: 0 },
+        groupsCreated: false,
+        clubId: 'club-1',
+      } as any);
+      vi.mocked(prisma.tournamentParticipant.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.tournamentParticipant.createMany).mockResolvedValue({ count: 2 } as any);
+      vi.mocked(prisma.stats.updateMany).mockResolvedValue({ count: 2 } as any);
+
+      // Usando UUIDs válidos para Zod
+      const payload = {
+        playerIds: ['11111111-1111-4111-a111-111111111111', '22222222-2222-4222-a222-222222222222'],
+      };
+
+      const response = await request(app)
+        .post(`/api/tournaments/${MOCK_UUID}/register-bulk`)
+        .send(payload);
+
+      expect(response.status).toBe(201);
+      expect(prisma.tournamentParticipant.createMany).toHaveBeenCalledOnce();
+      expect(prisma.stats.updateMany).toHaveBeenCalledOnce();
+    });
+
+    it('PUT /:id/swap-players - Debería rechazar si la fase de grupos ya empezó (400)', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue({
+        id: MOCK_UUID,
+        status: 'Grupos',
+        clubId: 'club-1',
+      } as any);
+      vi.mocked(prisma.match.count).mockResolvedValue(1); // 1 partido ya completado/iniciado
+
+      const payload = {
+        playerAId: '11111111-1111-4111-a111-111111111111',
+        playerBId: '22222222-2222-4222-a222-222222222222',
+      };
+
+      const response = await request(app)
+        .put(`/api/tournaments/${MOCK_UUID}/swap-players`)
+        .send(payload);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('ya ha comenzado');
     });
   });
 });

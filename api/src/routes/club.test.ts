@@ -5,6 +5,15 @@ import prisma from '../../src/db';
 
 vi.mock('../../src/db', () => ({
   default: {
+    season: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      create: vi
+        .fn()
+        .mockResolvedValue({ id: 'season-1', name: 'Temporada 2026/2027', isCurrent: true }),
+    },
     club: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -14,6 +23,8 @@ vi.mock('../../src/db', () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    stats: { upsert: vi.fn() },
+    playerSkills: { upsert: vi.fn() },
   },
 }));
 
@@ -159,6 +170,67 @@ describe('CRUD de Rutas de Clubes (/api/clubs)', () => {
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Ya existe un club con este nombre');
       expect(prisma.club.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Gestión de Miembros', () => {
+    it('POST /:id/join - Jugador debería poder solicitar acceso a un club Aprobado (200)', async () => {
+      vi.mocked(prisma.club.findUnique).mockResolvedValue({
+        id: 'club-1',
+        status: 'Aprobado',
+      } as any);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 'test-user-id',
+        clubId: null,
+      } as any);
+      vi.mocked(prisma.user.update).mockResolvedValue({} as any);
+
+      const response = await request(app).post('/api/clubs/club-1/join');
+
+      expect(response.status).toBe(200);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { clubId: 'club-1', clubStatus: 'Pendiente' } }),
+      );
+    });
+
+    it('PUT /:id/members/:userId/status - Admin debería aprobar inyectando nivel y skills (200)', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 'user-to-approve',
+        clubId: '1',
+      } as any);
+      vi.mocked(prisma.user.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.stats.upsert).mockResolvedValue({} as any);
+      vi.mocked(prisma.playerSkills.upsert).mockResolvedValue({} as any);
+
+      const payload = {
+        status: 'Aprobado',
+        level: 'Avanzado',
+        elo: 800,
+        skills: {
+          derechaPlano: 60,
+          revesPlano: 60,
+          topspinDerecha: 60,
+          topspinReves: 60,
+          corte: 60,
+          bloqueoDerecha: 60,
+          bloqueoReves: 60,
+          servicio: 60,
+          recepcion: 60,
+          movilidad: 60,
+          fortalezaMental: 60,
+          experiencia: 60,
+        },
+      };
+
+      const response = await request(app)
+        .put('/api/clubs/1/members/user-to-approve/status')
+        .send(payload);
+
+      expect(response.status).toBe(200);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { clubStatus: 'Aprobado', level: 'Avanzado' } }),
+      );
+      expect(prisma.playerSkills.upsert).toHaveBeenCalledOnce();
     });
   });
 });

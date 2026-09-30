@@ -15,13 +15,18 @@ import {
   ThemeIcon,
   SimpleGrid,
   Badge,
+  Pagination,
+  ScrollArea,
+  SegmentedControl,
 } from '@mantine/core';
-import { IconDeviceAnalytics, IconPlus } from '@tabler/icons-react';
+import { IconDeviceAnalytics, IconPlus, IconSearch, IconFilter } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { DateInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
+
+const ITEMS_PER_PAGE = 8;
 
 export const AnalisisList = () => {
   const navigate = useNavigate();
@@ -31,11 +36,17 @@ export const AnalisisList = () => {
   const [creating, setCreating] = useState(false);
   const [currentSeason, setCurrentSeason] = useState<string>('');
 
+  // Filtros y Paginación
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('Todos');
+  const [page, setPage] = useState(1);
+
   // Formulario rápido
   const [opponentName, setOppName] = useState('');
   const [matchType, setMatchType] = useState('Amistoso');
   const [matchFormat, setMatchFormat] = useState<string>('Individual');
-  const [analysisType, setAnalysisType] = useState<string>('Deep'); // 👈 NUEVO
+  const [analysisType, setAnalysisType] = useState<string>('Deep');
+  const [initialStatus, setInitialStatus] = useState<string>('Programado'); // 👈 Programar vs Jugar
   const [opponentHand, setOpponentHand] = useState<string | null>(null);
   const [opponentStyle, setOpponentStyle] = useState<string | null>(null);
   const [opponentLevel, setOpponentLevel] = useState<string | null>(null);
@@ -43,7 +54,6 @@ export const AnalisisList = () => {
   const [matchDate, setMatchDate] = useState<Date | null>(new Date());
 
   useEffect(() => {
-    // 👇 Cargamos partidos y temporada a la vez
     Promise.all([api.get(ENDPOINTS.MANUAL_MATCHES.BASE), api.get(ENDPOINTS.SEASONS.BASE)])
       .then(([matchesRes, seasonsRes]) => {
         setMatches(matchesRes.data.data);
@@ -62,10 +72,11 @@ export const AnalisisList = () => {
         matchType,
         location: 'Casa',
         format: matchFormat,
-        analysisType, // 👈 ENVIAMOS EL TIPO DE ANÁLISIS
+        analysisType,
         opponentHand,
         opponentStyle,
         opponentLevel,
+        status: initialStatus, // 👈 Enviamos el estado elegido
         setsToWin: Number(setsToWin),
         date: matchDate ? matchDate.toISOString() : new Date().toISOString(),
       });
@@ -77,9 +88,22 @@ export const AnalisisList = () => {
     }
   };
 
+  // Filtrado y Paginado
+  const filteredMatches = matches.filter((m) => {
+    const matchSearch = m.opponentName?.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFilter === 'Todos' || m.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const totalPages = Math.ceil(filteredMatches.length / ITEMS_PER_PAGE);
+  const paginatedMatches = filteredMatches.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE,
+  );
+
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="center" mb="sm">
+      <Group justify="space-between" align="center" wrap="wrap">
         <Group gap="sm">
           <ThemeIcon size={40} radius="md" color="blue" variant="light">
             <IconDeviceAnalytics size={24} />
@@ -94,6 +118,31 @@ export const AnalisisList = () => {
         <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpen(true)}>
           Nuevo Partido
         </Button>
+      </Group>
+
+      {/* FILTROS */}
+      <Group gap="xs" align="center">
+        <TextInput
+          placeholder="Buscar rival..."
+          leftSection={<IconSearch size={16} />}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.currentTarget.value);
+            setPage(1);
+          }}
+          style={{ flexGrow: 1, maxWidth: 300 }}
+        />
+        <Select
+          leftSection={<IconFilter size={16} />}
+          data={['Todos', 'Programado', 'Iniciado', 'Completado']}
+          value={statusFilter}
+          onChange={(val) => {
+            setStatusFilter(val!);
+            setPage(1);
+          }}
+          allowDeselect={false}
+          style={{ width: 150 }}
+        />
       </Group>
 
       {loading ? (
@@ -119,34 +168,69 @@ export const AnalisisList = () => {
           </Center>
         </Card>
       ) : (
-        <Stack gap="sm">
-          {matches.map((m) => (
-            <Card key={m.id} withBorder shadow="sm" radius="md">
-              <Group justify="space-between">
-                <div>
-                  <Text fw={700} size="lg">
-                    vs {m.opponentName}
-                  </Text>
-                  <Text c="dimmed" size="sm">
-                    {m.date ? new Date(m.date).toLocaleDateString('es-ES') : 'Sin fecha'} · Formato:{' '}
-                    {m.format} · {m.matchType} ({m.analysisType})
-                  </Text>
-                </div>
-                <Group>
-                  <Text c="dimmed" fw={500} size="sm">
-                    {m.status}
-                  </Text>
-                  <Button
-                    variant="light"
-                    onClick={() => navigate(APP_ROUTES.ANALISIS.TRACKER(m.id))}
-                  >
-                    {m.status === 'Completado' ? 'Ver Reporte' : 'Continuar Arbitraje'}
-                  </Button>
-                </Group>
-              </Group>
-            </Card>
-          ))}
-        </Stack>
+        <>
+          <ScrollArea>
+            <Stack gap="sm">
+              {paginatedMatches.length === 0 ? (
+                <Center py="xl">
+                  <Text c="dimmed">No hay partidos con estos filtros.</Text>
+                </Center>
+              ) : (
+                paginatedMatches.map((m) => (
+                  <Card key={m.id} withBorder shadow="sm" radius="md">
+                    <Group justify="space-between">
+                      <div>
+                        <Group gap="xs">
+                          <Text fw={700} size="lg">
+                            vs {m.opponentName}
+                          </Text>
+                          <Badge
+                            color={
+                              m.status === 'Programado'
+                                ? 'orange'
+                                : m.status === 'Completado'
+                                  ? 'green'
+                                  : 'blue'
+                            }
+                            variant="light"
+                          >
+                            {m.status}
+                          </Badge>
+                        </Group>
+                        <Text c="dimmed" size="sm">
+                          {m.date ? new Date(m.date).toLocaleDateString('es-ES') : 'Sin fecha'} ·
+                          Formato: {m.format} · {m.matchType} ({m.analysisType})
+                        </Text>
+                      </div>
+                      <Button
+                        variant="light"
+                        color={m.status === 'Programado' ? 'orange' : 'blue'}
+                        onClick={() => navigate(APP_ROUTES.ANALISIS.TRACKER(m.id))}
+                      >
+                        {m.status === 'Completado'
+                          ? 'Ver Reporte'
+                          : m.status === 'Programado'
+                            ? 'Planificar / Jugar'
+                            : 'Continuar Arbitraje'}
+                      </Button>
+                    </Group>
+                  </Card>
+                ))
+              )}
+            </Stack>
+          </ScrollArea>
+          {totalPages > 1 && (
+            <Center mt="md">
+              <Pagination
+                total={totalPages}
+                value={page}
+                onChange={setPage}
+                color="blue"
+                withEdges
+              />
+            </Center>
+          )}
+        </>
       )}
 
       {/* MODAL CONFIGURACIÓN PARTIDO */}
@@ -158,6 +242,16 @@ export const AnalisisList = () => {
         size="lg"
       >
         <Stack gap="md">
+          <SegmentedControl
+            data={[
+              { label: 'Planificar Pre-Partido', value: 'Programado' },
+              { label: 'Empezar a Jugar Ya', value: 'Iniciado' },
+            ]}
+            value={initialStatus}
+            onChange={setInitialStatus}
+            color={initialStatus === 'Programado' ? 'orange' : 'blue'}
+          />
+
           <SimpleGrid cols={2}>
             <DateInput
               label="Fecha del Partido"
@@ -247,7 +341,7 @@ export const AnalisisList = () => {
             loading={creating}
             disabled={!opponentName}
           >
-            Ir a la mesa
+            {initialStatus === 'Programado' ? 'Crear y Planificar' : 'Ir a la mesa'}
           </Button>
         </Stack>
       </Modal>
