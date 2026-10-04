@@ -27,7 +27,7 @@ async function main() {
   console.log('🔄 Buscando el Club "Club Tenis de Mesa Castellón"...');
 
   const club = await prisma.club.findFirst({
-    where: { name: 'Club Tenis de Mesa Castellón' },
+    where: { name: '(DEMO) Club Tenis de Mesa Castellón' },
   });
 
   if (!club) {

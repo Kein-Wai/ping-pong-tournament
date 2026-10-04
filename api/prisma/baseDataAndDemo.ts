@@ -108,7 +108,7 @@ async function main() {
   console.log('🏢 Generando Club Castellón...');
   const clubCastellon = await prisma.club.create({
     data: {
-      name: 'Club Tenis de Mesa Castellón',
+      name: '(DEMO) Club Tenis de Mesa Castellón',
       status: 'Aprobado',
       city: 'Castellon de la Plana',
     },

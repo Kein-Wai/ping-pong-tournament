@@ -920,48 +920,7 @@ const schedulesCTM = [
 ];
 
 async function main() {
-  // console.log('🧹 Limpiando base de datos...');
-  // await prisma.generalTrainingAttendance.deleteMany();
-  // await prisma.playerSkillUpdate.deleteMany();
-  // await prisma.generalTraining.deleteMany();
-  // await prisma.skillUpdateTemplate.deleteMany();
-  // await prisma.generalTrainingSchedule.deleteMany();
-
-  // await prisma.match.deleteMany();
-  // await prisma.tournamentKnockout.deleteMany();
-  // await prisma.tournamentParticipant.deleteMany();
-  // await prisma.tournamentClas.deleteMany();
-  // await prisma.tournamentGroupClas.deleteMany();
-  // await prisma.tournamentGroup.deleteMany();
-  // await prisma.tournament.deleteMany();
-
-  // await prisma.stats.deleteMany();
-  // await prisma.user.deleteMany();
-  // await prisma.season.deleteMany();
-  // await prisma.club.deleteMany();
-
-  // await prisma.sessionExercise.deleteMany();
-  // await prisma.trainingSession.deleteMany();
-  // await prisma.playerTraining.deleteMany();
-  // await prisma.exercise.deleteMany();
-
   console.log('🌱 Iniciando Seed CTM Costa Azahar...');
-
-  // 1. ROLES DE USUARIO
-  // const types = [
-  //   { name: TypeUser.SuperAdmin },
-  //   { name: TypeUser.AdminClub },
-  //   { name: TypeUser.Player },
-  // ];
-  // let savedTypes = [];
-  // for (const type of types) {
-  //   savedTypes.push(
-  //     await prisma.userType.upsert({ where: { name: type.name }, update: {}, create: type }),
-  //   );
-  // }
-  // const superAdminRoleId = savedTypes[0].id;
-  // const adminClubRoleId = savedTypes[1].id;
-  // const playerRoleId = savedTypes[2].id;
 
   const adminClubRoleId = await prisma.userType.findFirst({
     where: { name: TypeUser.AdminClub },
@@ -969,17 +928,6 @@ async function main() {
   const currentSeason = await prisma.season.findFirst({
     where: { name: 'Temporada 2026/2027' },
   });
-
-  // // 2. TEMPORADA ÚNICA (2026/2027)
-  // console.log('📅 Generando Temporada...');
-  // const currentSeason = await prisma.season.create({
-  //   data: {
-  //     name: 'Temporada 2026/2027',
-  //     startDate: new Date('2026-08-01T00:00:00Z'),
-  //     endDate: new Date('2027-07-31T23:59:59Z'),
-  //     isCurrent: true,
-  //   },
-  // });
 
   console.log('🏢 Generando Club Principal...');
   const club = await prisma.club.create({

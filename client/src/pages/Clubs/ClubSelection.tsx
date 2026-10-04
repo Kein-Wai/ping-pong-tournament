@@ -39,8 +39,12 @@ export const ClubSelection = () => {
     const fetchClubs = async () => {
       try {
         const response = await api.get(ENDPOINTS.CLUBS.BASE);
+
         if (response.data.success) {
-          setClubs(response.data.data);
+          const visibleClubs = response.data.data.filter(
+            (club: Club) => !club.name.toUpperCase().startsWith('(DEMO)'),
+          );
+          setClubs(visibleClubs);
         }
       } catch (error: any) {
         console.log(error);
