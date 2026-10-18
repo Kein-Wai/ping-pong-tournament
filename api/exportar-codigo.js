@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Las carpetas que queremos escanear (añade más si tienes lógica fuera de src)
-const dirsToScan = ['./src', './prisma'];
+const dirsToScan = ['./src'];
 const outputFile = 'codigo_completo.txt';
 let output = '';
 

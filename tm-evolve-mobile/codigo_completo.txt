@@ -1,0 +1,2140 @@
+
+
+================================================
+📂 ARCHIVO: src/api/axios.ts
+================================================
+
+// src/api/axios.ts
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Expo inyecta automáticamente las variables que empiezan por EXPO_PUBLIC_
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+export const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Interceptor para inyectar el token en cada petición (si existe)
+api.interceptors.request.use(
+  async (config) => {
+    const token = await AsyncStorage.getItem("pingpong_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+
+================================================
+📂 ARCHIVO: src/navigation/MainTabNavigator.tsx
+================================================
+
+// src/navigation/MainTabNavigator.tsx
+import React from "react";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons"; // Viene gratis con Expo
+
+// Importamos las pantallas
+import DashboardScreen from "../screens/DashboardScreen";
+import TrainingsScreen from "../screens/TrainingsScreen";
+import TrackerScreen from "../screens/TrackerScreen";
+import GamesScreen from "../screens/GamesScreen";
+
+const Tab = createBottomTabNavigator();
+
+export default function MainTabNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false, // Ocultamos la cabecera fea por defecto
+        tabBarStyle: {
+          backgroundColor: "#1f2937",
+          borderTopColor: "#374151",
+          paddingBottom: 5,
+          height: 60,
+        },
+        tabBarActiveTintColor: "#3b82f6",
+        tabBarInactiveTintColor: "#9ca3af",
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: keyof typeof Ionicons.glyphMap = "help-circle";
+
+          if (route.name === "Inicio") {
+            iconName = focused ? "home" : "home-outline";
+          } else if (route.name === "Entrenos") {
+            iconName = focused ? "barbell" : "barbell-outline";
+          } else if (route.name === "Tracker") {
+            iconName = focused ? "analytics" : "analytics-outline";
+          } else if (route.name === "Juegos") {
+            iconName = focused ? "game-controller" : "game-controller-outline";
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Inicio" component={DashboardScreen} />
+      <Tab.Screen name="Entrenos" component={TrainingsScreen} />
+      <Tab.Screen name="Tracker" component={TrackerScreen} />
+      <Tab.Screen name="Juegos" component={GamesScreen} />
+    </Tab.Navigator>
+  );
+}
+
+
+================================================
+📂 ARCHIVO: src/navigation/RootNavigator.tsx
+================================================
+
+// src/navigation/RootNavigator.tsx
+import React from "react";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useAuthStore } from "../store/authStore";
+
+import LoginScreen from "../screens/LoginScreen";
+import MainTabNavigator from "./MainTabNavigator";
+
+const Stack = createNativeStackNavigator();
+
+export default function RootNavigator() {
+  const { isAuthenticated } = useAuthStore();
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {isAuthenticated ? (
+        // Si está logueado, le enseñamos las pestañas
+        <Stack.Screen name="MainApp" component={MainTabNavigator} />
+      ) : (
+        // Si NO está logueado, a la pantalla de Login
+        <Stack.Screen name="Login" component={LoginScreen} />
+      )}
+    </Stack.Navigator>
+  );
+}
+
+
+================================================
+📂 ARCHIVO: src/screens/AnalisisListScreen.tsx
+================================================
+
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  ActivityIndicator,
+  RefreshControl,
+  Dimensions,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { api } from "../api/axios";
+
+const { width } = Dimensions.get("window");
+const ITEMS_PER_PAGE = 8;
+
+interface ManualMatch {
+  id: string;
+  opponentName: string;
+  matchType: string;
+  location: string;
+  format: string;
+  analysisType: "Rapido" | "Extenso";
+  opponentHand?: string | null;
+  opponentStyle?: string | null;
+  opponentLevel?: string | null;
+  opponentRubberForehand?: string | null;
+  opponentRubberBackhand?: string | null;
+  status: "Programado" | "Iniciado" | "Completado" | "Cancelado";
+  setsToWin: number;
+  mySets: number;
+  opponentSets: number;
+  date: string;
+}
+
+interface Props {
+  navigation?: any;
+  onSelectMatch?: (matchId: string) => void;
+}
+
+export default function AnalisisListScreen({
+  navigation,
+  onSelectMatch,
+}: Props) {
+  const [matches, setMatches] = useState<ManualMatch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentSeason, setCurrentSeason] = useState<string>("");
+
+  // Filtros y tabs
+  const [activeTab, setActiveTab] = useState<"analisis" | "planes">("analisis");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  // Estados del Modal de Creación
+  const [modalOpen, setModalOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [initialStatus, setInitialStatus] = useState<"Programado" | "Iniciado">(
+    "Programado",
+  );
+  const [opponentName, setOppName] = useState("");
+  const [matchType, setMatchType] = useState("Amistoso");
+  const [matchFormat, setMatchFormat] = useState("Individual");
+  const [analysisType, setAnalysisType] = useState<"Rapido" | "Extenso">(
+    "Rapido",
+  );
+  const [setsToWin, setSetsToWin] = useState("3");
+  const [opponentLevel, setOpponentLevel] = useState<string | null>(null);
+  const [opponentHand, setOpponentHand] = useState<string | null>(null);
+  const [opponentStyle, setOpponentStyle] = useState<string | null>(null);
+  const [opponentRubberForehand, setOpponentRubberForehand] = useState<
+    string | null
+  >(null);
+  const [opponentRubberBackhand, setOpponentRubberBackhand] = useState<
+    string | null
+  >(null);
+
+  const fetchMatchesAndSeason = async () => {
+    try {
+      const [matchesRes, seasonsRes] = await Promise.all([
+        api.get("/manual-matches"),
+        api.get("/seasons"),
+      ]);
+
+      const matchData = matchesRes.data.data || matchesRes.data || [];
+      setMatches(matchData);
+
+      const seasons = seasonsRes.data.data || seasonsRes.data || [];
+      const activeS = seasons.find((s: any) => s.isCurrent);
+      if (activeS) setCurrentSeason(activeS.name);
+    } catch (error) {
+      console.error("Error cargando partidos y temporada:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMatchesAndSeason();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchMatchesAndSeason();
+  };
+
+  const handleCreateMatch = async () => {
+    setCreating(true);
+    const finalOpponent =
+      opponentName.trim() === "" ? "Rival por determinar" : opponentName.trim();
+
+    try {
+      const payload = {
+        opponentName: finalOpponent,
+        matchType,
+        location: "Casa",
+        format: matchFormat,
+        analysisType: initialStatus === "Programado" ? "Rapido" : analysisType,
+        opponentHand,
+        opponentStyle,
+        opponentLevel,
+        opponentRubberForehand,
+        opponentRubberBackhand,
+        status: initialStatus,
+        setsToWin: Number(setsToWin),
+        date: new Date().toISOString(),
+      };
+
+      const res = await api.post("/manual-matches", payload);
+      const newMatch = res.data.data || res.data;
+      setModalOpen(false);
+      resetForm();
+      await fetchMatchesAndSeason();
+
+      // Navegar al Tracker
+      if (onSelectMatch) {
+        onSelectMatch(newMatch.id);
+      } else if (navigation?.navigate) {
+        navigation.navigate("ManualMatchTracker", { id: newMatch.id });
+      }
+    } catch (error) {
+      console.error("Error creando partido:", error);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const resetForm = () => {
+    setOppName("");
+    setInitialStatus("Programado");
+    setMatchType("Amistoso");
+    setMatchFormat("Individual");
+    setAnalysisType("Rapido");
+    setSetsToWin("3");
+    setOpponentLevel(null);
+    setOpponentHand(null);
+    setOpponentStyle(null);
+    setOpponentRubberForehand(null);
+    setOpponentRubberBackhand(null);
+  };
+
+  const filteredMatches = useMemo(() => {
+    return matches.filter((m) => {
+      const matchSearch = m.opponentName
+        ?.toLowerCase()
+        .includes(search.toLowerCase());
+      const matchTab =
+        activeTab === "planes"
+          ? m.status === "Programado"
+          : m.status !== "Programado";
+      return matchSearch && matchTab;
+    });
+  }, [matches, search, activeTab]);
+
+  const totalPages = Math.ceil(filteredMatches.length / ITEMS_PER_PAGE);
+  const paginatedMatches = useMemo(() => {
+    return filteredMatches.slice(
+      (page - 1) * ITEMS_PER_PAGE,
+      page * ITEMS_PER_PAGE,
+    );
+  }, [filteredMatches, page]);
+
+  const handleCardPress = (matchId: string) => {
+    if (onSelectMatch) {
+      onSelectMatch(matchId);
+    } else if (navigation?.navigate) {
+      navigation.navigate("ManualMatchTracker", { id: matchId });
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* 1. CABECERA */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={styles.headerIconContainer}>
+            <Ionicons name="analytics" size={24} color="#3b82f6" />
+          </View>
+          <View>
+            <Text style={styles.headerTitle}>Análisis y Planes</Text>
+            {currentSeason ? (
+              <View style={styles.seasonBadge}>
+                <Text style={styles.seasonBadgeText}>{currentSeason}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.newRegisterBtn}
+          activeOpacity={0.8}
+          onPress={() => setModalOpen(true)}
+        >
+          <Ionicons name="add" size={18} color="#fff" />
+          <Text style={styles.newRegisterBtnText}>Nuevo</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 2. PESTAÑAS (Análisis y Resultados vs Planificaciones Futuras) */}
+      <View style={styles.tabsRow}>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === "analisis" && styles.activeTabButton,
+          ]}
+          onPress={() => {
+            setActiveTab("analisis");
+            setPage(1);
+          }}
+        >
+          <Ionicons
+            name="tennisball-outline"
+            size={16}
+            color={activeTab === "analisis" ? "#3b82f6" : "#9ca3af"}
+          />
+          <Text
+            style={[
+              styles.tabButtonText,
+              activeTab === "analisis" && styles.activeTabButtonText,
+            ]}
+          >
+            Análisis y Resultados
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === "planes" && styles.activeTabButtonOrange,
+          ]}
+          onPress={() => {
+            setActiveTab("planes");
+            setPage(1);
+          }}
+        >
+          <Ionicons
+            name="clipboard-outline"
+            size={16}
+            color={activeTab === "planes" ? "#f59e0b" : "#9ca3af"}
+          />
+          <Text
+            style={[
+              styles.tabButtonText,
+              activeTab === "planes" && styles.activeTabButtonTextOrange,
+            ]}
+          >
+            Planificaciones Futuras
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 3. BARRA DE BÚSQUEDA */}
+      <View style={styles.searchContainer}>
+        <Ionicons
+          name="search"
+          size={18}
+          color="#9ca3af"
+          style={styles.searchIcon}
+        />
+        <TextInput
+          placeholder="Buscar rival..."
+          placeholderTextColor="#6b7280"
+          value={search}
+          onChangeText={(val) => {
+            setSearch(val);
+            setPage(1);
+          }}
+          style={styles.searchInput}
+        />
+        {search ? (
+          <TouchableOpacity onPress={() => setSearch("")}>
+            <Ionicons name="close-circle" size={18} color="#9ca3af" />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* 4. LISTA DE PARTIDOS PAGINADA */}
+      {loading ? (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollList}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#3b82f6"
+            />
+          }
+        >
+          {paginatedMatches.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons
+                name={
+                  activeTab === "planes"
+                    ? "clipboard-outline"
+                    : "tennisball-outline"
+                }
+                size={44}
+                color="#4b5563"
+              />
+              <Text style={styles.emptyText}>
+                No hay {activeTab === "planes" ? "planificaciones" : "partidos"}{" "}
+                registrados.
+              </Text>
+            </View>
+          ) : (
+            paginatedMatches.map((m) => {
+              const isPlan = m.status === "Programado";
+              const isCompleted = m.status === "Completado";
+
+              const statusBg = isPlan
+                ? "rgba(245, 158, 11, 0.15)"
+                : isCompleted
+                  ? "rgba(16, 185, 129, 0.15)"
+                  : "rgba(59, 130, 246, 0.15)";
+              const statusColor = isPlan
+                ? "#f59e0b"
+                : isCompleted
+                  ? "#10b981"
+                  : "#3b82f6";
+
+              const buttonLabel = isCompleted
+                ? "Ver Reporte"
+                : isPlan
+                  ? "Planificar / Jugar"
+                  : "Continuar Arbitraje";
+
+              return (
+                <View
+                  key={m.id}
+                  style={[
+                    styles.matchCard,
+                    isPlan ? styles.cardBorderOrange : styles.cardBorderBlue,
+                  ]}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardHeaderTitleRow}>
+                      <Text style={styles.opponentTitle}>
+                        vs {m.opponentName}
+                      </Text>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: statusBg },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statusBadgeText,
+                            { color: statusColor },
+                          ]}
+                        >
+                          {m.status}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.cardSubDetails}>
+                      {m.date
+                        ? new Date(m.date).toLocaleDateString("es-ES")
+                        : "Sin fecha"}{" "}
+                      · Formato: {m.format} · {m.matchType} ({m.analysisType})
+                    </Text>
+                  </View>
+
+                  <View style={styles.cardActionRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.cardActionButton,
+                        isPlan ? styles.btnOrangeLight : styles.btnBlueLight,
+                      ]}
+                      onPress={() => handleCardPress(m.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[
+                          styles.cardActionButtonText,
+                          { color: isPlan ? "#f59e0b" : "#3b82f6" },
+                        ]}
+                      >
+                        {buttonLabel}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={isPlan ? "#f59e0b" : "#3b82f6"}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          )}
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <View style={styles.paginationRow}>
+              <TouchableOpacity
+                disabled={page <= 1}
+                onPress={() => setPage((prev) => Math.max(prev - 1, 1))}
+                style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={16}
+                  color={page <= 1 ? "#4b5563" : "#fff"}
+                />
+              </TouchableOpacity>
+              <Text style={styles.pageIndicator}>
+                Página {page} de {totalPages}
+              </Text>
+              <TouchableOpacity
+                disabled={page >= totalPages}
+                onPress={() =>
+                  setPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                style={[
+                  styles.pageBtn,
+                  page >= totalPages && styles.pageBtnDisabled,
+                ]}
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={page >= totalPages ? "#4b5563" : "#fff"}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      )}
+
+      {/* 5. MODAL: CONFIGURAR PARTIDO / PLAN */}
+      <Modal visible={modalOpen} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalTopBar}>
+              <Text style={styles.modalTitle}>Configurar Partido / Plan</Text>
+              <TouchableOpacity onPress={() => setModalOpen(false)}>
+                <Ionicons name="close" size={24} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScroll}
+            >
+              {/* Segmented Control: Modo */}
+              <View style={styles.segmentedControl}>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    initialStatus === "Programado" &&
+                      styles.segmentButtonActiveOrange,
+                  ]}
+                  onPress={() => setInitialStatus("Programado")}
+                >
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      initialStatus === "Programado" &&
+                        styles.segmentTextActive,
+                    ]}
+                  >
+                    Planificar Pre-Partido
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    initialStatus === "Iniciado" &&
+                      styles.segmentButtonActiveBlue,
+                  ]}
+                  onPress={() => setInitialStatus("Iniciado")}
+                >
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      initialStatus === "Iniciado" && styles.segmentTextActive,
+                    ]}
+                  >
+                    Empezar a Jugar Ya
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Si es iniciado: Nivel de Detalle */}
+              {initialStatus === "Iniciado" && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Nivel de Detalle</Text>
+                  <View style={styles.pillRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.pillOption,
+                        analysisType === "Rapido" && styles.pillActive,
+                      ]}
+                      onPress={() => setAnalysisType("Rapido")}
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          analysisType === "Rapido" && styles.pillTextActive,
+                        ]}
+                      >
+                        Rápido (Marcador global)
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.pillOption,
+                        analysisType === "Extenso" && styles.pillActive,
+                      ]}
+                      onPress={() => setAnalysisType("Extenso")}
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          analysisType === "Extenso" && styles.pillTextActive,
+                        ]}
+                      >
+                        Extenso (Punto a Punto)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Nombre del Rival */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>
+                  Nombre del Rival {initialStatus === "Iniciado" && "*"}
+                </Text>
+                {initialStatus === "Programado" && (
+                  <Text style={styles.inputDesc}>
+                    Déjalo en blanco si aún no sabes contra quién juegas
+                  </Text>
+                )}
+                <TextInput
+                  placeholder="Ej. Juan Pérez"
+                  placeholderTextColor="#6b7280"
+                  value={opponentName}
+                  onChangeText={setOppName}
+                  style={styles.textInput}
+                />
+              </View>
+
+              {/* Formato y Tipo de Partido */}
+              <View style={styles.rowTwoCols}>
+                <View style={styles.colHalf}>
+                  <Text style={styles.inputLabel}>Tipo de Partido</Text>
+                  <View style={styles.pillCol}>
+                    {["Amistoso", "Liga", "Competicion"].map((t) => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[
+                          styles.miniPill,
+                          matchType === t && styles.pillActive,
+                        ]}
+                        onPress={() => setMatchType(t)}
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            matchType === t && styles.pillTextActive,
+                          ]}
+                        >
+                          {t}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.colHalf}>
+                  <Text style={styles.inputLabel}>Formato</Text>
+                  <View style={styles.pillCol}>
+                    {["Individual", "Equipos"].map((f) => (
+                      <TouchableOpacity
+                        key={f}
+                        style={[
+                          styles.miniPill,
+                          matchFormat === f && styles.pillActive,
+                        ]}
+                        onPress={() => setMatchFormat(f)}
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            matchFormat === f && styles.pillTextActive,
+                          ]}
+                        >
+                          {f}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              {/* Sets para ganar */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Formato al mejor de...</Text>
+                <View style={styles.pillRow}>
+                  {[
+                    { val: "1", label: "1 Set" },
+                    { val: "2", label: "Mejor 3 (Gana 2)" },
+                    { val: "3", label: "Mejor 5 (Gana 3)" },
+                    { val: "4", label: "Mejor 7 (Gana 4)" },
+                  ].map((s) => (
+                    <TouchableOpacity
+                      key={s.val}
+                      style={[
+                        styles.pillOptionSmall,
+                        setsToWin === s.val && styles.pillActive,
+                      ]}
+                      onPress={() => setSetsToWin(s.val)}
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          setsToWin === s.val && styles.pillTextActive,
+                        ]}
+                      >
+                        {s.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Atributos del Rival: Mano y Estilo */}
+              <View style={styles.rowTwoCols}>
+                <View style={styles.colHalf}>
+                  <Text style={styles.inputLabel}>Mano del Rival</Text>
+                  <View style={styles.pillRow}>
+                    {["Diestro", "Zurdo"].map((h) => (
+                      <TouchableOpacity
+                        key={h}
+                        style={[
+                          styles.miniPill,
+                          opponentHand === h && styles.pillActive,
+                        ]}
+                        onPress={() =>
+                          setOpponentHand(opponentHand === h ? null : h)
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            opponentHand === h && styles.pillTextActive,
+                          ]}
+                        >
+                          {h}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.colHalf}>
+                  <Text style={styles.inputLabel}>Estilo del Rival</Text>
+                  <View style={styles.pillRow}>
+                    {["Ofensivo", "Defensivo"].map((st) => (
+                      <TouchableOpacity
+                        key={st}
+                        style={[
+                          styles.miniPill,
+                          opponentStyle === st && styles.pillActive,
+                        ]}
+                        onPress={() =>
+                          setOpponentStyle(opponentStyle === st ? null : st)
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            opponentStyle === st && styles.pillTextActive,
+                          ]}
+                        >
+                          {st}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              {/* Nivel del Rival */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Nivel del Rival</Text>
+                <View style={styles.pillRow}>
+                  {["Peor", "Igual", "Mejor"].map((lvl) => (
+                    <TouchableOpacity
+                      key={lvl}
+                      style={[
+                        styles.miniPill,
+                        opponentLevel === lvl && styles.pillActive,
+                      ]}
+                      onPress={() =>
+                        setOpponentLevel(opponentLevel === lvl ? null : lvl)
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          opponentLevel === lvl && styles.pillTextActive,
+                        ]}
+                      >
+                        {lvl}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Goma Derecha */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Goma Derecha (Forehand)</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.rubbersScroll}
+                >
+                  {[
+                    "LISA",
+                    "PICOS_CORTOS",
+                    "PICOS_MEDIOS",
+                    "PICOS_LARGOS",
+                    "ANTISPIN",
+                  ].map((g) => (
+                    <TouchableOpacity
+                      key={g}
+                      style={[
+                        styles.miniPill,
+                        opponentRubberForehand === g && styles.pillActiveRed,
+                      ]}
+                      onPress={() =>
+                        setOpponentRubberForehand(
+                          opponentRubberForehand === g ? null : g,
+                        )
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          opponentRubberForehand === g && styles.pillTextActive,
+                        ]}
+                      >
+                        {g.replace("_", " ")}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Goma Revés */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Goma Revés (Backhand)</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.rubbersScroll}
+                >
+                  {[
+                    "LISA",
+                    "PICOS_CORTOS",
+                    "PICOS_MEDIOS",
+                    "PICOS_LARGOS",
+                    "ANTISPIN",
+                  ].map((g) => (
+                    <TouchableOpacity
+                      key={g}
+                      style={[
+                        styles.miniPill,
+                        opponentRubberBackhand === g && styles.pillActiveGray,
+                      ]}
+                      onPress={() =>
+                        setOpponentRubberBackhand(
+                          opponentRubberBackhand === g ? null : g,
+                        )
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          opponentRubberBackhand === g && styles.pillTextActive,
+                        ]}
+                      >
+                        {g.replace("_", " ")}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Botón Guardar / Iniciar */}
+              <TouchableOpacity
+                style={[
+                  styles.submitBtn,
+                  initialStatus === "Programado"
+                    ? styles.btnOrange
+                    : styles.btnBlue,
+                  initialStatus === "Iniciado" &&
+                    !opponentName.trim() &&
+                    styles.submitBtnDisabled,
+                ]}
+                disabled={
+                  (initialStatus === "Iniciado" && !opponentName.trim()) ||
+                  creating
+                }
+                onPress={handleCreateMatch}
+                activeOpacity={0.85}
+              >
+                {creating ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>
+                    {initialStatus === "Programado"
+                      ? "Crear Plan General"
+                      : "Ir a la mesa"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#111827" },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#fff" },
+  seasonBadge: {
+    backgroundColor: "rgba(139, 92, 246, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginTop: 2,
+  },
+  seasonBadgeText: { color: "#c084fc", fontSize: 11, fontWeight: "700" },
+  newRegisterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#3b82f6",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 4,
+  },
+  newRegisterBtnText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+
+  // Tabs
+  tabsRow: {
+    flexDirection: "row",
+    backgroundColor: "#1f2937",
+    marginHorizontal: 20,
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  activeTabButton: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#3b82f6",
+  },
+  activeTabButtonOrange: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#f59e0b",
+  },
+  tabButtonText: { fontSize: 12, fontWeight: "600", color: "#9ca3af" },
+  activeTabButtonText: { color: "#60a5fa", fontWeight: "bold" },
+  activeTabButtonTextOrange: { color: "#fbbf24", fontWeight: "bold" },
+
+  // Buscador
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1f2937",
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#374151",
+    height: 42,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, color: "#fff", fontSize: 14 },
+
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  scrollList: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 6 },
+
+  emptyContainer: {
+    alignItems: "center",
+    marginTop: 60,
+    paddingHorizontal: 20,
+  },
+  emptyText: {
+    color: "#9ca3af",
+    fontSize: 14,
+    marginTop: 12,
+    textAlign: "center",
+  },
+
+  // Cards
+  matchCard: {
+    backgroundColor: "#1f2937",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+  cardBorderBlue: { borderLeftWidth: 5, borderLeftColor: "#3b82f6" },
+  cardBorderOrange: { borderLeftWidth: 5, borderLeftColor: "#f59e0b" },
+
+  cardHeader: { marginBottom: 12 },
+  cardHeaderTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  opponentTitle: { fontSize: 17, fontWeight: "bold", color: "#fff" },
+  cardSubDetails: { color: "#9ca3af", fontSize: 12, marginTop: 4 },
+
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  statusBadgeText: { fontSize: 11, fontWeight: "bold" },
+
+  cardActionRow: {
+    alignItems: "flex-end",
+    borderTopWidth: 1,
+    borderTopColor: "#374151",
+    paddingTop: 10,
+  },
+  cardActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  btnBlueLight: { backgroundColor: "rgba(59, 130, 246, 0.15)" },
+  btnOrangeLight: { backgroundColor: "rgba(245, 158, 11, 0.15)" },
+  cardActionButtonText: { fontSize: 13, fontWeight: "700" },
+
+  paginationRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    gap: 16,
+  },
+  pageBtn: {
+    backgroundColor: "#374151",
+    padding: 8,
+    borderRadius: 8,
+  },
+  pageBtnDisabled: { opacity: 0.3 },
+  pageIndicator: { color: "#9ca3af", fontSize: 13, fontWeight: "600" },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#1f2937",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "90%",
+    paddingBottom: 24,
+  },
+  modalTopBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#374151",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "bold", color: "#fff" },
+  modalScroll: { padding: 20, gap: 16 },
+
+  segmentedControl: {
+    flexDirection: "row",
+    backgroundColor: "#111827",
+    borderRadius: 10,
+    padding: 4,
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  segmentButtonActiveBlue: { backgroundColor: "#3b82f6" },
+  segmentButtonActiveOrange: { backgroundColor: "#f59e0b" },
+  segmentText: { color: "#9ca3af", fontSize: 13, fontWeight: "600" },
+  segmentTextActive: { color: "#fff", fontWeight: "bold" },
+
+  inputGroup: { gap: 6 },
+  inputLabel: { color: "#e5e7eb", fontSize: 13, fontWeight: "600" },
+  inputDesc: { color: "#9ca3af", fontSize: 11 },
+  textInput: {
+    backgroundColor: "#111827",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#374151",
+    color: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+
+  rowTwoCols: { flexDirection: "row", gap: 12 },
+  colHalf: { flex: 1, gap: 6 },
+
+  pillRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  pillCol: { gap: 6 },
+  pillOption: {
+    flex: 1,
+    backgroundColor: "#111827",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#374151",
+    alignItems: "center",
+  },
+  pillOptionSmall: {
+    backgroundColor: "#111827",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+  miniPill: {
+    backgroundColor: "#111827",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#374151",
+    alignItems: "center",
+  },
+  rubbersScroll: { gap: 6, paddingVertical: 2 },
+  pillActive: { backgroundColor: "#2563eb", borderColor: "#3b82f6" },
+  pillActiveRed: { backgroundColor: "#991b1b", borderColor: "#ef4444" },
+  pillActiveGray: { backgroundColor: "#374151", borderColor: "#9ca3af" },
+  pillText: { color: "#9ca3af", fontSize: 12, fontWeight: "500" },
+  pillTextActive: { color: "#fff", fontWeight: "bold" },
+
+  submitBtn: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  btnBlue: { backgroundColor: "#3b82f6" },
+  btnOrange: { backgroundColor: "#f59e0b" },
+  submitBtnDisabled: { opacity: 0.5 },
+  submitBtnText: { color: "#fff", fontSize: 15, fontWeight: "bold" },
+});
+
+
+================================================
+📂 ARCHIVO: src/screens/DashboardScreen.tsx
+================================================
+
+import React, { useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  Dimensions,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuthStore } from "../store/authStore";
+import { Ionicons } from "@expo/vector-icons";
+import Svg, { Polygon, Line, Circle, Text as SvgText } from "react-native-svg";
+
+const { width } = Dimensions.get("window");
+const RADAR_SIZE = width - 64;
+const CENTER = RADAR_SIZE / 2;
+const RADIUS = CENTER - 35;
+
+interface SkillItem {
+  key: string;
+  label: string;
+  value: number;
+}
+
+// Mapeo de las 12 habilidades (JugadorPerfil.tsx)
+const SKILL_KEYS = [
+  { key: "topspinDerecha", label: "Top Der.", fullLabel: "Topspin Derecha" },
+  { key: "topspinReves", label: "Top Rev.", fullLabel: "Topspin Revés" },
+  { key: "derechaPlano", label: "Plano Der.", fullLabel: "Derecha Plana" },
+  { key: "revesPlano", label: "Plano Rev.", fullLabel: "Revés Plano" },
+  { key: "corte", label: "Corte", fullLabel: "Corte / Juego Corto" },
+  { key: "bloqueoDerecha", label: "Bloq. Der.", fullLabel: "Bloqueo Derecha" },
+  { key: "bloqueoReves", label: "Bloq. Rev.", fullLabel: "Bloqueo Revés" },
+  { key: "servicio", label: "Servicio", fullLabel: "Servicio / Saque" },
+  { key: "recepcion", label: "Recepción", fullLabel: "Resto / Recepción" },
+  { key: "movilidad", label: "Movilidad", fullLabel: "Movilidad / Pies" },
+  { key: "fortalezaMental", label: "Mental", fullLabel: "Fortaleza Mental" },
+  {
+    key: "experiencia",
+    label: "Experiencia",
+    fullLabel: "Experiencia Táctica",
+  },
+];
+
+// Helper para embellecer los nombres del enum de gomas RubberType
+const formatRubberName = (rubberType?: string | null) => {
+  if (!rubberType) return null;
+  const map: Record<string, string> = {
+    LISA: "Lisa",
+    PICOS_CORTOS: "Picos Cortos",
+    PICOS_MEDIOS: "Picos Medios",
+    PICOS_LARGOS: "Picos Largos",
+    ANTISPIN: "Antispin",
+  };
+  return map[rubberType] || rubberType;
+};
+
+export default function DashboardScreen() {
+  const { user, logout } = useAuthStore();
+
+  const stats = Array.isArray(user?.stats) ? user.stats[0] : user?.stats;
+  const skills = Array.isArray(user?.skills) ? user.skills[0] : user?.skills;
+
+  const totalMatches =
+    (stats?.matchWon || 0) +
+    (stats?.matchLost || 0) +
+    (stats?.manualMatchWon || 0) +
+    (stats?.manualMatchLost || 0);
+  const totalWins = (stats?.matchWon || 0) + (stats?.manualMatchWon || 0);
+  const winRate =
+    totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
+
+  const forehandRubber = formatRubberName(user?.rubberForehand);
+  const backhandRubber = formatRubberName(user?.rubberBackhand);
+
+  // Lista para las barras de progreso
+  const skillList: SkillItem[] = SKILL_KEYS.map((item) => ({
+    key: item.key,
+    label: item.fullLabel,
+    value: skills?.[item.key] || 0,
+  }));
+
+  const getSkillColor = (val: number) => {
+    if (val >= 80) return "#10b981";
+    if (val >= 60) return "#3b82f6";
+    if (val >= 40) return "#8b5cf6";
+    if (val >= 20) return "#f59e0b";
+    return "#ef4444";
+  };
+
+  // Geometría del Radar SVG
+  const radarGeometry = useMemo(() => {
+    const angleStep = (Math.PI * 2) / SKILL_KEYS.length;
+
+    const playerPoints = SKILL_KEYS.map((item, i) => {
+      const val = Math.min(Math.max(skills?.[item.key] || 0, 0), 100);
+      const r = (val / 100) * RADIUS;
+      const angle = i * angleStep - Math.PI / 2;
+      const x = CENTER + r * Math.cos(angle);
+      const y = CENTER + r * Math.sin(angle);
+      return { x, y, val };
+    });
+
+    const gridLevels = [0.25, 0.5, 0.75, 1].map((level) => {
+      return SKILL_KEYS.map((_, i) => {
+        const r = RADIUS * level;
+        const angle = i * angleStep - Math.PI / 2;
+        return `${CENTER + r * Math.cos(angle)},${CENTER + r * Math.sin(angle)}`;
+      }).join(" ");
+    });
+
+    const labels = SKILL_KEYS.map((item, i) => {
+      const r = RADIUS + 18;
+      const angle = i * angleStep - Math.PI / 2;
+      const x = CENTER + r * Math.cos(angle);
+      const y = CENTER + r * Math.sin(angle);
+      return { label: item.label, x, y };
+    });
+
+    const axes = SKILL_KEYS.map((_, i) => {
+      const angle = i * angleStep - Math.PI / 2;
+      return {
+        x2: CENTER + RADIUS * Math.cos(angle),
+        y2: CENTER + RADIUS * Math.sin(angle),
+      };
+    });
+
+    const polygonPoints = playerPoints.map((p) => `${p.x},${p.y}`).join(" ");
+
+    return { playerPoints, gridLevels, labels, axes, polygonPoints };
+  }, [skills]);
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 1. CABECERA Y TARJETA DEL USUARIO */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Mi Perfil</Text>
+          <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+            <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.profileCard}>
+          <Image
+            source={{
+              uri:
+                user?.avatarUrl ||
+                `https://api.dicebear.com/7.x/avataaars-neutral/png?seed=${user?.name || "PingPong"}`,
+            }}
+            style={styles.avatar}
+          />
+          <View style={styles.profileInfo}>
+            <Text style={styles.name}>
+              {user?.name} {user?.surname}
+            </Text>
+            <Text style={styles.level}>{user?.level || "Sin Clasificar"}</Text>
+
+            {/* Badges de ELO y Estilo */}
+            <View style={styles.badgeRow}>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: "rgba(16, 185, 129, 0.2)",
+                    borderColor: "#10b981",
+                  },
+                ]}
+              >
+                <Text style={[styles.badgeText, { color: "#10b981" }]}>
+                  {stats?.elo || 500} ELO
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: "rgba(59, 130, 246, 0.2)",
+                    borderColor: "#3b82f6",
+                  },
+                ]}
+              >
+                <Text style={[styles.badgeText, { color: "#3b82f6" }]}>
+                  {user?.playstyle || "Ofensivo"}
+                </Text>
+              </View>
+              {user?.dominantHand && (
+                <View
+                  style={[
+                    styles.badge,
+                    {
+                      backgroundColor: "rgba(156, 163, 175, 0.2)",
+                      borderColor: "#9ca3af",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.badgeText, { color: "#e5e7eb" }]}>
+                    {user.dominantHand}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Fila de Gomas de la Raqueta */}
+            {(forehandRubber || backhandRubber) && (
+              <View style={styles.rubbersRow}>
+                {forehandRubber && (
+                  <View style={styles.rubberTag}>
+                    <View
+                      style={[styles.colorDot, { backgroundColor: "#ef4444" }]}
+                    />
+                    <Text style={styles.rubberText}>Der: {forehandRubber}</Text>
+                  </View>
+                )}
+                {backhandRubber && (
+                  <View style={styles.rubberTag}>
+                    <View
+                      style={[
+                        styles.colorDot,
+                        {
+                          backgroundColor: "#4b5563",
+                          borderWidth: 1,
+                          borderColor: "#9ca3af",
+                        },
+                      ]}
+                    />
+                    <Text style={styles.rubberText}>Rev: {backhandRubber}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* 2. KPIs GLOBALES */}
+        <View style={styles.sectionHeader}>
+          <Ionicons name="stats-chart" size={20} color="#3b82f6" />
+          <Text style={styles.sectionTitle}>Rendimiento Global</Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.kpiContainer}
+        >
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>Win Rate</Text>
+            <Text style={styles.kpiValue}>{winRate}%</Text>
+            <Text style={styles.kpiSub}>Partidos totales</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>Partidos</Text>
+            <Text style={[styles.kpiValue, { color: "#10b981" }]}>
+              {totalWins}{" "}
+              <Text style={{ color: "#6b7280", fontSize: 16 }}>V</Text>
+            </Text>
+            <Text style={styles.kpiSub}>{totalMatches} Jugados</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <Text style={styles.kpiLabel}>Entrenos</Text>
+            <Text style={[styles.kpiValue, { color: "#f59e0b" }]}>
+              {stats?.manualMatchWon || 0}
+            </Text>
+            <Text style={styles.kpiSub}>Partidos manuales</Text>
+          </View>
+        </ScrollView>
+
+        {/* 3. RADAR DE HABILIDADES */}
+        <View style={styles.sectionHeader}>
+          <Ionicons name="analytics" size={20} color="#8b5cf6" />
+          <Text style={styles.sectionTitle}>Radar de Juego (12 Atributos)</Text>
+        </View>
+
+        <View style={styles.radarCard}>
+          <Svg width={RADAR_SIZE} height={RADAR_SIZE}>
+            {radarGeometry.gridLevels.map((points, idx) => (
+              <Polygon
+                key={idx}
+                points={points}
+                fill="none"
+                stroke="#374151"
+                strokeWidth={idx === 3 ? "1.5" : "0.8"}
+              />
+            ))}
+
+            {radarGeometry.axes.map((axis, idx) => (
+              <Line
+                key={idx}
+                x1={CENTER}
+                y1={CENTER}
+                x2={axis.x2}
+                y2={axis.y2}
+                stroke="#374151"
+                strokeWidth="0.8"
+              />
+            ))}
+
+            <Polygon
+              points={radarGeometry.polygonPoints}
+              fill="rgba(139, 92, 246, 0.35)"
+              stroke="#8b5cf6"
+              strokeWidth="2.5"
+            />
+
+            {radarGeometry.playerPoints.map((pt, idx) => (
+              <Circle key={idx} cx={pt.x} cy={pt.y} r="3" fill="#a78bfa" />
+            ))}
+
+            {radarGeometry.labels.map((lbl, idx) => (
+              <SvgText
+                key={idx}
+                x={lbl.x}
+                y={lbl.y}
+                fill="#9ca3af"
+                fontSize="9"
+                fontWeight="bold"
+                textAnchor="middle"
+                alignmentBaseline="central"
+              >
+                {lbl.label}
+              </SvgText>
+            ))}
+          </Svg>
+        </View>
+
+        {/* 4. DESGLOSE EN BARRAS DE PROGRESO */}
+        <View style={[styles.sectionHeader, { marginTop: 32 }]}>
+          <Ionicons name="fitness-outline" size={20} color="#8b5cf6" />
+          <Text style={styles.sectionTitle}>Atributos en Detalle</Text>
+        </View>
+
+        <View style={styles.skillsCard}>
+          {skillList.map((skill) => {
+            const color = getSkillColor(skill.value);
+            return (
+              <View key={skill.key} style={styles.skillRow}>
+                <View style={styles.skillHeader}>
+                  <Text style={styles.skillLabel}>{skill.label}</Text>
+                  <Text style={[styles.skillValue, { color }]}>
+                    {Math.round(skill.value)}{" "}
+                    <Text style={styles.skillMax}>/ 100</Text>
+                  </Text>
+                </View>
+
+                <View style={styles.progressBarBackground}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${Math.min(Math.max(skill.value, 2), 100)}%`,
+                        backgroundColor: color,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#111827" },
+  scrollContent: { padding: 24, paddingBottom: 40 },
+
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  headerTitle: { fontSize: 28, fontWeight: "bold", color: "#fff" },
+  logoutBtn: {
+    padding: 8,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderRadius: 8,
+  },
+
+  profileCard: {
+    flexDirection: "row",
+    backgroundColor: "#1f2937",
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#374151",
+    marginBottom: 32,
+    alignItems: "center",
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#374151",
+  },
+  profileInfo: { marginLeft: 16, flex: 1 },
+  name: { fontSize: 20, fontWeight: "bold", color: "#fff", marginBottom: 4 },
+  level: { fontSize: 14, color: "#9ca3af", marginBottom: 8 },
+  badgeRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  badgeText: { fontSize: 11, fontWeight: "bold" },
+
+  // Gomas de la raqueta
+  rubbersRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+    flexWrap: "wrap",
+  },
+  rubberTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#111827",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  colorDot: { width: 8, height: 8, borderRadius: 4 },
+  rubberText: { fontSize: 11, color: "#d1d5db", fontWeight: "500" },
+
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+    marginLeft: 8,
+  },
+
+  kpiContainer: { gap: 12, marginBottom: 32 },
+  kpiCard: {
+    backgroundColor: "#1f2937",
+    padding: 16,
+    borderRadius: 12,
+    width: 130,
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+  kpiLabel: {
+    fontSize: 12,
+    color: "#9ca3af",
+    textTransform: "uppercase",
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  kpiValue: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  kpiSub: { fontSize: 12, color: "#6b7280" },
+
+  radarCard: {
+    backgroundColor: "#1f2937",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+
+  skillsCard: {
+    backgroundColor: "#1f2937",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#374151",
+    gap: 16,
+  },
+  skillRow: { gap: 6 },
+  skillHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  skillLabel: { fontSize: 14, fontWeight: "600", color: "#e5e7eb" },
+  skillValue: { fontSize: 14, fontWeight: "bold" },
+  skillMax: { fontSize: 11, color: "#6b7280", fontWeight: "normal" },
+  progressBarBackground: {
+    height: 8,
+    backgroundColor: "#374151",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBarFill: { height: "100%", borderRadius: 4 },
+});
+
+
+================================================
+📂 ARCHIVO: src/screens/GamesScreen.tsx
+================================================
+
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+} from "react-native";
+import { useAuthStore } from "../store/authStore";
+
+export default function DashboardScreen() {
+  const { user, logout } = useAuthStore();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>Hola, {user?.name}</Text>
+      <Text style={styles.subtitle}>
+        Aquí irá tu radar de skills y estadísticas
+      </Text>
+
+      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: { fontSize: 28, fontWeight: "bold", color: "#fff", marginBottom: 10 },
+  subtitle: { fontSize: 16, color: "#9ca3af", marginBottom: 30 },
+  logoutBtn: {
+    borderColor: "#ef4444",
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+  },
+  logoutText: { color: "#ef4444", fontWeight: "bold" },
+});
+
+
+================================================
+📂 ARCHIVO: src/screens/LoginScreen.tsx
+================================================
+
+// src/screens/LoginScreen.tsx
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { api } from "../api/axios";
+import { useAuthStore } from "../store/authStore";
+
+export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const login = useAuthStore((state) => state.login);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Aviso", "Rellena todos los campos");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Usamos las rutas que limpiamos en el backend
+      const response = await api.post("/auth/login", {
+        email: email.toLowerCase().trim(),
+        password,
+      });
+
+      await login(response.data.token);
+    } catch (error: any) {
+      const msg =
+        error.response?.data?.error || "Error al conectar con el servidor";
+      Alert.alert("Error de acceso", msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>TM Evolve</Text>
+      <Text style={styles.subtitle}>Performance Tracker</Text>
+
+      <View style={styles.form}>
+        <TextInput
+          style={styles.input}
+          placeholder="Correo electrónico"
+          placeholderTextColor="#6b7280"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Contraseña"
+          placeholderTextColor="#6b7280"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.buttonText}>Iniciar Sesión</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#111827",
+    justifyContent: "center",
+    padding: 24,
+  },
+  title: {
+    fontSize: 40,
+    fontWeight: "bold",
+    color: "#ffffff",
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#3b82f6",
+    textAlign: "center",
+    marginBottom: 50,
+  },
+  form: {
+    gap: 16,
+  },
+  input: {
+    backgroundColor: "#1f2937",
+    color: "#ffffff",
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+  button: {
+    backgroundColor: "#3b82f6",
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  buttonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+});
+
+
+================================================
+📂 ARCHIVO: src/screens/ManualMatchesScreen.tsx
+================================================
+
+
+
+================================================
+📂 ARCHIVO: src/screens/TrackerScreen.tsx
+================================================
+
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+} from "react-native";
+import { useAuthStore } from "../store/authStore";
+
+export default function DashboardScreen() {
+  const { user, logout } = useAuthStore();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>Hola, {user?.name}</Text>
+      <Text style={styles.subtitle}>
+        Aquí irá tu radar de skills y estadísticas
+      </Text>
+
+      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: { fontSize: 28, fontWeight: "bold", color: "#fff", marginBottom: 10 },
+  subtitle: { fontSize: 16, color: "#9ca3af", marginBottom: 30 },
+  logoutBtn: {
+    borderColor: "#ef4444",
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+  },
+  logoutText: { color: "#ef4444", fontWeight: "bold" },
+});
+
+
+================================================
+📂 ARCHIVO: src/screens/TrainingsScreen.tsx
+================================================
+
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+} from "react-native";
+import { useAuthStore } from "../store/authStore";
+
+export default function DashboardScreen() {
+  const { user, logout } = useAuthStore();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>Hola, {user?.name}</Text>
+      <Text style={styles.subtitle}>
+        Aquí irá tu radar de skills y estadísticas
+      </Text>
+
+      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: { fontSize: 28, fontWeight: "bold", color: "#fff", marginBottom: 10 },
+  subtitle: { fontSize: 16, color: "#9ca3af", marginBottom: 30 },
+  logoutBtn: {
+    borderColor: "#ef4444",
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+  },
+  logoutText: { color: "#ef4444", fontWeight: "bold" },
+});
+
+
+================================================
+📂 ARCHIVO: src/store/authStore.ts
+================================================
+
+// src/store/authStore.ts
+import { create } from "zustand";
+import { api } from "../api/axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  surname?: string;
+  role: string;
+  clubId?: string | null;
+  dominantHand?: string | null;
+  playstyle?: string | null;
+  rubberForehand?: string | null;
+  rubberBackhand?: string | null;
+  avatarUrl?: string | null;
+  level?: string | null;
+
+  // Añadimos Stats y Skills como opcionales
+  stats?: any[] | any;
+  skills?: any[] | any;
+}
+
+interface AuthState {
+  token: string | null;
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (token: string) => Promise<void>;
+  logout: () => Promise<void>;
+  fetchProfile: () => Promise<void>;
+  initAuth: () => Promise<void>;
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  token: null,
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
+
+  login: async (token: string) => {
+    await AsyncStorage.setItem("pingpong_token", token);
+    set({ token, isAuthenticated: true });
+    await get().fetchProfile();
+  },
+
+  logout: async () => {
+    await AsyncStorage.removeItem("pingpong_token");
+    set({ token: null, user: null, isAuthenticated: false });
+  },
+
+  fetchProfile: async () => {
+    try {
+      const response = await api.get("/users/me");
+      const fullUser = response.data.data;
+
+      set({
+        user: { ...fullUser, role: fullUser.userType?.name || "Player" },
+        isAuthenticated: true,
+      });
+    } catch (error) {
+      console.error("Error obteniendo perfil:", error);
+      await get().logout();
+    }
+  },
+
+  initAuth: async () => {
+    try {
+      const storedToken = await AsyncStorage.getItem("pingpong_token");
+      if (storedToken) {
+        set({ token: storedToken, isAuthenticated: true });
+        await get().fetchProfile();
+      }
+    } catch (e) {
+      console.error("Error inicializando auth", e);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+}));

@@ -2,15 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 export interface UserPayload {
-  name: string;
-  surname: string;
-  nickname: string;
-  avatarUrl: string;
   id: string;
-  email: string;
   role: string;
   clubId?: string | null;
-  clubStatus?: string | null;
 }
 
 declare global {

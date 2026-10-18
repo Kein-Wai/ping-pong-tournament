@@ -95,7 +95,17 @@ router.post('/', requireAdminClub, async (req, res) => {
       });
     }
 
-    const { password, clubId, clubStatus, userTypeId, skills, elo, ...userData } = validation.data;
+    const {
+      password,
+      clubId,
+      clubStatus,
+      userTypeId,
+      skills,
+      elo,
+      rubberForehand,
+      rubberBackhand,
+      ...userData
+    } = validation.data;
 
     let plainPassword = password;
     let isGenerated = false;
@@ -149,6 +159,7 @@ router.post('/', requireAdminClub, async (req, res) => {
     const newUser = await prisma.user.create({
       data: {
         ...userData,
+        email: userData.email.toLowerCase().trim(),
         password: hashedPassword,
         forcePasswordChange: isGenerated,
         authProvider: 'LOCAL',
@@ -157,6 +168,8 @@ router.post('/', requireAdminClub, async (req, res) => {
         active: true, // Activado directamente porque lo crea el coach
         userTypeId: finalUserTypeId as string,
         stats: { create: { seasonId: currentSeason.id, elo: elo } },
+        rubberForehand: rubberForehand as any,
+        rubberBackhand: rubberBackhand as any,
         skills: {
           create: {
             seasonId: currentSeason.id,
@@ -190,6 +203,57 @@ router.post('/', requireAdminClub, async (req, res) => {
   }
 });
 
+// GET: Obtener el perfil completo del usuario logueado (Usado por el Frontend al iniciar app)
+router.get('/me', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'No autorizado' });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userType: true,
+        stats: true,
+        skills: true,
+      },
+    });
+
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Sumamos las mejoras pendientes igual que hacíamos en el GET /:id
+    const pendingUpdates = await prisma.playerSkillUpdate.aggregate({
+      where: { playerId: userId, status: 'EXPECTED' },
+      _sum: {
+        derechaPlano: true,
+        revesPlano: true,
+        topspinDerecha: true,
+        topspinReves: true,
+        corte: true,
+        bloqueoDerecha: true,
+        bloqueoReves: true,
+        servicio: true,
+        recepcion: true,
+        movilidad: true,
+        fortalezaMental: true,
+        experiencia: true,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...user,
+        pendingSkills: pendingUpdates._sum,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener el perfil' });
+  }
+});
+
+// router.put('/me', async (req, res) => { ...
+
 router.put('/me', async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -222,6 +286,8 @@ router.put('/me', async (req, res) => {
     if (data.dominantHand !== undefined) updateData.dominantHand = data.dominantHand;
     if (data.playstyle !== undefined) updateData.playstyle = data.playstyle;
     if (data.birthDate !== undefined) updateData.birthDate = data.birthDate;
+    if (data.rubberForehand !== undefined) updateData.rubberForehand = data.rubberForehand;
+    if (data.rubberBackhand !== undefined) updateData.rubberBackhand = data.rubberBackhand;
 
     if (data.newPassword) {
       if (user.password) {
@@ -353,15 +419,25 @@ router.put('/:id', requireAdminClub, async (req, res) => {
       return;
     }
 
-    const { elo, skills, ...dataToUpdate } = validation.data;
+    const { elo, skills, newPassword, confirmPassword, ...dataToUpdate } = validation.data;
 
     // 3. Prevenir que un AdminClub cambie de club a un jugador a la fuerza por aquí
     if (role === 'AdminClub') {
       delete dataToUpdate.clubId;
       delete dataToUpdate.clubStatus;
     }
+
+    // Si viene contraseña nueva, la procesamos
+    if (newPassword) {
+      dataToUpdate.password = await bcrypt.hash(newPassword, 10);
+    }
+
+    // Limpiamos los null de los strings que Prisma no quiera
+    if (dataToUpdate.email) dataToUpdate.email = dataToUpdate.email.toLowerCase().trim();
+
     const currentSeason = await getCurrentSeason(prisma);
 
+    // 4. Actualizamos usuario, stats (elo) y skills
     const updatedUser = await prisma.user.update({
       where: { id: id },
       data: {
@@ -369,20 +445,28 @@ router.put('/:id', requireAdminClub, async (req, res) => {
         ...(elo !== undefined && {
           stats: {
             upsert: {
-              // 👇 Usamos la clave compuesta
               where: {
-                userId_seasonId: {
-                  userId: id,
-                  seasonId: currentSeason.id,
-                },
+                userId_seasonId: { userId: id, seasonId: currentSeason.id },
               },
               create: { seasonId: currentSeason.id, elo: elo },
               update: { elo: elo },
             },
           },
         }),
+        // 👇 AÑADIDO: Si envían 'skills' desde el admin, forzamos la actualización de sus stats puros
+        ...(skills && {
+          skills: {
+            upsert: {
+              where: {
+                userId_seasonId: { userId: id, seasonId: currentSeason.id },
+              },
+              create: { seasonId: currentSeason.id, ...skills },
+              update: skills, // Sobreescribimos con lo que diga el admin
+            },
+          },
+        }),
       },
-      include: { stats: true },
+      include: { stats: true, skills: true },
     });
 
     res.json(updatedUser);
@@ -437,7 +521,17 @@ router.post('/guest', requireAdminClub, async (req, res) => {
     }
 
     // 👇 2. EXTRAER DATOS LIMPIOS Y SEGUROS
-    const { name, surname, level, dominantHand, playstyle, elo, skills } = validation.data;
+    const {
+      name,
+      surname,
+      level,
+      dominantHand,
+      playstyle,
+      elo,
+      skills,
+      rubberForehand,
+      rubberBackhand,
+    } = validation.data;
     const clubId = req.user?.clubId;
 
     if (!clubId) return res.status(403).json({ error: 'No tienes club asignado' });
@@ -477,6 +571,8 @@ router.post('/guest', requireAdminClub, async (req, res) => {
         level,
         dominantHand,
         playstyle,
+        rubberForehand: rubberForehand as any,
+        rubberBackhand: rubberBackhand as any,
         password: fakePassword,
         authProvider: 'LOCAL',
         active: true,

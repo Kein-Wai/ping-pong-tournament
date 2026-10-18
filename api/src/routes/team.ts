@@ -10,6 +10,7 @@ import {
   updateTeamSchema,
 } from '../schemas/team';
 import { getCurrentSeason } from '../utils/season';
+import { hasClubPermission } from '../utils/auth';
 
 const router = Router();
 
@@ -124,7 +125,7 @@ router.put('/:id/players', verifyToken, requireAdminClub, async (req, res) => {
     }
 
     const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team || (req.user?.role === 'AdminClub' && team.clubId !== adminClubId)) {
+    if (!team || !hasClubPermission(req.user, team.clubId)) {
       return res.status(404).json({ error: 'Equipo no encontrado o sin permisos' });
     }
 
@@ -170,7 +171,7 @@ router.post('/:id/matches', verifyToken, requireAdminClub, async (req, res) => {
     }
 
     const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team || (req.user?.role === 'AdminClub' && team.clubId !== adminClubId)) {
+    if (!team || !hasClubPermission(req.user, team.clubId)) {
       return res.status(404).json({ error: 'Equipo no encontrado o sin permisos' });
     }
 
@@ -251,7 +252,7 @@ router.delete('/matches/:matchId', verifyToken, requireAdminClub, async (req, re
 
     if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
 
-    if (req.user?.role === 'AdminClub' && match.team.clubId !== adminClubId) {
+    if (!hasClubPermission(req.user, match.team.clubId)) {
       return res.status(403).json({ error: 'No tienes permiso para eliminar este partido' });
     }
 
@@ -277,7 +278,7 @@ router.put('/:id', requireAdminClub, async (req, res) => {
     }
 
     const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team || (req.user?.role === 'AdminClub' && team.clubId !== adminClubId)) {
+    if (!team || !hasClubPermission(req.user, team.clubId)) {
       return res.status(404).json({ error: 'Equipo no encontrado o sin permisos' });
     }
 
@@ -300,7 +301,7 @@ router.delete('/:id', verifyToken, requireAdminClub, async (req, res) => {
     const adminClubId = req.user?.clubId;
 
     const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team || (req.user?.role === 'AdminClub' && team.clubId !== adminClubId)) {
+    if (!team || !hasClubPermission(req.user, team.clubId)) {
       return res.status(404).json({ error: 'Equipo no encontrado o sin permisos' });
     }
 

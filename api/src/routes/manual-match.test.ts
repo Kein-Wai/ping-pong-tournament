@@ -3,8 +3,8 @@ import request from 'supertest';
 import { app } from '../../src/index';
 import prisma from '../../src/db';
 
-vi.mock('../../src/db', () => ({
-  default: {
+vi.mock('../../src/db', () => {
+  const dbMock = {
     season: {
       findFirst: vi
         .fn()
@@ -22,9 +22,14 @@ vi.mock('../../src/db', () => ({
     pointAnalysis: { create: vi.fn(), delete: vi.fn() },
     playerSkills: { findUnique: vi.fn(), findFirst: vi.fn() },
     playerSkillUpdate: { create: vi.fn() },
-    $transaction: vi.fn(async (cb) => cb(prisma)),
-  },
-}));
+    stats: { upsert: vi.fn() }, // 👈 FALTABA SIMULAR LA TABLA STATS
+  };
+
+  // Esto hace que la transacción herede todas las funciones correctamente
+  (dbMock as any).$transaction = vi.fn(async (cb) => cb(dbMock));
+
+  return { default: dbMock };
+});
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => {
@@ -81,7 +86,7 @@ describe('Rutas de Análisis Pro (/api/manual-matches)', () => {
       id: 'mm-1',
       status: 'Completado',
     } as any);
-    vi.mocked(prisma.playerSkills.findUnique).mockResolvedValue({
+    vi.mocked(prisma.playerSkills.findFirst).mockResolvedValue({
       fortalezaMental: 50,
       experiencia: 50,
     } as any);

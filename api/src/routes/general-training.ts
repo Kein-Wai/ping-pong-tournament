@@ -10,6 +10,7 @@ import {
   updateGeneralTrainingSchema,
 } from '../schemas/generalTraining';
 import { getCurrentSeason } from '../utils/season';
+import { calculateConditionalGrowth } from '../utils/skills';
 
 const router = Router();
 
@@ -17,16 +18,6 @@ const router = Router();
 const getClubWhere = (req: any) => {
   if (req.user?.role === 'SuperAdmin') return {}; // El SuperAdmin lo ve todo
   return { clubId: req.user?.clubId };
-};
-
-// Tu fórmula maestra de rendimientos decrecientes
-const calculateGrowth = (isTrained: boolean, currentStat: number): number => {
-  if (!isTrained) return 0;
-  if (currentStat < 20) return 0.25;
-  if (currentStat < 40) return 0.2;
-  if (currentStat < 60) return 0.15;
-  if (currentStat < 80) return 0.07;
-  return 0.01;
 };
 
 // ==========================================
@@ -332,21 +323,39 @@ router.put('/:id/attendance/bulk', requireAdminClub, async (req, res) => {
           sourceType: 'EntrenamientoGeneral' as any,
           generalTrainingId: trainingId,
           status: 'EXPECTED' as any,
-          derechaPlano: calculateGrowth(tpl.derechaPlano, getSkillLevel(pId, 'derechaPlano')),
-          revesPlano: calculateGrowth(tpl.revesPlano, getSkillLevel(pId, 'revesPlano')),
-          topspinDerecha: calculateGrowth(tpl.topspinDerecha, getSkillLevel(pId, 'topspinDerecha')),
-          topspinReves: calculateGrowth(tpl.topspinReves, getSkillLevel(pId, 'topspinReves')),
-          corte: calculateGrowth(tpl.corte, getSkillLevel(pId, 'corte')),
-          bloqueoDerecha: calculateGrowth(tpl.bloqueoDerecha, getSkillLevel(pId, 'bloqueoDerecha')),
-          bloqueoReves: calculateGrowth(tpl.bloqueoReves, getSkillLevel(pId, 'bloqueoReves')),
-          servicio: calculateGrowth(tpl.servicio, getSkillLevel(pId, 'servicio')),
-          recepcion: calculateGrowth(tpl.recepcion, getSkillLevel(pId, 'recepcion')),
-          movilidad: calculateGrowth(tpl.movilidad, getSkillLevel(pId, 'movilidad')),
-          fortalezaMental: calculateGrowth(
+          derechaPlano: calculateConditionalGrowth(
+            tpl.derechaPlano,
+            getSkillLevel(pId, 'derechaPlano'),
+          ),
+          revesPlano: calculateConditionalGrowth(tpl.revesPlano, getSkillLevel(pId, 'revesPlano')),
+          topspinDerecha: calculateConditionalGrowth(
+            tpl.topspinDerecha,
+            getSkillLevel(pId, 'topspinDerecha'),
+          ),
+          topspinReves: calculateConditionalGrowth(
+            tpl.topspinReves,
+            getSkillLevel(pId, 'topspinReves'),
+          ),
+          corte: calculateConditionalGrowth(tpl.corte, getSkillLevel(pId, 'corte')),
+          bloqueoDerecha: calculateConditionalGrowth(
+            tpl.bloqueoDerecha,
+            getSkillLevel(pId, 'bloqueoDerecha'),
+          ),
+          bloqueoReves: calculateConditionalGrowth(
+            tpl.bloqueoReves,
+            getSkillLevel(pId, 'bloqueoReves'),
+          ),
+          servicio: calculateConditionalGrowth(tpl.servicio, getSkillLevel(pId, 'servicio')),
+          recepcion: calculateConditionalGrowth(tpl.recepcion, getSkillLevel(pId, 'recepcion')),
+          movilidad: calculateConditionalGrowth(tpl.movilidad, getSkillLevel(pId, 'movilidad')),
+          fortalezaMental: calculateConditionalGrowth(
             tpl.fortalezaMental,
             getSkillLevel(pId, 'fortalezaMental'),
           ),
-          experiencia: calculateGrowth(tpl.experiencia, getSkillLevel(pId, 'experiencia')),
+          experiencia: calculateConditionalGrowth(
+            tpl.experiencia,
+            getSkillLevel(pId, 'experiencia'),
+          ),
         }));
 
         await tx.playerSkillUpdate.createMany({ data: updatesData });

@@ -1,6 +1,7 @@
 import { PrismaClient, MatchStatus } from '@prisma/client';
 import { POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
 import { calculateMatchResults } from './match';
+import { getCurrentSeason } from './season';
 
 // Función auxiliar para calcular la variación de ELO de un partido
 const calculateEloDeltas = (p1Score: number, p2Score: number, p1WinsMatch: boolean) => {
@@ -219,4 +220,20 @@ export const handleMatchStatsUpdate = async (
       ],
     });
   }
+};
+
+// Helper para obtener las estadísticas actuales de un jugador
+export const getPlayerCurrentStats = async (prisma: PrismaClient, playerId: string) => {
+  const currentSeason = await getCurrentSeason(prisma);
+  return await prisma.stats.findUnique({
+    where: { userId_seasonId: { userId: playerId, seasonId: currentSeason.id } },
+  });
+};
+
+// Helper para obtener las habilidades (RPG) actuales de un jugador
+export const getPlayerCurrentSkills = async (prisma: PrismaClient, playerId: string) => {
+  const currentSeason = await getCurrentSeason(prisma);
+  return await prisma.playerSkills.findUnique({
+    where: { userId_seasonId: { userId: playerId, seasonId: currentSeason.id } },
+  });
 };

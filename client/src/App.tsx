@@ -30,6 +30,7 @@ import { ForgotPassword } from './pages/Auth/ForgotPassword';
 import { ResetPassword } from './pages/Auth/ResetPassword';
 import { CalendarioEventos } from './pages/Eventos/CalendarioEventos';
 import { PoliticaPrivacidad } from './pages/Legal/PoliticaPrivacidad';
+import { ExcelTournamentCreator } from './pages/Torneos/ExcelTournamentCreator';
 
 import { Equipos } from './pages/Equipos/Equipos';
 import { EquipoNuevo } from './pages/Equipos/EquipoNuevo';
@@ -100,28 +101,35 @@ const CustomSplashScreen = () => {
 // Componente interno que ya vive dentro de BrowserRouter
 function AppContent() {
   const navigate = useNavigate();
-  const logout = useAuthStore((state) => state.logout);
-  const token = useAuthStore((state) => state.token);
+  const { logout, token, user, fetchProfile } = useAuthStore();
+  const [isInitializing, setIsInitializing] = useState(true); // 👈 Añadido estado de carga
 
   useEffect(() => {
-    if (token) {
-      try {
-        const payloadBase64 = token.split('.')[1];
-        const decodedPayload = JSON.parse(atob(payloadBase64));
+    const initializeAuth = async () => {
+      if (token) {
+        try {
+          const payloadBase64 = token.split('.')[1];
+          const decodedPayload = JSON.parse(atob(payloadBase64));
+          const currentTime = Math.floor(Date.now() / 1000);
 
-        const currentTime = Math.floor(Date.now() / 1000);
-
-        if (decodedPayload.exp && decodedPayload.exp < currentTime) {
-          console.warn('Token caducado, cerrando sesión...');
+          if (decodedPayload.exp && decodedPayload.exp < currentTime) {
+            console.warn('Token caducado, cerrando sesión...');
+            logout();
+            navigate('/login');
+          } else if (!user) {
+            // Si el token es válido pero aún no tenemos los datos del usuario, los traemos
+            await fetchProfile();
+          }
+        } catch (e) {
+          console.error('Token inválido', e);
           logout();
-          navigate('/login');
         }
-      } catch (e) {
-        console.error('Token inválido', e);
-        logout();
       }
-    }
-  }, [token, navigate, logout]);
+      setIsInitializing(false); // Terminamos de cargar
+    };
+
+    initializeAuth();
+  }, [token, navigate, logout, fetchProfile]);
 
   useEffect(() => {
     const listener = CapApp.addListener('appUrlOpen', (data) => {
@@ -137,6 +145,11 @@ function AppContent() {
       listener.then((h) => h.remove());
     };
   }, [navigate]);
+
+  // Evitamos pintar las rutas protegidas mientras traemos los datos por primera vez
+  if (isInitializing && token) {
+    return null; // O pon un Spinner si prefieres
+  }
 
   return (
     <>
@@ -159,6 +172,10 @@ function AppContent() {
 
                 <Route path={APP_ROUTES.TORNEOS.LIST} element={<Torneos />} />
                 <Route path={APP_ROUTES.TORNEOS.NEW} element={<TorneoNuevo />} />
+                <Route
+                  path={APP_ROUTES.TORNEOS.EXCEL_CREATOR}
+                  element={<ExcelTournamentCreator />}
+                />
                 <Route path={APP_ROUTES.TORNEOS.DETAILS_PATH} element={<TorneoDetalles />} />
 
                 <Route path={APP_ROUTES.JUGADORES.LIST} element={<Jugadores />} />

@@ -8,6 +8,13 @@ vi.mock('../../src/db', () => ({
   default: {
     user: {
       findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn().mockResolvedValue({
+        id: 'user-id-123',
+        email: 'test@test.com',
+        name: 'Test',
+        clubStatus: 'Aprobado',
+        clubId: 'club-1',
+      }),
     },
     season: {
       findFirst: vi

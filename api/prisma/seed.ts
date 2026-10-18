@@ -922,6 +922,41 @@ const schedulesCTM = [
 async function main() {
   console.log('🌱 Iniciando Seed CTM Costa Azahar...');
 
+  // ==========================================
+  // 1. LIMPIEZA PREVIA (BORRAR TODO LO DE CTM COSTA AZAHAR)
+  // ==========================================
+  console.log(
+    '🧹 Limpiando base de datos (eliminando datos antiguos del club CTM Costa Azahar)...',
+  );
+  const existingClub = await prisma.club.findFirst({
+    where: { name: 'CTM Costa Azahar' },
+  });
+
+  if (existingClub) {
+    // Buscar y borrar partidos de los equipos de este club
+    const teams = await prisma.team.findMany({ where: { clubId: existingClub.id } });
+    const teamIds = teams.map((t) => t.id);
+    await prisma.teamMatch.deleteMany({ where: { teamId: { in: teamIds } } });
+
+    // Borrar equipos, eventos, horarios y notificaciones del club
+    await prisma.team.deleteMany({ where: { clubId: existingClub.id } });
+    await prisma.clubEvent.deleteMany({ where: { clubId: existingClub.id } });
+    await prisma.generalTrainingSchedule.deleteMany({ where: { clubId: existingClub.id } });
+
+    // Buscar y borrar a todos los jugadores del club (y sus métricas asociadas)
+    const users = await prisma.user.findMany({ where: { clubId: existingClub.id } });
+    const userIds = users.map((u) => u.id);
+
+    // Borrar habilidades y estadísticas de los jugadores antes de borrarlos a ellos
+    await prisma.playerSkills.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.stats.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.user.deleteMany({ where: { clubId: existingClub.id } });
+
+    // Finalmente borrar el propio club
+    await prisma.club.delete({ where: { id: existingClub.id } });
+    console.log('🗑️ Datos anteriores de CTM Costa Azahar eliminados correctamente.');
+  }
+
   const adminClubRoleId = await prisma.userType.findFirst({
     where: { name: TypeUser.AdminClub },
   });
@@ -998,6 +1033,268 @@ async function main() {
   //     active: true,
   //   },
   // });
+
+  console.log('👥 Generando Plantilla de Jugadores...');
+
+  const LEVEL_BASE_STATS: Record<string, number> = {
+    Iniciacion: 0,
+    Principiante: 20,
+    Intermedio: 40,
+    Avanzado: 60,
+    Profesional: 80,
+  };
+
+  const jugadoresList = [
+    {
+      name: 'Pablo',
+      surname: 'Garcia',
+      level: 'Avanzado',
+      email: 'pablo.garcia@tm.local',
+      team: 'Castelló Ape',
+    },
+    {
+      name: 'Julian',
+      surname: 'Zapata',
+      level: 'Avanzado',
+      email: 'julian.zapata@tm.local',
+      team: 'Castelló Ape',
+    },
+    {
+      name: 'Marc',
+      surname: 'Sanchez',
+      level: 'Avanzado',
+      email: 'marc.sanchez@tm.local',
+      team: 'Castelló Ape',
+    },
+    {
+      name: 'Ivan',
+      surname: 'Caballero',
+      level: 'Avanzado',
+      email: 'ivan.caballero@tm.local',
+      team: 'Castelló Ape',
+    },
+    {
+      name: 'Augusto',
+      surname: '',
+      level: 'Avanzado',
+      email: 'augusto@tm.local',
+      team: 'Castelló Ape',
+    },
+    {
+      name: 'Daniel',
+      surname: 'Chanes',
+      level: 'Intermedio',
+      email: 'daniel.chanes@tm.local',
+      team: 'Castalia',
+    },
+    {
+      name: 'Iker',
+      surname: 'Amo',
+      level: 'Intermedio',
+      email: 'iker.amo@tm.local',
+      team: 'Castalia',
+    },
+    {
+      name: 'Óscar',
+      surname: 'Magdalena',
+      level: 'Intermedio',
+      email: 'oscar.magdalena@tm.local',
+      team: 'Tombatossals',
+    },
+    {
+      name: 'Josep',
+      surname: 'Gramanetge',
+      level: 'Intermedio',
+      email: 'josep.gramanetge@tm.local',
+    },
+    {
+      name: 'Juan Ignacio',
+      surname: 'Iranzo',
+      level: 'Principiante',
+      email: 'juanignacio.iranzo@tm.local',
+      team: 'Tombatossals',
+    },
+    {
+      name: 'Roberto',
+      surname: 'Pizarroso',
+      level: 'Principiante',
+      email: 'roberto.pizarroso@tm.local',
+      team: 'Tombatossals',
+    },
+    {
+      name: 'Jaume',
+      surname: 'Puig',
+      level: 'Principiante',
+      email: 'jaume.puig@tm.local',
+      team: 'Tombatossals',
+    },
+    {
+      name: 'Jorge',
+      surname: 'Villalba',
+      level: 'Principiante',
+      email: 'jorge.villalba@tm.local',
+      team: 'Tombatossals',
+    },
+    {
+      name: 'Bruno',
+      surname: '',
+      level: 'Iniciacion',
+      email: 'bruno@tm.local',
+      team: 'Tombatossals',
+    },
+
+    {
+      name: 'Abel',
+      surname: '',
+      level: 'Principiante',
+      email: 'abel@tm.local',
+      team: 'Arrancapins',
+    },
+    {
+      name: 'Jaime',
+      surname: '',
+      level: 'Iniciacion',
+      email: 'jaime@tm.local',
+      team: 'Arrancapins',
+    },
+    { name: 'Jan', surname: '', level: 'Principiante', email: 'jan@tm.local', team: 'Arrancapins' },
+    {
+      name: 'Eric',
+      surname: '',
+      level: 'Principiante',
+      email: 'eric@tm.local',
+      team: 'Arrancapins',
+    },
+    { name: 'Toni', surname: '', level: 'Iniciacion', email: 'toni@tm.local', team: 'Arrancapins' },
+
+    { name: 'Zhao', surname: 'Yang', level: 'Iniciacion', email: 'zhao.yang@tm.local' },
+    { name: 'Jabo', surname: '', level: 'Iniciacion', email: 'jabo@tm.local' },
+    { name: 'Xinhe', surname: 'Yang', level: 'Iniciacion', email: 'xinhe.yang@tm.local' },
+    { name: 'Andrés', surname: '', level: 'Iniciacion', email: 'andres@tm.local' },
+    { name: 'Aarón', surname: '', level: 'Iniciacion', email: 'aaron@tm.local' },
+    { name: 'Simón', surname: '', level: 'Iniciacion', email: 'simon@tm.local' },
+    { name: 'Gabriel', surname: '', level: 'Iniciacion', email: 'gabriel@tm.local' },
+    { name: 'Elías', surname: '', level: 'Iniciacion', email: 'elias@tm.local' },
+    { name: 'Juan', surname: '', level: 'Iniciacion', email: 'juan1@tm.local' },
+    { name: 'Christian', surname: '', level: 'Iniciacion', email: 'christian@tm.local' },
+    { name: 'Carlos', surname: '', level: 'Iniciacion', email: 'carlos@tm.local' },
+    { name: 'Rafa', surname: '(Nito)', level: 'Iniciacion', email: 'rafa.nito@tm.local' },
+    { name: 'Marc', surname: '', level: 'Iniciacion', email: 'marc1@tm.local' },
+    { name: 'Adrià', surname: '', level: 'Iniciacion', email: 'adria@tm.local' },
+    { name: 'Pedro', surname: '', level: 'Iniciacion', email: 'pedro@tm.local' },
+    { name: 'Pep', surname: '', level: 'Iniciacion', email: 'pep@tm.local' },
+    { name: 'Jordi', surname: '', level: 'Iniciacion', email: 'jordi@tm.local' },
+    { name: 'Rebeca', surname: '', level: 'Iniciacion', email: 'rebeca@tm.local' },
+    { name: 'Nico', surname: '', level: 'Iniciacion', email: 'nico@tm.local' },
+    { name: 'Rafa', surname: '', level: 'Iniciacion', email: 'rafa1@tm.local' },
+    { name: 'Juan', surname: 'Marcos', level: 'Iniciacion', email: 'juan.marcos@tm.local' },
+    { name: 'Ximo', surname: '', level: 'Iniciacion', email: 'ximo@tm.local' },
+    { name: 'Enrique', surname: '', level: 'Iniciacion', email: 'enrique@tm.local' },
+    { name: 'Guillem', surname: '', level: 'Iniciacion', email: 'guillem@tm.local' },
+    { name: 'Jorge', surname: '', level: 'Iniciacion', email: 'jorge1@tm.local' },
+    { name: 'Pascual', surname: '', level: 'Iniciacion', email: 'pascual@tm.local' },
+    { name: 'Ximo', surname: 'P.', level: 'Iniciacion', email: 'ximo.p@tm.local' },
+    { name: 'José', surname: 'Antonio', level: 'Iniciacion', email: 'jose.antonio@tm.local' },
+    { name: 'José', surname: 'Pizana', level: 'Iniciacion', email: 'jose.pizana@tm.local' },
+    { name: 'Ignacio', surname: '', level: 'Iniciacion', email: 'ignacio@tm.local' },
+    { name: 'Dani', surname: 'Z.', level: 'Iniciacion', email: 'dani.z@tm.local' },
+    { name: 'Rode', surname: '', level: 'Iniciacion', email: 'rode@tm.local' },
+    { name: 'Santos', surname: '', level: 'Iniciacion', email: 'santos@tm.local' },
+    { name: 'Susana', surname: '', level: 'Iniciacion', email: 'susana@tm.local' },
+    { name: 'Ximo', surname: '', level: 'Iniciacion', email: 'ximo1@tm.local' },
+    { name: 'Pau', surname: '', level: 'Iniciacion', email: 'pau@tm.local' },
+    { name: 'Edu', surname: '', level: 'Iniciacion', email: 'edu@tm.local' },
+    { name: 'Rubén', surname: '', level: 'Iniciacion', email: 'ruben@tm.local' },
+    { name: 'Peter', surname: '', level: 'Iniciacion', email: 'peter@tm.local' },
+    { name: 'J.', surname: 'Ramón', level: 'Iniciacion', email: 'j.ramon@tm.local' },
+    { name: 'José', surname: 'Avellaneda', level: 'Iniciacion', email: 'jose.avellaneda@tm.local' },
+    { name: 'Abraham', surname: '', level: 'Iniciacion', email: 'abraham@tm.local' },
+    { name: 'David', surname: '', level: 'Iniciacion', email: 'david@tm.local' },
+    { name: 'Oliver', surname: '', level: 'Iniciacion', email: 'oliver@tm.local' },
+    { name: 'Gael', surname: '', level: 'Iniciacion', email: 'gael@tm.local' },
+    { name: 'Gorka', surname: '', level: 'Iniciacion', email: 'gorka@tm.local' },
+    { name: 'Daniel', surname: '(Pele)', level: 'Iniciacion', email: 'daniel.pele@tm.local' },
+    { name: 'Ramiro', surname: '', level: 'Iniciacion', email: 'ramiro@tm.local' },
+    { name: 'Saïd', surname: '', level: 'Iniciacion', email: 'said@tm.local' },
+    { name: 'Eduardo', surname: '', level: 'Iniciacion', email: 'eduardo@tm.local' },
+    { name: 'Jose', surname: '', level: 'Iniciacion', email: 'jose1@tm.local' },
+    { name: 'Mand-Fond', surname: 'Kwan', level: 'Iniciacion', email: 'mandfond.kwan@tm.local' },
+    { name: 'Xema', surname: '', level: 'Iniciacion', email: 'xema@tm.local' },
+    { name: 'Tomás', surname: '', level: 'Iniciacion', email: 'tomas@tm.local' },
+    { name: 'Fauro', surname: '', level: 'Iniciacion', email: 'fauro@tm.local' },
+    { name: 'Arturo', surname: '', level: 'Iniciacion', email: 'arturo@tm.local' },
+    { name: 'Roberto', surname: '', level: 'Iniciacion', email: 'roberto1@tm.local' },
+    { name: 'Iván', surname: 'Arazo', level: 'Iniciacion', email: 'ivan.arazo@tm.local' },
+    { name: 'Javi', surname: 'R.', level: 'Iniciacion', email: 'javi.r@tm.local' },
+    { name: 'Víctor', surname: '', level: 'Iniciacion', email: 'victor@tm.local' },
+  ];
+
+  const playerRoleId = await prisma.userType.findFirst({
+    where: { name: TypeUser.Player },
+  });
+
+  const passwordDefault = await bcrypt.hash('123456', 10);
+
+  // Mapeamos los jugadores y los creamos uno a uno calculando su baseSkill
+  for (const jugador of jugadoresList) {
+    const baseSkill = LEVEL_BASE_STATS[jugador.level] || 0;
+
+    // Calculamos el ELO base aproximado sumando +500 al baseSkill * 5, o fijamos valores.
+    let eloBase = 500;
+    if (jugador.level === 'Principiante') eloBase = 550;
+    if (jugador.level === 'Intermedio') eloBase = 650;
+    if (jugador.level === 'Avanzado') eloBase = 800;
+
+    await prisma.user.create({
+      data: {
+        email: jugador.email,
+        name: jugador.name,
+        surname: jugador.surname !== '' ? jugador.surname : undefined,
+        userTypeId: playerRoleId?.id as string,
+        clubId: club.id,
+        clubStatus: 'Aprobado',
+        level: jugador.level as any,
+        password: passwordDefault,
+        authProvider: 'LOCAL',
+        active: true,
+        rubberForehand: 'LISA',
+        rubberBackhand: 'LISA',
+        stats: {
+          create: {
+            seasonId: currentSeason?.id as string,
+            elo: eloBase,
+            matchWon: 0,
+            matchLost: 0,
+            setWon: 0,
+            setLost: 0,
+            pointWon: 0,
+            pointLost: 0,
+            tournamentWon: 0,
+            tournamentPart: 0,
+          },
+        },
+        skills: {
+          create: {
+            seasonId: currentSeason?.id as string,
+            derechaPlano: baseSkill,
+            revesPlano: baseSkill,
+            topspinDerecha: baseSkill,
+            topspinReves: baseSkill,
+            corte: baseSkill,
+            bloqueoDerecha: baseSkill,
+            bloqueoReves: baseSkill,
+            servicio: baseSkill,
+            recepcion: baseSkill,
+            movilidad: baseSkill,
+            fortalezaMental: baseSkill,
+            experiencia: baseSkill,
+          },
+        },
+      },
+    });
+  }
+
+  console.log(`✅ Creados ${jugadoresList.length} jugadores en la plantilla del club.`);
 
   console.log('🛡️ Generando Equipos...');
   const dbTeams: Record<string, string> = {};

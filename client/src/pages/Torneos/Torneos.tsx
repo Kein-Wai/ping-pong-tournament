@@ -24,12 +24,13 @@ import {
   IconTournament,
   IconBuildingCommunity,
   IconPlus,
+  IconFileExcel,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/axios';
 import { useAuthStore } from '../../store/authStore';
 import { ENDPOINTS } from '../../api/endpoints';
-
+import { APP_ROUTES } from '../../constants/routes';
 // Interfaz actualizada con soporte Multi-tenant
 interface Tournament {
   id: string;
@@ -136,13 +137,23 @@ export const Torneos = () => {
           <Title order={2}>Torneos</Title>
         </Group>
         {canCreateTournament && (
-          <Button
-            leftSection={<IconPlus size={16} />}
-            color="blue"
-            onClick={() => navigate('/torneos/nuevo')}
-          >
-            Crear Torneo
-          </Button>
+          <Group gap="sm">
+            <Button
+              variant="light"
+              color="green"
+              leftSection={<IconFileExcel size={16} />}
+              onClick={() => navigate(APP_ROUTES.TORNEOS.EXCEL_CREATOR)}
+            >
+              Crear Torneo Excel
+            </Button>
+            <Button
+              leftSection={<IconPlus size={16} />}
+              color="blue"
+              onClick={() => navigate(APP_ROUTES.TORNEOS.NEW)}
+            >
+              Crear Torneo
+            </Button>
+          </Group>
         )}
       </Group>
 
@@ -181,7 +192,7 @@ export const Torneos = () => {
               display="flex"
               style={{ flexDirection: 'column' }}
               className="hover-card"
-              onClick={() => navigate(`/torneos/${t.id}`)}
+              onClick={() => navigate(APP_ROUTES.TORNEOS.DETAILS(t.id))}
             >
               <Card.Section withBorder inheritPadding py="xs">
                 <Group justify="space-between" wrap="nowrap">
@@ -242,7 +253,7 @@ export const Torneos = () => {
                 color="blue"
                 fullWidth
                 mt="auto"
-                onClick={() => navigate(`/torneos/${t.id}`)}
+                onClick={() => navigate(APP_ROUTES.TORNEOS.DETAILS(t.id))}
               >
                 Ver Detalles
               </Button>

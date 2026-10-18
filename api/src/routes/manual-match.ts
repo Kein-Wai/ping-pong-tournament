@@ -9,6 +9,8 @@ import {
 } from '../schemas/manualMatch';
 import { MatchStatus } from '@prisma/client';
 import { getCurrentSeason } from '../utils/season';
+import { calculateSkillGrowth } from '../utils/skills';
+import { getPlayerCurrentSkills } from '../utils/stats';
 
 const router = Router();
 
@@ -163,21 +165,45 @@ router.put('/:id/complete', async (req, res) => {
           mySets: validation.data.mySets,
           opponentSets: validation.data.opponentSets,
           lightNotes: validation.data.lightNotes,
+          setScores: validation.data.setScores ? validation.data.setScores : undefined, // 👈 Se guarda como JSON
+        },
+      });
+
+      let myTotalPoints = 0;
+      let oppTotalPoints = 0;
+      if (validation.data.setScores) {
+        validation.data.setScores.forEach((s) => {
+          myTotalPoints += s.myScore;
+          oppTotalPoints += s.oppScore;
+        });
+      }
+      const isWin = validation.data.mySets > validation.data.opponentSets;
+
+      // 👇 NUEVO: Inyectar en Stats las métricas personales
+      await tx.stats.upsert({
+        where: { userId_seasonId: { userId, seasonId: currentSeason.id } },
+        create: {
+          userId,
+          seasonId: currentSeason.id,
+          manualMatchWon: isWin ? 1 : 0,
+          manualMatchLost: isWin ? 0 : 1,
+          manualSetWon: validation.data.mySets,
+          manualSetLost: validation.data.opponentSets,
+          manualPointWon: myTotalPoints,
+          manualPointLost: oppTotalPoints,
+        },
+        update: {
+          manualMatchWon: { increment: isWin ? 1 : 0 },
+          manualMatchLost: { increment: isWin ? 0 : 1 },
+          manualSetWon: { increment: validation.data.mySets },
+          manualSetLost: { increment: validation.data.opponentSets },
+          manualPointWon: { increment: myTotalPoints },
+          manualPointLost: { increment: oppTotalPoints },
         },
       });
 
       // Obtener stats y aplicar curva decreciente
-      const userSkills = await tx.playerSkills.findFirst({
-        where: { userId, seasonId: currentSeason.id },
-      });
-      const getGrowth = (stat?: number) => {
-        const val = stat || 0;
-        if (val < 20) return 0.25;
-        if (val < 40) return 0.2;
-        if (val < 60) return 0.15;
-        if (val < 80) return 0.07;
-        return 0.01;
-      };
+      const userSkills = await getPlayerCurrentSkills(tx as any, userId);
 
       // Inyectar subida al tracker personal
       await tx.playerSkillUpdate.create({
@@ -185,8 +211,8 @@ router.put('/:id/complete', async (req, res) => {
           playerId: userId,
           sourceType: 'Partido',
           status: 'EXPECTED',
-          fortalezaMental: getGrowth(userSkills?.fortalezaMental),
-          experiencia: getGrowth(userSkills?.experiencia),
+          fortalezaMental: calculateSkillGrowth(userSkills?.fortalezaMental),
+          experiencia: calculateSkillGrowth(userSkills?.experiencia),
         },
       });
 

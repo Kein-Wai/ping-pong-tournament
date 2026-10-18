@@ -31,6 +31,7 @@ export const ENDPOINTS = {
   },
   TOURNAMENTS: {
     BASE: '/tournaments',
+    GENERATE_EXCEL: '/tournaments/generate-excel',
     BY_ID: (id: string) => `/tournaments/${id}`,
     UPDATE: (id: string) => `/tournaments/${id}`,
     DELETE: (id: string) => `/tournaments/${id}`,

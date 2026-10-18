@@ -9,8 +9,8 @@ generator client {
 }
 
 enum AnalysisType {
-  Light
-  Deep
+  Rapido
+  Extenso
 }
 
 enum PointCategory {
@@ -244,6 +244,14 @@ enum EventRegion {
   Internacional
 }
 
+enum RubberType {
+  LISA
+  PICOS_CORTOS
+  PICOS_MEDIOS
+  PICOS_LARGOS
+  ANTISPIN
+}
+
 model Club {
   id        String     @id @default(uuid())
   name      String     @unique @db.VarChar(255)
@@ -314,6 +322,8 @@ model User {
   dominantHand       DominantHand?   @map("dominant_hand")
   playstyle          Playstyle?
   level              PlayerLevel?
+  rubberForehand     RubberType?
+  rubberBackhand     RubberType?
   
   // Relaciones
   club                          Club?                   @relation(fields: [clubId], references: [id])
@@ -326,6 +336,7 @@ model User {
   tournamentInscriptions        TournamentParticipant[]
   tournamentgroupClasifications TournamentClas[]
   trainings                     PlayerTraining[]
+  trainingSessions              TrainingSession[]
   manualMatches                 ManualMatch[]
   skills                        PlayerSkills[]      
   skillUpdates                  PlayerSkillUpdate[]
@@ -343,6 +354,7 @@ model Exercise {
   clubId      String?          @map("club_id")
   name        String           @db.VarChar(255)
   description String           @db.Text
+  objective   String?          @db.Text // 👇 NUEVO: Objetivo del ejercicio
   category    ExerciseCategory
   code        Int?
 
@@ -376,11 +388,14 @@ model PlayerTraining {
 
 model TrainingSession {
   id               String   @id @default(uuid())
-  playerTrainingId String   @map("player_training_id")
+  playerId         String   @map("player_id") // 👇 NUEVO: Vínculo directo al jugador
+  playerTrainingId String?  @map("player_training_id") // 👇 AHORA ES OPCIONAL (?)
   date             DateTime @db.Date
+  title            String?  @db.VarChar(255) // 👇 NUEVO: Nombre para las sesiones sueltas
 
   // Relaciones
-  training     PlayerTraining      @relation(fields: [playerTrainingId], references: [id], onDelete: Cascade)
+  player       User                @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  training     PlayerTraining?     @relation(fields: [playerTrainingId], references: [id], onDelete: Cascade)
   exercises    SessionExercise[]
   skillUpdates PlayerSkillUpdate[]
 
@@ -418,6 +433,13 @@ model Stats {
   pointLost      Int?    @map("point_lost")
   tournamentWon  Int?    @map("tournament_won")
   tournamentPart Int?    @map("tournament_part") 
+
+  manualMatchWon  Int?   @default(0) @map("manual_match_won")
+  manualMatchLost Int?   @default(0) @map("manual_match_lost")
+  manualSetWon    Int?   @default(0) @map("manual_set_won")
+  manualSetLost   Int?   @default(0) @map("manual_set_lost")
+  manualPointWon  Int?   @default(0) @map("manual_point_won")
+  manualPointLost Int?   @default(0) @map("manual_point_lost")
 
   // Relaciones
   user   User    @relation(fields: [userId], references: [id])
@@ -641,13 +663,14 @@ model ManualMatch {
   opponentHand    DominantHand?    @map("opponent_hand")
   opponentStyle   Playstyle?       @map("opponent_style")
   opponentLevel   OpponentLevel?   @map("opponent_level")
+  opponentRubberForehand RubberType?
+  opponentRubberBackhand RubberType?
   
   status          MatchStatus      @default(Programado)
   mySets          Int              @default(0) @map("my_sets")
   opponentSets    Int              @default(0) @map("opponent_sets")
 
-  // 👇 NUEVOS CAMPOS PARA LIGHT VS DEEP
-  analysisType    AnalysisType     @default(Deep) @map("analysis_type")
+  analysisType    AnalysisType     @default(Rapido) @map("analysis_type")
   lightNotes      String?          @db.Text @map("light_notes")
   planningNotes    String?        @db.Text
   
@@ -655,6 +678,7 @@ model ManualMatch {
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   season          Season?          @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   points          PointAnalysis[]
+  setScores       Json? // Ejemplo de lo que guardará: [{ myScore: 11, oppScore: 8 }, { myScore: 12, oppScore: 14 }]
 
   @@map("manual_match")
 }

@@ -22,9 +22,8 @@ import {
   Button,
   ThemeIcon,
   SimpleGrid,
-  Divider,
-  Anchor,
   Checkbox,
+  Divider,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -35,9 +34,11 @@ import {
   IconUserMinus,
   IconEdit,
   IconUsers,
-  IconClipboardList,
   IconUserPlus,
+  IconKey,
+  IconMailFast,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { useAuthStore } from '../../store/authStore';
@@ -108,12 +109,14 @@ export const Jugadores = () => {
   });
   const [newElo, setNewElo] = useState<number | string>(500);
 
-  // --- ESTADOS DE APROBACIÓN DE JUGADOR (STATS INICIALES) ---
+  // --- ESTADOS DE APROBACIÓN DE JUGADOR ---
   const [approveModal, setApproveModal] = useState<{ opened: boolean; player: User | null }>({
     opened: false,
     player: null,
   });
   const [adminConsentConfirmed, setAdminConsentConfirmed] = useState(false);
+
+  // --- ESTADOS DE CREACIÓN DE INVITADO (GUEST) ---
   const [guestModal, setGuestModal] = useState(false);
   const [creatingGuest, setCreatingGuest] = useState(false);
   const [guestData, setGuestData] = useState({
@@ -123,6 +126,8 @@ export const Jugadores = () => {
     level: 'Iniciacion',
     dominantHand: 'Diestro',
     playstyle: 'Ofensivo',
+    rubberForehand: 'LISA', // 👈 Nueva prop para goma derecha
+    rubberBackhand: 'LISA', // 👈 Nueva prop para goma revés
     elo: 500,
   });
   const [playerLevel, setPlayerLevel] = useState<string | null>(null);
@@ -157,15 +162,41 @@ export const Jugadores = () => {
   });
   const [approving, setApproving] = useState(false);
 
+  // --- ESTADOS PARA RESETEO DE CUENTA / EMAIL ---
+  const [resetAccountModal, setResetAccountModal] = useState<{
+    opened: boolean;
+    player: User | null;
+  }>({ opened: false, player: null });
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [sendingReset, setSendingReset] = useState(false);
+
   const isAdminClub = currentUser?.role === 'AdminClub';
   const isSuperAdmin = currentUser?.role === 'SuperAdmin';
   const canManage = isAdminClub || isSuperAdmin;
+
+  const fetchPlayers = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(ENDPOINTS.PLAYERS.BASE);
+      const data = response.data.data || response.data;
+      if (Array.isArray(data)) {
+        setPlayers(data);
+      }
+    } catch (error) {
+      console.error('Error cargando jugadores:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlayers();
+  }, []);
 
   const handleCreateGuest = async () => {
     if (!guestData.name) return;
     setCreatingGuest(true);
 
-    // 👇 Calculamos los skills igual que en la aprobación
     const baseStat = LEVEL_BASE_STATS[guestData.level] || 0;
     const finalSkills: Record<string, number> = {};
     SKILL_FIELDS.forEach((field) => {
@@ -182,11 +213,16 @@ export const Jugadores = () => {
           level: guestData.level,
           dominantHand: guestData.dominantHand,
           playstyle: guestData.playstyle,
+          rubberForehand: guestData.rubberForehand, // 👈 Enviamos la goma
+          rubberBackhand: guestData.rubberBackhand, // 👈 Enviamos la goma
           elo: guestData.elo,
-          skills: finalSkills, // 👈 AÑADIDO
+          skills: finalSkills,
         });
       } else {
-        await api.post(ENDPOINTS.USERS.CREATE_GUEST, { ...guestData, skills: finalSkills }); // 👈 AÑADIDO
+        await api.post(ENDPOINTS.USERS.CREATE_GUEST, {
+          ...guestData,
+          skills: finalSkills,
+        });
       }
 
       setGuestModal(false);
@@ -198,9 +234,10 @@ export const Jugadores = () => {
         level: 'Iniciacion',
         dominantHand: 'Diestro',
         playstyle: 'Ofensivo',
+        rubberForehand: 'LISA',
+        rubberBackhand: 'LISA',
         elo: 500,
       });
-      // 👇 Limpiamos los skills
       setGuestSkills({
         derechaPlano: '',
         revesPlano: '',
@@ -223,25 +260,6 @@ export const Jugadores = () => {
     }
   };
 
-  const fetchPlayers = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get(ENDPOINTS.PLAYERS.BASE);
-      const data = response.data.data || response.data;
-      if (Array.isArray(data)) {
-        setPlayers(data);
-      }
-    } catch (error) {
-      console.error('Error cargando jugadores:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
-
   const handleProcessRequest = (
     playerId: string,
     playerName: string,
@@ -259,11 +277,10 @@ export const Jugadores = () => {
         ? playerToApprove?.stats[0]
         : playerToApprove?.stats;
       setApproveModal({ opened: true, player: playerToApprove });
-      setStartingElo(pStats?.elo || 500); // 👈 Modificado
+      setStartingElo(pStats?.elo || 500);
       return;
     }
 
-    // Modal original para Rechazar
     openAppConfirmModal({
       title: 'Rechazar Solicitud',
       icon: <IconUserMinus size={18} />,
@@ -291,8 +308,6 @@ export const Jugadores = () => {
     setApproving(true);
 
     const baseStat = LEVEL_BASE_STATS[playerLevel] || 0;
-
-    // Construimos el payload de Skills usando el baseStat si el input está vacío
     const finalSkills: Record<string, number> = {};
     SKILL_FIELDS.forEach((field) => {
       const val = skills[field.key];
@@ -302,7 +317,7 @@ export const Jugadores = () => {
     try {
       await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(clubIdToApprove, approveModal.player.id), {
         status: 'Aprobado',
-        level: playerLevel, // Enviamos el nivel a la base de datos
+        level: playerLevel,
         elo: Number(startingElo),
         skills: finalSkills,
       });
@@ -332,17 +347,15 @@ export const Jugadores = () => {
     }
   };
 
-  // --- LÓGICA DE EDICIÓN DE ELO ---
   const openEditElo = (player: User) => {
     const pStats = Array.isArray(player.stats) ? player.stats[0] : player.stats;
-    setNewElo(pStats?.elo || 500); // 👈 Modificado
+    setNewElo(pStats?.elo || 500);
     setEditEloModal({ opened: true, player });
   };
 
   const handleUpdateElo = async () => {
     if (!editEloModal.player) return;
     try {
-      // Invocación a tu PUT genérico de actualización de usuario que ya soporta "elo"
       await api.put(ENDPOINTS.USERS.BY_ID(editEloModal.player.id), { elo: Number(newElo) });
       setEditEloModal({ opened: false, player: null });
       await fetchPlayers();
@@ -351,7 +364,42 @@ export const Jugadores = () => {
     }
   };
 
-  // --- FILTRADO COMBINADO ---
+  // --- LÓGICA ENVÍO DE RESET DE EMAIL / CONTRASEÑA ---
+  const handleOpenResetAccount = (player: User) => {
+    const isGuestWithoutEmail = player.email.endsWith('@guest.pingpong');
+    setRecoveryEmail(isGuestWithoutEmail ? '' : player.email);
+    setResetAccountModal({ opened: true, player });
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!recoveryEmail || !resetAccountModal.player) return;
+    setSendingReset(true);
+
+    try {
+      // 1. Si es un Guest o le han cambiado el correo desde aquí, actualizamos su cuenta primero.
+      if (resetAccountModal.player.email !== recoveryEmail) {
+        await api.put(ENDPOINTS.USERS.BY_ID(resetAccountModal.player.id), { email: recoveryEmail });
+      }
+
+      // 2. Disparamos el correo usando el endpoint público de Auth
+      await api.post(ENDPOINTS.AUTH.FORGOT_PASSWORD, { email: recoveryEmail });
+
+      notifications.show({
+        title: 'Correo Enviado',
+        message: `Se ha enviado el enlace de recuperación a ${recoveryEmail}.`,
+        color: 'green',
+        icon: <IconCheck size={16} />,
+      });
+
+      setResetAccountModal({ opened: false, player: null });
+      await fetchPlayers();
+    } catch (error) {
+      console.error('Error al enviar recuperación:', error);
+    } finally {
+      setSendingReset(false);
+    }
+  };
+
   const filteredPlayers = players.filter((player) => {
     const fullName = `${player.name} ${player.surname || ''}`.toLowerCase();
     const matchesSearch = fullName.includes(search.toLowerCase());
@@ -387,7 +435,7 @@ export const Jugadores = () => {
   const rows = paginatedPlayers.map((player) => {
     if (!player) return null;
 
-    const s = Array.isArray(player.stats) ? player.stats[0] : player.stats; // 👈 Modificado
+    const s = Array.isArray(player.stats) ? player.stats[0] : player.stats;
     const totalMatches = (s?.matchWon || 0) + (s?.matchLost || 0);
     const winRate = totalMatches > 0 ? Math.round(((s?.matchWon || 0) / totalMatches) * 100) : 0;
     const fullName = `${player.name} ${player.surname || ''}`;
@@ -419,7 +467,6 @@ export const Jugadores = () => {
             <Badge color={player.clubStatus === 'Aprobado' ? 'green' : 'yellow'} variant="dot">
               {player.clubStatus || 'Registrado'}
             </Badge>
-            {/* Opcional: Mostrar el ID del club o el nombre si lo trajéramos del backend */}
             {isSuperAdmin && player.clubId && (
               <Text size="xs" c="dimmed">
                 {player.club?.name || 'Sin club'}
@@ -468,11 +515,22 @@ export const Jugadores = () => {
               </>
             )}
 
-            {/* BOTÓN EDICIÓN MANUAL DE ELO (Solo para miembros del club y si eres admin) */}
             {player.clubStatus === 'Aprobado' && canManage && (
               <Tooltip label="Ajustar ELO manualmente">
                 <ActionIcon variant="light" color="orange" onClick={() => openEditElo(player)}>
                   <IconEdit size={16} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+
+            {player.clubStatus === 'Aprobado' && canManage && (
+              <Tooltip label="Resetear Cuenta / Asignar Correo">
+                <ActionIcon
+                  variant="light"
+                  color="grape"
+                  onClick={() => handleOpenResetAccount(player)}
+                >
+                  <IconKey size={16} />
                 </ActionIcon>
               </Tooltip>
             )}
@@ -524,257 +582,204 @@ export const Jugadores = () => {
           <Select
             leftSection={<IconFilter size={16} />}
             data={[
-              { value: 'Aprobado', label: 'Miembros Activos' },
-              { value: 'Pendiente', label: 'Solicitudes en Espera' },
-              { value: 'Rechazado', label: 'Rechazados' },
+              { value: 'Aprobado', label: 'Plantilla' },
+              { value: 'Pendiente', label: 'Solicitudes' },
+              { value: 'Rechazado', label: 'Bajas/Rechazos' },
             ]}
             value={statusFilter}
             onChange={handleStatusChange}
             allowDeselect={false}
-            style={{ width: 190 }}
+            w={140}
           />
         </Group>
       </Group>
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
+
+      <Card withBorder shadow="sm" radius="md" padding="0">
         <ScrollArea>
-          <Table verticalSpacing="sm" striped highlightOnHover miw={600}>
+          <Table striped highlightOnHover verticalSpacing="sm" px="md" miw={600}>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Jugador</Table.Th>
-                <Table.Th>ELO</Table.Th>
-                {canManage && <Table.Th visibleFrom="sm">Estado Club</Table.Th>}
-                <Table.Th visibleFrom="sm">Récord</Table.Th>
+                <Table.Th>Nivel (ELO)</Table.Th>
+                {canManage && <Table.Th visibleFrom="sm">Estado</Table.Th>}
+                <Table.Th visibleFrom="sm">Récord de Partidos</Table.Th>
                 <Table.Th>Acciones</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {rows.filter(Boolean).length > 0 ? (
+              {rows.length > 0 ? (
                 rows
               ) : (
                 <Table.Tr>
-                  <Table.Td colSpan={5}>
-                    <Center py="xl">
-                      <Text c="dimmed">No se han encontrado jugadores con este estado.</Text>
-                    </Center>
+                  <Table.Td colSpan={canManage ? 5 : 4} ta="center" py="xl">
+                    <Text c="dimmed">No se encontraron jugadores.</Text>
                   </Table.Td>
                 </Table.Tr>
               )}
             </Table.Tbody>
           </Table>
         </ScrollArea>
-
-        {totalPages > 1 && (
-          <Center mt="md">
-            <Pagination total={totalPages} value={page} onChange={setPage} color="blue" withEdges />
-          </Center>
-        )}
       </Card>
 
-      {/* --- MODAL DE APROBACIÓN (EVALUACIÓN DE SKILLS RPG) --- */}
-      <Modal
-        opened={approveModal.opened}
-        onClose={() => setApproveModal({ opened: false, player: null })}
-        // 👇 CAMBIADO DE Title A Text
-        title={
-          <Text fw={700} size="lg">
-            Evaluación Inicial de Nivel
-          </Text>
-        }
-        size="xl"
-        centered
-        overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
-      >
-        {approveModal.player && (
-          <Stack gap="md">
-            <Group wrap="nowrap" align="center">
-              <ThemeIcon size="xl" radius="md" color="green" variant="light">
-                <IconClipboardList size={28} />
-              </ThemeIcon>
-              <div>
-                <Text size="sm">
-                  Estás a punto de admitir a{' '}
-                  <strong>
-                    {approveModal.player.name} {approveModal.player.surname}
-                  </strong>{' '}
-                  en el club.
-                </Text>
-                <Text size="sm" c="dimmed">
-                  Por favor, indica su nivel general de juego. Si lo deseas, puedes afinar sus
-                  características técnicas (0-100) o dejarlas vacías para que tomen el valor por
-                  defecto del nivel seleccionado.
-                </Text>
-              </div>
-            </Group>
+      {totalPages > 1 && (
+        <Center mt="md">
+          <Pagination total={totalPages} value={page} onChange={setPage} color="blue" withEdges />
+        </Center>
+      )}
 
-            <Divider />
-
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <Select
-                label="Nivel General de Juego"
-                description="Define la base técnica (Obligatorio)"
-                required
-                data={Object.keys(LEVEL_BASE_STATS)}
-                value={playerLevel}
-                onChange={setPlayerLevel}
-                allowDeselect={false}
-                placeholder="Selecciona el nivel..."
-              />
-              <NumberInput
-                label="Puntuación ELO Inicial"
-                description="Ajusta el ELO según su nivel real"
-                required
-                min={0}
-                max={3500}
-                value={startingElo}
-                onChange={setStartingElo}
-              />
-            </SimpleGrid>
-
-            {playerLevel && (
-              <Card withBorder bg="var(--mantine-color-gray-0)" style={{ darkHidden: true }}>
-                <Text fw={600} size="sm" mb="xs">
-                  Atributos Técnicos (Base: {LEVEL_BASE_STATS[playerLevel]})
-                </Text>
-                <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
-                  {SKILL_FIELDS.map((field) => (
-                    <NumberInput
-                      key={field.key}
-                      label={field.label}
-                      placeholder={`Defecto: ${LEVEL_BASE_STATS[playerLevel]}`}
-                      min={0}
-                      max={100}
-                      value={skills[field.key]}
-                      onChange={(val) => setSkills({ ...skills, [field.key]: val as number | '' })}
-                    />
-                  ))}
-                </SimpleGrid>
-              </Card>
-            )}
-
-            <Group justify="flex-end" mt="md">
-              <Button
-                variant="subtle"
-                color="gray"
-                onClick={() => setApproveModal({ opened: false, player: null })}
-              >
-                Cancelar
-              </Button>
-              <Button
-                color="green"
-                onClick={handleConfirmApproval}
-                loading={approving}
-                disabled={!playerLevel}
-              >
-                Confirmar y Aprobar Miembro
-              </Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
-
-      {/* MODAL PARA CAMBIO DE ELO MANUAL */}
+      {/* --- MODAL EDITAR ELO MANUAL --- */}
       <Modal
         opened={editEloModal.opened}
         onClose={() => setEditEloModal({ opened: false, player: null })}
-        title={
-          <Text fw={700} size="lg">
-            Ajuste Manual de ELO
-          </Text>
-        }
+        title={<Text fw={700}>Ajustar Nivel ELO</Text>}
         centered
-        overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
-      >
-        {editEloModal.player && (
-          <Stack gap="md">
-            <Text size="sm" c="dimmed">
-              Estás a punto de modificar la puntuación ELO de{' '}
-              <strong>
-                {editEloModal.player.name} {editEloModal.player.surname || ''}
-              </strong>
-              . Utiliza esta opción con precaución para emparejar niveles procedentes de otras
-              ligas.
-            </Text>
-
-            <NumberInput
-              label="Nueva Puntuación ELO"
-              description="Valor base por defecto: 500"
-              min={0}
-              max={3500}
-              value={newElo}
-              onChange={setNewElo}
-              data-autofocus
-            />
-
-            <Group justify="flex-end" mt="md">
-              <Button
-                variant="subtle"
-                color="gray"
-                onClick={() => setEditEloModal({ opened: false, player: null })}
-              >
-                Cancelar
-              </Button>
-              <Button color="orange" onClick={handleUpdateElo}>
-                Aplicar Nuevo ELO
-              </Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
-      {/* --- MODAL CREAR INVITADO / JUGADOR REAL --- */}
-      <Modal
-        opened={guestModal}
-        onClose={() => setGuestModal(false)}
-        title={
-          <Text fw={700} size="lg">
-            Añadir Jugador al Club
-          </Text>
-        }
-        centered
-        size="lg" /* 👈 Modal más ancho en PC */
-        overlayProps={{ blur: 3, backgroundOpacity: 0.5 }}
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Si introduces un <strong>correo electrónico</strong>, se creará una cuenta real, se le
-            enviará una contraseña temporal por correo y podrá acceder a la app. <br />
-            <br />
-            Si lo dejas <strong>en blanco</strong>, se creará una cuenta de <i>Invitado</i> para que
-            puedas inscribirlo en torneos sin que él necesite acceder.
+            Ajusta manualmente los puntos de clasificación de {editEloModal.player?.name}.
           </Text>
+          <NumberInput
+            label="Puntuación ELO"
+            value={newElo}
+            onChange={setNewElo}
+            min={0}
+            step={10}
+            max={3000}
+          />
+          <Button fullWidth color="blue" onClick={handleUpdateElo}>
+            Guardar Cambios
+          </Button>
+        </Stack>
+      </Modal>
 
-          <TextInput
-            label="Correo electrónico (Opcional)"
-            placeholder="ejemplo@correo.com"
-            value={guestData.email}
-            onChange={(e) => setGuestData({ ...guestData, email: e.currentTarget.value })}
-            data-autofocus
+      {/* --- MODAL DE APROBACIÓN (SKILLS) --- */}
+      <Modal
+        opened={approveModal.opened}
+        onClose={() => {
+          setApproveModal({ opened: false, player: null });
+          setPlayerLevel(null);
+        }}
+        title={<Text fw={700}>Nivel de Entrada Inicial</Text>}
+        centered
+        size="lg"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            El sistema calculará las estadísticas iniciales y el crecimiento en los entrenamientos
+            en base al nivel táctico/técnico que asignes a este jugador al entrar.
+          </Text>
+          <Select
+            label="Nivel Técnico Base"
+            placeholder="Selecciona el nivel del jugador"
+            data={['Iniciacion', 'Principiante', 'Intermedio', 'Avanzado', 'Profesional']}
+            value={playerLevel}
+            onChange={setPlayerLevel}
+            required
+          />
+          <NumberInput
+            label="Puntuación ELO Inicial"
+            value={startingElo}
+            onChange={setStartingElo}
+            required
+            min={0}
+            max={3000}
+            description="El ELO Base se puede heredar de competiciones anteriores."
           />
 
-          {/* 👇 Grid responsive: 1 columna en móvil, 2 en PC */}
-          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          {playerLevel && (
+            <Card
+              withBorder
+              radius="md"
+              p="md"
+              bg="var(--mantine-color-gray-0)"
+              style={{ darkHidden: true }}
+            >
+              <Text fw={600} size="sm" mb="xs">
+                Asignación Avanzada de Atributos (RGP)
+              </Text>
+              <Text size="xs" c="dimmed" mb="md">
+                Por defecto, todas las habilidades comenzarán con un valor de{' '}
+                {LEVEL_BASE_STATS[playerLevel]}. Rellena solo aquellas en las que el jugador
+                destaque excepcionalmente o esté más flojo.
+              </Text>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                {SKILL_FIELDS.map((field) => (
+                  <NumberInput
+                    key={field.key}
+                    label={field.label}
+                    placeholder={String(LEVEL_BASE_STATS[playerLevel])}
+                    value={skills[field.key]}
+                    onChange={(val) => setSkills({ ...skills, [field.key]: val as number | '' })}
+                    min={0}
+                    max={100}
+                  />
+                ))}
+              </SimpleGrid>
+            </Card>
+          )}
+
+          <Button
+            fullWidth
+            mt="md"
+            color="green"
+            disabled={!playerLevel}
+            loading={approving}
+            onClick={handleConfirmApproval}
+          >
+            Confirmar y Aprobar
+          </Button>
+        </Stack>
+      </Modal>
+
+      {/* --- MODAL CREAR JUGADOR (GUEST / INVITADO) --- */}
+      <Modal
+        opened={guestModal}
+        onClose={() => setGuestModal(false)}
+        title={<Text fw={700}>Añadir Jugador al Club</Text>}
+        centered
+        size="lg"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Registra a un jugador en tu club de forma instantánea. Si introduces un correo
+            electrónico, recibirá un aviso para entrar. Si lo dejas en blanco, el jugador será
+            gestionado íntegramente por el club como un usuario invitado ("Guest").
+          </Text>
+
+          <SimpleGrid cols={2}>
             <TextInput
               label="Nombre"
-              placeholder="Ej. Martín"
-              required
+              placeholder="Nombre"
               value={guestData.name}
               onChange={(e) => setGuestData({ ...guestData, name: e.currentTarget.value })}
+              required
             />
             <TextInput
-              label="Apellido"
-              placeholder="Ej. López"
+              label="Apellidos"
+              placeholder="Apellidos"
               value={guestData.surname}
               onChange={(e) => setGuestData({ ...guestData, surname: e.currentTarget.value })}
             />
+            <TextInput
+              style={{ gridColumn: 'span 2' }}
+              label="Correo Electrónico (Opcional)"
+              placeholder="ejemplo@email.com"
+              value={guestData.email}
+              onChange={(e) => setGuestData({ ...guestData, email: e.currentTarget.value })}
+              description="Si lo dejas en blanco, no podrá hacer login desde el móvil."
+            />
           </SimpleGrid>
 
-          {/* 👇 Grid responsive: 1 columna en móvil, 2 en PC */}
-          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <Divider my="sm" />
+
+          <SimpleGrid cols={2}>
             <Select
               label="Mano Dominante"
               data={['Diestro', 'Zurdo']}
               value={guestData.dominantHand}
               onChange={(val) => setGuestData({ ...guestData, dominantHand: val! })}
               allowDeselect={false}
+              required
             />
             <Select
               label="Estilo de Juego"
@@ -782,78 +787,166 @@ export const Jugadores = () => {
               value={guestData.playstyle}
               onChange={(val) => setGuestData({ ...guestData, playstyle: val! })}
               allowDeselect={false}
-            />
-            <Select
-              label="Nivel General"
-              data={Object.keys(LEVEL_BASE_STATS)}
-              value={guestData.level}
-              onChange={(val) => setGuestData({ ...guestData, level: val! })}
-              allowDeselect={false}
-            />
-            <NumberInput
-              label="Puntuación ELO Inicial"
-              min={0}
-              max={3500}
-              value={guestData.elo}
-              onChange={(val) => setGuestData({ ...guestData, elo: Number(val) || 500 })}
+              required
             />
           </SimpleGrid>
 
-          {guestData.level && (
-            <Card withBorder bg="var(--mantine-color-gray-0)" style={{ darkHidden: true }}>
-              <Text fw={600} size="sm" mb="xs">
-                Atributos Técnicos (Base: {LEVEL_BASE_STATS[guestData.level]})
-              </Text>
-              {/* 👇 Las skills pasan a ser 2 columnas en móvil y 3 en PC para que quepan bien los números */}
-              <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
-                {SKILL_FIELDS.map((field) => (
-                  <NumberInput
-                    key={field.key}
-                    label={field.label}
-                    placeholder={`Defecto: ${LEVEL_BASE_STATS[guestData.level]}`}
-                    min={0}
-                    max={100}
-                    value={guestSkills[field.key]}
-                    onChange={(val) =>
-                      setGuestSkills({ ...guestSkills, [field.key]: val as number | '' })
-                    }
-                  />
-                ))}
-              </SimpleGrid>
-            </Card>
-          )}
+          <SimpleGrid cols={2}>
+            <Select
+              label="Goma Derecha"
+              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
+              value={guestData.rubberForehand}
+              onChange={(val) => setGuestData({ ...guestData, rubberForehand: val! })}
+              allowDeselect={false}
+              required
+            />
+            <Select
+              label="Goma Revés"
+              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
+              value={guestData.rubberBackhand}
+              onChange={(val) => setGuestData({ ...guestData, rubberBackhand: val! })}
+              allowDeselect={false}
+              required
+            />
+          </SimpleGrid>
 
-          {/* JUSTO ENCIMA DE LOS BOTONES FINALES DE GUARDAR */}
+          <Divider my="sm" />
+
+          <SimpleGrid cols={2}>
+            <Select
+              label="Nivel Técnico Base"
+              data={['Iniciacion', 'Principiante', 'Intermedio', 'Avanzado', 'Profesional']}
+              value={guestData.level}
+              onChange={(val) => setGuestData({ ...guestData, level: val! })}
+              allowDeselect={false}
+              required
+            />
+            <NumberInput
+              label="Puntuación ELO Inicial"
+              value={guestData.elo}
+              onChange={(val) => setGuestData({ ...guestData, elo: Number(val) })}
+              min={0}
+              max={3000}
+              required
+            />
+          </SimpleGrid>
+
+          <Card
+            withBorder
+            radius="md"
+            p="md"
+            bg="var(--mantine-color-gray-0)"
+            style={{ darkHidden: true }}
+          >
+            <Text fw={600} size="sm" mb="xs">
+              Atributos Especiales (Opcional)
+            </Text>
+            <Text size="xs" c="dimmed" mb="md">
+              Por defecto, todas las habilidades tendrán un valor de{' '}
+              {LEVEL_BASE_STATS[guestData.level]}.
+            </Text>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+              {SKILL_FIELDS.map((field) => (
+                <NumberInput
+                  key={field.key}
+                  label={field.label}
+                  placeholder={String(LEVEL_BASE_STATS[guestData.level])}
+                  value={guestSkills[field.key]}
+                  onChange={(val) =>
+                    setGuestSkills({ ...guestSkills, [field.key]: val as number | '' })
+                  }
+                  min={0}
+                  max={100}
+                />
+              ))}
+            </SimpleGrid>
+          </Card>
+
           <Checkbox
-            mt="md"
             checked={adminConsentConfirmed}
             onChange={(e) => setAdminConsentConfirmed(e.currentTarget.checked)}
-            label={
-              <Text size="xs" c="dimmed">
-                Confirmo que el jugador (o su tutor legal si es menor de 14 años) me ha dado su{' '}
-                <strong>consentimiento explícito</strong> para registrar sus datos personales,
-                conforme a la{' '}
-                <Anchor href="/privacidad" target="_blank">
-                  Política de Privacidad
-                </Anchor>
-                .
-              </Text>
-            }
+            label="Confirmo que tengo el consentimiento expreso de esta persona para gestionar sus datos deportivos en esta plataforma."
+            mt="sm"
           />
 
-          <Group justify="flex-end" mt="md">
-            <Button variant="subtle" color="gray" onClick={() => setGuestModal(false)}>
-              Cancelar
-            </Button>
-            <Button
-              color="blue"
-              onClick={handleCreateGuest}
-              loading={creatingGuest}
-              disabled={!guestData.name || !adminConsentConfirmed} // 👈 BLOQUEADO SI NO ACEPTA
-            >
-              {guestData.email ? 'Crear Cuenta y Enviar Correo' : 'Crear Invitado'}
-            </Button>
+          <Button
+            fullWidth
+            mt="sm"
+            color="blue"
+            onClick={handleCreateGuest}
+            loading={creatingGuest}
+            disabled={!guestData.name || !adminConsentConfirmed}
+          >
+            Añadir Jugador
+          </Button>
+        </Stack>
+      </Modal>
+
+      {/* --- MODAL RECUPERACIÓN / ASIGNACIÓN CORREO --- */}
+      <Modal
+        opened={resetAccountModal.opened}
+        onClose={() => setResetAccountModal({ opened: false, player: null })}
+        title={
+          <Group>
+            <IconKey color="var(--mantine-color-grape-6)" />
+            <Text fw={700}>Resetear Cuenta</Text>
           </Group>
+        }
+        centered
+      >
+        <Stack gap="md">
+          {resetAccountModal.player?.email.endsWith('@guest.pingpong') ? (
+            <>
+              <Text size="sm" c="dimmed">
+                Este jugador fue creado por el club y{' '}
+                <strong>no tiene un correo real asignado</strong> (Guest). Para que el jugador pueda
+                entrar desde la aplicación móvil y ver sus estadísticas, debes introducir su correo
+                electrónico real.
+              </Text>
+              <TextInput
+                label="Asignar Correo Electrónico"
+                placeholder="jugador@email.com"
+                value={recoveryEmail}
+                onChange={(e) => setRecoveryEmail(e.currentTarget.value)}
+                required
+              />
+              <Button
+                fullWidth
+                color="grape"
+                leftSection={<IconMailFast size={18} />}
+                loading={sendingReset}
+                onClick={handleSendResetEmail}
+                disabled={!recoveryEmail.includes('@')}
+              >
+                Guardar Correo y Enviar Link
+              </Button>
+            </>
+          ) : (
+            <>
+              <Text size="sm" c="dimmed">
+                ¿El jugador {resetAccountModal.player?.name} ha olvidado su contraseña o no puede
+                entrar?
+              </Text>
+              <TextInput
+                label="Correo Electrónico de la Cuenta"
+                value={recoveryEmail}
+                onChange={(e) => setRecoveryEmail(e.currentTarget.value)}
+                required
+              />
+              <Text size="xs" c="dimmed" mt="-xs">
+                Se enviará un enlace de recuperación seguro directamente a esta dirección.
+              </Text>
+              <Button
+                fullWidth
+                color="grape"
+                leftSection={<IconMailFast size={18} />}
+                loading={sendingReset}
+                onClick={handleSendResetEmail}
+              >
+                Enviar Enlace de Recuperación
+              </Button>
+            </>
+          )}
         </Stack>
       </Modal>
     </Stack>

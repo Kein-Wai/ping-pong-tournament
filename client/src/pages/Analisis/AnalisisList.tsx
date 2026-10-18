@@ -18,8 +18,15 @@ import {
   Pagination,
   ScrollArea,
   SegmentedControl,
+  Tabs,
 } from '@mantine/core';
-import { IconDeviceAnalytics, IconPlus, IconSearch, IconFilter } from '@tabler/icons-react';
+import {
+  IconDeviceAnalytics,
+  IconPlus,
+  IconSearch,
+  IconClipboardList,
+  IconPingPong,
+} from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
@@ -36,20 +43,20 @@ export const AnalisisList = () => {
   const [creating, setCreating] = useState(false);
   const [currentSeason, setCurrentSeason] = useState<string>('');
 
-  // Filtros y Paginación
+  const [activeTab, setActiveTab] = useState<string | null>('analisis');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('Todos');
   const [page, setPage] = useState(1);
 
-  // Formulario rápido
   const [opponentName, setOppName] = useState('');
   const [matchType, setMatchType] = useState('Amistoso');
   const [matchFormat, setMatchFormat] = useState<string>('Individual');
-  const [analysisType, setAnalysisType] = useState<string>('Deep');
-  const [initialStatus, setInitialStatus] = useState<string>('Programado'); // 👈 Programar vs Jugar
+  const [analysisType, setAnalysisType] = useState<string>('Rapido');
+  const [initialStatus, setInitialStatus] = useState<string>('Programado');
   const [opponentHand, setOpponentHand] = useState<string | null>(null);
   const [opponentStyle, setOpponentStyle] = useState<string | null>(null);
   const [opponentLevel, setOpponentLevel] = useState<string | null>(null);
+  const [opponentRubberForehand, setOpponentRubberForehand] = useState<string | null>(null);
+  const [opponentRubberBackhand, setOpponentRubberBackhand] = useState<string | null>(null);
   const [setsToWin, setSetsToWin] = useState<string>('3');
   const [matchDate, setMatchDate] = useState<Date | null>(new Date());
 
@@ -66,17 +73,21 @@ export const AnalisisList = () => {
 
   const handleStartMatch = async () => {
     setCreating(true);
+    const finalOpponent = opponentName.trim() === '' ? 'Rival por determinar' : opponentName;
+
     try {
       const res = await api.post(ENDPOINTS.MANUAL_MATCHES.BASE, {
-        opponentName,
+        opponentName: finalOpponent,
         matchType,
         location: 'Casa',
         format: matchFormat,
-        analysisType,
+        analysisType: initialStatus === 'Programado' ? 'Rapido' : analysisType,
         opponentHand,
         opponentStyle,
         opponentLevel,
-        status: initialStatus, // 👈 Enviamos el estado elegido
+        opponentRubberForehand,
+        opponentRubberBackhand,
+        status: initialStatus,
         setsToWin: Number(setsToWin),
         date: matchDate ? matchDate.toISOString() : new Date().toISOString(),
       });
@@ -88,11 +99,10 @@ export const AnalisisList = () => {
     }
   };
 
-  // Filtrado y Paginado
   const filteredMatches = matches.filter((m) => {
     const matchSearch = m.opponentName?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'Todos' || m.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchTab = activeTab === 'planes' ? m.status === 'Programado' : m.status !== 'Programado';
+    return matchSearch && matchTab;
   });
 
   const totalPages = Math.ceil(filteredMatches.length / ITEMS_PER_PAGE);
@@ -109,19 +119,36 @@ export const AnalisisList = () => {
             <IconDeviceAnalytics size={24} />
           </ThemeIcon>
           <div>
-            <Title order={2}>Mis Análisis Pro</Title>
+            <Title order={2}>Análisis y Planes</Title>
             <Badge color="grape" variant="light" size="xs">
-              {currentSeason || 'Cargando temporada...'}
+              {currentSeason || 'Cargando...'}
             </Badge>
           </div>
         </Group>
         <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpen(true)}>
-          Nuevo Partido
+          Nuevo Registro
         </Button>
       </Group>
 
-      {/* FILTROS */}
-      <Group gap="xs" align="center">
+      <Group justify="space-between" align="center" wrap="wrap">
+        <Tabs
+          value={activeTab}
+          onChange={(val) => {
+            setActiveTab(val);
+            setPage(1);
+          }}
+          variant="outline"
+          radius="md"
+        >
+          <Tabs.List>
+            <Tabs.Tab value="analisis" leftSection={<IconPingPong size={16} />}>
+              Análisis y Resultados
+            </Tabs.Tab>
+            <Tabs.Tab value="planes" leftSection={<IconClipboardList size={16} />}>
+              Planificaciones Futuras
+            </Tabs.Tab>
+          </Tabs.List>
+        </Tabs>
         <TextInput
           placeholder="Buscar rival..."
           leftSection={<IconSearch size={16} />}
@@ -130,18 +157,7 @@ export const AnalisisList = () => {
             setSearch(e.currentTarget.value);
             setPage(1);
           }}
-          style={{ flexGrow: 1, maxWidth: 300 }}
-        />
-        <Select
-          leftSection={<IconFilter size={16} />}
-          data={['Todos', 'Programado', 'Iniciado', 'Completado']}
-          value={statusFilter}
-          onChange={(val) => {
-            setStatusFilter(val!);
-            setPage(1);
-          }}
-          allowDeselect={false}
-          style={{ width: 150 }}
+          style={{ width: 250 }}
         />
       </Group>
 
@@ -149,35 +165,30 @@ export const AnalisisList = () => {
         <Center h={400}>
           <Loader color="blue" type="bars" />
         </Center>
-      ) : matches.length === 0 ? (
-        <Card withBorder shadow="sm" radius="md" padding="xl">
-          <Center py="xl">
-            <Stack align="center" gap="xs">
-              <IconDeviceAnalytics size={48} color="var(--mantine-color-gray-4)" stroke={1.5} />
-              <Text c="dimmed" size="md" fw={500}>
-                Aún no hay análisis registrados.
-              </Text>
-              <Text c="dimmed" size="sm" ta="center" maw={400}>
-                Lleva un control exhaustivo de tus partidos externos para descubrir tus puntos
-                débiles y fortalezas.
-              </Text>
-              <Button variant="light" color="blue" mt="sm" onClick={() => setModalOpen(true)}>
-                Crear mi primer análisis
-              </Button>
-            </Stack>
-          </Center>
-        </Card>
       ) : (
         <>
           <ScrollArea>
             <Stack gap="sm">
               {paginatedMatches.length === 0 ? (
                 <Center py="xl">
-                  <Text c="dimmed">No hay partidos con estos filtros.</Text>
+                  <Text c="dimmed">
+                    No hay {activeTab === 'planes' ? 'planificaciones' : 'partidos'} registrados.
+                  </Text>
                 </Center>
               ) : (
                 paginatedMatches.map((m) => (
-                  <Card key={m.id} withBorder shadow="sm" radius="md">
+                  <Card
+                    key={m.id}
+                    withBorder
+                    shadow="sm"
+                    radius="md"
+                    style={{
+                      borderLeft:
+                        activeTab === 'planes'
+                          ? '4px solid var(--mantine-color-orange-5)'
+                          : '4px solid var(--mantine-color-blue-5)',
+                    }}
+                  >
                     <Group justify="space-between">
                       <div>
                         <Group gap="xs">
@@ -233,11 +244,10 @@ export const AnalisisList = () => {
         </>
       )}
 
-      {/* MODAL CONFIGURACIÓN PARTIDO */}
       <Modal
         opened={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={<Text fw={700}>Configurar Partido</Text>}
+        title={<Text fw={700}>Configurar Partido / Plan</Text>}
         centered
         size="lg"
       >
@@ -257,30 +267,36 @@ export const AnalisisList = () => {
               label="Fecha del Partido"
               value={matchDate}
               onChange={(val) => setMatchDate(val ? new Date(val) : null)}
-              maxDate={new Date()}
               clearable
             />
-            <Select
-              label="Nivel de Detalle"
-              description="Light = Marcador | Deep = Puntos y Técnica"
-              data={[
-                { value: 'Light', label: 'Rápido (Light)' },
-                { value: 'Deep', label: 'Profundo (Deep)' },
-              ]}
-              value={analysisType}
-              onChange={(val) => setAnalysisType(val!)}
-              allowDeselect={false}
-              required
-            />
+            {initialStatus === 'Iniciado' && (
+              <Select
+                label="Nivel de Detalle"
+                data={[
+                  { value: 'Rapido', label: 'Rápido (Marcador global)' },
+                  { value: 'Extenso', label: 'Extenso (Punto a Punto)' },
+                ]}
+                value={analysisType}
+                onChange={(val) => setAnalysisType(val!)}
+                allowDeselect={false}
+                required
+              />
+            )}
           </SimpleGrid>
 
           <TextInput
             label="Nombre del Rival"
-            required
+            description={
+              initialStatus === 'Programado'
+                ? 'Déjalo en blanco si aún no sabes contra quién juegas'
+                : ''
+            }
+            required={initialStatus === 'Iniciado'}
             value={opponentName}
             onChange={(e) => setOppName(e.currentTarget.value)}
             data-autofocus
           />
+
           <SimpleGrid cols={2}>
             <Select
               label="Tipo de Partido"
@@ -296,8 +312,25 @@ export const AnalisisList = () => {
               onChange={(val) => setMatchFormat(val!)}
               allowDeselect={false}
             />
-          </SimpleGrid>
-          <SimpleGrid cols={2}>
+            <Select
+              label="Formato al mejor de..."
+              data={[
+                { value: '1', label: '1 Set Único (Sube y baja)' },
+                { value: '2', label: 'Mejor de 3 Sets (2 para ganar)' },
+                { value: '3', label: 'Mejor de 5 Sets (3 para ganar)' },
+                { value: '4', label: 'Mejor de 7 Sets (4 para ganar)' },
+              ]}
+              value={setsToWin}
+              onChange={(val) => setSetsToWin(val!)}
+              allowDeselect={false}
+            />
+            <Select
+              label="Nivel del Rival"
+              data={['Peor', 'Igual', 'Mejor']}
+              value={opponentLevel}
+              onChange={setOpponentLevel}
+              clearable
+            />
             <Select
               label="Mano del Rival"
               data={['Diestro', 'Zurdo']}
@@ -312,36 +345,30 @@ export const AnalisisList = () => {
               onChange={setOpponentStyle}
               clearable
             />
-          </SimpleGrid>
-          <SimpleGrid cols={2}>
             <Select
-              label="Nivel del Rival"
-              data={['Peor', 'Igual', 'Mejor']}
-              value={opponentLevel}
-              onChange={setOpponentLevel}
+              label="Goma Derecha"
+              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
+              value={opponentRubberForehand}
+              onChange={setOpponentRubberForehand}
               clearable
             />
             <Select
-              label="Formato al mejor de..."
-              data={[
-                { value: '2', label: 'Mejor de 3 Sets (2 para ganar)' },
-                { value: '3', label: 'Mejor de 5 Sets (3 para ganar)' },
-                { value: '4', label: 'Mejor de 7 Sets (4 para ganar)' },
-              ]}
-              value={setsToWin}
-              onChange={(val) => setSetsToWin(val!)}
-              allowDeselect={false}
+              label="Goma Revés"
+              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
+              value={opponentRubberBackhand}
+              onChange={setOpponentRubberBackhand}
+              clearable
             />
           </SimpleGrid>
 
           <Button
-            color="blue"
+            color={initialStatus === 'Programado' ? 'orange' : 'blue'}
             fullWidth
             onClick={handleStartMatch}
             loading={creating}
-            disabled={!opponentName}
+            disabled={initialStatus === 'Iniciado' && !opponentName}
           >
-            {initialStatus === 'Programado' ? 'Crear y Planificar' : 'Ir a la mesa'}
+            {initialStatus === 'Programado' ? 'Crear Plan General' : 'Ir a la mesa'}
           </Button>
         </Stack>
       </Modal>

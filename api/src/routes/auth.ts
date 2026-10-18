@@ -136,25 +136,15 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciales incorrectas' });
     }
 
+    // Token Minimalista (Solo lo esencial para seguridad y middleware)
     const token = jwt.sign(
       {
         id: user.id,
-        name: user.name,
-        surname: user.surname,
-        nickname: user.nickname,
-        avatarUrl: user.avatarUrl,
-        email: user.email,
         role: user.userType.name,
         clubId: user.clubId,
-        clubStatus: user.clubStatus,
-        dominantHand: user.dominantHand,
-        playstyle: user.playstyle,
-        birthDate: user.birthDate,
-        authProvider: user.authProvider,
-        forcePasswordChange: user.forcePasswordChange,
       },
       JWT_SECRET,
-      { expiresIn: '8h' },
+      { expiresIn: '30d' }, // Le he puesto 30 días para que sea más cómodo en desarrollo/móvil
     );
 
     res.status(200).json({ message: 'Login local exitoso', token });
@@ -224,25 +214,15 @@ router.post('/google', async (req, res) => {
       });
     }
 
+    // Token Minimalista (Solo lo esencial para seguridad y middleware)
     const token = jwt.sign(
       {
         id: user.id,
-        email: user.email,
-        name: user.name,
-        surname: user.surname,
-        nickname: user.nickname,
-        avatarUrl: user.avatarUrl,
         role: user.userType.name,
         clubId: user.clubId,
-        clubStatus: user.clubStatus,
-        dominantHand: user.dominantHand,
-        playstyle: user.playstyle,
-        birthDate: user.birthDate,
-        authProvider: user.authProvider,
-        forcePasswordChange: user.forcePasswordChange,
       },
       JWT_SECRET,
-      { expiresIn: '8h' },
+      { expiresIn: '30d' }, // Le he puesto 30 días para que sea más cómodo en desarrollo/móvil
     );
 
     res.status(200).json({ message: 'Login con Google exitoso', token });

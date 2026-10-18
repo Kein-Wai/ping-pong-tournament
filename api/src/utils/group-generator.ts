@@ -1,9 +1,83 @@
-import { PrismaClient } from '@prisma/client';
-import { TournamentStatus } from '@prisma/client';
+import { PrismaClient, TournamentStatus } from '@prisma/client';
 import { MATCH_MATRIX } from '../constants';
 
-const MATCH_MATRICES: Record<number, number[][]> = MATCH_MATRIX;
+// ==========================================
+// 1. INTERFAZ UNIVERSAL (Independiente de la DB)
+// ==========================================
+export interface TournamentSeed {
+  id: string; // Puede ser un UUID de base de datos o un ID temporal "excel-1"
+  seedValue: number; // El valor para ordenar (ELO, Ranking manual, etc.)
+}
 
+// ==========================================
+// 2. MOTOR MATEMÁTICO PURO (Sin Prisma)
+// ==========================================
+export const buildGroupsEngine = (players: TournamentSeed[], numGroups: number) => {
+  // 1. Ordenamos a los jugadores por su valor (de mayor a menor)
+  const sortedPlayers = [...players].sort((a, b) => b.seedValue - a.seedValue);
+
+  // 2. Algoritmo de la Serpiente
+  const snakeGroups: Array<Array<string>> = Array.from({ length: numGroups }, () => []);
+  let currentGroupIndex = 0;
+  let direction = 1;
+
+  if (numGroups === 1) {
+    for (const player of sortedPlayers) {
+      snakeGroups[0].push(player.id);
+    }
+  } else {
+    for (const player of sortedPlayers) {
+      snakeGroups[currentGroupIndex].push(player.id);
+
+      if (direction === 1) {
+        if (currentGroupIndex === numGroups - 1) {
+          direction = -1;
+        } else {
+          currentGroupIndex++;
+        }
+      } else {
+        if (currentGroupIndex === 0) {
+          direction = 1;
+        } else {
+          currentGroupIndex--;
+        }
+      }
+    }
+  }
+
+  // 3. Generar enfrentamientos usando la matriz matemática
+  const MATCH_MATRICES: Record<number, number[][]> = MATCH_MATRIX;
+
+  const groupsData = snakeGroups.map((groupPlayers, index) => {
+    const matches: Array<{ playerOneId: string; playerTwoId: string }> = [];
+    const numPlayersInThisGroup = groupPlayers.length;
+    const matrix = MATCH_MATRICES[numPlayersInThisGroup];
+
+    if (matrix) {
+      for (const [p1Index, p2Index] of matrix) {
+        const playerOneId = groupPlayers[p1Index - 1];
+        const playerTwoId = groupPlayers[p2Index - 1];
+
+        if (playerOneId && playerTwoId) {
+          matches.push({ playerOneId, playerTwoId });
+        }
+      }
+    }
+
+    return {
+      groupIndex: index + 1,
+      players: groupPlayers,
+      matches,
+    };
+  });
+
+  // Retornamos un JSON estructural puro, sin tocar bases de datos
+  return groupsData;
+};
+
+// ==========================================
+// 3. ADAPTADOR DE BASE DE DATOS (El flujo actual)
+// ==========================================
 export const generateTournamentGroups = async (prisma: PrismaClient, tournamentId: string) => {
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
@@ -29,61 +103,30 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
     throw new Error('No hay suficientes jugadores confirmados para generar los grupos');
   }
 
-  const playersWithElo = participants.map((p) => {
-    // 👇 Buscamos los stats que coincidan con la temporada del torneo
+  // Transformar los datos de Prisma a la interfaz universal del motor
+  const playersWithElo: TournamentSeed[] = participants.map((p) => {
     const currentStats = p.player.stats.find((s) => s.seasonId === tournament.seasonId);
-
-    // 👇 Leemos el ELO del objeto encontrado (o 500 por defecto)
     const elo = currentStats?.elo ? currentStats.elo : 500;
-
-    return { playerId: p.playerId, elo };
+    return { id: p.playerId, seedValue: elo };
   });
 
-  playersWithElo.sort((a, b) => b.elo - a.elo);
+  // 🚀 LLAMADA AL MOTOR PURO
+  const groupsData = buildGroupsEngine(playersWithElo, tournament.numGroup);
 
-  const snakeGroups: Array<Array<string>> = Array.from({ length: tournament.numGroup }, () => []);
-
-  let currentGroupIndex = 0;
-  let direction = 1;
-
-  if (tournament.numGroup === 1) {
-    for (const player of playersWithElo) {
-      snakeGroups[0].push(player.playerId);
-    }
-  } else {
-    for (const player of playersWithElo) {
-      snakeGroups[currentGroupIndex].push(player.playerId);
-
-      if (direction === 1) {
-        if (currentGroupIndex === tournament.numGroup - 1) {
-          direction = -1;
-        } else {
-          currentGroupIndex++;
-        }
-      } else {
-        if (currentGroupIndex === 0) {
-          direction = 1;
-        } else {
-          currentGroupIndex--;
-        }
-      }
-    }
-  }
-
+  // Guardar la estructura en Prisma
   await prisma.$transaction(async (tx) => {
-    for (let i = 0; i < snakeGroups.length; i++) {
-      const groupPlayers = snakeGroups[i];
-      if (groupPlayers.length === 0) continue;
+    for (const groupData of groupsData) {
+      if (groupData.players.length === 0) continue;
 
       const group = await tx.tournamentGroup.create({
         data: {
           tournamentId: tournament.id,
-          group: i + 1,
+          group: groupData.groupIndex,
           status: TournamentStatus.Programado,
         },
       });
 
-      for (const playerId of groupPlayers) {
+      for (const playerId of groupData.players) {
         await tx.tournamentGroupClas.create({
           data: {
             tournamentGroupId: group.id,
@@ -93,27 +136,17 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
         });
       }
 
-      const numPlayersInThisGroup = groupPlayers.length;
-      const matrix = MATCH_MATRICES[numPlayersInThisGroup];
-
-      if (matrix) {
-        for (const [p1Index, p2Index] of matrix) {
-          const playerOneId = groupPlayers[p1Index - 1];
-          const playerTwoId = groupPlayers[p2Index - 1];
-
-          if (playerOneId && playerTwoId) {
-            await tx.match.create({
-              data: {
-                tournamentId: tournament.id,
-                groupId: group.id,
-                playerOneId: playerOneId,
-                playerTwoId: playerTwoId,
-                status: 'Programado',
-                dateStart: new Date(),
-              },
-            });
-          }
-        }
+      for (const match of groupData.matches) {
+        await tx.match.create({
+          data: {
+            tournamentId: tournament.id,
+            groupId: group.id,
+            playerOneId: match.playerOneId,
+            playerTwoId: match.playerTwoId,
+            status: 'Programado',
+            dateStart: new Date(),
+          },
+        });
       }
     }
 

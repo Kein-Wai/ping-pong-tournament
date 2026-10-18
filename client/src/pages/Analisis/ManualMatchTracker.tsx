@@ -20,8 +20,10 @@ import {
   NumberInput,
   Checkbox,
   Accordion,
+  Select,
   ThemeIcon,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   IconArrowLeft,
   IconArrowBackUp,
@@ -35,7 +37,6 @@ import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { isValidTableTennisSet } from '../../utils/matchValidation';
 
-// --- CHECKLIST PARA MODO LIGHT ---
 const SKILLS_LIST = [
   'Derecha plano',
   'Revés plano',
@@ -48,14 +49,11 @@ const SKILLS_LIST = [
   'Recepción',
   'Movilidad',
 ];
-
-// --- NUEVA TAXONOMÍA EN ÁRBOL (Categoría -> Subcategoría -> Ubicación) ---
 const PLACEMENTS = [
   { label: 'Derecha', placement: 'Derecha' },
   { label: 'Revés', placement: 'Reves' },
   { label: 'Centro/Codo', placement: 'Centro' },
 ];
-
 const RESTO_PLACEMENTS = [
   { label: 'A Mi Derecha', placement: 'Derecha' },
   { label: 'A Mi Revés', placement: 'Reves' },
@@ -115,48 +113,86 @@ export const ManualMatchTracker = () => {
   const [match, setMatch] = useState<any>(null);
   const [pointHistory, setPointHistory] = useState<any[]>([]);
 
-  // Scoring State
   const [currentSet, setCurrentSet] = useState(1);
   const [mySetsWon, setMySetsWon] = useState<number | string>(0);
   const [oppSetsWon, setOppSetsWon] = useState<number | string>(0);
 
-  // Tree Flow State
   const [isWonState, setIsWonState] = useState<boolean | null>(null);
   const [currentNodes, setCurrentNodes] = useState<any[] | null>(null);
   const [pointPath, setPointPath] = useState<any>({});
 
-  // Planning State (Pre-partido)
   const [planMyServe, setPlanMyServe] = useState('');
   const [planTheirServe, setPlanTheirServe] = useState('');
   const [planStrategy, setPlanStrategy] = useState('');
   const [savingPlan, setSavingPlan] = useState(false);
 
-  // Light Analysis State (Checkboxes)
   const [strChecked, setStrChecked] = useState<string[]>([]);
   const [strDetails, setStrDetails] = useState('');
   const [weakChecked, setWeakChecked] = useState<string[]>([]);
   const [weakDetails, setWeakDetails] = useState('');
 
-  // Deep Analysis Final Note
   const [deepNotes, setDeepNotes] = useState('');
 
+  // Estados de edición del rival
   const [editRivalModal, setEditRivalModal] = useState(false);
   const [editOppName, setEditOppName] = useState('');
+  const [editOppHand, setEditOppHand] = useState<string | null>(null);
+  const [editOppStyle, setEditOppStyle] = useState<string | null>(null);
+  const [editOppLevel, setEditOppLevel] = useState<string | null>(null);
+  const [editOppRubberForehand, setEditOppRubberForehand] = useState<string | null>(null);
+  const [editOppRubberBackhand, setEditOppRubberBackhand] = useState<string | null>(null);
 
-  // Modales
+  // Selección de tipo de análisis para el botón de Start
+  const [startAnalysisType, setStartAnalysisType] = useState<string>('Rapido');
+
   const [showEndSetModal, setShowEndSetModal] = useState(false);
   const [showEndMatchModal, setShowEndMatchModal] = useState(false);
   const [viewingSetSummary, setViewingSetSummary] = useState<number | null>(null);
+
+  // Estados para el Modo Rápido (Tanteos)
+  const [setScores, setSetScores] = useState<{ myScore: number | ''; oppScore: number | '' }[]>([]);
+
+  const totalSetsPlayed = Number(mySetsWon) + Number(oppSetsWon);
+
+  useEffect(() => {
+    setSetScores((prev) => {
+      if (prev.length === totalSetsPlayed) return prev;
+      const newScores = [...prev];
+      while (newScores.length < totalSetsPlayed) {
+        newScores.push({ myScore: '', oppScore: '' });
+      }
+      if (newScores.length > totalSetsPlayed) {
+        newScores.length = totalSetsPlayed;
+      }
+      return newScores;
+    });
+  }, [totalSetsPlayed]);
+
+  const handleScoreChange = (
+    index: number,
+    field: 'myScore' | 'oppScore',
+    value: number | string,
+  ) => {
+    const updated = [...setScores];
+    updated[index] = { ...updated[index], [field]: value };
+    setSetScores(updated);
+  };
 
   useEffect(() => {
     api.get(ENDPOINTS.MANUAL_MATCHES.BY_ID(id!)).then((res) => {
       const data = res.data.data;
       setMatch(data);
       setEditOppName(data.opponentName);
+      setEditOppHand(data.opponentHand || null);
+      setEditOppStyle(data.opponentStyle || null);
+      setEditOppLevel(data.opponentLevel || null);
+      setStartAnalysisType(data.analysisType || 'Rapido');
+      setEditOppRubberForehand(data.opponentRubberForehand || null);
+      setEditOppRubberBackhand(data.opponentRubberBackhand || null);
+
       setMySetsWon(data.mySets || 0);
       setOppSetsWon(data.opponentSets || 0);
 
-      // Si existía un plan o notas previas, intentamos parsearlas
       if (data.planningNotes) {
         try {
           const parsed = JSON.parse(data.planningNotes);
@@ -164,12 +200,11 @@ export const ManualMatchTracker = () => {
           setPlanTheirServe(parsed.theirServe || '');
           setPlanStrategy(parsed.strategy || '');
         } catch {
-          // Fallback por si era un texto plano en BD
           setPlanStrategy(data.planningNotes);
         }
       }
 
-      if (data.analysisType === 'Deep' && data.lightNotes) {
+      if (data.analysisType === 'Extenso' && data.lightNotes) {
         setDeepNotes(data.lightNotes);
       }
 
@@ -203,7 +238,6 @@ export const ManualMatchTracker = () => {
     }
   }, [myScore, oppScore, match]);
 
-  // 👇 CÁLCULOS DINÁMICOS DE RESUMEN
   const getPointLabel = (p: any) => {
     if (!p.category) return 'Rápido / Sin detalle';
     let label = p.category;
@@ -228,24 +262,31 @@ export const ManualMatchTracker = () => {
         acc[label] = (acc[label] || 0) + 1;
         return acc;
       }, {});
-
-    const sMyScore = pts.filter((p) => p.isWon).length;
-    const sOppScore = pts.filter((p) => !p.isWon).length;
-
-    return { wonCategories, lostCategories, myScore: sMyScore, oppScore: sOppScore };
+    return {
+      wonCategories,
+      lostCategories,
+      myScore: pts.filter((p) => p.isWon).length,
+      oppScore: pts.filter((p) => !p.isWon).length,
+    };
   };
 
   const getSortedCategories = (catObj: any) =>
     Object.entries(catObj).sort((a: any, b: any) => b[1] - a[1]);
-
   const activeSummary = getSetSummary(currentSet);
   const viewSummary = viewingSetSummary ? getSetSummary(viewingSetSummary) : null;
 
-  // --- ACTIONS ---
   const handleUpdateRival = async () => {
     try {
-      await api.put(ENDPOINTS.MANUAL_MATCHES.UPDATE(id!), { opponentName: editOppName });
-      setMatch({ ...match, opponentName: editOppName });
+      const payload = {
+        opponentName: editOppName,
+        opponentHand: editOppHand,
+        opponentStyle: editOppStyle,
+        opponentLevel: editOppLevel,
+        opponentRubberForehand: editOppRubberForehand,
+        opponentRubberBackhand: editOppRubberBackhand,
+      };
+      await api.put(ENDPOINTS.MANUAL_MATCHES.UPDATE(id!), payload);
+      setMatch({ ...match, ...payload });
       setEditRivalModal(false);
     } catch (error) {
       console.error(error);
@@ -262,6 +303,7 @@ export const ManualMatchTracker = () => {
     try {
       await api.put(ENDPOINTS.MANUAL_MATCHES.UPDATE(id!), { planningNotes: planJSON });
       setMatch({ ...match, planningNotes: planJSON });
+      navigate(APP_ROUTES.ANALISIS.LIST);
     } catch (error) {
       console.error(error);
     } finally {
@@ -271,8 +313,11 @@ export const ManualMatchTracker = () => {
 
   const handleStartMatchNow = async () => {
     try {
-      await api.put(ENDPOINTS.MANUAL_MATCHES.UPDATE(id!), { status: 'Iniciado' });
-      setMatch({ ...match, status: 'Iniciado' });
+      await api.put(ENDPOINTS.MANUAL_MATCHES.UPDATE(id!), {
+        status: 'Iniciado',
+        analysisType: startAnalysisType,
+      });
+      setMatch({ ...match, status: 'Iniciado', analysisType: startAnalysisType });
     } catch (error) {
       console.error(error);
     }
@@ -283,7 +328,6 @@ export const ManualMatchTracker = () => {
     setCurrentNodes(null);
     setPointPath({});
   };
-
   const handleStartPoint = (isWon: boolean) => {
     setIsWonState(isWon);
     setCurrentNodes(isWon ? WON_TREE : LOST_TREE);
@@ -295,7 +339,6 @@ export const ManualMatchTracker = () => {
     if (node.category) newPath.category = node.category;
     if (node.subcategory) newPath.subcategory = node.subcategory;
     if (node.placement) newPath.placement = node.placement;
-
     if (node.next) {
       setPointPath(newPath);
       setCurrentNodes(node.next);
@@ -314,7 +357,6 @@ export const ManualMatchTracker = () => {
       subcategory: data.subcategory || null,
       placement: data.placement || null,
     };
-
     try {
       const res = await api.post(ENDPOINTS.MANUAL_MATCHES.ADD_POINT(id!), payload);
       setPointHistory([...pointHistory, res.data.data]);
@@ -325,10 +367,10 @@ export const ManualMatchTracker = () => {
 
   const handleUndoPoint = async () => {
     if (pointHistory.length === 0) return;
-    const lastPoint = pointHistory[pointHistory.length - 1];
-
     try {
-      await api.delete(ENDPOINTS.MANUAL_MATCHES.DELETE_POINT(id!, lastPoint.id));
+      await api.delete(
+        ENDPOINTS.MANUAL_MATCHES.DELETE_POINT(id!, pointHistory[pointHistory.length - 1].id),
+      );
       setPointHistory(pointHistory.slice(0, -1));
       resetFlow();
     } catch (error) {
@@ -340,26 +382,50 @@ export const ManualMatchTracker = () => {
     const iWonSet = myScore > oppScore;
     const newMySets = iWonSet ? Number(mySetsWon) + 1 : Number(mySetsWon);
     const newOppSets = !iWonSet ? Number(oppSetsWon) + 1 : Number(oppSetsWon);
-
     setMySetsWon(newMySets);
     setOppSetsWon(newOppSets);
     setShowEndSetModal(false);
-
-    const requiredSets = match.setsToWin || 3;
-
-    if (newMySets === requiredSets || newOppSets === requiredSets) {
+    if (newMySets === (match.setsToWin || 3) || newOppSets === (match.setsToWin || 3))
       setShowEndMatchModal(true);
-    } else {
-      setCurrentSet(currentSet + 1);
-    }
+    else setCurrentSet(currentSet + 1);
   };
 
   const executeCompleteMatch = async () => {
     let finalNotes = deepNotes;
+    let finalSetScores = undefined;
 
-    // Compilar la plantilla interactiva si es Light Mode
-    if (match.analysisType === 'Light') {
+    if (match.analysisType === 'Rapido') {
+      // 1. REGLA DEL PING PONG EN CLIENTE
+      const isValidSet = (s1: number, s2: number) => {
+        if (s1 === 0 && s2 === 0) return true; // Lo ignoramos si lo dejaron en blanco
+        const max = Math.max(s1, s2);
+        const min = Math.min(s1, s2);
+        if (max < 11) return false;
+        if (max === 11 && min > 9) return false;
+        return max <= 11 || max - min === 2;
+      };
+
+      for (let i = 0; i < setScores.length; i++) {
+        const s1 = Number(setScores[i].myScore);
+        const s2 = Number(setScores[i].oppScore);
+        if (s1 > 0 || s2 > 0) {
+          // Si han escrito algo
+          if (!isValidSet(s1, s2)) {
+            return notifications.show({
+              title: 'Marcador Inválido',
+              message: `El resultado del Set ${i + 1} (${s1}-${s2}) es imposible en tenis de mesa. Corrígelo.`,
+              color: 'red',
+            });
+          }
+        }
+      }
+
       finalNotes = `Fortalezas durante el partido:\n${strChecked.length > 0 ? strChecked.map((s) => `- ${s}`).join('\n') : 'Ninguna'}\nDetalles:\n${strDetails || 'Sin detalles'}\n\nCosas a mejorar:\n${weakChecked.length > 0 ? weakChecked.map((s) => `- ${s}`).join('\n') : 'Ninguna'}\nDetalles:\n${weakDetails || 'Sin detalles'}`;
+
+      finalSetScores = setScores.map((s) => ({
+        myScore: Number(s.myScore) || 0,
+        oppScore: Number(s.oppScore) || 0,
+      }));
     }
 
     try {
@@ -367,6 +433,7 @@ export const ManualMatchTracker = () => {
         mySets: Number(mySetsWon),
         opponentSets: Number(oppSetsWon),
         lightNotes: finalNotes,
+        setScores: finalSetScores,
       });
       setMatch({
         ...match,
@@ -388,8 +455,26 @@ export const ManualMatchTracker = () => {
       </Center>
     );
 
-  // --- 1. REPORTE FINAL (Ambos modos) ---
+  // --- 1. REPORTE FINAL ---
   if (match.status === 'Completado') {
+    // 👇 Lógica Inteligente para extraer los tanteos según el tipo de partido
+    let finalSetScores: { myScore: number; oppScore: number }[] = [];
+
+    if (match.analysisType === 'Rapido' && Array.isArray(match.setScores)) {
+      finalSetScores = match.setScores;
+    } else if (match.analysisType === 'Extenso' && pointHistory.length > 0) {
+      const maxSet = Math.max(...pointHistory.map((p) => p.setNumber), 0);
+      for (let i = 1; i <= maxSet; i++) {
+        const pts = pointHistory.filter((p) => p.setNumber === i);
+        if (pts.length > 0) {
+          finalSetScores.push({
+            myScore: pts.filter((p) => p.isWon).length,
+            oppScore: pts.filter((p) => !p.isWon).length,
+          });
+        }
+      }
+    }
+
     return (
       <Stack gap="xl" style={{ maxWidth: 1000, margin: '0 auto' }}>
         <Group justify="space-between">
@@ -436,6 +521,31 @@ export const ManualMatchTracker = () => {
               </Text>
             </Stack>
           </Group>
+
+          {/* 👇 NUEVA SECCIÓN DE TANTEOS POR SET 👇 */}
+          {finalSetScores.length > 0 && (
+            <Group
+              justify="center"
+              mt="xl"
+              gap="lg"
+              style={{ borderTop: '1px solid var(--mantine-color-dark-5)', paddingTop: '20px' }}
+            >
+              {finalSetScores.map((score, idx) => (
+                <Stack key={idx} align="center" gap={4}>
+                  <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+                    SET {idx + 1}
+                  </Text>
+                  <Badge
+                    size="xl"
+                    variant="filled"
+                    color={score.myScore > score.oppScore ? 'green.8' : 'red.8'}
+                  >
+                    {score.myScore} - {score.oppScore}
+                  </Badge>
+                </Stack>
+              ))}
+            </Group>
+          )}
         </Paper>
 
         {match.lightNotes && (
@@ -447,8 +557,7 @@ export const ManualMatchTracker = () => {
           </Paper>
         )}
 
-        {/* Solo mostramos la tabla si es DEEP y hay puntos */}
-        {match.analysisType === 'Deep' && pointHistory.length > 0 && (
+        {match.analysisType === 'Extenso' && pointHistory.length > 0 && (
           <>
             <Title order={4} mt="md">
               Desglose Punto a Punto
@@ -499,7 +608,7 @@ export const ManualMatchTracker = () => {
     );
   }
 
-  // --- 2. FLUJO PLANIFICACIÓN PRE-PARTIDO (Programado) ---
+  // --- 2. FLUJO PLANIFICACIÓN PRE-PARTIDO ---
   if (match.status === 'Programado') {
     return (
       <Stack gap="xl" style={{ maxWidth: 800, margin: '0 auto' }}>
@@ -518,33 +627,38 @@ export const ManualMatchTracker = () => {
             <ThemeIcon size={40} radius="md" color="orange" variant="light">
               <IconClipboardList size={24} />
             </ThemeIcon>
-            <Title order={3}>Plan de Partido vs {match.opponentName}</Title>
+            <Group gap="xs">
+              <Title order={3}>Plan vs {match.opponentName}</Title>
+              <ActionIcon variant="light" color="blue" onClick={() => setEditRivalModal(true)}>
+                <IconEdit size={16} />
+              </ActionIcon>
+            </Group>
           </Group>
 
           <Stack gap="md">
             <Textarea
               label="¿Qué voy a hacer cuando saque yo?"
-              placeholder="Ej: Saque corto al revés sin efecto para buscar su flip y bloquear..."
+              placeholder="Ej: Saque corto al revés sin efecto..."
               minRows={3}
               value={planMyServe}
               onChange={(e) => setPlanMyServe(e.currentTarget.value)}
             />
             <Textarea
               label="¿Qué voy a hacer cuando saque él?"
-              placeholder="Ej: Si saca largo, abrir cruzado rápido..."
+              placeholder="Ej: Si saca largo, abrir cruzado..."
               minRows={3}
               value={planTheirServe}
               onChange={(e) => setPlanTheirServe(e.currentTarget.value)}
             />
             <Textarea
               label="¿Cuál será mi estrategia de partido?"
-              placeholder="Ej: Mantener la bola en su revés, no entrar en duelo de cortados..."
+              placeholder="Ej: Mantener la bola en su revés..."
               minRows={4}
               value={planStrategy}
               onChange={(e) => setPlanStrategy(e.currentTarget.value)}
             />
 
-            <Group grow mt="lg">
+            <Group justify="space-between" align="flex-end" mt="lg">
               <Button
                 color="orange"
                 variant="light"
@@ -554,41 +668,91 @@ export const ManualMatchTracker = () => {
               >
                 Guardar Notas
               </Button>
-              <Button color="blue" onClick={handleStartMatchNow}>
-                Empezar Partido Ahora
-              </Button>
+
+              <Group align="flex-end">
+                <Select
+                  label="Tipo de Análisis"
+                  data={[
+                    { value: 'Rapido', label: 'Rápido (Rapido)' },
+                    { value: 'Extenso', label: 'Profundo (Extenso)' },
+                  ]}
+                  value={startAnalysisType}
+                  onChange={(val) => setStartAnalysisType(val!)}
+                  allowDeselect={false}
+                />
+                <Button color="blue" onClick={handleStartMatchNow}>
+                  Empezar Partido
+                </Button>
+              </Group>
             </Group>
           </Stack>
         </Paper>
+
+        {/* Modal Editar Integrado Aquí También */}
+        <Modal
+          opened={editRivalModal}
+          onClose={() => setEditRivalModal(false)}
+          title="Actualizar Datos del Rival"
+          centered
+        >
+          <Stack gap="md">
+            <TextInput
+              label="Nombre Real"
+              value={editOppName}
+              onChange={(e) => setEditOppName(e.currentTarget.value)}
+            />
+            <SimpleGrid cols={2}>
+              <Select
+                label="Mano"
+                data={['Diestro', 'Zurdo']}
+                value={editOppHand}
+                onChange={setEditOppHand}
+                clearable
+              />
+              <Select
+                label="Estilo"
+                data={['Ofensivo', 'Defensivo']}
+                value={editOppStyle}
+                onChange={setEditOppStyle}
+                clearable
+              />
+              <Select
+                label="Nivel"
+                data={['Peor', 'Igual', 'Mejor']}
+                value={editOppLevel}
+                onChange={setEditOppLevel}
+                clearable
+              />
+            </SimpleGrid>
+            <Button mt="md" fullWidth color="blue" onClick={handleUpdateRival}>
+              Guardar Cambios
+            </Button>
+          </Stack>
+        </Modal>
       </Stack>
     );
   }
 
-  // --- 3. FLUJO LIGHT (Formulario Rápido y Checklist) ---
-  // --- 3. FLUJO LIGHT (Formulario Rápido y Checklist) ---
-  if (match.analysisType === 'Light') {
-    // 👇 1. FIX DE SETS: Aseguramos que solo un jugador alcance la meta y el otro tenga menos
+  // --- 3. FLUJO LIGHT ---
+  if (match.analysisType === 'Rapido') {
     const mySets = Number(mySetsWon);
     const oppSets = Number(oppSetsWon);
     const target = match.setsToWin;
-
     const isReadyToComplete =
       (mySets === target && oppSets < target) || (oppSets === target && mySets < target);
 
     return (
       <Stack gap="xl" style={{ maxWidth: 800, margin: '0 auto' }}>
-        <Group>
-          <Button
-            variant="subtle"
-            color="gray"
-            leftSection={<IconArrowLeft size={16} />}
-            onClick={() => navigate(APP_ROUTES.ANALISIS.LIST)}
-          >
-            Volver a Análisis
-          </Button>
-        </Group>
+        <Button
+          variant="subtle"
+          color="gray"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={() => navigate(APP_ROUTES.ANALISIS.LIST)}
+          w="max-content"
+        >
+          Volver a Análisis
+        </Button>
 
-        {/* Mostrar Plan si existe */}
         {match.planningNotes && (
           <Accordion variant="separated">
             <Accordion.Item value="plan">
@@ -617,7 +781,12 @@ export const ManualMatchTracker = () => {
 
         <Paper withBorder p="xl" radius="md">
           <Group justify="space-between" mb="lg">
-            <Title order={3}>Resultado (Modo Rápido)</Title>
+            <Group gap="xs">
+              <Title order={3}>vs {match.opponentName}</Title>
+              <ActionIcon variant="light" color="blue" onClick={() => setEditRivalModal(true)}>
+                <IconEdit size={16} />
+              </ActionIcon>
+            </Group>
             <Badge color="blue" variant="light">
               Al mejor de {match.setsToWin} Sets
             </Badge>
@@ -628,6 +797,8 @@ export const ManualMatchTracker = () => {
               label="Tus Sets Ganados"
               min={0}
               max={match.setsToWin}
+              clampBehavior="strict" // 👈 MAGIA DE MANTINE v7
+              allowNegative={false}
               value={mySetsWon}
               onChange={setMySetsWon}
               size="md"
@@ -636,12 +807,36 @@ export const ManualMatchTracker = () => {
               label={`Sets de ${match.opponentName}`}
               min={0}
               max={match.setsToWin}
+              clampBehavior="strict" // 👈 MAGIA DE MANTINE v7
+              allowNegative={false}
               value={oppSetsWon}
               onChange={setOppSetsWon}
               size="md"
             />
           </SimpleGrid>
-
+          {totalSetsPlayed > 0 && (
+            <Paper withBorder p="md" bg="var(--mantine-color-gray-0)" mb="xl">
+              <Title order={5} mb="xs">
+                Tanteo por Set (Opcional)
+              </Title>
+              {setScores.map((score, idx) => (
+                <Group key={idx} grow mb="xs">
+                  <NumberInput
+                    label={`Set ${idx + 1} (Tú)`}
+                    value={score.myScore}
+                    onChange={(v) => handleScoreChange(idx, 'myScore', v)}
+                    min={0}
+                  />
+                  <NumberInput
+                    label={`Set ${idx + 1} (${match.opponentName})`}
+                    value={score.oppScore}
+                    onChange={(v) => handleScoreChange(idx, 'oppScore', v)}
+                    min={0}
+                  />
+                </Group>
+              ))}
+            </Paper>
+          )}
           <Title order={5} mb="sm" c="green.7">
             ✅ Qué fortalezas tuve en el partido
           </Title>
@@ -652,7 +847,6 @@ export const ManualMatchTracker = () => {
                 label={skill}
                 checked={strChecked.includes(skill)}
                 onChange={(e) => {
-                  // 👇 2. FIX DE EVENTOS REACT: Extraemos el valor ANTES de pasarlo al setState
                   const isChecked = e.currentTarget.checked;
                   setStrChecked((prev) =>
                     isChecked ? [...prev, skill] : prev.filter((s) => s !== skill),
@@ -680,7 +874,6 @@ export const ManualMatchTracker = () => {
                 label={skill}
                 checked={weakChecked.includes(skill)}
                 onChange={(e) => {
-                  // 👇 2. FIX DE EVENTOS REACT: Igual aquí
                   const isChecked = e.currentTarget.checked;
                   setWeakChecked((prev) =>
                     isChecked ? [...prev, skill] : prev.filter((s) => s !== skill),
@@ -715,11 +908,52 @@ export const ManualMatchTracker = () => {
             </Text>
           )}
         </Paper>
+
+        <Modal
+          opened={editRivalModal}
+          onClose={() => setEditRivalModal(false)}
+          title="Actualizar Datos del Rival"
+          centered
+        >
+          <Stack gap="md">
+            <TextInput
+              label="Nombre Real"
+              value={editOppName}
+              onChange={(e) => setEditOppName(e.currentTarget.value)}
+            />
+            <SimpleGrid cols={2}>
+              <Select
+                label="Mano"
+                data={['Diestro', 'Zurdo']}
+                value={editOppHand}
+                onChange={setEditOppHand}
+                clearable
+              />
+              <Select
+                label="Estilo"
+                data={['Ofensivo', 'Defensivo']}
+                value={editOppStyle}
+                onChange={setEditOppStyle}
+                clearable
+              />
+              <Select
+                label="Nivel"
+                data={['Peor', 'Igual', 'Mejor']}
+                value={editOppLevel}
+                onChange={setEditOppLevel}
+                clearable
+              />
+            </SimpleGrid>
+            <Button mt="md" fullWidth color="blue" onClick={handleUpdateRival}>
+              Guardar Cambios
+            </Button>
+          </Stack>
+        </Modal>
       </Stack>
     );
   }
 
-  // --- 4. FLUJO DEEP (Árbitro Punto a Punto) ---
+  // --- 4. FLUJO DEEP ---
   return (
     <Stack gap="md" style={{ maxWidth: 800, margin: '0 auto', touchAction: 'manipulation' }}>
       <Group>
@@ -733,7 +967,6 @@ export const ManualMatchTracker = () => {
         </Button>
       </Group>
 
-      {/* Mostrar Plan si existe */}
       {match.planningNotes && (
         <Accordion variant="separated" mb="sm">
           <Accordion.Item value="plan">
@@ -760,26 +993,22 @@ export const ManualMatchTracker = () => {
         </Accordion>
       )}
 
-      {/* MARCADOR Y BOTONES PRIMERO */}
       <Paper withBorder p="md" radius="md" bg="dark.7">
         <Group justify="space-between" mb="xs">
           <ScrollArea w={{ base: 200, sm: 300 }} type="never">
             <Group gap="xs" wrap="nowrap" pb={4}>
-              {Array.from({ length: currentSet }, (_, i) => i + 1).map((setNum) => {
-                const isCurrent = setNum === currentSet;
-                return (
-                  <Button
-                    key={setNum}
-                    size="xs"
-                    variant={isCurrent ? 'filled' : 'light'}
-                    color="blue"
-                    onClick={() => !isCurrent && setViewingSetSummary(setNum)}
-                    style={{ flexShrink: 0 }}
-                  >
-                    Set {setNum}
-                  </Button>
-                );
-              })}
+              {Array.from({ length: currentSet }, (_, i) => i + 1).map((setNum) => (
+                <Button
+                  key={setNum}
+                  size="xs"
+                  variant={setNum === currentSet ? 'filled' : 'light'}
+                  color="blue"
+                  onClick={() => setNum !== currentSet && setViewingSetSummary(setNum)}
+                  style={{ flexShrink: 0 }}
+                >
+                  Set {setNum}
+                </Button>
+              ))}
             </Group>
           </ScrollArea>
           <Group gap="xs">
@@ -818,7 +1047,6 @@ export const ManualMatchTracker = () => {
         </Group>
       </Paper>
 
-      {/* FLUJO DE BOTONES DE DECISIÓN (TREE) */}
       <Paper withBorder p="md" radius="md">
         {isWonState === null ? (
           <SimpleGrid cols={2}>
@@ -860,7 +1088,6 @@ export const ManualMatchTracker = () => {
         )}
       </Paper>
 
-      {/* HISTORIAL COMPACTO DEBAJO */}
       <Paper withBorder p="sm" radius="md">
         <Text fw={700} mb="sm">
           Historial del Set {currentSet}
@@ -884,7 +1111,7 @@ export const ManualMatchTracker = () => {
                       #{p.pointOrder}
                     </Text>
                     <Badge size="xs" color="gray" variant="white">
-                      {p.category || 'Light'}
+                      {p.category || 'Rapido'}
                     </Badge>
                   </Group>
                   <Text size="sm">
@@ -901,21 +1128,45 @@ export const ManualMatchTracker = () => {
         </ScrollArea>
       </Paper>
 
-      {/* MODALES */}
       <Modal
         opened={editRivalModal}
         onClose={() => setEditRivalModal(false)}
-        title="Editar Rival"
+        title="Actualizar Datos del Rival"
         centered
       >
-        <TextInput
-          label="Nombre"
-          value={editOppName}
-          onChange={(e) => setEditOppName(e.currentTarget.value)}
-        />
-        <Button mt="md" fullWidth color="blue" onClick={handleUpdateRival}>
-          Guardar
-        </Button>
+        <Stack gap="md">
+          <TextInput
+            label="Nombre Real"
+            value={editOppName}
+            onChange={(e) => setEditOppName(e.currentTarget.value)}
+          />
+          <SimpleGrid cols={2}>
+            <Select
+              label="Mano"
+              data={['Diestro', 'Zurdo']}
+              value={editOppHand}
+              onChange={setEditOppHand}
+              clearable
+            />
+            <Select
+              label="Estilo"
+              data={['Ofensivo', 'Defensivo']}
+              value={editOppStyle}
+              onChange={setEditOppStyle}
+              clearable
+            />
+            <Select
+              label="Nivel"
+              data={['Peor', 'Igual', 'Mejor']}
+              value={editOppLevel}
+              onChange={setEditOppLevel}
+              clearable
+            />
+          </SimpleGrid>
+          <Button mt="md" fullWidth color="blue" onClick={handleUpdateRival}>
+            Guardar Cambios
+          </Button>
+        </Stack>
       </Modal>
 
       <Modal
@@ -1093,7 +1344,6 @@ export const ManualMatchTracker = () => {
           <Text size="xl" fw={700}>
             Resultado Final: {mySetsWon} - {oppSetsWon}
           </Text>
-
           <Textarea
             w="100%"
             label="Conclusiones rápidas"
@@ -1102,7 +1352,6 @@ export const ManualMatchTracker = () => {
             value={deepNotes}
             onChange={(e) => setDeepNotes(e.currentTarget.value)}
           />
-
           <Button fullWidth color="blue" mt="md" onClick={executeCompleteMatch}>
             Guardar Conclusiones y Cerrar
           </Button>

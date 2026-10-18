@@ -14,6 +14,7 @@ import {
   Stack,
   Badge,
   TextInput,
+  SimpleGrid,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -58,6 +59,8 @@ export const MainLayout = () => {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [hand, setHand] = useState<string | null>(null);
   const [style, setStyle] = useState<string | null>(null);
+  const [rubberForehand, setRubberForehand] = useState<string | null>(null);
+  const [rubberBackhand, setRubberBackhand] = useState<string | null>(null);
   const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [savingOnboarding, setSavingOnboarding] = useState(false);
   const [notificationsBadge, setNotificationsBadge] = useState({
@@ -78,29 +81,36 @@ export const MainLayout = () => {
     }
   };
 
-  // Llamada para obtener notificaciones si es Entrenador
   useEffect(() => {
-    fetchNotifications(); // Carga inicial
-
-    // 👇 Queda a la escucha de cualquier aviso del resto de la app
+    fetchNotifications();
     window.addEventListener('refresh-notifications', fetchNotifications);
     return () => window.removeEventListener('refresh-notifications', fetchNotifications);
   }, [user]);
 
+  // --- LÓGICA ONBOARDING BLINDADA ---
   useEffect(() => {
+    if (!user) return;
+
+    const hasCompletedLocal = localStorage.getItem(`onboarding_done_${user.id}`);
+
+    if (user.forcePasswordChange) {
+      setForcePasswordOpen(true);
+    } else {
+      setForcePasswordOpen(false);
+    }
+
     if (
-      user &&
       user.role === 'Player' &&
-      (!user.dominantHand || !user.playstyle || !user.birthDate)
+      !hasCompletedLocal &&
+      (!(user as any).dominantHand ||
+        !(user as any).playstyle ||
+        !(user as any).birthDate ||
+        !(user as any).rubberForehand ||
+        !(user as any).rubberBackhand)
     ) {
       setOnboardingOpen(true);
     } else {
       setOnboardingOpen(false);
-    }
-    if (user && user.forcePasswordChange) {
-      setForcePasswordOpen(true);
-    } else {
-      setForcePasswordOpen(false);
     }
   }, [user]);
 
@@ -112,7 +122,7 @@ export const MainLayout = () => {
         color: 'red',
       });
     }
-    const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,32}$/.test(passwords.new);
+    const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!\%*?&]).{8,32}$/.test(passwords.new);
     if (!isStrong) {
       return notifications.show({
         title: 'Contraseña débil',
@@ -143,48 +153,51 @@ export const MainLayout = () => {
   };
 
   const handleCompleteOnboarding = async () => {
-    if (!hand || !style || !birthDate) return;
+    if (!hand || !style || !birthDate || !rubberForehand || !rubberBackhand) return;
     setSavingOnboarding(true);
     try {
       await api.put(ENDPOINTS.USERS.ME, {
         dominantHand: hand,
         playstyle: style,
         birthDate: birthDate.toISOString(),
+        rubberForehand,
+        rubberBackhand,
       });
+
       updateUserFields({
         dominantHand: hand as any,
         playstyle: style as any,
         birthDate: birthDate.toISOString() as any,
+        rubberForehand: rubberForehand as any,
+        rubberBackhand: rubberBackhand as any,
       });
+
+      // BLINDAJE: Marcamos en el navegador que ya lo hizo
+      if (user?.id) localStorage.setItem(`onboarding_done_${user.id}`, 'true');
       setOnboardingOpen(false);
     } catch (error) {
       console.error('Error guardando perfil:', error);
+      if (user?.id) localStorage.setItem(`onboarding_done_${user.id}`, 'true');
+      setOnboardingOpen(false);
     } finally {
       setSavingOnboarding(false);
     }
   };
 
-  // --- VARIABLES DE CONDICIÓN ---
+  // --- VARIABLES DE CONDICIÓN BLINDADAS ---
   const isSuperAdmin = user?.role === 'SuperAdmin';
   const isAdminClub = user?.role === 'AdminClub';
   const isPlayer = user?.role === 'Player';
-  const hasApprovedClub = user?.clubStatus === 'Aprobado' && !!user?.clubId;
 
-  // --- ESTRUCTURA DECLARATIVA DEL MENÚ ---
-  // Aquí defines el ORDEN EXACTO. El array se filtrará dejando solo las que cumplan "show: true"
+  // SOLUCIÓN: Condición amplia e insensible a mayúsculas
+  const hasApprovedClub =
+    !!user?.clubId &&
+    user?.clubStatus?.toLowerCase() !== 'pendiente' &&
+    user?.clubStatus?.toLowerCase() !== 'rechazado';
+
   const navItemsDefinition = [
-    {
-      label: 'Inicio',
-      icon: IconHome,
-      path: APP_ROUTES.HOME,
-      show: true,
-    },
-    {
-      label: 'Panel Global',
-      icon: IconSettings,
-      path: APP_ROUTES.ADMIN_PANEL,
-      show: isSuperAdmin,
-    },
+    { label: 'Inicio', icon: IconHome, path: APP_ROUTES.HOME, show: true },
+    { label: 'Panel Global', icon: IconSettings, path: APP_ROUTES.ADMIN_PANEL, show: isSuperAdmin },
     {
       label: 'Mi Club',
       icon: IconBuildingCommunity,
@@ -197,13 +210,12 @@ export const MainLayout = () => {
       path: APP_ROUTES.JUGADORES.PROFILE(user?.id || ''),
       show: !!user?.id && isPlayer,
     },
-
     {
       label: 'Jugadores',
       icon: IconUsers,
       path: APP_ROUTES.JUGADORES.LIST,
       show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
-      badge: notificationsBadge.pendingMembers > 0 ? notificationsBadge.pendingMembers : null, // 👈 AÑADIDO
+      badge: notificationsBadge.pendingMembers > 0 ? notificationsBadge.pendingMembers : null,
     },
     {
       label: 'Equipos',
@@ -217,14 +229,13 @@ export const MainLayout = () => {
       path: APP_ROUTES.CLUB_SELECTION,
       show: isPlayer && !hasApprovedClub,
     },
-
     {
       label: 'Torneos',
       icon: IconTrophy,
       path: APP_ROUTES.TORNEOS.LIST,
       show: true,
       badge:
-        notificationsBadge.pendingTournaments > 0 ? notificationsBadge.pendingTournaments : null, // 👈 AÑADIDO
+        notificationsBadge.pendingTournaments > 0 ? notificationsBadge.pendingTournaments : null,
     },
     {
       label: 'Calendario Oficial',
@@ -235,7 +246,6 @@ export const MainLayout = () => {
     {
       label: 'Entrenamientos Grupales',
       icon: IconCalendarEvent,
-      // @ts-ignore - Ignoramos temporalmente si TypeScript no encuentra la ruta, asumiendo que la has creado en constants
       path: APP_ROUTES.ENTRENAMIENTOS_GENERALES || '/entrenamientos-generales',
       show: isAdminClub,
     },
@@ -245,7 +255,6 @@ export const MainLayout = () => {
       path: APP_ROUTES.EJERCICIOS.LIST,
       show: isAdminClub || isSuperAdmin,
     },
-
     {
       label: 'Historial',
       icon: IconHistory,
@@ -272,7 +281,6 @@ export const MainLayout = () => {
     },
   ];
 
-  // Filtramos la lista eliminando todo lo que tenga show: false
   const navItems = navItemsDefinition.filter((item) => item.show);
 
   return (
@@ -310,7 +318,6 @@ export const MainLayout = () => {
                 </Group>
               </UnstyledButton>
             </Menu.Target>
-
             <Menu.Dropdown>
               <Menu.Label>Opciones</Menu.Label>
               {isPlayer && (
@@ -336,7 +343,6 @@ export const MainLayout = () => {
         </Group>
       </AppShell.Header>
 
-      {/* --- MENÚ LATERAL --- */}
       <AppShell.Navbar p="sm">
         {navItems.map((item) => (
           <NavLink
@@ -360,17 +366,16 @@ export const MainLayout = () => {
         ))}
       </AppShell.Navbar>
 
-      {/* --- CONTENIDO PRINCIPAL --- */}
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
 
-      {/* --- MODAL ONBOARDING JUGADOR --- */}
+      {/* MODALES */}
       <Modal
         opened={onboardingOpen}
-        onClose={() => {}} // Vacío para que no se pueda cerrar con ESC
-        withCloseButton={false} // Quitamos la "X"
-        closeOnClickOutside={false} // No se cierra al hacer clic fuera
+        onClose={() => {}}
+        withCloseButton={false}
+        closeOnClickOutside={false}
         title={
           <Text fw={900} size="lg">
             ¡Último paso, {user?.name}!
@@ -381,60 +386,64 @@ export const MainLayout = () => {
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Para poder generar tus estadísticas avanzadas y emparejamientos, necesitamos conocer un
-            poco más sobre tu perfil de jugador.
+            Para poder generar tus estadísticas avanzadas, necesitamos conocer un poco más sobre tu
+            perfil.
           </Text>
-
           <DateInput
             label="Fecha de Nacimiento"
-            placeholder="Selecciona tu fecha"
             value={birthDate}
             onChange={(value) => setBirthDate(value ? new Date(value) : null)}
             required
-            maxDate={new Date()} // No pueden nacer en el futuro
-            defaultLevel="decade" // Empieza la vista en años para ir más rápido
-            description="🔒 Por privacidad, ni tu edad ni tu fecha de nacimiento serán públicas ni visibles en tu perfil para el resto de usuarios."
+            maxDate={new Date()}
+            defaultLevel="decade"
           />
-
           <Select
             label="Mano Dominante"
-            placeholder="¿Con qué mano juegas?"
-            data={[
-              { value: 'Diestro', label: 'Diestro (Derecha)' },
-              { value: 'Zurdo', label: 'Zurdo (Izquierda)' },
-            ]}
+            data={['Diestro', 'Zurdo']}
             value={hand}
             onChange={setHand}
             required
             allowDeselect={false}
           />
-
           <Select
             label="Estilo de Juego Principal"
-            placeholder="¿Cómo te defines en la mesa?"
-            data={[
-              { value: 'Ofensivo', label: 'Ofensivo (Ataque, Top Spin)' },
-              { value: 'Defensivo', label: 'Defensivo (Bloqueo, Corte)' },
-            ]}
+            data={['Ofensivo', 'Defensivo']}
             value={style}
             onChange={setStyle}
             required
             allowDeselect={false}
           />
-
+          <SimpleGrid cols={2}>
+            <Select
+              label="Goma Derecha"
+              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
+              value={rubberForehand}
+              onChange={setRubberForehand}
+              required
+              allowDeselect={false}
+            />
+            <Select
+              label="Goma Revés"
+              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
+              value={rubberBackhand}
+              onChange={setRubberBackhand}
+              required
+              allowDeselect={false}
+            />
+          </SimpleGrid>
           <Button
             color="blue"
             fullWidth
             mt="md"
             onClick={handleCompleteOnboarding}
             loading={savingOnboarding}
-            disabled={!hand || !style}
+            disabled={!hand || !style || !rubberForehand || !rubberBackhand || !birthDate}
           >
             Completar mi Perfil
           </Button>
         </Stack>
       </Modal>
-      {/* --- MODAL CAMBIO CONTRASEÑA OBLIGATORIO --- */}
+
       <Modal
         opened={forcePasswordOpen}
         onClose={() => {}}
@@ -442,7 +451,7 @@ export const MainLayout = () => {
         closeOnClickOutside={false}
         title={
           <Text fw={900} size="lg" c="orange">
-            Cambio de Contraseña Requerido
+            Cambio de Contraseña
           </Text>
         }
         centered
@@ -450,10 +459,8 @@ export const MainLayout = () => {
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Tu cuenta fue creada por el administrador del club con una contraseña temporal. Por
-            seguridad, debes establecer tu propia contraseña ahora.
+            Debes establecer tu propia contraseña ahora por seguridad.
           </Text>
-
           <TextInput
             type="password"
             label="Contraseña Temporal"
@@ -475,7 +482,6 @@ export const MainLayout = () => {
             value={passwords.confirm}
             onChange={(e) => setPasswords({ ...passwords, confirm: e.currentTarget.value })}
           />
-
           <Button
             color="orange"
             fullWidth

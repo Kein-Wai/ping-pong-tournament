@@ -38,8 +38,13 @@ export const Dashboard = () => {
 
   const isPlayer = user?.role === 'Player';
   const isAdminClub = user?.role === 'AdminClub';
-  const hasApprovedClub = user?.clubStatus === 'Aprobado' && user?.clubId;
-  const isPendingClub = user?.clubStatus === 'Pendiente';
+
+  // SOLUCIÓN: Misma lógica relajada e insensible a mayúsculas que en MainLayout
+  const hasApprovedClub =
+    !!user?.clubId &&
+    user?.clubStatus?.toLowerCase() !== 'pendiente' &&
+    user?.clubStatus?.toLowerCase() !== 'rechazado';
+  const isPendingClub = user?.clubStatus?.toLowerCase() === 'pendiente';
 
   const [currentSeason, setCurrentSeason] = useState<any>(null);
   const [clubDetails, setClubDetails] = useState<any>(null);
@@ -50,12 +55,10 @@ export const Dashboard = () => {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        // 1. Cargar Temporada Actual
         const seasonRes = await api.get(ENDPOINTS.SEASONS.BASE);
         const activeS = seasonRes.data.data.find((s: any) => s.isCurrent);
         setCurrentSeason(activeS);
 
-        // 2. Cargar datos específicos según rol
         if (isAdminClub && user?.clubId) {
           const [clubRes, teamsRes] = await Promise.all([
             api.get(ENDPOINTS.CLUBS.BY_ID(user.clubId)),
@@ -84,7 +87,6 @@ export const Dashboard = () => {
     );
   }
 
-  // Cálculos para el Jugador
   const s = Array.isArray(playerData?.stats) ? playerData.stats[0] : playerData?.stats;
   const allTeamMatches =
     playerData?.teams?.flatMap((t: any) =>
@@ -99,7 +101,6 @@ export const Dashboard = () => {
 
   return (
     <Stack gap="lg">
-      {/* 1. TARJETA PRINCIPAL DE BIENVENIDA */}
       <Card withBorder padding="xl" radius="md" shadow="sm">
         <Group justify="space-between" align="center">
           <Stack gap={4}>
@@ -133,7 +134,6 @@ export const Dashboard = () => {
         </Group>
       </Card>
 
-      {/* 2. AVISOS DE PERFIL INCOMPLETO (ADMIN) */}
       {isAdminClub && clubDetails && !clubDetails.address && (
         <Alert
           variant="light"
@@ -144,8 +144,7 @@ export const Dashboard = () => {
         >
           <Text size="sm" mb="sm">
             Hemos registrado tu club en <strong>{clubDetails.city}</strong>, pero los jugadores
-            agradecerán saber la dirección exacta de las mesas y la fecha de fundación para daros
-            más prestigio.
+            agradecerán saber la dirección exacta.
           </Text>
           <Button
             variant="filled"
@@ -158,7 +157,6 @@ export const Dashboard = () => {
         </Alert>
       )}
 
-      {/* 3. VISTA PARA ENTRENADORES / ADMINS */}
       {isAdminClub && clubDetails && (
         <>
           <Title order={4} mt="sm">
@@ -202,7 +200,6 @@ export const Dashboard = () => {
         </>
       )}
 
-      {/* 4. VISTA PARA JUGADORES */}
       {isPlayer && !hasApprovedClub && !isPendingClub && (
         <Card withBorder padding="lg" radius="md" bg="blue.0" c="blue.9">
           <Group align="flex-start" wrap="nowrap">
@@ -214,9 +211,8 @@ export const Dashboard = () => {
                 Estatus: Jugador Libre
               </Text>
               <Text size="sm">
-                Actualmente no perteneces a ningún club. Puedes navegar por la pestaña de
-                **Torneos** para registrarte en eventos de formato abierto, o buscar un club local
-                para unirte a su ranking interno.
+                Actualmente no perteneces a ningún club. Puedes buscar un club local para unirte a
+                su ranking interno.
               </Text>
               <Button
                 variant="filled"
@@ -245,7 +241,7 @@ export const Dashboard = () => {
               </Text>
               <Text size="sm">
                 Has enviado una petición de unión a un club. El administrador está verificando tus
-                datos. Mientras tanto, puedes inscribirte en torneos abiertos globales.
+                datos.
               </Text>
             </Stack>
           </Group>
@@ -299,7 +295,6 @@ export const Dashboard = () => {
             </Paper>
           </SimpleGrid>
 
-          {/* PRÓXIMO PARTIDO DE EQUIPO DESTACADO */}
           {nextMatch && (
             <Card
               withBorder

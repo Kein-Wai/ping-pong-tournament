@@ -11,5 +11,6 @@ export const createExerciseSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
   code: z.number().optional(),
   description: z.string().min(5, 'Añade una descripción más detallada'),
+  objective: z.string().optional().nullable(), // 👈 NUEVO
   category: z.enum(ExerciseCategory),
 });

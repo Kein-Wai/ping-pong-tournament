@@ -6,10 +6,15 @@ import {
   harvestKnockoutPlayers,
   processKnockoutAdvancement,
 } from '../src/utils/knockout';
+
 const prisma = new PrismaClient();
 
 const BYE_USER_ID = '00000000-0000-0000-0000-000000000000';
 const TBD_USER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+
+// Arrays para la Generación Aleatoria de Gomas
+const GOMAS_DERECHA = ['LISA', 'LISA', 'LISA', 'LISA', 'PICOS_CORTOS']; // Mayoría lisas
+const GOMAS_REVES = ['LISA', 'LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN'];
 
 // Helper para calcular la curva de progresión de Skills
 const getGrowth = (stat?: number | null) => {
@@ -56,6 +61,11 @@ const addMatchSkillUpdates = async (matchId: string, p1Id: string, p2Id: string)
 
 async function main() {
   console.log('🧹 Limpiando base de datos...');
+
+  // Limpiamos también las tablas de análisis para evitar choques con los nuevos enums
+  await prisma.pointAnalysis.deleteMany().catch(() => {});
+  await prisma.manualMatch.deleteMany().catch(() => {});
+
   await prisma.generalTrainingAttendance.deleteMany();
   await prisma.playerSkillUpdate.deleteMany();
   await prisma.generalTraining.deleteMany();
@@ -71,6 +81,7 @@ async function main() {
   await prisma.tournament.deleteMany();
 
   await prisma.stats.deleteMany();
+  await prisma.playerSkills.deleteMany().catch(() => {});
   await prisma.user.deleteMany();
   await prisma.season.deleteMany();
   await prisma.club.deleteMany();
@@ -171,7 +182,7 @@ async function main() {
   });
 
   // 6. JUGADORES REALISTAS CON ELO Y SKILLS DINÁMICOS
-  console.log('👥 Generando 32 Jugadores Variados (ELO 0 - 2000)...');
+  console.log('👥 Generando 32 Jugadores Variados con Gomas Aleatorias...');
   const allPlayers = [];
 
   const nombres = [
@@ -206,7 +217,6 @@ async function main() {
     'Marcos',
     'Sara',
   ];
-
   const apellidos = [
     'García',
     'Rodríguez',
@@ -241,15 +251,17 @@ async function main() {
   ];
 
   const createPlayer = async (email: string, name: string, surname: string, elo: number) => {
-    // Calculamos el nivel oficial basándonos en el ELO aleatorio
     let playerLevel = 'Iniciacion';
     if (elo >= 300) playerLevel = 'Principiante';
     if (elo >= 500) playerLevel = 'Intermedio';
     if (elo >= 750) playerLevel = 'Avanzado';
     if (elo >= 1200) playerLevel = 'Profesional';
 
-    // Estimamos sus skills de forma realista según su ELO (Ej: 2000 elo = 100 skill)
     const baseSkill = Math.min(100, Math.max(5, Math.floor(elo / 20)));
+
+    // Asignación Aleatoria de Gomas
+    const rubberForehand = GOMAS_DERECHA[Math.floor(Math.random() * GOMAS_DERECHA.length)];
+    const rubberBackhand = GOMAS_REVES[Math.floor(Math.random() * GOMAS_REVES.length)];
 
     return await prisma.user.create({
       data: {
@@ -263,6 +275,8 @@ async function main() {
         password: hashedPassword,
         authProvider: 'LOCAL',
         active: true,
+        rubberForehand: rubberForehand as any,
+        rubberBackhand: rubberBackhand as any,
         stats: {
           create: {
             seasonId: currentSeason.id,
@@ -299,28 +313,76 @@ async function main() {
     });
   };
 
-  // Creación de las cuentas de prueba con ELOs altos
   allPlayers.push(await createPlayer('keinwaiplayer@hotmail.com', 'Kein-Wai', 'Cheung', 1600));
   allPlayers.push(await createPlayer('jlevin@hotmail.com', 'Julian', 'Levin', 1500));
 
-  // Creación de los 30 jugadores aleatorios
   for (let i = 1; i <= 30; i++) {
     const nombre = nombres[Math.floor(Math.random() * nombres.length)];
     const apellido = apellidos[Math.floor(Math.random() * apellidos.length)];
-    const randomElo = Math.floor(Math.random() * 2001); // 👈 ELO aleatorio de 0 a 2000
-
+    const randomElo = Math.floor(Math.random() * 2001);
     allPlayers.push(await createPlayer(`jugador${i}@pingpong.local`, nombre, apellido, randomElo));
   }
 
-  // Ordenamos de mayor a menor ELO para las siembras en torneos
   allPlayers.sort((a, b) => (b.stats[0]?.elo || 0) - (a.stats[0]?.elo || 0));
+
+  // ============================================================================
+  // 🔥 ANÁLISIS PRO (MODO RÁPIDO Y EXTENSO)
+  // ============================================================================
+  console.log('\n📊 Generando Partidos de Análisis Pro (Rápido y Extenso)...');
+
+  // 1. Partido Rápido Completado (con Array de setScores)
+  await prisma.manualMatch.create({
+    data: {
+      userId: allPlayers[0].id, // Para el perfil principal
+      seasonId: currentSeason.id,
+      opponentName: 'Ma Long',
+      location: 'Casa',
+      matchType: 'Amistoso',
+      format: 'Individual',
+      date: new Date(),
+      analysisType: 'Rapido' as any,
+      status: 'Completado',
+      setsToWin: 3,
+      mySets: 3,
+      opponentSets: 1,
+      lightNotes:
+        'Buen partido. Me ha costado leer sus saques de picos, pero he dominado con el Topspin.',
+      setScores: [
+        { myScore: 11, oppScore: 8 },
+        { myScore: 9, oppScore: 11 },
+        { myScore: 12, oppScore: 10 },
+        { myScore: 11, oppScore: 7 },
+      ],
+    },
+  });
+
+  // 2. Partido Extenso Programado (Con plan de juego previo)
+  await prisma.manualMatch.create({
+    data: {
+      userId: allPlayers[0].id,
+      seasonId: currentSeason.id,
+      opponentName: 'Fan Zhendong',
+      opponentHand: 'Diestro',
+      opponentStyle: 'Ofensivo',
+      location: 'Fuera',
+      matchType: 'Competicion',
+      format: 'Individual',
+      date: new Date(),
+      analysisType: 'Extenso' as any,
+      status: 'Programado',
+      setsToWin: 4, // Al mejor de 7
+      planningNotes: JSON.stringify({
+        myServe: 'Saques cortos al medio sin efecto para evitar su banana flip.',
+        theirServe: 'Picar largo al revés rápido si saca lateral.',
+        strategy: 'No entrar en el peloteo largo de revés, pivotar siempre que sea posible.',
+      }),
+    },
+  });
 
   // ============================================================================
   // 🔥 HORARIOS Y ENTRENAMIENTOS GRUPALES (Agosto - Septiembre)
   // ============================================================================
-  console.log(
-    '\n📅 Generando 4 Horarios de Entrenamientos y Pasando Lista Aleatoria (Agosto-Sept)...',
-  );
+  console.log('\n📅 Generando Horarios de Entrenamientos y Pasando Lista...');
 
   const schedules = [
     await prisma.generalTrainingSchedule.create({
@@ -335,28 +397,10 @@ async function main() {
     await prisma.generalTrainingSchedule.create({
       data: {
         clubId: clubCastellon.id,
-        name: 'M-V Mañana',
-        startTime: '10:30',
-        endTime: '12:30',
-        daysOfWeek: [2, 5],
-      },
-    }),
-    await prisma.generalTrainingSchedule.create({
-      data: {
-        clubId: clubCastellon.id,
         name: 'M-J Noche',
         startTime: '19:00',
         endTime: '21:00',
         daysOfWeek: [2, 4],
-      },
-    }),
-    await prisma.generalTrainingSchedule.create({
-      data: {
-        clubId: clubCastellon.id,
-        name: 'L-X Noche',
-        startTime: '19:00',
-        endTime: '21:00',
-        daysOfWeek: [1, 3],
       },
     }),
   ];
@@ -376,16 +420,14 @@ async function main() {
     where: { userId: { in: allPlayers.map((p) => p.id) } },
   });
 
-  // Iterar desde 1 de Agosto hasta 30 de Septiembre de 2026
-  const startDate = new Date(Date.UTC(2026, 7, 1)); // 1 Agosto 2026
-  const endDate = new Date(Date.UTC(2026, 8, 30)); // 30 Septiembre 2026
+  const startDate = new Date(Date.UTC(2026, 7, 1));
+  const endDate = new Date(Date.UTC(2026, 8, 30));
 
   for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
-    const currentDayOfWeek = d.getUTCDay(); // 0 = Dom, 1 = Lun...
+    const currentDayOfWeek = d.getUTCDay();
 
     for (const schedule of schedules) {
       if (schedule.daysOfWeek.includes(currentDayOfWeek)) {
-        // Toca entrenamiento!
         const training = await prisma.generalTraining.create({
           data: {
             clubId: clubCastellon.id,
@@ -400,7 +442,6 @@ async function main() {
         const attendanceData = [];
         const updatesData = [];
 
-        // Asisten los jugadores de forma aleatoria (~65% de asistencia media)
         for (const player of allPlayers) {
           const attendsThisSession = Math.random() < 0.65;
 
@@ -563,7 +604,6 @@ async function main() {
     [4, 5],
   ];
 
-  // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   console.log('\n🏆 1. Generando Gran Máster Final (Todas las Posiciones / 24 Jugadores)...');
   const t1 = await prisma.tournament.create({
     data: {
@@ -774,36 +814,7 @@ async function main() {
   console.log(`¡Torneo 1 completado al 100%! Se han repartido todas las posiciones.`);
 
   // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  console.log('\n🧭 2. Generando Torneo Brújula (Compass Draw 16 | Programado)...');
-  const t2 = await prisma.tournament.create({
-    data: {
-      name: 'Torneo Brújula (Compass Draw 16)',
-      dateStart: new Date(new Date().setDate(new Date().getDate() + 10)),
-      clubId: clubCastellon.id,
-      seasonId: currentSeason.id,
-      numPlayers: 16,
-      typeTournament: 'Interno',
-      levelTournament: 'Avanzado',
-      rounds: 'Knockout',
-      status: 'Programado',
-      typeKnockout: 'LlaveA',
-      sortKnockout: 'Siembra',
-      allPos: true,
-      groupsCreated: false,
-      knockoutCreated: false,
-      setsToWinKnockout: 3,
-    },
-  });
-
-  const t2Players = allPlayers.slice(0, 16);
-  await registerParticipants(t2.id, t2Players);
-
-  const t2Participants = t2Players.map((p, index) => ({ playerId: p.id, position: index + 1 }));
-  const matchesT2 = createKnockoutDraw(t2Participants, 'Siembra', true);
-  await saveKnockoutBracket(prisma, t2.id, 'A', matchesT2, new Date(), true);
-
-  // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  console.log('\n👑 3. Generando Liga Master Todos vs Todos (8 Jugadores)...');
+  console.log('\n👑 2. Generando Liga Master Todos vs Todos (8 Jugadores)...');
   const t3 = await prisma.tournament.create({
     data: {
       name: 'Liga Master Todos vs Todos',
@@ -922,6 +933,157 @@ async function main() {
       where: { id: clasT3[pos].id },
       data: { position: pos + 1 },
     });
+  }
+
+  // ============================================================================
+  // 🔥 CATÁLOGO DE EJERCICIOS Y PLAN PERSONAL PARA KEIN-WAI (APP MÓVIL)
+  // ============================================================================
+  console.log('\n🏋️‍♂️ Generando Catálogo y Plan Personal para la App Móvil...');
+
+  // 1. Catálogo Base (Tus "bloques de Lego")
+  const catExercises = [
+    await prisma.exercise.create({
+      data: {
+        name: 'A: Saque Corto | B: Corta Largo',
+        description: 'Saque con mucho efecto abajo, el rival corta largo a la derecha.',
+        objective: 'Mejorar la apertura de topspin tras un saque corto.',
+        category: 'Recepciones_Cortas',
+      },
+    }),
+    await prisma.exercise.create({
+      data: {
+        name: 'A: Topspin Derecha | B: Bloqueo Centro',
+        description: 'Apertura de topspin a la derecha, el rival bloquea pasivo al medio.',
+        objective: 'Consistencia en el primer ataque fuerte.',
+        category: 'Bloqueo_Contraataque',
+      },
+    }),
+    await prisma.exercise.create({
+      data: {
+        name: 'A: Topspin Cruzado | B: Bloqueo Paralelo',
+        description: 'Topspin fuerte cruzado, el rival intenta un bloqueo activo paralelo.',
+        objective: 'Recuperación de posición tras el ataque.',
+        category: 'Bloqueo_Contraataque',
+      },
+    }),
+    await prisma.exercise.create({
+      data: {
+        name: 'Multibolas: Movilidad Pivot',
+        description:
+          'El entrenador lanza bolas alternas a revés y centro. Pivotar para pegar de derecha.',
+        objective: 'Velocidad de piernas para evitar el bloqueo al codo.',
+        category: 'Movilidad_Pivot',
+      },
+    }),
+  ];
+
+  // 2. Buscamos tu usuario de pruebas
+  const myPlayer = await prisma.user.findUnique({ where: { email: 'keinwaiplayer@hotmail.com' } });
+
+  if (myPlayer) {
+    // 3. Te creamos un Partido Manual de prueba (Para el Winrate)
+    const pastMatch = await prisma.manualMatch.create({
+      data: {
+        userId: myPlayer.id,
+        seasonId: currentSeason.id,
+        date: new Date(Date.now() - 86400000 * 2), // Hace 2 días
+        location: 'Casa',
+        matchType: 'Amistoso',
+        format: 'Individual',
+        opponentName: 'Rival de Pruebas',
+        opponentHand: 'Diestro',
+        opponentStyle: 'Ofensivo',
+        mySets: 3,
+        opponentSets: 1,
+        status: 'Completado',
+        analysisType: 'Rapido',
+        lightNotes: 'Buen partido, pero fallé muchos restos cortos.',
+        setScores: [
+          { myScore: 11, oppScore: 8 },
+          { myScore: 9, oppScore: 11 },
+          { myScore: 12, oppScore: 10 },
+          { myScore: 11, oppScore: 5 },
+        ],
+      },
+    });
+
+    // Inyectamos las stats de ese partido manual
+    await prisma.stats.update({
+      where: { userId_seasonId: { userId: myPlayer.id, seasonId: currentSeason.id } },
+      data: {
+        manualMatchWon: 1,
+        manualSetWon: 3,
+        manualSetLost: 1,
+        manualPointWon: 43,
+        manualPointLost: 34,
+      },
+    });
+
+    // 4. Te creamos un Macrociclo de 4 semanas
+    const miPlan = await prisma.playerTraining.create({
+      data: {
+        playerId: myPlayer.id,
+        seasonId: currentSeason.id,
+        strengths: 'Topspin de derecha pesado',
+        weaknesses: 'Juego corto y recepciones de revés',
+        objectives: 'Mejorar el pivot y la anticipación al bloqueo',
+        sessionsPerWeek: 2,
+        weeks: 4,
+        status: 'Activo',
+        startDate: new Date(), // Empieza hoy
+      },
+    });
+
+    // 5. Te creamos las 8 sesiones (2 por semana)
+    for (let i = 0; i < 8; i++) {
+      const sessionDate = new Date();
+      sessionDate.setDate(sessionDate.getDate() + i * 3); // Una sesión cada 3 días
+
+      // CORRECCIÓN: TrainingSession solo enlaza con PlayerTraining, no con User directamente en tu schema actual.
+      const session = await prisma.trainingSession.create({
+        data: {
+          playerId: myPlayer.id,
+          playerTrainingId: miPlan.id,
+          date: sessionDate,
+        },
+      });
+
+      // 6. Le metemos los "Legos" a la sesión 1 y 2 para que tengas datos visibles hoy
+      if (i < 2) {
+        await prisma.sessionExercise.createMany({
+          data: [
+            {
+              trainingSessionId: session.id,
+              exerciseId: catExercises[0].id,
+              durationMinutes: 10,
+              completed: i === 0,
+            }, // La primera la marcamos completada
+            {
+              trainingSessionId: session.id,
+              exerciseId: catExercises[1].id,
+              durationMinutes: 15,
+              completed: false,
+            },
+            {
+              trainingSessionId: session.id,
+              exerciseId: catExercises[2].id,
+              durationMinutes: 15,
+              sets: 3,
+              reps: 20,
+              completed: false,
+            },
+            {
+              trainingSessionId: session.id,
+              exerciseId: catExercises[3].id,
+              durationMinutes: 20,
+              sets: 5,
+              reps: 10,
+              completed: false,
+            },
+          ],
+        });
+      }
+    }
   }
 
   console.log('\n✅ Base de datos "sembrada" con éxito. ¡Todo listo para probar los use cases!');

@@ -17,6 +17,8 @@ import { enviarCorreoGenerico } from '../services/email';
 import { templateInscripcionTorneo } from '../utils/emailtemplate';
 import { getCurrentSeason } from '../utils/season';
 import { BYE_USER_ID, TBD_USER_ID } from '../constants';
+import { generateTournamentExcel } from '../services/excel';
+import { hasClubPermission } from '../utils/auth';
 
 const router = Router();
 
@@ -24,7 +26,15 @@ router.get('/', async (req, res) => {
   try {
     const role = req.user?.role;
     const clubId = req.user?.clubId;
-    const clubStatus = req.user?.clubStatus;
+    const userId = req.user?.id;
+    let clubStatus = 'Registrado';
+    if (userId) {
+      const userDb = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { clubStatus: true },
+      });
+      if (userDb?.clubStatus) clubStatus = userDb.clubStatus;
+    }
 
     const currentSeason = await getCurrentSeason(prisma);
 
@@ -210,10 +220,19 @@ router.put('/:id', requireAdminClub, async (req, res) => {
 router.post('/:id/register', async (req, res) => {
   try {
     const tournamentId = req.params.id;
-    const userAuth = req.user;
+    const userId = req.user?.id;
 
-    if (!userAuth || !userAuth.email || !userAuth.name) {
-      return res.status(401).json({ error: 'Usuario no autenticado o faltan datos' });
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuario no autenticado' });
+    }
+
+    // 👇 Traemos los datos frescos del usuario desde la BD
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!currentUser || !currentUser.email || !currentUser.name) {
+      return res.status(401).json({ error: 'Faltan datos del usuario en la base de datos' });
     }
 
     const validation = registerParticipantSchema.safeParse(req.body);
@@ -238,7 +257,7 @@ router.post('/:id/register', async (req, res) => {
     }
 
     if (tournament.typeTournament === 'Interno') {
-      if (userAuth.clubId !== tournament.clubId || userAuth.clubStatus !== 'Aprobado') {
+      if (currentUser.clubId !== tournament.clubId || currentUser.clubStatus !== 'Aprobado') {
         res.status(403).json({
           error:
             'Acceso denegado. Este torneo es privado y exclusivo para los miembros del club organizador.',
@@ -282,9 +301,9 @@ router.post('/:id/register', async (req, res) => {
     });
 
     enviarCorreoGenerico(
-      userAuth.email,
+      currentUser.email,
       'Te han inscrito en un nuevo torneo',
-      templateInscripcionTorneo(userAuth.name, tournament),
+      templateInscripcionTorneo(currentUser.name, tournament),
     ).catch(console.error);
 
     res.status(201).json({
@@ -309,7 +328,8 @@ router.post('/:id/register-bulk', requireAdminClub, async (req, res) => {
     });
 
     if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
-    if (req.user?.role === 'AdminClub' && tournament.clubId !== adminClubId) {
+
+    if (!hasClubPermission(req.user, tournament.clubId)) {
       return res.status(403).json({ error: 'No tienes permiso sobre este torneo' });
     }
     if (tournament.groupsCreated) {
@@ -500,7 +520,7 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, async (req, r
     const currentSeason = await getCurrentSeason(prisma);
 
     const tournament = await prisma.tournament.findUnique({ where: { id } });
-    if (!tournament || (req.user?.role === 'AdminClub' && tournament.clubId !== adminClubId)) {
+    if (!tournament || !hasClubPermission(req.user, tournament.clubId)) {
       return res.status(403).json({ error: 'No tienes permisos sobre este torneo' });
     }
 
@@ -629,7 +649,7 @@ router.put('/:id/swap-players', requireAdminClub, async (req, res) => {
     const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
     if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
 
-    if (req.user?.role === 'AdminClub' && tournament.clubId !== adminClubId) {
+    if (!hasClubPermission(req.user, tournament.clubId)) {
       return res.status(403).json({ error: 'No tienes permisos sobre este torneo' });
     }
     if (tournament.status === 'Completado') {
@@ -770,6 +790,30 @@ router.put('/:id/swap-players', requireAdminClub, async (req, res) => {
   } catch (error) {
     console.error('Error al intercambiar jugadores:', error);
     res.status(500).json({ error: 'Error interno al intercambiar jugadores' });
+  }
+});
+
+// GET: Descargar Excel del torneo
+router.post('/generate-excel', async (req, res) => {
+  try {
+    const { tournamentInfo, players } = req.body;
+
+    // Generamos el Excel pasando la info real
+    const excelBuffer = await generateTournamentExcel(tournamentInfo, players);
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="Torneo_${tournamentInfo.name.replace(/\s+/g, '_')}.xlsx"`,
+    );
+
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al generar el Excel' });
   }
 });
 

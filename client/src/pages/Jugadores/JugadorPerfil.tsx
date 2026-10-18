@@ -144,10 +144,13 @@ export const JugadorPerfil = () => {
     avatarUrl: string;
     dominantHand: string;
     playstyle: string;
+    rubberForehand: string; // 👈
+    rubberBackhand: string; // 👈
     birthDate: Date | null;
     currentPassword?: string;
     newPassword?: string;
     confirmPassword?: string;
+    skills: Record<string, number>;
   }>({
     name: '',
     surname: '',
@@ -155,10 +158,13 @@ export const JugadorPerfil = () => {
     avatarUrl: '',
     dominantHand: '',
     playstyle: '',
+    rubberForehand: '', // 👈
+    rubberBackhand: '', // 👈
     birthDate: null,
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+    skills: {},
   });
   const [trainings, setTrainings] = useState<any[]>([]);
 
@@ -263,6 +269,7 @@ export const JugadorPerfil = () => {
 
   const handleOpenEdit = () => {
     if (player) {
+      const currentSkills = Array.isArray(player.skills) ? player.skills[0] : player.skills;
       setEditData({
         name: player.name || '',
         surname: player.surname || '',
@@ -271,6 +278,9 @@ export const JugadorPerfil = () => {
         dominantHand: player.dominantHand || '',
         playstyle: player.playstyle || '',
         birthDate: player.birthDate ? new Date(player.birthDate) : null,
+        rubberForehand: (player as any).rubberForehand || '',
+        rubberBackhand: (player as any).rubberBackhand || '',
+        skills: currentSkills ? { ...currentSkills } : {},
       });
       setEditModalOpened(true);
     }
@@ -307,7 +317,9 @@ export const JugadorPerfil = () => {
       }
       payload.birthDate = payload.birthDate ? payload.birthDate.toISOString() : null;
 
-      await api.put(ENDPOINTS.USERS.ME, payload);
+      const targetEndpoint = isOwnProfile ? ENDPOINTS.USERS.ME : ENDPOINTS.USERS.BY_ID(id!);
+
+      await api.put(targetEndpoint, payload);
       setEditModalOpened(false);
       updateUserFields({
         name: editData.name,
@@ -672,6 +684,16 @@ export const JugadorPerfil = () => {
                     ⚔️ {player.playstyle}
                   </Badge>
                 )}
+                {(player as any).rubberForehand && (
+                  <Badge variant="outline" color="red" tt="none">
+                    🔴 Der: {(player as any).rubberForehand.replace('_', ' ')}
+                  </Badge>
+                )}
+                {(player as any).rubberBackhand && (
+                  <Badge variant="outline" color="dark" tt="none">
+                    ⚫ Rev: {(player as any).rubberBackhand.replace('_', ' ')}
+                  </Badge>
+                )}
               </Group>
               {player.teams && player.teams.length > 0 && (
                 <Text size="sm" mt="xs" fw={600} c="dimmed">
@@ -696,7 +718,7 @@ export const JugadorPerfil = () => {
               </Button>
             )}
 
-            {isOwnProfile && (
+            {(isOwnProfile || isAdmin) && (
               <Button
                 variant="light"
                 color="blue"
@@ -1453,6 +1475,51 @@ export const JugadorPerfil = () => {
               onChange={(val) => setEditData({ ...editData, playstyle: val || '' })}
             />
           </SimpleGrid>
+          <SimpleGrid cols={2}>
+            <Select
+              label="Goma Derecha"
+              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
+              value={editData.rubberForehand}
+              onChange={(val) => setEditData({ ...editData, rubberForehand: val || '' })}
+            />
+            <Select
+              label="Goma Revés"
+              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
+              value={editData.rubberBackhand}
+              onChange={(val) => setEditData({ ...editData, rubberBackhand: val || '' })}
+            />
+          </SimpleGrid>
+          {isAdmin && (
+            <Card
+              withBorder
+              radius="md"
+              p="md"
+              bg="var(--mantine-color-gray-0)"
+              style={{ darkHidden: true }}
+            >
+              <Text fw={600} size="sm" mb="xs">
+                Atributos Técnicos Base (Modificación Manual)
+              </Text>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                {SKILL_KEYS.map((field) => (
+                  <NumberInput
+                    key={field.key}
+                    label={field.label}
+                    value={editData.skills?.[field.key] || 0}
+                    onChange={(val) =>
+                      setEditData({
+                        ...editData,
+                        skills: { ...editData.skills, [field.key]: Number(val) || 0 },
+                      })
+                    }
+                    min={0}
+                    max={100}
+                  />
+                ))}
+              </SimpleGrid>
+            </Card>
+          )}
+
           {(currentUser as any)?.authProvider === 'LOCAL' && isOwnProfile && (
             <Paper withBorder p="sm" radius="md" mt="sm">
               <Title order={6} mb="sm" c="dimmed">

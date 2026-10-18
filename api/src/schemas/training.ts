@@ -24,3 +24,30 @@ export const addExerciseToSessionSchema = z.object({
   reps: z.number().int().min(1, 'Las repeticiones deben ser al menos 1').optional(),
   durationMinutes: z.number().int().min(1, 'La duración debe ser de al menos 1 minuto').optional(),
 });
+
+export const createSingleSessionSchema = z.object({
+  date: z.iso.datetime(),
+  title: z.string().optional().nullable(),
+});
+
+export const completeSessionSchema = z.object({
+  // Array de strings con los nombres exactos de las skills que el usuario ha marcado
+  skillsWorked: z
+    .array(
+      z.enum([
+        'derechaPlano',
+        'revesPlano',
+        'topspinDerecha',
+        'topspinReves',
+        'corte',
+        'bloqueoDerecha',
+        'bloqueoReves',
+        'servicio',
+        'recepcion',
+        'movilidad',
+        'fortalezaMental',
+        'experiencia',
+      ]),
+    )
+    .max(4, 'No puedes centrarte en más de 4 skills por sesión'),
+});

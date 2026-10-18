@@ -28,6 +28,7 @@ export const APP_ROUTES = {
   TORNEOS: {
     LIST: '/torneos',
     NEW: '/torneos/nuevo',
+    EXCEL_CREATOR: '/torneos/crear-excel',
     DETAILS_PATH: '/torneos/:id', // 👈 Usado en App.tsx
     DETAILS: (id: string | number) => `/torneos/${id}`, // 👈 Usado en los navigate()
   },

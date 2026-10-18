@@ -6,6 +6,7 @@ import { verifyToken, requireAdminClub, requireSuperAdmin } from '../middleware/
 import { getCurrentSeason } from '../utils/season';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateAceptacionClub } from '../utils/emailtemplate';
+import { hasClubPermission } from '../utils/auth';
 
 const router = Router();
 
@@ -135,7 +136,7 @@ router.put('/:id', verifyToken, requireAdminClub, async (req, res) => {
     const clubId = req.params.id as string;
 
     // Seguridad Multi-tenant
-    if (req.user?.role === 'AdminClub' && req.user?.clubId !== clubId) {
+    if (!hasClubPermission(req.user, clubId)) {
       return res.status(403).json({ error: 'No tienes permiso para editar este club' });
     }
 
@@ -204,7 +205,7 @@ router.get('/:id/members', verifyToken, requireAdminClub, async (req, res) => {
   try {
     const clubId = req.params.id as string; // <-- Forzado a string aquí
 
-    if (req.user?.role === 'AdminClub' && req.user?.clubId !== clubId) {
+    if (!hasClubPermission(req.user, clubId)) {
       res
         .status(403)
         .json({ error: 'No tienes permiso para ver los miembros de un club que no administras' });
@@ -237,7 +238,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
     const userId = req.params.userId as string;
 
     // Verificación de seguridad multi-tenant: El AdminClub solo opera en SU club asignado
-    if (req.user?.role === 'AdminClub' && req.user?.clubId !== clubId) {
+    if (!hasClubPermission(req.user, clubId)) {
       res.status(403).json({ error: 'No tienes permiso para administrar este club' });
       return;
     }
@@ -323,7 +324,7 @@ router.get('/:id/notifications', verifyToken, requireAdminClub, async (req, res)
   try {
     const clubId = req.params.id as string;
 
-    if (req.user?.role === 'AdminClub' && req.user?.clubId !== clubId) {
+    if (!hasClubPermission(req.user, clubId)) {
       return res.status(403).json({ error: 'No tienes permiso para ver estas notificaciones' });
     }
 

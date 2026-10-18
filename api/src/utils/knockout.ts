@@ -4,7 +4,6 @@ import {
   SortKnockout,
   KnockoutType,
   RoundKnockouts,
-  TournamentStatus,
   MatchStatus,
 } from '@prisma/client';
 
@@ -76,66 +75,39 @@ const generateStandardSeedPattern = (size: number): number[] => {
   return seeds;
 };
 
-export const harvestKnockoutPlayers = async (prisma: PrismaClient, tournamentId: string) => {
-  const tournament = await prisma.tournament.findUnique({
-    where: { id: tournamentId },
-    select: {
-      playersKnockout: true,
-      typeKnockout: true,
-    },
-  });
+// ==========================================
+// 1. INTERFACES UNIVERSALES
+// ==========================================
+export interface KnockoutSeed {
+  id: string; // ID agnóstico (UUID de Prisma, o string como "JugadorExcel-1")
+  position: number;
+  groupNumber?: number;
+}
 
-  if (!tournament) throw new Error('Torneo no encontrado');
-  if (!tournament.playersKnockout)
-    throw new Error('Configuración de eliminatorias incompleta (falta playersKnockout)');
+export interface KnockoutMatchNode {
+  id: string;
+  p1Id: string;
+  p2Id: string;
+  matchOrder: number;
+  winnerGoesToMatchId: string | null;
+  loserGoesToMatchId: string | null;
+  status: string;
+  isBye: boolean;
+}
 
-  const groups = await prisma.tournamentGroup.findMany({
-    where: { tournamentId },
-    select: { id: true, group: true },
-    orderBy: { group: 'asc' },
-  });
+export interface KnockoutBracketNode {
+  roundIndex: number;
+  posStart: number;
+  posEnd: number;
+  matches: KnockoutMatchNode[];
+}
 
-  const groupIds = groups.map((g) => g.id);
-
-  if (groupIds.length === 0) throw new Error('No hay grupos en este torneo');
-
-  const classifications = await prisma.tournamentGroupClas.findMany({
-    where: { tournamentGroupId: { in: groupIds } },
-    orderBy: [{ tournamentGroupId: 'asc' }, { position: 'asc' }],
-  });
-
-  const bracketA: any[] = [];
-  const bracketB: any[] = [];
-
-  for (const clas of classifications) {
-    if (clas.position > 0 && clas.position <= tournament.playersKnockout) {
-      bracketA.push({
-        ...clas,
-
-        groupNumber: groups.find((g) => g.id === clas.tournamentGroupId)?.group,
-      });
-    } else if (clas.position > tournament.playersKnockout) {
-      if (tournament.typeKnockout === TypeKnockout.LlaveAB) {
-        bracketB.push({
-          ...clas,
-          groupNumber: groups.find((g) => g.id === clas.tournamentGroupId)?.group,
-        });
-      }
-    }
-  }
-
-  return {
-    success: true,
-    typeKnockout: tournament.typeKnockout,
-    playersKnockout: tournament.playersKnockout,
-    numGroups: groups.length,
-    bracketA,
-    bracketB,
-  };
-};
+// ==========================================
+// 2. MOTORES MATEMÁTICOS (Puros, sin DB)
+// ==========================================
 
 export const createKnockoutDraw = (
-  classifiedPlayers: any[],
+  classifiedPlayers: KnockoutSeed[],
   sortType: SortKnockout,
   allPos: boolean,
 ) => {
@@ -143,12 +115,10 @@ export const createKnockoutDraw = (
   if (numPlayers < 2) throw new Error('No hay suficientes jugadores para eliminatorias');
 
   const bracketSize = getNextPowerOfTwo(numPlayers);
-
-  const drawSlots: (any | null)[] = new Array(bracketSize).fill(null);
+  const drawSlots: (KnockoutSeed | null)[] = new Array(bracketSize).fill(null);
 
   if (sortType === SortKnockout.Aleatorio) {
     const shuffledPlayers = shuffle(classifiedPlayers);
-
     const randomPositions = shuffle(Array.from({ length: bracketSize }, (_, i) => i));
 
     shuffledPlayers.forEach((player, index) => {
@@ -156,15 +126,11 @@ export const createKnockoutDraw = (
     });
   } else {
     const rankedPlayers = [...classifiedPlayers].sort((a, b) => {
-      if (a.position !== b.position) {
-        return a.position - b.position;
-      }
-
+      if (a.position !== b.position) return a.position - b.position;
       return (a.groupNumber || 0) - (b.groupNumber || 0);
     });
 
-    const seededPlayers: any[] = [];
-
+    const seededPlayers: KnockoutSeed[] = [];
     if (rankedPlayers[0]) seededPlayers[1] = rankedPlayers[0];
     if (rankedPlayers[1]) seededPlayers[2] = rankedPlayers[1];
 
@@ -189,6 +155,52 @@ export const createKnockoutDraw = (
     }
   }
 
+  // ==========================================
+  // 🚀 NUEVO: RESOLUCIÓN DE CONFLICTOS (ANTI-CRUCE)
+  // Evitar que dos jugadores del mismo grupo se enfrenten en 1ª ronda
+  // ==========================================
+  let hasConflicts = true;
+  let attempts = 0;
+
+  while (hasConflicts && attempts < 50) {
+    hasConflicts = false;
+    // Revisamos los enfrentamientos de dos en dos (1 vs 2, 3 vs 4, etc.)
+    for (let i = 0; i < drawSlots.length; i += 2) {
+      const p1 = drawSlots[i];
+      const p2 = drawSlots[i + 1];
+
+      // Si ambos existen y son del mismo grupo...
+      if (p1 && p2 && p1.groupNumber && p2.groupNumber && p1.groupNumber === p2.groupNumber) {
+        hasConflicts = true;
+
+        // Buscamos otro jugador en todo el cuadro que tenga LA MISMA posición (ej: otro 2º de grupo)
+        // para intercambiarlo y romper el cruce, manteniendo el equilibrio de la siembra.
+        const swapIdx = drawSlots.findIndex(
+          (candidate, j) =>
+            candidate && candidate.position === p2.position && j !== i && j !== i + 1,
+        );
+
+        if (swapIdx !== -1) {
+          const temp = drawSlots[i + 1];
+          drawSlots[i + 1] = drawSlots[swapIdx];
+          drawSlots[swapIdx] = temp;
+        } else {
+          // Fallback extremo: si no hay otro de su misma posición, lo cambiamos por el primero que pillemos
+          const fallbackIdx = drawSlots.findIndex((c, j) => c && j !== i && j !== i + 1);
+          if (fallbackIdx !== -1) {
+            const temp = drawSlots[i + 1];
+            drawSlots[i + 1] = drawSlots[fallbackIdx];
+            drawSlots[fallbackIdx] = temp;
+          }
+        }
+      }
+    }
+    attempts++; // Seguro para evitar bucles infinitos
+  }
+
+  // ==========================================
+  // CONSTRUCCIÓN FINAL
+  // ==========================================
   const firstRoundMatches = [];
   for (let i = 0; i < drawSlots.length; i += 2) {
     firstRoundMatches.push({
@@ -201,32 +213,26 @@ export const createKnockoutDraw = (
   return firstRoundMatches;
 };
 
-export const saveKnockoutBracket = async (
-  prisma: PrismaClient,
-  tournamentId: string,
-  type: KnockoutType,
+export const buildKnockoutBracketEngine = (
   firstRoundMatches: any[],
-  dateStart: Date,
-  allPos: boolean = false,
-) => {
-  if (firstRoundMatches.length === 0) throw new Error('No hay partidos para guardar.');
-
+  allPos: boolean,
+): { brackets: KnockoutBracketNode[]; initialRoundIndex: number } => {
   const bracketSize = firstRoundMatches.length * 2;
   const initialRoundIndex = ROUND_PROGRESSION.indexOf(
     determineInitialRound(firstRoundMatches.length),
   );
 
-  let currentBrackets = [
+  let currentBrackets: KnockoutBracketNode[] = [
     {
       matches: firstRoundMatches.map((m, idx) => {
         const isBye = !m.playerOne || !m.playerTwo;
         return {
           id: randomUUID(),
-          p1Id: m.playerOne ? m.playerOne.playerId : BYE_USER_ID,
-          p2Id: m.playerTwo ? m.playerTwo.playerId : BYE_USER_ID,
+          p1Id: m.playerOne ? m.playerOne.id : BYE_USER_ID,
+          p2Id: m.playerTwo ? m.playerTwo.id : BYE_USER_ID,
           matchOrder: idx,
-          winnerGoesToMatchId: null as string | null,
-          loserGoesToMatchId: null as string | null,
+          winnerGoesToMatchId: null,
+          loserGoesToMatchId: null,
           status: isBye ? MatchStatus.Completado : MatchStatus.Programado,
           isBye,
         };
@@ -237,10 +243,10 @@ export const saveKnockoutBracket = async (
     },
   ];
 
-  const allGeneratedBrackets: any[] = [];
+  const allGeneratedBrackets: KnockoutBracketNode[] = [];
 
   while (currentBrackets.length > 0) {
-    const nextBrackets = [];
+    const nextBrackets: KnockoutBracketNode[] = [];
 
     for (const bracket of currentBrackets) {
       allGeneratedBrackets.push(bracket);
@@ -248,15 +254,15 @@ export const saveKnockoutBracket = async (
       if (bracket.matches.length === 1) continue;
 
       const midPos = Math.floor((bracket.posStart + bracket.posEnd) / 2);
-      const winnerMatches = [];
-      const loserMatches = [];
+      const winnerMatches: KnockoutMatchNode[] = [];
+      const loserMatches: KnockoutMatchNode[] = [];
 
       let nextMatchOrder = 0;
       for (let i = 0; i < bracket.matches.length; i += 2) {
         const m1 = bracket.matches[i];
         const m2 = bracket.matches[i + 1];
 
-        const wMatch = {
+        const wMatch: KnockoutMatchNode = {
           id: randomUUID(),
           p1Id: TBD_USER_ID,
           p2Id: TBD_USER_ID,
@@ -266,7 +272,7 @@ export const saveKnockoutBracket = async (
           status: MatchStatus.Programado,
           isBye: false,
         };
-        const lMatch = {
+        const lMatch: KnockoutMatchNode = {
           id: randomUUID(),
           p1Id: TBD_USER_ID,
           p2Id: TBD_USER_ID,
@@ -310,98 +316,98 @@ export const saveKnockoutBracket = async (
     currentBrackets = nextBrackets;
   }
 
-  const byeMatchesIdsToTrigger: string[] = [];
-
-  await prisma.$transaction(async (tx) => {
-    for (const bracket of allGeneratedBrackets) {
-      const knockout = await tx.tournamentKnockout.create({
-        data: {
-          tournamentId,
-          type,
-          round: ROUND_PROGRESSION[bracket.roundIndex],
-          status: MatchStatus.Programado,
-          positions: `${bracket.posStart}-${bracket.posEnd}`,
-        },
-      });
-
-      const matchesData = bracket.matches.map((m: any) => {
-        if (m.isBye) byeMatchesIdsToTrigger.push(m.id);
-
-        return {
-          id: m.id,
-          dateStart,
-          tournamentId,
-          knockoutId: knockout.id,
-          playerOneId: m.p1Id,
-          playerTwoId: m.p2Id,
-          matchOrder: m.matchOrder,
-          status: m.status,
-          setOnePlayerOne: m.isBye && m.p1Id !== BYE_USER_ID ? 11 : 0,
-          setOnePlayerTwo: m.isBye && m.p2Id !== BYE_USER_ID ? 11 : 0,
-          winnerGoesToMatchId: m.winnerGoesToMatchId,
-          loserGoesToMatchId: m.loserGoesToMatchId,
-        };
-      });
-
-      await tx.match.createMany({ data: matchesData });
-    }
-
-    if (type === KnockoutType.A) {
-      // ✅ Usamos initialRoundIndex, que se calculó al principio de la función
-      await tx.tournament.update({
-        where: { id: tournamentId },
-        data: { status: ROUND_PROGRESSION[initialRoundIndex] as any },
-      });
-    }
-  });
-
-  for (const byeMatchId of byeMatchesIdsToTrigger) {
-    await processKnockoutAdvancement(prisma, byeMatchId);
-  }
-
-  return { success: true };
+  return { brackets: allGeneratedBrackets, initialRoundIndex };
 };
 
-// Añade esta función helper justo encima de processKnockoutAdvancement
-// Añade esta función helper justo encima de processKnockoutAdvancement
+// ==========================================
+// 3. ADAPTADORES DE BASE DE DATOS (El flujo actual)
+// ==========================================
+
+export const harvestKnockoutPlayers = async (prisma: PrismaClient, tournamentId: string) => {
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { playersKnockout: true, typeKnockout: true },
+  });
+
+  if (!tournament) throw new Error('Torneo no encontrado');
+  if (!tournament.playersKnockout)
+    throw new Error('Configuración de eliminatorias incompleta (falta playersKnockout)');
+
+  const groups = await prisma.tournamentGroup.findMany({
+    where: { tournamentId },
+    select: { id: true, group: true },
+    orderBy: { group: 'asc' },
+  });
+
+  const groupIds = groups.map((g) => g.id);
+  if (groupIds.length === 0) throw new Error('No hay grupos en este torneo');
+
+  const classifications = await prisma.tournamentGroupClas.findMany({
+    where: { tournamentGroupId: { in: groupIds } },
+    orderBy: [{ tournamentGroupId: 'asc' }, { position: 'asc' }],
+  });
+
+  const bracketA: KnockoutSeed[] = [];
+  const bracketB: KnockoutSeed[] = [];
+
+  for (const clas of classifications) {
+    const seed: KnockoutSeed = {
+      id: clas.playerId,
+      position: clas.position,
+      groupNumber: groups.find((g) => g.id === clas.tournamentGroupId)?.group,
+    };
+
+    if (clas.position > 0 && clas.position <= tournament.playersKnockout) {
+      bracketA.push(seed);
+    } else if (clas.position > tournament.playersKnockout) {
+      if (tournament.typeKnockout === TypeKnockout.LlaveAB) {
+        bracketB.push(seed);
+      }
+    }
+  }
+
+  return {
+    success: true,
+    typeKnockout: tournament.typeKnockout,
+    playersKnockout: tournament.playersKnockout,
+    numGroups: groups.length,
+    bracketA,
+    bracketB,
+  };
+};
+
 const recordTournamentClassification = async (
   tx: any,
   match: any,
   playerId: string,
   isWinner: boolean,
 ) => {
-  // Evitamos registrar a fantasmas o TBDs
   if (playerId === BYE_USER_ID || playerId === TBD_USER_ID) return;
 
-  // Verificamos si ya está clasificado para no duplicar
   const existing = await tx.tournamentClas.findFirst({
     where: { tournamentId: match.tournamentId, playerId },
   });
   if (existing) return;
 
   const round = match.knockout.round;
-  const type = match.knockout.type; // Puede ser 'A' o 'B'
+  const type = match.knockout.type;
   const positions = match.knockout.positions;
   let position = 0;
-
-  // 1. Calcular el "Offset" si estamos en la Llave B
   let offset = 0;
-  let tournamentSeasonId = null; // 👈 Lo guardaremos para el ELO
+  let tournamentSeasonId = null;
 
   const tournament = await tx.tournament.findUnique({
     where: { id: match.tournamentId },
-    select: { numGroup: true, playersKnockout: true, seasonId: true }, // 👈 Extraemos seasonId
+    select: { numGroup: true, playersKnockout: true, seasonId: true },
   });
 
   if (tournament) {
     tournamentSeasonId = tournament.seasonId;
     if (type === 'B') {
-      // Si pasan 2 por grupo y hay 4 grupos, la llave A ocupa del 1 al 8. La Llave B empieza en el 9.
       offset = (tournament.numGroup || 0) * (tournament.playersKnockout || 0);
     }
   }
 
-  // 2. Cálculo de posiciones base (1º, 2º, 3º, 5º, 9º...)
   let basePosition = 0;
 
   if (round === 'Final') {
@@ -438,12 +444,10 @@ const recordTournamentClassification = async (
     }
   }
 
-  // 3. Aplicamos el offset si el jugador obtuvo una posición
   if (basePosition > 0) {
     position = basePosition + offset;
   }
 
-  // 4. Guardamos la clasificación final
   await tx.tournamentClas.create({
     data: {
       tournamentId: match.tournamentId,
@@ -453,13 +457,78 @@ const recordTournamentClassification = async (
     },
   });
 
-  // 👇 5. NUEVO: SI ES EL GANADOR ABSOLUTO, SUMAMOS +1 EN TORNEOS GANADOS
   if (position === 1 && tournamentSeasonId) {
     await tx.stats.updateMany({
       where: { userId: playerId, seasonId: tournamentSeasonId },
       data: { tournamentWon: { increment: 1 } },
     });
   }
+};
+
+export const saveKnockoutBracket = async (
+  prisma: PrismaClient,
+  tournamentId: string,
+  type: KnockoutType,
+  firstRoundMatches: any[],
+  dateStart: Date,
+  allPos: boolean = false,
+) => {
+  if (firstRoundMatches.length === 0) throw new Error('No hay partidos para guardar.');
+
+  // 🚀 LLAMADA AL MOTOR PURO PARA CREAR LA ESTRUCTURA DEL CUADRO
+  const { brackets, initialRoundIndex } = buildKnockoutBracketEngine(firstRoundMatches, allPos);
+
+  const byeMatchesIdsToTrigger: string[] = [];
+
+  // Lo guardamos todo de golpe
+  await prisma.$transaction(async (tx) => {
+    for (const bracket of brackets) {
+      const knockout = await tx.tournamentKnockout.create({
+        data: {
+          tournamentId,
+          type,
+          round: ROUND_PROGRESSION[bracket.roundIndex],
+          status: MatchStatus.Programado,
+          positions: `${bracket.posStart}-${bracket.posEnd}`,
+        },
+      });
+
+      const matchesData = bracket.matches.map((m) => {
+        if (m.isBye) byeMatchesIdsToTrigger.push(m.id);
+
+        return {
+          id: m.id,
+          dateStart,
+          tournamentId,
+          knockoutId: knockout.id,
+          playerOneId: m.p1Id,
+          playerTwoId: m.p2Id,
+          matchOrder: m.matchOrder,
+          status: m.status as MatchStatus,
+          setOnePlayerOne: m.isBye && m.p1Id !== BYE_USER_ID ? 11 : 0,
+          setOnePlayerTwo: m.isBye && m.p2Id !== BYE_USER_ID ? 11 : 0,
+          winnerGoesToMatchId: m.winnerGoesToMatchId,
+          loserGoesToMatchId: m.loserGoesToMatchId,
+        };
+      });
+
+      await tx.match.createMany({ data: matchesData });
+    }
+
+    if (type === KnockoutType.A) {
+      await tx.tournament.update({
+        where: { id: tournamentId },
+        data: { status: ROUND_PROGRESSION[initialRoundIndex] as any },
+      });
+    }
+  });
+
+  // Autocompletamos los partidos contra fantasmas
+  for (const byeMatchId of byeMatchesIdsToTrigger) {
+    await processKnockoutAdvancement(prisma, byeMatchId);
+  }
+
+  return { success: true };
 };
 
 export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: string) => {
@@ -472,7 +541,6 @@ export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: 
 
   const matchResults = calculateMatchResults(completedMatch);
 
-  // Si nadie ganó (ej. empate a 0 o partido cancelado rarísimo), salimos
   if (!matchResults.p1WinsMatch && !matchResults.p2WinsMatch) {
     return;
   }
@@ -485,7 +553,7 @@ export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: 
     : completedMatch.playerOneId;
 
   await prisma.$transaction(async (tx) => {
-    // --- LÓGICA DEL GANADOR ---
+    // Ganador
     if (completedMatch.winnerGoesToMatchId) {
       const isSlotOne = (completedMatch.matchOrder ?? 0) % 2 === 0;
       await tx.match.update({
@@ -493,11 +561,10 @@ export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: 
         data: isSlotOne ? { playerOneId: winnerId } : { playerTwoId: winnerId },
       });
     } else {
-      // Si el ganador no va a ningún otro partido, ha conseguido su medalla
       await recordTournamentClassification(tx, completedMatch, winnerId, true);
     }
 
-    // --- LÓGICA DEL PERDEDOR ---
+    // Perdedor
     if (completedMatch.loserGoesToMatchId) {
       const isSlotOne = (completedMatch.matchOrder ?? 0) % 2 === 0;
       await tx.match.update({
@@ -505,12 +572,9 @@ export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: 
         data: isSlotOne ? { playerOneId: loserId } : { playerTwoId: loserId },
       });
     } else {
-      // Si el perdedor no va a ningún otro partido, ESTÁ ELIMINADO
       await recordTournamentClassification(tx, completedMatch, loserId, false);
     }
 
-    // --- 🚨 COMPROBACIÓN DE FIN DE TORNEO 🚨 ---
-    // Contamos si queda algún partido sin completar en TODO el torneo
     const pendingMatchesCount = await tx.match.count({
       where: {
         tournamentId: completedMatch.tournamentId,
@@ -521,7 +585,7 @@ export const processKnockoutAdvancement = async (prisma: PrismaClient, matchId: 
     if (pendingMatchesCount === 0) {
       await tx.tournament.update({
         where: { id: completedMatch.tournamentId! },
-        data: { status: 'Completado' }, // 👈 Solo termina cuando se ha jugado HASTA EL ÚLTIMO partido
+        data: { status: 'Completado' },
       });
     }
   });
@@ -533,26 +597,18 @@ export const fetchTournamentBracket = async (
   type: KnockoutType = KnockoutType.A,
 ) => {
   const knockouts = await prisma.tournamentKnockout.findMany({
-    where: {
-      tournamentId,
-      type,
-    },
+    where: { tournamentId, type },
     include: {
       matches: {
-        orderBy: {
-          matchOrder: 'asc',
-        },
+        orderBy: { matchOrder: 'asc' },
         include: {
-          playerOne: {
-            select: { id: true, name: true, surname: true, stats: true },
-          },
-          playerTwo: {
-            select: { id: true, name: true, surname: true, stats: true },
-          },
+          playerOne: { select: { id: true, name: true, surname: true, stats: true } },
+          playerTwo: { select: { id: true, name: true, surname: true, stats: true } },
         },
       },
     },
   });
+
   const roundOrder: Record<string, number> = {
     R128avos: 1,
     R64avos: 2,
@@ -567,8 +623,6 @@ export const fetchTournamentBracket = async (
   knockouts.sort((a, b) => {
     const diff = roundOrder[a.round] - roundOrder[b.round];
     if (diff !== 0) return diff;
-
-    // Si ambas son "Final", el 3er Puesto (posiciones 3-4) va después de la Gran Final (1-2)
     if (a.positions && b.positions) {
       return parseInt(a.positions.split('-')[0]) - parseInt(b.positions.split('-')[0]);
     }

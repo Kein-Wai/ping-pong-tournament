@@ -60,7 +60,7 @@ router.post('/', verifyToken, requireAdminClub, async (req, res) => {
         .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
     }
 
-    const { name, description, category, code } = validation.data;
+    const { name, description, objective, category, code } = validation.data;
 
     // 2. Lógica Multi-tenant
     let finalClubId = userClubId;
@@ -78,6 +78,7 @@ router.post('/', verifyToken, requireAdminClub, async (req, res) => {
       data: {
         name,
         description,
+        objective,
         category,
         code,
         clubId: finalClubId,
