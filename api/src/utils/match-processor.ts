@@ -119,9 +119,9 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
                   );
                 }
 
-                const advancingToA = harvest.bracketA.map((p) => p.playerId);
+                const advancingToA = harvest.bracketA.map((p) => p.id);
                 const advancingToB =
-                  harvest.typeKnockout === 'LlaveAB' ? harvest.bracketB.map((p) => p.playerId) : [];
+                  harvest.typeKnockout === 'LlaveAB' ? harvest.bracketB.map((p) => p.id) : [];
                 const allAdvancing = new Set([...advancingToA, ...advancingToB]);
 
                 // 2. Buscamos todas las clasificaciones de grupos
