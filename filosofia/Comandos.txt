@@ -1,0 +1,31 @@
+App Viajes Comandos:
+- Login: eas login
+- configura primera vez: eas build:configure
+- Lanzar compilacion: 
+  - eas build --platform ios # crea el .ipa
+    - eas submit -p ios # lo sube a apple store.
+  - eas build --platform android 
+- 
+
+
+
+
+App Ping Pong 
+ - Iniciar: npx cap init
+ - npx cap add android (crea la v. Android)
+ - npx cap add ios (crea la v. iOs)
+ - npm run build (crea el build)
+ - npx cap sync (syncroniza el frontend con las apps)
+   -android (tener android studio y cargarlo ahi)
+
+    - ios (al no tener mac)
+    - subir el codigo a github
+    - crear el github-actions
+    - 
+
+
+
+ -Comandos DB
+  -npx prisma migrate dev --name nombre_descriptivo
+  -npx prisma generate
+  

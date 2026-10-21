@@ -1034,6 +1034,21 @@ async function main() {
   //   },
   // });
 
+  console.log('🛡️ Generando Equipos...');
+  const dbTeams: Record<string, string> = {};
+  for (const eq of EQUIPOS) {
+    const created = await prisma.team.create({
+      data: {
+        name: eq.name,
+        category: eq.category,
+        level: eq.level,
+        clubId: club.id,
+        seasonId: currentSeason?.id as string,
+      },
+    });
+    dbTeams[eq.name] = created.id;
+  }
+
   console.log('👥 Generando Plantilla de Jugadores...');
 
   const LEVEL_BASE_STATS: Record<string, number> = {
@@ -1245,6 +1260,11 @@ async function main() {
     if (jugador.level === 'Intermedio') eloBase = 650;
     if (jugador.level === 'Avanzado') eloBase = 800;
 
+    const teamConnection =
+      jugador.team && dbTeams[jugador.team]
+        ? { connect: [{ id: dbTeams[jugador.team] }] }
+        : undefined;
+
     await prisma.user.create({
       data: {
         email: jugador.email,
@@ -1259,6 +1279,9 @@ async function main() {
         active: true,
         rubberForehand: 'LISA',
         rubberBackhand: 'LISA',
+
+        teams: teamConnection,
+
         stats: {
           create: {
             seasonId: currentSeason?.id as string,
@@ -1295,21 +1318,6 @@ async function main() {
   }
 
   console.log(`✅ Creados ${jugadoresList.length} jugadores en la plantilla del club.`);
-
-  console.log('🛡️ Generando Equipos...');
-  const dbTeams: Record<string, string> = {};
-  for (const eq of EQUIPOS) {
-    const created = await prisma.team.create({
-      data: {
-        name: eq.name,
-        category: eq.category,
-        level: eq.level,
-        clubId: club.id,
-        seasonId: currentSeason?.id as string,
-      },
-    });
-    dbTeams[eq.name] = created.id;
-  }
 
   console.log('🏓 Generando Partidos de Equipos...');
   for (const match of PARTIDOS) {
