@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app } from '../../src/index';
-import prisma from '../../src/db';
-import { verifyToken, requireAdminClub } from '../../src/middleware/auth.middleware'; // 👈 ¡ESTA LÍNEA FALTABA!
+import { app } from '../../../src/index';
+import prisma from '../../../src/db';
+import { verifyToken, requireAdminClub } from '../../../src/middleware/auth.middleware'; // 👈 ¡ESTA LÍNEA FALTABA!
 
-vi.mock('../../src/db', () => ({
+vi.mock('../../../src/db', () => ({
   default: {
     user: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -62,7 +62,7 @@ vi.mock('../../src/db', () => ({
   },
 }));
 
-vi.mock('../../src/middleware/auth.middleware', () => ({
+vi.mock('../../../src/middleware/auth.middleware', () => ({
   verifyToken: vi.fn((req: any, res: any, next: any) => {
     req.user = { id: 'user-id-123', email: 'test@test.com', name: 'Test', role: 'SuperAdmin' };
     next();
