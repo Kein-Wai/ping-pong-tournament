@@ -192,7 +192,7 @@ if (!apiKey) {
 }
 ```
 
-- **Prohibido el fallback silencioso de secretos.** `JWT_SECRET` y `CRON_SECRET` deben fallar rápido si no están definidos (esto es un fix pendiente en `api/src/middleware/auth.middleware.ts` y `api/src/routes/auth.ts`, que hoy usan `'fallback-secret'`).
+- **Prohibido el fallback silencioso de secretos.** `JWT_SECRET` y `CRON_SECRET` deben fallar rápido si no están definidos (ya aplicado: `api/src/config.ts` valida las variables obligatorias y `api/src/index.ts` detiene el arranque; no queda ningún `fallback-secret`).
 - `.env` y `.env.local` están en `.gitignore` — nunca los commitees.
 - Variables en uso: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CRON_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GMAIL_USER`, `CLIENT_URL`, `PORT`, `NODE_ENV` (API); `VITE_API_URL`, `VITE_GOOGLE_CLIENT_ID` (web); `EXPO_PUBLIC_API_URL` (móvil).
 - `npm audit` limpio; **commitea los lockfiles** y usa `npm ci` en CI.

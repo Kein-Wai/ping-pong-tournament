@@ -1,6 +1,6 @@
 import express from 'express';
 import apiRoutes from './routes';
-import { setupSwagger } from './swagger';
+import { setupSwagger } from './swagger/index';
 import cors from 'cors';
 import dns from 'dns';
 import prisma from './db';
