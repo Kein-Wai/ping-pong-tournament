@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  resolveResourceAccess,
   hasClubPermission,
   canAccessClub,
   resolveClubScope,
@@ -128,5 +129,55 @@ describe('Alcance de club (api/src/utils/auth.ts)', () => {
     it('regresión: impide a un usuario sin club leer el de cualquiera', () => {
       expect(canAccessClub(freePlayer, 'club-1')).toBe(false);
     });
+  });
+});
+
+describe('resolveResourceAccess (api/src/utils/auth.ts)', () => {
+  const resource = { id: 'torneo-1', clubId: 'club-1' };
+
+  it('concede acceso cuando el recurso existe y el SuperAdmin puede tocarlo', () => {
+    const access = resolveResourceAccess(resource, { id: 'u1', role: 'SuperAdmin' });
+
+    expect(access.ok).toBe(true);
+    if (access.ok) expect(access.resource).toBe(resource);
+  });
+
+  it('concede acceso al AdminClub cuando el recurso es de su club', () => {
+    const access = resolveResourceAccess(resource, {
+      id: 'u1',
+      role: 'AdminClub',
+      clubId: 'club-1',
+    });
+
+    expect(access.ok).toBe(true);
+  });
+
+  it('deniega al AdminClub cuando el recurso es de otro club', () => {
+    const access = resolveResourceAccess(resource, {
+      id: 'u1',
+      role: 'AdminClub',
+      clubId: 'club-rival',
+    });
+
+    expect(access.ok).toBe(false);
+    if (!access.ok) expect(access.reason).toBe('forbidden');
+  });
+
+  it('distingue "no existe" de "no autorizado"', () => {
+    const access = resolveResourceAccess(null, { id: 'u1', role: 'SuperAdmin' });
+
+    expect(access.ok).toBe(false);
+    if (!access.ok) expect(access.reason).toBe('notFound');
+  });
+
+  it('deniega a un Player aunque sea del mismo club', () => {
+    const access = resolveResourceAccess(resource, {
+      id: 'u1',
+      role: 'Player',
+      clubId: 'club-1',
+    });
+
+    expect(access.ok).toBe(false);
+    if (!access.ok) expect(access.reason).toBe('forbidden');
   });
 });

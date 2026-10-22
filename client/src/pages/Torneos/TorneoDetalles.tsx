@@ -277,7 +277,7 @@ export const TorneoDetalles = () => {
     try {
       if (!id) return;
       const res = await api.get(ENDPOINTS.TOURNAMENTS.BY_ID(id));
-      const tData = res.data.data || res.data;
+      const tData = res.data.data;
       console.log(tData);
       setTournament((prev) => {
         if (prev && prev.status !== 'Completado' && tData.status === 'Completado') {
@@ -666,7 +666,7 @@ export const TorneoDetalles = () => {
   const handleOpenEnrollModal = async () => {
     try {
       const res = await api.get(ENDPOINTS.USERS.BASE);
-      setClubPlayers(res.data);
+      setClubPlayers(res.data.data);
       setCheckedToEnroll([]);
       setEnrollModalOpen(true);
     } catch (e) {

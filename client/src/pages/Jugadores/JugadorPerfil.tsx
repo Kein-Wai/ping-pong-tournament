@@ -214,10 +214,10 @@ export const JugadorPerfil = () => {
       const activeS = seasonsRes.data.data.find((s: any) => s.isCurrent);
       if (activeS) setCurrentSeason(activeS.name);
 
-      const playerData = playerRes.data.data || playerRes.data;
+      const playerData = playerRes.data.data;
       setPlayer(playerData);
 
-      const allMatches = matchesRes.data;
+      const allMatches = matchesRes.data.data;
       const userMatches = allMatches
         .filter(
           (m: any) => (m.playerOneId === id || m.playerTwoId === id) && m.status === 'Completado',

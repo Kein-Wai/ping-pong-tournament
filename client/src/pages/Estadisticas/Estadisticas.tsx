@@ -67,7 +67,7 @@ export const Estadisticas = () => {
           api.get(ENDPOINTS.GENERAL_TRAININGS.BASE),
         ]);
 
-        let data: PlayerStats[] = resUsers.data.data || resUsers.data;
+        let data: PlayerStats[] = resUsers.data.data;
         data = data
           .filter((p) => p.stats !== null)
           .sort((a, b) => {
@@ -77,7 +77,7 @@ export const Estadisticas = () => {
           });
 
         setPlayers(data);
-        setMatches(resMatches.data);
+        setMatches(resMatches.data.data);
         setTrainings(resTrainings.data.data);
       } catch (error) {
         console.error('Error cargando estadísticas:', error);

@@ -106,3 +106,27 @@ export const buildNullableClubScope = (
 
   return {};
 };
+
+/**
+ * Resultado de comprobar el acceso de un usuario a un recurso de un club.
+ * Separa "no existe" de "no autorizado" para que cada ruta elija su propio
+ * codigo y mensaje sin reimplementar la regla de club.
+ */
+export type ResourceAccess<T> =
+  | { ok: true; resource: T }
+  | { ok: false; reason: 'notFound' | 'forbidden' };
+
+/**
+ * Aplica la politica de club a un recurso ya cargado. La regla vive en
+ * hasClubPermission: aqui solo se decide si el recurso existe y si el
+ * usuario puede tocarlo.
+ */
+export const resolveResourceAccess = <T extends { clubId: string | null }>(
+  resource: T | null,
+  user: UserPayload | undefined,
+): ResourceAccess<T> => {
+  if (!resource) return { ok: false, reason: 'notFound' };
+  if (!hasClubPermission(user, resource.clubId)) return { ok: false, reason: 'forbidden' };
+
+  return { ok: true, resource };
+};

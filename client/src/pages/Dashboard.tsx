@@ -68,7 +68,7 @@ export const Dashboard = () => {
           setAdminTeams(teamsRes.data.data);
         } else if (isPlayer && user?.id) {
           const playerRes = await api.get(ENDPOINTS.USERS.BY_ID(user.id));
-          setPlayerData(playerRes.data.data || playerRes.data);
+          setPlayerData(playerRes.data.data);
         }
       } catch (error) {
         console.error('Error cargando dashboard:', error);

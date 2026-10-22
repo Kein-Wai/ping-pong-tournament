@@ -41,7 +41,7 @@ export const PlanNuevo = () => {
     if (!playerId) return;
     api
       .get(ENDPOINTS.USERS.BY_ID(playerId))
-      .then((res) => setPlayerData(res.data.data || res.data))
+      .then((res) => setPlayerData(res.data.data))
       .catch((err) => console.error('Error al cargar jugador', err));
   }, [playerId]);
 

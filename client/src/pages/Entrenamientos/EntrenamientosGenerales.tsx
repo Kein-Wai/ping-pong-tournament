@@ -137,7 +137,7 @@ export const EntrenamientosGenerales = () => {
       ]);
       setSchedules(schedRes.data.data);
       setTrainings(trainRes.data.data);
-      const members = Array.isArray(playRes.data.data) ? playRes.data.data : playRes.data;
+      const members = playRes.data.data;
       setPlayers(members.filter((m: any) => m.clubStatus === 'Aprobado'));
     } catch (error) {
       console.error(error);

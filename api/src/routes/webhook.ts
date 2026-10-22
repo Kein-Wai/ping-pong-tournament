@@ -1,21 +1,25 @@
 import { Router } from 'express';
+import { asyncHandler } from '../http/response';
 import prisma from '../db';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateRecordatorioTorneo, templateRecordatorioEvento } from '../utils/emailtemplate';
+
+import { getRequiredEnv } from '../config';
 
 const router = Router();
 
 // =======================================================
 // 1. CRONJOB: RECORDATORIOS DIARIOS (Torneos y Eventos)
 // =======================================================
-router.post('/daily-reminders', async (req, res) => {
+router.post(
+  '/daily-reminders',
+  asyncHandler(async (req, res) => {
   // 1. Seguridad: Verificar que quien llama tiene la llave secreta
   const authHeader = req.headers['x-cron-secret'];
-  if (authHeader !== process.env.CRON_SECRET) {
-    return res.status(401).json({ error: 'Acceso denegado. Secreto inválido.' });
+  if (authHeader !== getRequiredEnv('CRON_SECRET')) {
+    return res.status(401).json({ success: false, error: 'Acceso denegado. Secreto inválido.' });
   }
 
-  try {
     // 2. Calcular los límites exactos de "Mañana"
     const hoy = new Date();
 
@@ -98,23 +102,21 @@ router.post('/daily-reminders', async (req, res) => {
       success: true,
       message: `Procesados ${torneosManana.length} torneos y ${pendingReminders.length} eventos de calendario.`,
     });
-  } catch (error) {
-    console.error('Error crítico en el webhook de recordatorios:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
+  }, 'Error interno del servidor'),
+);
 
 // =======================================================
 // 2. CRONJOB: MONITORIZACIÓN DEL SISTEMA (Health-Check)
 // =======================================================
-router.get('/health-check', async (req, res) => {
+router.get(
+  '/health-check',
+  asyncHandler(async (req, res) => {
   // 1. Seguridad estricta (igual que los recordatorios)
   const authHeader = req.headers['x-cron-secret'];
-  if (authHeader !== process.env.CRON_SECRET) {
-    return res.status(401).json({ error: 'Acceso denegado. Secreto inválido.' });
+  if (authHeader !== getRequiredEnv('CRON_SECRET')) {
+    return res.status(401).json({ success: false, error: 'Acceso denegado. Secreto inválido.' });
   }
 
-  try {
     // 2. Test de Base de Datos: Intentamos hacer una consulta sencilla
     const userCount = await prisma.user.count();
 
@@ -147,13 +149,7 @@ router.get('/health-check', async (req, res) => {
       timestamp: new Date(),
       users: userCount,
     });
-  } catch (error: any) {
-    console.error('Error crítico en el health-check:', error);
-    return res.status(500).json({
-      error: 'Fallo general del sistema',
-      details: error.message || 'Error desconocido',
-    });
-  }
-});
+  }, 'Fallo general del sistema'),
+);
 
 export default router;

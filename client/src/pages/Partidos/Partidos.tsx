@@ -124,7 +124,7 @@ export const Partidos = () => {
       }
       try {
         const response = await api.get(ENDPOINTS.MATCHES.BASE);
-        const data = response.data.sort(
+        const data = response.data.data.sort(
           (a: Match, b: Match) => (a.dateStart > b.dateStart ? -1 : 1), // Cambiado para mostrar los más recientes primero
         );
 

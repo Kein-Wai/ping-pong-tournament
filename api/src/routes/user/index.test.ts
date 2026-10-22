@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app } from '../../src/index';
-import prisma from '../../src/db';
+import { app } from '../../../src/index';
+import prisma from '../../../src/db';
 import bcrypt from 'bcryptjs';
 import { UserClubStatus } from '@prisma/client';
 
-vi.mock('../../src/db', () => ({
+vi.mock('../../../src/db', () => ({
   default: {
     season: {
       findFirst: vi
@@ -37,7 +37,7 @@ vi.mock('../../src/db', () => ({
   },
 }));
 
-vi.mock('../../src/middleware/auth.middleware', () => ({
+vi.mock('../../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => {
     req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin', clubId: 'club-1' }; // 👈 AÑADIDO clubId
     next();
@@ -168,7 +168,7 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
       createdAt: mockUser.createdAt.toISOString(),
       updatedAt: mockUser.updatedAt.toISOString(),
     };
-    expect(response.body).toEqual([expectedUser]);
+    expect(response.body).toEqual({ success: true, data: [expectedUser] });
     expect(prisma.user.findMany).toHaveBeenCalledOnce();
   });
 

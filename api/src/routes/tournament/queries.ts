@@ -1,68 +1,67 @@
 import { Router } from 'express';
 import prisma from '../../db';
-import { z } from 'zod';
-import { MatchStatus, PlayerTournamentStatus, KnockoutType } from '@prisma/client';
-import { resolveCurrentSeason } from '../../utils/season';
-import { hasClubPermission } from '../../utils/auth';
-
-const router = Router();
+import { KnockoutType } from '@prisma/client';
 import { fetchTournamentBracket } from '../../utils/knockout';
 import { fetchGroupMatches, fetchGroupClassifications } from '../../utils/standings';
+import { buildClubScope } from '../../utils/auth';
+import { UserPayload } from '../../middleware/auth.middleware';
+import { asyncHandler } from '../../http/response';
 
-router.get('/', async (req, res) => {
-  try {
-    const role = req.user?.role;
-    const clubId = req.user?.clubId;
-    const userId = req.user?.id;
-    let clubStatus = 'Registrado';
-    if (userId) {
-      const userDb = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { clubStatus: true },
-      });
-      if (userDb?.clubStatus) clubStatus = userDb.clubStatus;
-    }
+const router = Router();
 
-    const currentSeason = await resolveCurrentSeason(prisma);
+/**
+ * Visibilidad de los torneos para el usuario autenticado.
+ *
+ * El alcance por club lo decide el seam de utils/auth. La regla de "torneos
+ * abiertos" es propia del dominio de torneos y se mantiene aqui.
+ */
+const buildTournamentScope = (
+  user: UserPayload | undefined,
+  clubStatus: string,
+): Record<string, unknown> => {
+  const role = user?.role;
+  const clubId = user?.clubId;
+  const clubScope = buildClubScope(user);
 
-    let whereClause: any = {
-      seasonId: currentSeason.id,
-    };
+  if (role === 'SuperAdmin') return {};
+  if (role === 'AdminClub') return clubScope;
 
-    if (role === 'SuperAdmin') {
-      whereClause = {};
-    } else if (role === 'AdminClub') {
-      whereClause = { clubId: clubId };
-    } else {
-      if (clubId && clubStatus === 'Aprobado') {
-        // Si está aprobado, ve los de su club y los abiertos globales
-        whereClause = {
-          OR: [{ clubId: clubId }, { typeTournament: 'Abierto' }],
-        };
-      } else {
-        // Si está Pendiente, Rechazado o Libre, SOLO ve los torneos Abiertos
-        whereClause = { typeTournament: 'Abierto' };
-      }
-    }
-
-    const tournaments = await prisma.tournament.findMany({
-      where: whereClause,
-      include: {
-        club: { select: { name: true } },
-      },
-      orderBy: { dateStart: 'asc' },
-    });
-
-    return res.status(200).json({ success: true, data: tournaments });
-  } catch (error) {
-    console.error('Error fetching tournaments:', error);
-    return res.status(500).json({ success: false, message: 'Error al obtener torneos' });
+  if (clubId && clubStatus === 'Aprobado') {
+    return { OR: [clubScope, { typeTournament: 'Abierto' }] };
   }
-});
 
-router.get('/:id', async (req, res) => {
-  const tournamentId = req.params.id;
-  try {
+  return { typeTournament: 'Abierto' };
+};
+
+router.get('/', asyncHandler(async (req, res) => {
+  const role = req.user?.role;
+  const clubId = req.user?.clubId;
+  const userId = req.user?.id;
+  let clubStatus = 'Registrado';
+  if (userId) {
+    const userDb = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { clubStatus: true },
+    });
+    if (userDb?.clubStatus) clubStatus = userDb.clubStatus;
+  }
+
+  const tournaments = await prisma.tournament.findMany({
+    where: buildTournamentScope(req.user, clubStatus),
+    include: {
+      club: { select: { name: true } },
+    },
+    orderBy: { dateStart: 'asc' },
+  });
+
+  return res.status(200).json({ success: true, data: tournaments });
+
+}, 'Error al obtener torneos', 500));
+
+router.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const tournamentId = req.params.id as string;
     const tournament = await prisma.tournament.findUnique({
       where: {
         id: tournamentId,
@@ -84,144 +83,108 @@ router.get('/:id', async (req, res) => {
       return res
         .status(200)
         .json({ success: true, data: tournament, message: 'Torneo no encontrado' });
-  } catch (error) {
-    console.error('Error fetching tournament:', error);
-    return res.status(500).json({ success: false, message: 'Error al obtener torneo' });
-  }
-});
+  }, 'Error al obtener torneo'),
+);
 
-router.get('/:id/participants', async (req, res) => {
-  try {
-    const tournamentId = req.params.id;
+router.get('/:id/participants', asyncHandler(async (req, res) => {
+  const tournamentId = req.params.id as string;
 
-    const participants = await prisma.tournamentParticipant.findMany({
-      where: { tournamentId: tournamentId },
-      include: {
-        player: {
-          select: { id: true, name: true, surname: true, stats: true },
-        },
+  const participants = await prisma.tournamentParticipant.findMany({
+    where: { tournamentId: tournamentId },
+    include: {
+      player: {
+        select: { id: true, name: true, surname: true, stats: true },
       },
-      orderBy: { registeredAt: 'asc' },
-    });
+    },
+    orderBy: { registeredAt: 'asc' },
+  });
 
-    return res.status(200).json({
-      success: true,
-      data: participants,
-    });
-  } catch (error) {
-    console.error('Error al obtener los participantes:', error);
-    return res.status(500).json({
+  return res.status(200).json({
+    success: true,
+    data: participants,
+  });
+
+}, 'Error interno del servidor al cargar los participantes.', 500));
+
+router.get('/:id/bracket', asyncHandler(async (req, res) => {
+  const tournamentId = req.params.id as string;
+
+  const type = (req.query.type as KnockoutType) || KnockoutType.A;
+
+  const knockouts = await fetchTournamentBracket(prisma, tournamentId, type);
+
+  if (!knockouts || knockouts.length === 0) {
+    return res.status(404).json({
       success: false,
-      message: 'Error interno del servidor al cargar los participantes.',
+      message: 'No se ha generado el cuadro para este torneo todavía.',
     });
   }
-});
 
-router.get('/:id/bracket', async (req, res) => {
-  try {
-    const tournamentId = req.params.id;
+  return res.status(200).json({
+    success: true,
+    data: knockouts,
+  });
 
-    const type = (req.query.type as KnockoutType) || KnockoutType.A;
+}, 'Error interno del servidor al cargar el cuadro.', 500));
 
-    const knockouts = await fetchTournamentBracket(prisma, tournamentId, type);
+router.get('/:id/groups/matches', asyncHandler(async (req, res) => {
+  const tournamentId = req.params.id as string;
+  const { groupId } = req.query;
 
-    if (!knockouts || knockouts.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No se ha generado el cuadro para este torneo todavía.',
-      });
-    }
+  const matches = await fetchGroupMatches(prisma, tournamentId, groupId as string);
 
-    return res.status(200).json({
-      success: true,
-      data: knockouts,
-    });
-  } catch (error) {
-    console.error('Error al obtener el cuadro:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor al cargar el cuadro.',
-    });
-  }
-});
+  return res.status(200).json({ success: true, data: matches });
 
-router.get('/:id/groups/matches', async (req, res) => {
-  try {
-    const tournamentId = req.params.id;
-    const { groupId } = req.query;
+}, 'Error al obtener los partidos del grupo.', 500));
 
-    const matches = await fetchGroupMatches(prisma, tournamentId, groupId as string);
+router.get('/:id/groups/classifications', asyncHandler(async (req, res) => {
+  const tournamentId = req.params.id as string;
+  const { groupId } = req.query;
 
-    return res.status(200).json({ success: true, data: matches });
-  } catch (error) {
-    console.error('Error fetching group matches:', error);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Error al obtener los partidos del grupo.' });
-  }
-});
+  const clasifications = await fetchGroupClassifications(prisma, tournamentId, groupId as string);
 
-router.get('/:id/groups/classifications', async (req, res) => {
-  try {
-    const tournamentId = req.params.id;
-    const { groupId } = req.query;
+  return res.status(200).json({ success: true, data: clasifications });
 
-    const clasifications = await fetchGroupClassifications(prisma, tournamentId, groupId as string);
+}, 'Error al obtener la clasificación.', 500));
 
-    return res.status(200).json({ success: true, data: clasifications });
-  } catch (error) {
-    console.error('Error fetching group classifications:', error);
-    return res.status(500).json({ success: false, message: 'Error al obtener la clasificación.' });
-  }
-});
+router.get('/:id/classifications', asyncHandler(async (req, res) => {
+  const tournamentId = req.params.id as string;
 
-router.get('/:id/classifications', async (req, res) => {
-  try {
-    const tournamentId = req.params.id;
-
-    const clasifications = await prisma.tournamentClas.findMany({
-      where: { tournamentId: tournamentId },
-      include: {
-        player: {
-          select: { id: true, name: true, surname: true },
-        },
+  const clasifications = await prisma.tournamentClas.findMany({
+    where: { tournamentId: tournamentId },
+    include: {
+      player: {
+        select: { id: true, name: true, surname: true },
       },
-    });
+    },
+  });
 
-    return res.status(200).json({ success: true, data: clasifications });
-  } catch (error) {
-    console.error('Error fetching group classifications:', error);
-    return res.status(500).json({ success: false, message: 'Error al obtener la clasificación.' });
-  }
-});
+  return res.status(200).json({ success: true, data: clasifications });
 
-router.get('/player/:playerId/enrolled', async (req, res) => {
-  try {
-    const { playerId } = req.params;
+}, 'Error al obtener la clasificación.', 500));
 
-    // Solo el jugador puede ver sus propias inscripciones en el dashboard
-    if (req.user?.id !== playerId) return res.status(403).json({ error: 'No autorizado' });
+router.get('/player/:playerId/enrolled', asyncHandler(async (req, res) => {
+  const { playerId } = req.params as { [key: string]: string };
 
-    const inscriptions = await prisma.tournamentParticipant.findMany({
-      where: {
-        playerId: playerId,
-        tournament: {
-          status: { notIn: ['Completado', 'Cancelado'] }, // Solo torneos en curso
-        },
+  // Solo el jugador puede ver sus propias inscripciones en el dashboard
+  if (req.user?.id !== playerId) return res.status(403).json({ success: false, error: 'No autorizado' });
+
+  const inscriptions = await prisma.tournamentParticipant.findMany({
+    where: {
+      playerId: playerId,
+      tournament: {
+        status: { notIn: ['Completado', 'Cancelado'] },
       },
-      include: {
-        tournament: true,
-      },
-      orderBy: { tournament: { dateStart: 'asc' } },
-    });
+    },
+    include: {
+      tournament: true,
+    },
+    orderBy: { tournament: { dateStart: 'asc' } },
+  });
 
-    // Mapeamos para devolver solo los datos del torneo
-    const tournaments = inscriptions.map((i) => i.tournament);
-    res.status(200).json({ success: true, data: tournaments });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, error: 'Error al obtener torneos inscritos' });
-  }
-});
+  const tournaments = inscriptions.map((i) => i.tournament);
+  res.status(200).json({ success: true, data: tournaments });
+
+}, 'Error al obtener torneos inscritos', 500));
 
 export default router;

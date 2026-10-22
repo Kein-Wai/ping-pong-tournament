@@ -66,7 +66,7 @@ export const Torneos = () => {
     const fetchTournaments = async () => {
       try {
         const response = await api.get(ENDPOINTS.TOURNAMENTS.BASE);
-        const data = response.data.data || response.data;
+        const data = response.data.data;
         if (Array.isArray(data)) {
           setTournaments(data);
         }

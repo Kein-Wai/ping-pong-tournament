@@ -96,7 +96,7 @@ export const EquipoDetalles = () => {
       const currentTeam = teamRes.data.data.find((t: any) => t.id === id);
       setTeam(currentTeam);
 
-      const approvedPlayers = (playersRes.data.data || playersRes.data).filter(
+      const approvedPlayers = playersRes.data.data.filter(
         (p: any) => p.clubStatus === 'Aprobado',
       );
       setClubPlayers(approvedPlayers);

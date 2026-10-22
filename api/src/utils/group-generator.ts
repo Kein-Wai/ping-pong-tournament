@@ -1,8 +1,6 @@
 import { PrismaClient, TournamentStatus } from '@prisma/client';
 import { buildGroupsEngine, TournamentSeed } from './group-engine';
-
-// Re-exportados para que los llamadores usen el motor a traves de este modulo.
-export { buildGroupsEngine, TournamentSeed };
+import { ApiError } from '../http/response';
 
 /**
  * Genera los grupos y los partidos de la fase de grupos de un torneo.
@@ -15,10 +13,10 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
     where: { id: tournamentId },
   });
 
-  if (!tournament) throw new Error('El torneo no existe');
-  if (tournament.groupsCreated) throw new Error('Los grupos ya han sido generados');
+  if (!tournament) throw new ApiError(404, 'El torneo no existe');
+  if (tournament.groupsCreated) throw new ApiError(400, 'Los grupos ya han sido generados');
   if (!tournament.numGroup)
-    throw new Error('El torneo no tiene definido el número de grupos');
+    throw new ApiError(400, 'El torneo no tiene definido el número de grupos');
 
   const participants = await prisma.tournamentParticipant.findMany({
     where: {
@@ -33,7 +31,7 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
   });
 
   if (participants.length < 2) {
-    throw new Error('No hay suficientes jugadores confirmados para generar los grupos');
+    throw new ApiError(400, 'No hay suficientes jugadores confirmados para generar los grupos');
   }
 
   // Transformar los datos de Prisma a la interfaz universal del motor

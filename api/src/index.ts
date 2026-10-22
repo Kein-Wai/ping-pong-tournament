@@ -1,11 +1,12 @@
 import express from 'express';
 import apiRoutes from './routes';
 import { setupSwagger } from './swagger';
+import cors from 'cors';
+import dns from 'dns';
 import prisma from './db';
 import { ensureCurrentSeason } from './utils/season';
 import { assertRequiredEnv, REQUIRED_ENV_VARS } from './config';
-import cors from 'cors';
-import dns from 'dns';
+import { errorHandler } from './http/error-handler';
 
 dns.setDefaultResultOrder('ipv4first');
 export const app = express();
@@ -43,6 +44,10 @@ setupSwagger(app);
 app.get('/', (req, res) => {
   res.send('¡API funcionando correctamente!');
 });
+
+// Middleware central de errores: debe montarse DESPUES de las rutas para que
+// capture los errores que propagan los handlers asincronos.
+app.use(errorHandler);
 
 if (process.env.NODE_ENV !== 'test') {
   // Fail-fast: sin estos secretos la aplicación no debe arrancar.

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app } from '../../src/index';
-import prisma from '../../src/db';
+import { app } from '../../../src/index';
+import prisma from '../../../src/db';
 
 // Mock de Prisma
-vi.mock('../../src/db', () => ({
+vi.mock('../../../src/db', () => ({
   default: {
     season: {
       findFirst: vi
@@ -36,7 +36,7 @@ vi.mock('../../src/db', () => ({
 }));
 
 // Mocks de Middlewares
-vi.mock('../../src/middleware/auth.middleware', () => ({
+vi.mock('../../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => {
     req.user = { id: 'admin-123', role: 'AdminClub', clubId: 'club-1' };
     next();

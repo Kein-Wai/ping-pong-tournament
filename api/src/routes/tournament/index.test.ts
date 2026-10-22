@@ -273,7 +273,8 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
       const response = await request(app).get(`/api/tournaments/${MOCK_UUID}/groups/matches`);
 
       expect(response.status).toBe(500);
-      expect(response.body.message).toBe('Error al obtener los partidos del grupo.');
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Error al obtener los partidos del grupo.');
     });
   });
 
