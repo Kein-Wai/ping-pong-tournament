@@ -1,6 +1,9 @@
 import express from 'express';
 import apiRoutes from './routes';
 import { setupSwagger } from './swagger';
+import prisma from './db';
+import { ensureCurrentSeason } from './utils/season';
+import { assertRequiredEnv, REQUIRED_ENV_VARS } from './config';
 import cors from 'cors';
 import dns from 'dns';
 
@@ -42,7 +45,22 @@ app.get('/', (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
-  });
+  // Fail-fast: sin estos secretos la aplicación no debe arrancar.
+  assertRequiredEnv(process.env, [...REQUIRED_ENV_VARS]);
+
+  const bootstrap = async () => {
+    // La temporada vigente se inicializa UNA SOLA VEZ, al arrancar. A partir de
+    // aquí el resto de la app solo la lee (resolveCurrentSeason).
+    try {
+      await ensureCurrentSeason(prisma);
+    } catch (error) {
+      console.error('No se pudo inicializar la temporada vigente:', error);
+    }
+
+    app.listen(PORT, () => {
+      console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    });
+  };
+
+  void bootstrap();
 }

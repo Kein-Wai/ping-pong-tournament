@@ -9,8 +9,8 @@ import {
   updateTeamMatchSchema,
   updateTeamSchema,
 } from '../schemas/team';
-import { getCurrentSeason } from '../utils/season';
-import { hasClubPermission } from '../utils/auth';
+import { resolveCurrentSeason } from '../utils/season';
+import { canAccessClub, hasClubPermission } from '../utils/auth';
 
 const router = Router();
 
@@ -43,10 +43,10 @@ const getLowestLevel = (players: any[]) => {
 router.get('/club/:clubId', verifyToken, async (req, res) => {
   try {
     const clubId = req.params.clubId as string;
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
 
     // Seguridad Multi-tenant: Si eres AdminClub, solo puedes ver tus equipos (o los de tu club si eres player)
-    if (req.user?.role !== 'SuperAdmin' && req.user?.clubId !== clubId) {
+    if (!canAccessClub(req.user, clubId)) {
       return res
         .status(403)
         .json({ error: 'No tienes permisos para ver los equipos de otro club' });
@@ -82,7 +82,7 @@ router.get('/club/:clubId', verifyToken, async (req, res) => {
 router.post('/', verifyToken, requireAdminClub, async (req, res) => {
   try {
     const clubId = req.user?.clubId;
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
     if (!clubId) return res.status(403).json({ error: 'No tienes un club asignado' });
 
     const validation = createTeamSchema.safeParse(req.body);

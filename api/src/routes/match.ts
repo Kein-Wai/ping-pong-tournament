@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { handleMatchStatsUpdate } from '../utils/stats';
 import { processMatchResult } from '../utils/match-processor';
 import { updateGroupStandings } from '../utils/standings';
-import { getCurrentSeason } from '../utils/season';
+import { resolveCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -139,7 +139,7 @@ router.post('/', async (req, res) => {
       res.status(400).json({ error: 'Un jugador no puede enfrentarse a sí mismo' });
       return;
     }
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
     const newMatch = await prisma.match.create({
       data: {
         playerOneId,

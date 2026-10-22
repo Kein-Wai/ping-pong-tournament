@@ -3,7 +3,7 @@ import prisma from '../db';
 import { createClubSchema, updateMemberStatusSchema, updateClubSchema } from '../schemas/club';
 import { z } from 'zod';
 import { verifyToken, requireAdminClub, requireSuperAdmin } from '../middleware/auth.middleware';
-import { getCurrentSeason } from '../utils/season';
+import { resolveCurrentSeason } from '../utils/season';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateAceptacionClub } from '../utils/emailtemplate';
 import { hasClubPermission } from '../utils/auth';
@@ -269,7 +269,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, async (
       where: { id: userId },
       data: updateData,
     });
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
 
     if (status === 'Aprobado' && skills) {
       const club = await prisma.club.findUnique({ where: { id: clubId } });

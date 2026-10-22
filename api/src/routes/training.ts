@@ -7,7 +7,8 @@ import {
 } from '../schemas/training'; // El Zod que creamos antes
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
-import { getCurrentSeason } from '../utils/season';
+import { hasClubPermission, canAccessClub, buildNullableClubScope, buildClubScope, isOutOfClubScope, getScopeClubId } from '../utils/auth';
+import { resolveCurrentSeason } from '../utils/season';
 import { calculateSkillGrowth } from '../utils/skills';
 
 const router = Router();
@@ -58,7 +59,7 @@ router.post('/', requireAdminClub, async (req, res) => {
       }
     }
 
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
     // 4. Inserción Anidada en Prisma (Crea el plan y sus N sesiones de golpe)
     const newTraining = await prisma.playerTraining.create({
       data: {

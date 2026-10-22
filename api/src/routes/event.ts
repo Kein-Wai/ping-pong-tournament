@@ -2,8 +2,9 @@ import { Router } from 'express';
 import prisma from '../db';
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
+import { hasClubPermission, canAccessClub, buildNullableClubScope, buildClubScope, isOutOfClubScope, getScopeClubId } from '../utils/auth';
 import { createEventSchema, updateEventSchema } from '../schemas/event';
-import { getCurrentSeason } from '../utils/season';
+import { resolveCurrentSeason } from '../utils/season';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateCambioFechaEvento } from '../utils/emailtemplate';
 
@@ -13,8 +14,15 @@ const router = Router();
 router.get('/club/:clubId', async (req, res) => {
   try {
     const clubId = req.params.clubId as string;
+
+    // Un usuario solo puede ver los eventos de los clubes a los que pertenece.
+    if (!canAccessClub(req.user, clubId)) {
+      return res
+        .status(403)
+        .json({ error: 'No tienes permiso para ver los eventos de este club' });
+    }
     const userId = req.user?.id;
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
 
     const events = await prisma.clubEvent.findMany({
       where: { clubId, seasonId: currentSeason.id },
@@ -45,7 +53,7 @@ router.post('/', requireAdminClub, async (req, res) => {
     const clubId = req.user?.clubId;
     if (!clubId) return res.status(403).json({ error: 'No tienes club' });
 
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
 
     const newEvent = await prisma.clubEvent.create({
       data: {

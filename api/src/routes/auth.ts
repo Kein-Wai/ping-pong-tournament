@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateRegistro, templateResetPassword } from '../utils/emailtemplate';
 import crypto from 'crypto';
-import { getCurrentSeason } from '../utils/season';
+import { resolveCurrentSeason } from '../utils/season';
 
 const router = Router();
 
@@ -74,7 +74,7 @@ router.post('/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(64).toString('hex');
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
 
     const newUser = await prisma.user.create({
       data: {
@@ -189,7 +189,7 @@ router.post('/google', async (req, res) => {
           .status(500)
           .json({ error: 'Configuración de base de datos incompleta (Falta rol Player)' });
       }
-      const currentSeason = await getCurrentSeason(prisma);
+      const currentSeason = await resolveCurrentSeason(prisma);
       user = await prisma.user.create({
         data: {
           email,

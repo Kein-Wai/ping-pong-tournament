@@ -49,8 +49,8 @@ describe('Zod Schemas: Autenticación y Usuarios', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         const errorString = result.error.toString();
-        expect(errorString).toContain('Debe contener al menos una mayuscula');
-        expect(errorString).toContain('Debe almenos contener un character especial');
+        expect(errorString).toContain('Debe contener al menos una mayúscula');
+        expect(errorString).toContain('Debe contener al menos un carácter especial');
       }
     });
 

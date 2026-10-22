@@ -8,7 +8,7 @@ import {
   updateManualMatchSchema,
 } from '../schemas/manualMatch';
 import { MatchStatus } from '@prisma/client';
-import { getCurrentSeason } from '../utils/season';
+import { resolveCurrentSeason } from '../utils/season';
 import { calculateSkillGrowth } from '../utils/skills';
 import { getPlayerCurrentSkills } from '../utils/stats';
 
@@ -47,7 +47,7 @@ router.post('/', async (req, res) => {
         .status(400)
         .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
     }
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
     const newMatch = await prisma.manualMatch.create({
       data: {
         ...validation.data,
@@ -157,7 +157,7 @@ router.put('/:id/complete', async (req, res) => {
 
     // Envolvemos en transacción para asegurar la base de datos
     const updatedMatch = await prisma.$transaction(async (tx) => {
-      const currentSeason = await getCurrentSeason(tx as any);
+      const currentSeason = await resolveCurrentSeason(tx as any);
       const match = await tx.manualMatch.update({
         where: { id: req.params.id },
         data: {

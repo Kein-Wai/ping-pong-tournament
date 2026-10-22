@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../db';
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
+import { hasClubPermission, canAccessClub, buildNullableClubScope, buildClubScope, isOutOfClubScope, getScopeClubId } from '../utils/auth';
 import {
   createScheduleSchema,
   createGeneralTrainingSchema,
@@ -9,24 +10,23 @@ import {
   updateScheduleSchema,
   updateGeneralTrainingSchema,
 } from '../schemas/generalTraining';
-import { getCurrentSeason } from '../utils/season';
+import { resolveCurrentSeason } from '../utils/season';
 import { calculateConditionalGrowth } from '../utils/skills';
 
 const router = Router();
-
-// Helper para evitar crasheos si entra un SuperAdmin (clubId = null)
-const getClubWhere = (req: any) => {
-  if (req.user?.role === 'SuperAdmin') return {}; // El SuperAdmin lo ve todo
-  return { clubId: req.user?.clubId };
-};
 
 // ==========================================
 // 1. HORARIOS FIJOS (Schedules)
 // ==========================================
 router.get('/schedules', async (req, res) => {
+  // Sin club asignado no puede ver los horarios de ningún club.
+  if (isOutOfClubScope(req.user)) {
+    return res.status(200).json({ success: true, data: [] });
+  }
+
   try {
     const schedules = await prisma.generalTrainingSchedule.findMany({
-      where: getClubWhere(req),
+      where: buildClubScope(req.user),
       orderBy: { startTime: 'asc' },
     });
     res.status(200).json({ success: true, data: schedules });
@@ -70,7 +70,7 @@ router.put('/schedules/:id', requireAdminClub, async (req, res) => {
         .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
 
     const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
-    if (!schedule || (req.user?.role !== 'SuperAdmin' && schedule.clubId !== clubId)) {
+    if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
       return res.status(404).json({ error: 'Horario no encontrado' });
     }
 
@@ -92,7 +92,7 @@ router.delete('/schedules/:id', requireAdminClub, async (req, res) => {
     const scheduleId = req.params.id as string;
 
     const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
-    if (!schedule || (req.user?.role !== 'SuperAdmin' && schedule.clubId !== clubId)) {
+    if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
       return res.status(404).json({ error: 'Horario no encontrado' });
     }
 
@@ -112,7 +112,7 @@ router.delete('/schedules/:id', requireAdminClub, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const trainings = await prisma.generalTraining.findMany({
-      where: getClubWhere(req),
+      where: buildClubScope(req.user),
       include: {
         schedule: true,
         template: true,
@@ -164,7 +164,7 @@ router.post('/', requireAdminClub, async (req, res) => {
       });
     }
 
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
     await prisma.$transaction(async (tx) => {
       const template = await tx.skillUpdateTemplate.create({
         data: {
@@ -207,7 +207,7 @@ router.put('/:id', requireAdminClub, async (req, res) => {
         .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
 
     const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
-    if (!training || (req.user?.role !== 'SuperAdmin' && training.clubId !== clubId)) {
+    if (!training || !hasClubPermission(req.user, training.clubId)) {
       return res.status(404).json({ error: 'Entrenamiento no encontrado' });
     }
 
@@ -241,7 +241,7 @@ router.delete('/:id', requireAdminClub, async (req, res) => {
     const trainingId = req.params.id as string;
 
     const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
-    if (!training || (req.user?.role !== 'SuperAdmin' && training.clubId !== clubId)) {
+    if (!training || !hasClubPermission(req.user, training.clubId)) {
       return res.status(404).json({ error: 'Entrenamiento no encontrado' });
     }
 
@@ -275,7 +275,7 @@ router.put('/:id/attendance/bulk', requireAdminClub, async (req, res) => {
       include: { template: true },
     });
 
-    if (!training || (req.user?.role !== 'SuperAdmin' && training.clubId !== clubId)) {
+    if (!training || !hasClubPermission(req.user, training.clubId)) {
       return res.status(404).json({ error: 'Entrenamiento no encontrado' });
     }
 

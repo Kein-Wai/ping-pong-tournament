@@ -9,7 +9,8 @@ import {
 } from '../schemas/user';
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
-import { getCurrentSeason } from '../utils/season';
+import { hasClubPermission, canAccessClub, buildNullableClubScope, buildClubScope, isOutOfClubScope, getScopeClubId } from '../utils/auth';
+import { resolveCurrentSeason } from '../utils/season';
 import { templateCuentaCreada } from '../utils/emailtemplate';
 import { enviarCorreoGenerico } from '../services/email';
 const router = Router();
@@ -40,20 +41,12 @@ router.get('/', async (req, res) => {
     }
 
     // Filtro base: Solo queremos que devuelva jugadores (no otros admins)
-    let whereClause: any = {
+    // El alcance por club lo decide el seam de utils/auth. Un usuario sin club
+    // solo ve a los jugadores que tampoco pertenecen a ningún club.
+    const whereClause = {
       userTypeId: playerType.id,
+      ...buildNullableClubScope(req.user),
     };
-
-    // Filtro de Club:
-    if (role === 'SuperAdmin') {
-      // El SuperAdmin puede ver absolutamente a todos los jugadores del sistema
-    } else if (role === 'AdminClub') {
-      // El AdminClub solo puede ver a los jugadores que pertenecen a SU club
-      whereClause.clubId = clubId;
-    } else {
-      // Un jugador normal solo debería poder ver el ranking/lista de la gente de su propio club
-      whereClause.clubId = clubId;
-    }
 
     const users = await prisma.user.findMany({
       where: whereClause,
@@ -129,7 +122,7 @@ router.post('/', requireAdminClub, async (req, res) => {
       finalClubStatus = 'Aprobado';
     }
 
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
 
     // Si no pasan rol, asumimos Player por defecto
     let finalUserTypeId = userTypeId;
@@ -435,7 +428,7 @@ router.put('/:id', requireAdminClub, async (req, res) => {
     // Limpiamos los null de los strings que Prisma no quiera
     if (dataToUpdate.email) dataToUpdate.email = dataToUpdate.email.toLowerCase().trim();
 
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
 
     // 4. Actualizamos usuario, stats (elo) y skills
     const updatedUser = await prisma.user.update({
@@ -536,7 +529,7 @@ router.post('/guest', requireAdminClub, async (req, res) => {
 
     if (!clubId) return res.status(403).json({ error: 'No tienes club asignado' });
 
-    const currentSeason = await getCurrentSeason(prisma);
+    const currentSeason = await resolveCurrentSeason(prisma);
 
     const playerRole = await prisma.userType.findFirst({ where: { name: 'Player' } });
 
