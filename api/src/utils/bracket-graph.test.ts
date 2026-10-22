@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { KnockoutType, SortKnockout } from '@prisma/client';
-import { createKnockoutDraw, saveKnockoutBracket } from '../../src/utils/knockout';
+import { createKnockoutDraw } from '../../src/utils/knockout-engine';
+import { saveKnockoutBracket } from '../../src/utils/knockout';
 import { BYE_USER_ID, TBD_USER_ID } from '../../src/constants';
 
 let idCounter = 1;
@@ -105,7 +106,7 @@ describe('Motor de Grafo - Full Cascada', () => {
     it(`Debería tejer las tuberías para ${numPlayers} jugadores`, async () => {
       const players = generateMockPlayers(numPlayers);
 
-      const firstRoundMatches = createKnockoutDraw(players, SortKnockout.Siembra, true);
+      const firstRoundMatches = createKnockoutDraw(players, SortKnockout.Siembra);
 
       await saveKnockoutBracket(
         prismaMock,

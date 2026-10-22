@@ -11,7 +11,7 @@ import {
 import { generateTournamentGroups } from '../utils/group-generator';
 import { MatchStatus, PlayerTournamentStatus, KnockoutType } from '@prisma/client';
 import { fetchTournamentBracket } from '../utils/knockout';
-import { fetchGroupMatches, fetchGroupClassifications } from '../utils/group';
+import { fetchGroupMatches, fetchGroupClassifications } from '../utils/standings';
 import { requireAdminClub } from '../middleware/auth.middleware';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateInscripcionTorneo } from '../utils/emailtemplate';

@@ -1,7 +1,7 @@
 import XlsxPopulate from 'xlsx-populate';
 import path from 'path';
-import { buildGroupsEngine, TournamentSeed } from '../utils/group-generator';
-import { createKnockoutDraw, KnockoutSeed } from '../utils/knockout';
+import { buildGroupsEngine, TournamentSeed } from '../utils/group-engine';
+import { createKnockoutDraw, KnockoutSeed } from '../utils/knockout-engine';
 import { randomUUID } from 'crypto';
 
 const letrasMayusculas = [
@@ -146,7 +146,7 @@ export const generateTournamentExcel = async (tournamentInfo: any, playersInput:
   });
 
   // 3.2 Calculamos los cruces usando nuestro motor puro
-  const firstRoundMatches = createKnockoutDraw(classifiedPlayers, 'Siembra', false);
+  const firstRoundMatches = createKnockoutDraw(classifiedPlayers, 'Siembra');
 
   // 3.3 Aplanamos el array (P1, P2, P3, P4...) poniendo EXENTO donde no hay jugador
   const drawSlots: string[] = [];
