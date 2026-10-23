@@ -84,7 +84,7 @@ export interface TournamentClas {
 export interface TournamentGroupClas {
   id: string;
   position: number | null;
-  points: number | null;
+  pointsClas: number | null;
   played: number | null;
   gamesWon: number | null;
   gamesLost: number | null;
@@ -97,9 +97,9 @@ export interface TournamentGroupClas {
     name: string;
     surname: string | null;
     stats: { elo: number | null };
-    avatarUrl: string | null;
+    avatarUrl?: string | null;
   };
-  tournamentGroup: { id: string; group: number };
+  tournamentGroup: { group: number };
 }
 
 /** Jugador dentro del cuadro de eliminatorias. */
