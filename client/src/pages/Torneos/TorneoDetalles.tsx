@@ -12,17 +12,11 @@ import {
   Loader,
   Badge,
   Stack,
-  Tabs,
   ActionIcon,
   Tooltip,
 } from '@mantine/core';
 import {
   IconArrowLeft,
-  IconInfoCircle,
-  IconUsers,
-  IconTournament,
-  IconListNumbers,
-  IconMedal,
   IconTrophy,
   IconUserCheck,
   IconUserX,
@@ -30,6 +24,8 @@ import {
   IconSettings,
   IconTrash,
   IconArrowsExchange,
+  IconTournament,
+  IconUsers,
 } from '@tabler/icons-react';
 import confetti from 'canvas-confetti';
 import { api } from '../../api/axios';
@@ -47,11 +43,7 @@ import { MatchResultModal } from '../../components/tournament/MatchResultModal';
 import { EnrollModal } from '../../components/tournament/EnrollModal';
 import { SwapPlayersModal } from '../../components/tournament/SwapPlayersModal';
 import { MatchResultViewModal } from '../../components/tournament/MatchResultViewModal';
-import { ParticipantsTable } from '../../components/tournament/ParticipantsTable';
-import { Podium } from '../../components/tournament/Podium';
-import { GroupClassificationsTable } from '../../components/tournament/GroupClassificationsTable';
-import { KnockoutBracket } from '../../components/tournament/KnockoutBracket';
-import { TournamentInfoCards } from '../../components/tournament/TournamentInfoCards';
+import { TournamentTabs } from '../../components/tournament/TournamentTabs';
 import type {
   TournamentClas,
   TournamentGroupClas,
@@ -319,11 +311,11 @@ export const TorneoDetalles = () => {
   const handleParticipantStatus = (
     playerId: string,
     playerName: string,
-    playerSurname: string,
-    newStatus: string,
+    playerSurname: string | null,
+    status: 'Confirmado' | 'NoPresentado',
   ) => {
     if (!id) return;
-    const isNoShow = newStatus === 'NoPresentado';
+    const isNoShow = status === 'NoPresentado';
 
     openAppConfirmModal({
       title: isNoShow ? 'Sancionar Jugador' : 'Confirmar Asistencia',
@@ -337,7 +329,7 @@ export const TorneoDetalles = () => {
       onConfirm: async () => {
         try {
           await api.put(ENDPOINTS.TOURNAMENTS.UPDATE_PARTICIPANT_STATUS(id, playerId), {
-            status: newStatus,
+            status,
           });
           const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
           setParticipants(res.data.data);
@@ -525,6 +517,10 @@ export const TorneoDetalles = () => {
       set7P1: match.setSevenPlayerOne ?? 0,
       set7P2: match.setSevenPlayerTwo ?? 0,
     });
+  };
+
+  const onBracketMatchClick = (match: BracketMatch) => {
+    setSelectedMatch(match);
   };
 
   const executeSaveMatch = async () => {
@@ -779,141 +775,52 @@ export const TorneoDetalles = () => {
         </Group>
       </Card>
 
-      <Tabs value={activeTab} onChange={setActiveTab} variant="outline" radius="md">
-        <Tabs.List>
-          <Tabs.Tab value="info" leftSection={<IconInfoCircle size={16} />}>
-            Información
-          </Tabs.Tab>
-          {(isProgramado || isGrupos || isKnockoutPhase) && (
-            <Tabs.Tab value="inscritos" leftSection={<IconUsers size={16} />}>
-              Inscritos ({currentPlayers.length})
-            </Tabs.Tab>
-          )}
-          {isCompletado && (
-            <Tabs.Tab value="resultados" leftSection={<IconMedal size={16} />}>
-              Resultados Finales
-            </Tabs.Tab>
-          )}
-          {hasGroupsFormat && (isGrupos || isKnockoutPhase || isCompletado) && (
-            <Tabs.Tab value="grupos" leftSection={<IconListNumbers size={16} />}>
-              {tournament.rounds === 'TodosvsTodos' ? 'Clasificación y Partidos' : 'Fase de Grupos'}
-            </Tabs.Tab>
-          )}
-          {tournament.rounds !== 'TodosvsTodos' &&
-            hasKnockoutFormat &&
-            (isKnockoutPhase || isCompletado) && (
-              <Tabs.Tab value="bracketA" leftSection={<IconTournament size={16} />}>
-                Cuadro Llave A
-              </Tabs.Tab>
-            )}
-          {tournament.rounds !== 'TodosvsTodos' &&
-            hasKnockoutFormat &&
-            (isKnockoutPhase || isCompletado) &&
-            tournament.typeKnockout === 'LlaveAB' && (
-              <Tabs.Tab value="bracketB" leftSection={<IconMedal size={16} />}>
-                Cuadro Llave B
-              </Tabs.Tab>
-            )}
-        </Tabs.List>
+      <TournamentTabs
+        tournament={tournament}
+        participants={participants}
+        groupsClas={groupsClas}
+        groupMatches={groupMatches}
+        bracketA={bracketA}
+        bracketB={bracketB}
+        isAdmin={isAdmin}
+        isProgramado={isProgramado}
+        isGrupos={isGrupos}
+        isKnockoutPhase={isKnockoutPhase}
+        isCompletado={isCompletado}
+        hasGroupsFormat={hasGroupsFormat}
+        hasKnockoutFormat={hasKnockoutFormat}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        selectedGroup={selectedGroup}
+        setSelectedGroup={setSelectedGroup}
+        groupOptions={groupOptions}
+        podium={{ firstPlace, secondPlace, thirdPlace, otherResults }}
+        subBracketA={subBracketA}
+        setSubBracketA={setSubBracketA}
+        subBracketB={subBracketB}
+        setSubBracketB={setSubBracketB}
+        onMatchClick={openEditMatchModal}
+        onBracketMatchClick={onBracketMatchClick}
+        onParticipantStatusChange={handleParticipantStatus}
+      />
 
-        {/* --- INFO --- */}
-        <Tabs.Panel value="info" pt="xl">
-          <TournamentInfoCards tournament={tournament} />
-        </Tabs.Panel>
-
-        {/* --- INSCRITOS --- */}
-        {(isProgramado || isGrupos || isKnockoutPhase) && (
-          <Tabs.Panel value="inscritos" pt="xl">
-            <ParticipantsTable
-              participants={participants}
-              isAdmin={isAdmin}
-              isProgramado={isProgramado}
-              onStatusChange={handleParticipantStatus}
-            />
-          </Tabs.Panel>
-        )}
-
-        {/* --- RESULTADOS (PODIO) --- */}
-        {isCompletado && (
-          <Tabs.Panel value="resultados" pt="xl">
-            <Podium
-              results={results}
-              firstPlace={firstPlace}
-              secondPlace={secondPlace}
-              thirdPlace={thirdPlace}
-              otherResults={otherResults}
-            />
-          </Tabs.Panel>
-        )}
-
-        {/* --- GRUPOS --- */}
-        {hasGroupsFormat && (isGrupos || isKnockoutPhase || isCompletado) && (
-          <Tabs.Panel value="grupos" pt="xl">
-            <GroupClassificationsTable
-              groupsClas={groupsClas}
-              groupMatches={groupMatches}
-              selectedGroup={selectedGroup}
-              groupOptions={groupOptions}
-              onGroupChange={setSelectedGroup}
-              playersKnockout={tournament?.playersKnockout || 2}
-              isAdmin={isAdmin}
-              tournamentStatus={tournament?.status}
-              onEditMatch={openEditMatchModal}
-            />
-          </Tabs.Panel>
-        )}
-
-        {/* --- BRACKET --- */}
-        {tournament.rounds !== 'TodosvsTodos' &&
-          hasKnockoutFormat &&
-          (isKnockoutPhase || isCompletado) && (
-            <Tabs.Panel value="bracketA" pt="xl">
-              <KnockoutBracket
-                bracketData={bracketA}
-                activeSubKey={subBracketA}
-                onSubKeyChange={setSubBracketA}
-                isAdmin={isAdmin}
-                onEditMatch={openEditMatchModal}
-                onViewMatch={(match) => setSelectedMatch(match)}
-              />
-            </Tabs.Panel>
-          )}
-
-        {/* --- BRACKET B (CONSOLACIÓN) --- */}
-        {tournament.rounds !== 'TodosvsTodos' &&
-          hasKnockoutFormat &&
-          (isKnockoutPhase || isCompletado) &&
-          tournament.typeKnockout === 'LlaveAB' && (
-            <Tabs.Panel value="bracketB" pt="xl">
-              <KnockoutBracket
-                bracketData={bracketB}
-                activeSubKey={subBracketB}
-                onSubKeyChange={setSubBracketB}
-                isAdmin={isAdmin}
-                onEditMatch={openEditMatchModal}
-                onViewMatch={(match) => setSelectedMatch(match)}
-              />
-            </Tabs.Panel>
-          )}
-
-        {/* MODAL SOLO LECTURA JUGADORES */}
-        <MatchResultViewModal
-          opened={!!selectedMatch}
-          onClose={() => setSelectedMatch(null)}
-          selectedMatch={selectedMatch}
-        />
-        <EnrollModal
-          opened={enrollModalOpen}
-          onClose={() => setEnrollModalOpen(false)}
-          tournament={tournament}
-          participants={participants}
-          clubPlayers={clubPlayers}
-          checkedToEnroll={checkedToEnroll}
-          setCheckedToEnroll={setCheckedToEnroll}
-          onEnroll={handleBulkEnroll}
-          enrolling={enrolling}
-        />
-      </Tabs>
+      {/* MODAL SOLO LECTURA JUGADORES */}
+      <MatchResultViewModal
+        opened={!!selectedMatch}
+        onClose={() => setSelectedMatch(null)}
+        selectedMatch={selectedMatch}
+      />
+      <EnrollModal
+        opened={enrollModalOpen}
+        onClose={() => setEnrollModalOpen(false)}
+        tournament={tournament}
+        participants={participants}
+        clubPlayers={clubPlayers}
+        checkedToEnroll={checkedToEnroll}
+        setCheckedToEnroll={setCheckedToEnroll}
+        onEnroll={handleBulkEnroll}
+        enrolling={enrolling}
+      />
 
       {/* MODAL DE RECONFIGURACIÓN DE GRUPOS */}
       <EditFormatModal
