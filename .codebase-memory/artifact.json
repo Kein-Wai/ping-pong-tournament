@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "9f0de18a233f32ade5ab8f5ead417081dd2ff4c7",
-    "indexed_at": "2026-10-21T10:48:26Z",
+    "commit": "f847a442c8c1ef4d739fc7a3d845058ecfdd3838",
+    "indexed_at": "2026-10-23T10:56:10Z",
     "project": "ping-pong-app",
-    "nodes": 2275,
-    "edges": 4685,
-    "original_size": 6160384,
-    "compressed_size": 1040449,
-    "compression_level": 9
+    "nodes": 4882,
+    "edges": 9528,
+    "original_size": 13107200,
+    "compressed_size": 2936716,
+    "compression_level": 3
 }

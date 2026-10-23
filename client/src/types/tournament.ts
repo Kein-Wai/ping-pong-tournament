@@ -218,7 +218,8 @@ export interface TournamentTabsData {
   groupMatches: GroupMatch[] | null;
   bracketA: KnockoutRound[] | null;
   bracketB: KnockoutRound[] | null;
-  results: TournamentClas[];
+  /** Clasificaciones generales (null mientras carga; computePodium lo soporta). */
+  results: TournamentClas[] | null;
 }
 
 /** Callbacks de negocio que el contenedor necesita de la pagina. */

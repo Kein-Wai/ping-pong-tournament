@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
 import { useAuthStore } from '../store/authStore';
+import { extractErrorMessage, NETWORK_ERROR_MESSAGE } from './errors';
+import { errorNotifier } from './notify';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -49,22 +51,11 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      // Procesar errores solo para mutaciones (POST, PUT, DELETE) o errores Zod de validación
-      if (config.method && ['post', 'put', 'delete'].includes(config.method.toLowerCase())) {
-        let errorMessage = data?.error || 'Ocurrió un error inesperado.';
-        // Si el backend expone los detalles de validación de Zod
-        if (data?.details) {
-          const keyErrors = Object.keys(data.details.properties);
+      // Extraer el mensaje usando la funcion tolerante a ambos formatos de Zod
+      const errorMessage = extractErrorMessage(data, 'Ocurrió un error inesperado.');
+      const dedupeKey = `Error (${status}): ${errorMessage}`;
 
-          keyErrors.map((key: string) => {
-            errorMessage = data.details.properties[key].errors
-              .map((d: any) => `${key}: ${d}`)
-              .join(' | ');
-          });
-        } else if (typeof data?.error === 'object') {
-          errorMessage = JSON.stringify(data.error);
-        }
-
+      if (errorNotifier(dedupeKey)) {
         notifications.show({
           title: `Error (${status})`,
           message: errorMessage,
@@ -74,7 +65,7 @@ api.interceptors.response.use(
     } else {
       notifications.show({
         title: 'Error de red',
-        message: 'No se pudo conectar con el servidor.',
+        message: NETWORK_ERROR_MESSAGE,
         color: 'red',
       });
     }

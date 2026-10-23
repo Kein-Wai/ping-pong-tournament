@@ -12,8 +12,8 @@ import {
   ScrollArea,
   Badge,
 } from '@mantine/core';
-import { useNotifications } from '@mantine/notifications';
-import type { KnockoutRound, BracketMatch } from '../../types/tournament';
+import { notifications } from '@mantine/notifications';
+import type { KnockoutRound, BracketMatch, BracketPlayer } from '../../types/tournament';
 
 interface KnockoutBracketProps {
   bracketData: KnockoutRound[] | null;
@@ -107,8 +107,6 @@ export const KnockoutBracket = ({
   onEditMatch,
   onViewMatch,
 }: KnockoutBracketProps) => {
-  const notifications = useNotifications();
-
   const groups = useMemo(() => {
     if (!bracketData) return {};
     return getBracketGroups(bracketData);
@@ -134,8 +132,7 @@ export const KnockoutBracket = ({
     );
   }
 
-  const selectedKey =
-    activeSubKey && groups[parseInt(activeSubKey)] ? activeSubKey : groupKeys[0];
+  const selectedKey = activeSubKey && groups[parseInt(activeSubKey)] ? activeSubKey : groupKeys[0];
 
   const selectOptions = groupKeys.map((key) => ({
     value: key,
@@ -202,11 +199,9 @@ export const KnockoutBracket = ({
                       style={{ overflow: 'hidden', cursor: 'pointer' }}
                       onClick={() => {
                         const isTBD =
-                          match.playerOne?.name === 'Por' ||
-                          match.playerTwo?.name === 'Por';
+                          match.playerOne?.name === 'Por' || match.playerTwo?.name === 'Por';
                         const isBye =
-                          match.playerOne?.name === 'EXENTO' ||
-                          match.playerTwo?.name === 'EXENTO';
+                          match.playerOne?.name === 'EXENTO' || match.playerTwo?.name === 'EXENTO';
 
                         if (isBye && isAdmin) {
                           notifications.show({
@@ -239,8 +234,7 @@ export const KnockoutBracket = ({
                         justify="space-between"
                         p="xs"
                         style={{
-                          borderBottom:
-                            '1px solid var(--mantine-color-default-border)',
+                          borderBottom: '1px solid var(--mantine-color-default-border)',
                         }}
                       >
                         <Text size="sm">
