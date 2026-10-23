@@ -20,12 +20,8 @@ import {
   Avatar,
   ScrollArea,
   Select,
-  Modal,
   ActionIcon,
   Tooltip,
-  NumberInput,
-  Checkbox,
-  Alert,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -43,7 +39,6 @@ import {
   IconSettings,
   IconTrash,
   IconArrowsExchange,
-  IconLock,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import confetti from 'canvas-confetti';
@@ -51,67 +46,13 @@ import { api } from '../../api/axios';
 import { openAppConfirmModal } from '../../utils/modals';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
-import { isValidTableTennisSet } from '../../utils/matchValidation';
 import { getPlayerAvatar } from '../../utils/avatar';
-
-interface MatchToEdit {
-  id: string;
-  playerOneName: string;
-  playerTwoName: string;
-  playerOneId: string;
-  playerTwoId: string;
-  setsToWin: number;
-  status: string;
-  isKnockout: boolean;
-
-  set1P1: number | '';
-  set1P2: number | '';
-  set2P1: number | '';
-  set2P2: number | '';
-  set3P1: number | '';
-  set3P2: number | '';
-  set4P1: number | '';
-  set4P2: number | '';
-  set5P1: number | '';
-  set5P2: number | '';
-  set6P1: number | '';
-  set6P2: number | '';
-  set7P1: number | '';
-  set7P2: number | '';
-}
-
-interface Participant {
-  id: string;
-  registeredAt: string;
-  status: string;
-  player: {
-    id: string;
-    name: string;
-    surname: string;
-    avatarUrl: string | null;
-    stats: { elo: number | null } | null;
-  };
-}
-
-interface Tournament {
-  id: string;
-  name: string;
-  dateStart: string;
-  numPlayers: number;
-  typeTournament: string | null;
-  levelTournament: string | null;
-  rounds: string | null;
-  status: string | null;
-  typeKnockout: string | null;
-  participants: Participant[];
-  numGroup?: number | null;
-  numGroupPlayers?: number | null;
-  playersKnockout?: number | null;
-  sortKnockout?: string | null;
-  allPos?: boolean | null;
-  setsToWinGroup?: number | null;
-  setsToWinKnockout?: number | null;
-}
+import type { Tournament, MatchToEdit, TournamentParticipant, ClubPlayer } from '../../types/tournament';
+import { EditFormatModal } from '../../components/tournament/EditFormatModal';
+import { MatchResultModal } from '../../components/tournament/MatchResultModal';
+import { EnrollModal } from '../../components/tournament/EnrollModal';
+import { SwapPlayersModal } from '../../components/tournament/SwapPlayersModal';
+import { MatchResultViewModal } from '../../components/tournament/MatchResultViewModal';
 
 interface TournamentClas {
   id: string;
@@ -226,7 +167,7 @@ export const TorneoDetalles = () => {
 
   const [activeTab, setActiveTab] = useState<string | null>('info');
 
-  const [participants, setParticipants] = useState<Participant[] | null>(null);
+  const [participants, setParticipants] = useState<TournamentParticipant[] | null>(null);
   const [results, setResults] = useState<TournamentClas[] | null>(null);
   const [bracketA, setBracketA] = useState<KnockoutRound[] | null>(null);
   const [bracketB, setBracketB] = useState<KnockoutRound[] | null>(null);
@@ -242,7 +183,7 @@ export const TorneoDetalles = () => {
   const [editMatch, setEditMatch] = useState<MatchToEdit | null>(null);
   const [submittingMatch, setSubmittingMatch] = useState(false);
   const [enrollModalOpen, setEnrollModalOpen] = useState(false);
-  const [clubPlayers, setClubPlayers] = useState<any[]>([]);
+  const [clubPlayers, setClubPlayers] = useState<ClubPlayer[]>([]);
   const [checkedToEnroll, setCheckedToEnroll] = useState<string[]>([]);
   const [enrolling, setEnrolling] = useState(false);
 
@@ -442,59 +383,6 @@ export const TorneoDetalles = () => {
     if (!groupMatches || !selectedGroup) return [];
     return groupMatches.filter((m) => String(m.group?.group) === selectedGroup);
   }, [groupMatches, selectedGroup]);
-
-  const matchScoreStats = useMemo(() => {
-    if (!editMatch) return { p1Sets: 0, p2Sets: 0, isValidToComplete: false };
-
-    const sets = [
-      [Number(editMatch.set1P1), Number(editMatch.set1P2)],
-      [Number(editMatch.set2P1), Number(editMatch.set2P2)],
-      [Number(editMatch.set3P1), Number(editMatch.set3P2)],
-      [Number(editMatch.set4P1), Number(editMatch.set4P2)],
-      [Number(editMatch.set5P1), Number(editMatch.set5P2)],
-      [Number(editMatch.set6P1), Number(editMatch.set6P2)],
-      [Number(editMatch.set7P1), Number(editMatch.set7P2)],
-    ];
-
-    let p1Sets = 0;
-    let p2Sets = 0;
-
-    for (const [s1, s2] of sets) {
-      if (isValidTableTennisSet(s1, s2)) {
-        if (s1 > s2) p1Sets++;
-        else p2Sets++;
-      }
-    }
-
-    const isValidToComplete = p1Sets === editMatch.setsToWin || p2Sets === editMatch.setsToWin;
-
-    return { p1Sets, p2Sets, isValidToComplete };
-  }, [editMatch]);
-
-  const checkMatchStatusOnInput = (matchState: MatchToEdit) => {
-    const sets = [
-      [Number(matchState.set1P1), Number(matchState.set1P2)],
-      [Number(matchState.set2P1), Number(matchState.set2P2)],
-      [Number(matchState.set3P1), Number(matchState.set3P2)],
-      [Number(matchState.set4P1), Number(matchState.set4P2)],
-      [Number(matchState.set5P1), Number(matchState.set5P2)],
-      [Number(matchState.set6P1), Number(matchState.set6P2)],
-      [Number(matchState.set7P1), Number(matchState.set7P2)],
-    ];
-
-    let p1Sets = 0;
-    let p2Sets = 0;
-
-    for (const [s1, s2] of sets) {
-      if (isValidTableTennisSet(s1, s2)) {
-        if (s1 > s2) p1Sets++;
-        else p2Sets++;
-      }
-    }
-
-    const autoCompleted = p1Sets === matchState.setsToWin || p2Sets === matchState.setsToWin;
-    return { p1Sets, p2Sets, autoCompleted };
-  };
 
   const formatSets = (match: GroupMatch | BracketMatch) => {
     if (match.status !== 'Completado')
@@ -1512,7 +1400,7 @@ export const TorneoDetalles = () => {
                                         handleParticipantStatus(
                                           p.player.id,
                                           p.player.name,
-                                          p.player.surname,
+                                          p.player.surname || '',
                                           'Confirmado',
                                         )
                                       }
@@ -1530,7 +1418,7 @@ export const TorneoDetalles = () => {
                                         handleParticipantStatus(
                                           p.player.id,
                                           p.player.name,
-                                          p.player.surname,
+                                          p.player.surname || '',
                                           'NoPresentado',
                                         )
                                       }
@@ -1882,465 +1770,62 @@ export const TorneoDetalles = () => {
           )}
 
         {/* MODAL SOLO LECTURA JUGADORES */}
-        <Modal
+        <MatchResultViewModal
           opened={!!selectedMatch}
           onClose={() => setSelectedMatch(null)}
-          title={<Text fw={700}>Resultado del Partido</Text>}
-          centered
-        >
-          {selectedMatch && (
-            <Stack align="center" gap="md">
-              <Group w="100%" justify="space-between">
-                <Text fw={600} size="lg">
-                  {selectedMatch.playerOne?.name} {selectedMatch.playerOne?.surname || ''}
-                </Text>
-                <Text c="dimmed">vs</Text>
-                <Text fw={600} size="lg">
-                  {selectedMatch.playerTwo?.name} {selectedMatch.playerTwo?.surname || ''}
-                </Text>
-              </Group>
-
-              <Stack gap="xs" align="center" w="100%">
-                {selectedMatch.setOnePlayerOne !== null && (
-                  <Badge size="lg" variant="light" color="blue">
-                    Set 1: {selectedMatch.setOnePlayerOne} - {selectedMatch.setOnePlayerTwo}
-                  </Badge>
-                )}
-                {selectedMatch.setTwoPlayerOne !== null && (
-                  <Badge size="lg" variant="light" color="blue">
-                    Set 2: {selectedMatch.setTwoPlayerOne} - {selectedMatch.setTwoPlayerTwo}
-                  </Badge>
-                )}
-                {selectedMatch.setThreePlayerOne !== null && (
-                  <Badge size="lg" variant="light" color="blue">
-                    Set 3: {selectedMatch.setThreePlayerOne} - {selectedMatch.setThreePlayerTwo}
-                  </Badge>
-                )}
-                {selectedMatch.setFourPlayerOne !== null &&
-                  selectedMatch.setFourPlayerOne !== 0 && (
-                    <Badge size="lg" variant="light" color="blue">
-                      Set 4: {selectedMatch.setFourPlayerOne} - {selectedMatch.setFourPlayerTwo}
-                    </Badge>
-                  )}
-                {selectedMatch.setFivePlayerOne !== null &&
-                  selectedMatch.setFivePlayerOne !== 0 && (
-                    <Badge size="lg" variant="light" color="blue">
-                      Set 5: {selectedMatch.setFivePlayerOne} - {selectedMatch.setFivePlayerTwo}
-                    </Badge>
-                  )}
-              </Stack>
-            </Stack>
-          )}
-        </Modal>
-        {/* MODAL PARA INSCRIBIR JUGADORES MANUALMENTE */}
-        <Modal
-          opened={enrollModalOpen}
-          onClose={() => setEnrollModalOpen(false)}
-          title={
-            <Text size="lg" fw={700}>
-              Inscripción Manual (Entrenador)
-            </Text>
-          }
-          size="xl"
-          centered
-        >
-          {(() => {
-            const availableSpots = (tournament?.numPlayers || 0) - (participants?.length || 0);
-            return (
-              <Stack gap="md">
-                <Group justify="space-between">
-                  <Text size="sm" c="dimmed">
-                    Selecciona los jugadores que deseas inscribir directamente al torneo.
-                  </Text>
-                  <Badge
-                    color={checkedToEnroll.length === availableSpots ? 'red' : 'blue'}
-                    variant="light"
-                  >
-                    {checkedToEnroll.length} / {availableSpots} Plazas
-                  </Badge>
-                </Group>
-
-                <ScrollArea h={400}>
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                    {clubPlayers
-                      .filter((p) => !participants?.some((part) => part.player.id === p.id))
-                      .map((p) => {
-                        const isChecked = checkedToEnroll.includes(p.id);
-                        const isMaxedOut = !isChecked && checkedToEnroll.length >= availableSpots;
-
-                        return (
-                          <Paper
-                            key={p.id}
-                            withBorder
-                            p="xs"
-                            radius="sm"
-                            onClick={() => {
-                              if (isChecked) {
-                                setCheckedToEnroll((prev) => prev.filter((x) => x !== p.id));
-                              } else if (!isMaxedOut) {
-                                setCheckedToEnroll((prev) => [...prev, p.id]);
-                              }
-                            }}
-                            style={{
-                              cursor: isMaxedOut ? 'not-allowed' : 'pointer',
-                              backgroundColor: isChecked
-                                ? 'var(--mantine-color-blue-light)'
-                                : 'transparent',
-                              opacity: isMaxedOut ? 0.4 : 1,
-                            }}
-                          >
-                            <Group wrap="nowrap">
-                              <Checkbox
-                                checked={isChecked}
-                                onChange={() => {}}
-                                tabIndex={-1}
-                                disabled={isMaxedOut}
-                              />
-                              <Avatar
-                                src={getPlayerAvatar(p.name, p.avatarUrl)}
-                                size="sm"
-                                radius="xl"
-                              />
-                              <Text size="sm" fw={500} c={isMaxedOut ? 'dimmed' : ''}>
-                                {p.name} {p.surname}
-                              </Text>
-                            </Group>
-                          </Paper>
-                        );
-                      })}
-
-                    {clubPlayers.filter(
-                      (p) => !participants?.some((part) => part.player.id === p.id),
-                    ).length === 0 && (
-                      <Text c="dimmed" size="sm">
-                        No hay más jugadores disponibles en el club para inscribir.
-                      </Text>
-                    )}
-                  </SimpleGrid>
-                </ScrollArea>
-
-                <Button
-                  fullWidth
-                  color="blue"
-                  onClick={handleBulkEnroll}
-                  loading={enrolling}
-                  disabled={checkedToEnroll.length === 0}
-                >
-                  Inscribir {checkedToEnroll.length} Jugadores
-                </Button>
-              </Stack>
-            );
-          })()}
-        </Modal>
+          selectedMatch={selectedMatch}
+        />
+      <EnrollModal
+        opened={enrollModalOpen}
+        onClose={() => setEnrollModalOpen(false)}
+        tournament={tournament}
+        participants={participants}
+        clubPlayers={clubPlayers}
+        checkedToEnroll={checkedToEnroll}
+        setCheckedToEnroll={setCheckedToEnroll}
+        onEnroll={handleBulkEnroll}
+        enrolling={enrolling}
+      />
       </Tabs>
 
       {/* MODAL DE RECONFIGURACIÓN DE GRUPOS */}
-      <Modal
+      <EditFormatModal
         opened={editFormatOpened}
         onClose={() => setEditFormatOpened(false)}
-        title={<Title order={4}>Ajustar Formato del Torneo</Title>}
-        centered
-      >
-        <Stack gap="md">
-          {tournament.rounds === 'GruposKnockout' && (
-            <>
-              <Text size="sm" c="dimmed">
-                Tienes <strong>{confirmedPlayersCount}</strong> jugadores confirmados. Ajusta las
-                matemáticas de los grupos para evitar huecos vacíos antes de iniciar el torneo.
-              </Text>
-              <NumberInput
-                label="Cantidad de Grupos"
-                required
-                min={1}
-                value={f_numGroup}
-                onChange={setFNumGroup}
-              />
-              <NumberInput
-                label="Jugadores por Grupo"
-                required
-                min={2}
-                value={f_numGroupPlayers}
-                onChange={setFNumGroupPlayers}
-              />
+        tournament={tournament}
+        confirmedPlayersCount={confirmedPlayersCount}
+        numGroups={f_numGroup}
+        numGroupPlayers={f_numGroupPlayers}
+        playersKnockout={f_playersKnockout}
+        setsToWinGroup={f_setsToWinGroup}
+        setsToWinKnockout={f_setsToWinKnockout}
+        onNumGroupsChange={setFNumGroup}
+        onNumGroupPlayersChange={setFNumGroupPlayers}
+        onPlayersKnockoutChange={setFPlayersKnockout}
+        onSetsToWinGroupChange={(val) => setFSetsToWinGroup(Number(val))}
+        onSetsToWinKnockoutChange={(val) => setFSetsToWinKnockout(Number(val))}
+        onSaveFormat={handleSaveFormat}
+      />
 
-              <NumberInput
-                label="Clasificados por Grupo"
-                description="Asegúrate de que la multiplicación total cuadre con el cuadro (4, 8, 16...)"
-                required
-                min={1}
-                value={f_playersKnockout}
-                onChange={setFPlayersKnockout}
-              />
-              <Select
-                label="Sets para ganar en Grupos"
-                data={[
-                  { value: '2', label: '2 Sets (Al mejor de 3 sets)' },
-                  { value: '3', label: '3 Sets (Al mejor de 5 sets)' },
-                  { value: '4', label: '4 Sets (Al mejor de 7 sets)' },
-                ]}
-                value={String(f_setsToWinGroup)}
-                onChange={(val) => setFSetsToWinGroup(Number(val))}
-                allowDeselect={false}
-              />
-            </>
-          )}
-          {(tournament.rounds === 'GruposKnockout' || tournament.rounds === 'Knockout') && (
-            <Select
-              label="Sets para ganar en Knockouts"
-              data={[
-                { value: '2', label: '2 Sets (Al mejor de 3 sets)' },
-                { value: '3', label: '3 Sets (Al mejor de 5 sets)' },
-                { value: '4', label: '4 Sets (Al mejor de 7 sets)' },
-              ]}
-              value={String(f_setsToWinKnockout)}
-              onChange={(val) => setFSetsToWinKnockout(Number(val))}
-              allowDeselect={false}
-            />
-          )}
-          <Button color="blue" onClick={handleSaveFormat} mt="md">
-            Guardar y Recalcular
-          </Button>
-        </Stack>
-      </Modal>
-
-      {/* MODAL DE EDICIÓN DE RESULTADO DE PARTIDO */}
-      <Modal
+      <MatchResultModal
         opened={!!editMatch}
         onClose={() => setEditMatch(null)}
-        title={
-          <Group gap="xs">
-            <ThemeIcon color="blue" variant="light">
-              <IconEdit size={18} />
-            </ThemeIcon>
-            <Title order={4}>Actualizar Marcador del Partido</Title>
-          </Group>
-        }
-        size="lg"
-        centered
-      >
-        {editMatch && (
-          <Stack gap="md">
-            <Paper
-              withBorder
-              p="md"
-              radius="md"
-              bg="var(--mantine-color-gray-0)"
-              style={{ darkHidden: true }}
-            >
-              <Group justify="space-between" align="center">
-                <Stack gap={2} align="center" style={{ flex: 1 }}>
-                  <Text fw={700} ta="center" size="sm">
-                    {editMatch.playerOneName}
-                  </Text>
-                  <Badge
-                    size="xl"
-                    color={matchScoreStats.p1Sets >= editMatch.setsToWin ? 'green' : 'blue'}
-                  >
-                    {matchScoreStats.p1Sets} Sets
-                  </Badge>
-                </Stack>
-
-                <Stack gap={0} align="center">
-                  <Text fw={900} size="xl" c="dimmed">
-                    VS
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Gana a los {editMatch.setsToWin} sets
-                  </Text>
-                </Stack>
-
-                <Stack gap={2} align="center" style={{ flex: 1 }}>
-                  <Text fw={700} ta="center" size="sm">
-                    {editMatch.playerTwoName}
-                  </Text>
-                  <Badge
-                    size="xl"
-                    color={matchScoreStats.p2Sets >= editMatch.setsToWin ? 'green' : 'blue'}
-                  >
-                    {matchScoreStats.p2Sets} Sets
-                  </Badge>
-                </Stack>
-              </Group>
-            </Paper>
-
-            <Select
-              label="Estado del Partido"
-              data={[
-                { value: 'Programado', label: 'Programado (Pendiente)' },
-                { value: 'Iniciado', label: 'En Juego (Iniciado)' },
-                {
-                  value: 'Completado',
-                  label: matchScoreStats.isValidToComplete
-                    ? 'Completado (Resultado Final)'
-                    : `Completado (Requiere ${editMatch.setsToWin} sets ganados)`,
-                },
-                { value: 'Cancelado', label: 'Cancelado' },
-              ]}
-              value={editMatch.status}
-              onChange={(val) => setEditMatch({ ...editMatch, status: val || 'Programado' })}
-              allowDeselect={false}
-            />
-
-            <Text fw={600} size="sm" mt="xs">
-              Puntuación Set a Set
-            </Text>
-
-            <Stack gap="xs">
-              {Array.from({ length: editMatch.setsToWin * 2 - 1 }).map((_, idx) => {
-                const setNum = idx + 1;
-                const fieldP1 = `set${setNum}P1` as keyof MatchToEdit;
-                const fieldP2 = `set${setNum}P2` as keyof MatchToEdit;
-
-                let winnerAlreadyReached = false;
-                let p1RunningSets = 0;
-                let p2RunningSets = 0;
-
-                for (let prev = 1; prev < setNum; prev++) {
-                  const s1 = Number(editMatch[`set${prev}P1` as keyof MatchToEdit] || 0);
-                  const s2 = Number(editMatch[`set${prev}P2` as keyof MatchToEdit] || 0);
-                  const maxS = Math.max(s1, s2);
-                  const diffS = Math.abs(s1 - s2);
-
-                  if (maxS >= 11 && diffS >= 2) {
-                    if (s1 > s2) p1RunningSets++;
-                    else if (s2 > s1) p2RunningSets++;
-                  }
-                }
-
-                if (p1RunningSets >= editMatch.setsToWin || p2RunningSets >= editMatch.setsToWin) {
-                  winnerAlreadyReached = true;
-                }
-
-                let previousSetValid = true;
-                if (setNum > 1) {
-                  const prevSetP1 = Number(
-                    editMatch[`set${setNum - 1}P1` as keyof MatchToEdit] || 0,
-                  );
-                  const prevSetP2 = Number(
-                    editMatch[`set${setNum - 1}P2` as keyof MatchToEdit] || 0,
-                  );
-
-                  previousSetValid = isValidTableTennisSet(prevSetP1, prevSetP2);
-                }
-
-                const isDisabled = !previousSetValid || winnerAlreadyReached;
-
-                return (
-                  <Group key={setNum} grow align="center">
-                    <Text
-                      size="xs"
-                      fw={700}
-                      c={isDisabled ? 'dimmed' : 'blue'}
-                      w={50}
-                      style={{ opacity: isDisabled ? 0.5 : 1 }}
-                    >
-                      Set {setNum}
-                      {winnerAlreadyReached && ' 🛑'}
-                    </Text>
-                    <NumberInput
-                      placeholder="0"
-                      min={0}
-                      max={99}
-                      disabled={isDisabled}
-                      value={editMatch[fieldP1] as number}
-                      onChange={(val) => {
-                        const newP1Val = Number(val || 0);
-
-                        const updatedMatchState = { ...editMatch, [fieldP1]: newP1Val };
-
-                        const nextStats = checkMatchStatusOnInput(updatedMatchState);
-                        setEditMatch({
-                          ...updatedMatchState,
-                          status: nextStats.autoCompleted ? 'Completado' : editMatch.status,
-                        });
-                      }}
-                    />
-                    <Text ta="center" w={20} fw={700} c="dimmed">
-                      -
-                    </Text>
-                    <NumberInput
-                      placeholder="0"
-                      min={0}
-                      max={99}
-                      disabled={isDisabled}
-                      value={editMatch[fieldP2] as number}
-                      onChange={(val) => {
-                        const newP2Val = Number(val || 0);
-                        const updatedMatchState = { ...editMatch, [fieldP2]: newP2Val };
-
-                        const nextStats = checkMatchStatusOnInput(updatedMatchState);
-                        setEditMatch({
-                          ...updatedMatchState,
-                          status: nextStats.autoCompleted ? 'Completado' : editMatch.status,
-                        });
-                      }}
-                    />
-                  </Group>
-                );
-              })}
-            </Stack>
-
-            <Button
-              color="blue"
-              fullWidth
-              mt="md"
-              loading={submittingMatch}
-              disabled={editMatch.status === 'Completado' && !matchScoreStats.isValidToComplete}
-              onClick={handleSaveMatch}
-            >
-              Guardar Marcador
-            </Button>
-          </Stack>
-        )}
-      </Modal>
-      <Modal
+        match={editMatch}
+        submitting={submittingMatch}
+        onSave={handleSaveMatch}
+        onChange={(match: MatchToEdit) => setEditMatch(match)}
+      />
+      <SwapPlayersModal
         opened={swapModalOpen}
         onClose={() => setSwapModalOpen(false)}
-        title={<Text fw={700}>Intercambiar Jugadores</Text>}
-        centered
-      >
-        <Stack gap="md">
-          <Text size="sm" c="dimmed">
-            Selecciona dos jugadores reales inscritos. Sus posiciones y partidos en la fase actual
-            se intercambiarán automáticamente.
-          </Text>
-
-          <Alert color="orange" title="Bloqueo de Sorteo" icon={<IconLock size={16} />}>
-            Esta opción solo es válida <b>antes</b> de que comience el primer partido de la fase
-            actual. Una vez ruede la bola, el sorteo queda cerrado.
-          </Alert>
-
-          <Select
-            label="Jugador A"
-            placeholder="Selecciona jugador..."
-            data={swapOptions}
-            value={swapPlayerA}
-            onChange={setSwapPlayerA}
-            searchable
-          />
-          <Center>
-            <IconArrowsExchange size={24} color="var(--mantine-color-gray-5)" />
-          </Center>
-          <Select
-            label="Jugador B (Sustituto)"
-            placeholder="Selecciona jugador..."
-            data={swapOptions}
-            value={swapPlayerB}
-            onChange={setSwapPlayerB}
-            searchable
-          />
-
-          <Button
-            fullWidth
-            color="violet"
-            loading={isSwapping}
-            onClick={handleSwapPlayers}
-            disabled={!swapPlayerA || !swapPlayerB || swapPlayerA === swapPlayerB}
-          >
-            Realizar Intercambio
-          </Button>
-        </Stack>
-      </Modal>
+        swapOptions={swapOptions}
+        swapPlayerA={swapPlayerA}
+        setSwapPlayerA={setSwapPlayerA}
+        swapPlayerB={swapPlayerB}
+        setSwapPlayerB={setSwapPlayerB}
+        isSwapping={isSwapping}
+        onSwap={handleSwapPlayers}
+      />
     </Stack>
   );
 };
