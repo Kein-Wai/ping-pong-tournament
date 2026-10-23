@@ -20,7 +20,7 @@ interface KnockoutBracketProps {
   activeSubKey: string | null;
   onSubKeyChange: (key: string | null) => void;
   isAdmin: boolean;
-  onEditMatch: (match: BracketMatch) => void;
+  onEditMatch: (match: BracketMatch, isKnockout: boolean) => void;
   onViewMatch: (match: BracketMatch) => void;
 }
 
@@ -94,7 +94,7 @@ const formatSets = (match: BracketMatch) => {
   );
 };
 
-const getFirstStat = (stats: BracketMatch['playerOne']['stats']) => {
+const getFirstStat = (stats: BracketPlayer['stats']) => {
   if (!stats) return null;
   return Array.isArray(stats) ? stats[0] : stats;
 };
@@ -226,13 +226,13 @@ export const KnockoutBracket = ({
                         }
                         if (match.status === 'Completado') {
                           if (isAdmin) {
-                            onEditMatch(match);
+                            onEditMatch(match, true);
                           } else {
                             onViewMatch(match);
                           }
                           return;
                         }
-                        if (isAdmin) onEditMatch(match);
+                        if (isAdmin) onEditMatch(match, true);
                       }}
                     >
                       <Group

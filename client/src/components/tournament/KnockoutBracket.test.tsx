@@ -177,7 +177,7 @@ describe('KnockoutBracket', () => {
     fireEvent.click(paper);
 
     await waitFor(() => {
-      expect(onEditMatch).toHaveBeenCalledWith(match);
+      expect(onEditMatch).toHaveBeenCalledWith(match, true);
     });
   });
 
@@ -205,7 +205,7 @@ describe('KnockoutBracket', () => {
     fireEvent.click(paper);
 
     await waitFor(() => {
-      expect(onEditMatch).toHaveBeenCalledWith(match);
+      expect(onEditMatch).toHaveBeenCalledWith(match, true);
     });
   });
 
