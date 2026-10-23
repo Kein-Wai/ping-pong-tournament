@@ -10,6 +10,7 @@ import {
 } from '@mantine/core';
 import { IconEdit } from '@tabler/icons-react';
 import type { GroupMatch } from '../../types/tournament';
+import { formatSets } from '../../utils/match-format';
 
 interface GroupMatchesTableProps {
   matches: GroupMatch[] | null;
@@ -21,34 +22,6 @@ interface GroupMatchesTableProps {
   tournamentStatus: string | null | undefined;
   onEditMatch: (match: GroupMatch, isKnockout: boolean) => void;
 }
-
-/** Renderiza los sets de un partido o un badge de estado. */
-const formatSets = (match: GroupMatch) => {
-  if (match.status !== 'Completado')
-    return (
-      <Badge color="gray" variant="light">
-        {match.status}
-      </Badge>
-    );
-
-  const sets = [];
-  if (match.setOnePlayerOne !== null || match.setOnePlayerTwo !== null)
-    sets.push(`${match.setOnePlayerOne}-${match.setOnePlayerTwo}`);
-  if (match.setTwoPlayerOne !== null || match.setTwoPlayerTwo !== null)
-    sets.push(`${match.setTwoPlayerOne}-${match.setTwoPlayerTwo}`);
-  if (match.setThreePlayerOne !== null || match.setThreePlayerTwo !== null)
-    sets.push(`${match.setThreePlayerOne}-${match.setThreePlayerTwo}`);
-  if (match.setFourPlayerOne !== null || match.setFourPlayerTwo !== null)
-    sets.push(`${match.setFourPlayerOne}-${match.setFourPlayerTwo}`);
-  if (match.setFivePlayerOne !== null || match.setFivePlayerTwo !== null)
-    sets.push(`${match.setFivePlayerOne}-${match.setFivePlayerTwo}`);
-
-  return (
-    <Text fw={600} size="sm" c="blue.7">
-      {sets.filter((s) => s !== '0-0').join(' | ')}
-    </Text>
-  );
-};
 
 export const GroupMatchesTable = ({
   matches,

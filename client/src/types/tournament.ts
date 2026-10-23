@@ -198,3 +198,63 @@ export const KNOCKOUT_STAGES = [
   'Semifinales',
   'Final',
 ];
+
+/** Formato del torneo, editable por el administrador. */
+export interface TournamentFormat {
+  numGroup: number | string;
+  numGroupPlayers: number | string;
+  playersKnockout: number | string;
+  setsToWinGroup: number | string;
+  setsToWinKnockout: number | string;
+}
+
+/**
+ * Datos agrupados que la pagina provee al contenedor de pestañas.
+ * Evita pasar cada coleccion apretada como prop individual.
+ */
+export interface TournamentTabsData {
+  participants: TournamentParticipant[] | null;
+  groupClas: TournamentGroupClas[] | null;
+  groupMatches: GroupMatch[] | null;
+  bracketA: KnockoutRound[] | null;
+  bracketB: KnockoutRound[] | null;
+  results: TournamentClas[];
+}
+
+/** Callbacks de negocio que el contenedor necesita de la pagina. */
+export interface TournamentTabsActions {
+  onMatchClick: (match: GroupMatch | BracketMatch, isKnockout: boolean) => void;
+  onBracketMatchClick: (match: BracketMatch) => void;
+  onParticipantStatusChange: (
+    playerId: string,
+    playerName: string,
+    playerSurname: string | null,
+    status: 'Confirmado' | 'NoPresentado',
+  ) => void;
+}
+
+/** Estado de UI de las pestañas: state + setters. */
+export interface TournamentTabsUIState {
+  activeTab: string | null;
+  selectedGroup: string | null;
+  subBracketA: string | null;
+  subBracketB: string | null;
+  onActiveTabChange: (tab: string | null) => void;
+  onSelectedGroupChange: (group: string | null) => void;
+  onSubBracketAChange: (key: string | null) => void;
+  onSubBracketBChange: (key: string | null) => void;
+}
+
+/** Podium calculado a partir de los resultados. */
+export interface TournamentPodium {
+  firstPlace: TournamentClas | null;
+  secondPlace: TournamentClas | null;
+  thirdPlace: TournamentClas | null;
+  otherResults: TournamentClas[];
+}
+
+/** Opcion de grupo para los selects. */
+export interface GroupOption {
+  value: string;
+  label: string;
+}

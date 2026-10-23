@@ -775,6 +775,36 @@ export const TorneoDetalles = () => {
         </Group>
       </Card>
 
+      {/*
+        TODO: Migrar a contenedores (Phase 1 follow-up) — NO ejecutar aún
+        (deja el wiring como PLACEHOLDER por condición #2 del plan).
+
+        Wiring objetivo: reduce TournamentTabs de 28 props a 5 estructuradas:
+
+          <TournamentTabsContainer
+            tournament={tournament}
+            tournamentData={tournamentData}
+            actions={{
+              onMatchClick: openEditMatchModal,
+              onBracketMatchClick,
+              onParticipantStatusChange: handleParticipantStatus,
+            }}
+            isAdmin={isAdmin}
+          />
+
+        - TournamentTabsContainer asume el state derivado (flags de fase,
+          podium, groupOptions, selectedGroup) y el state de UI (activeTab,
+          subBracketA/B). Regla de Oro: el JSX de TournamentTabs se mantiene
+          intacto.
+        - GroupClassificationsTableContainer + GroupMatchesTableContainer ya
+          están listos: el seam de filtro de grupo (selectedGroup/groupOptions)
+          queda internalizado, derivado vía computeGroupOptions / groupNumbersToOptions.
+        - GroupMatchesTable no se renderiza en producción todavía (dead code);
+          GroupMatchesTableContainer es su punto de entrada.
+        - Pendiente borrar de TorneoDetalles los state asumidos por el container
+          (selectedGroup, setSelectedGroup, groupOptions, podium, flags, activeTab,
+          setActiveTab, subBracketA/B, setSubBracketA/B).
+      */}
       <TournamentTabs
         tournament={tournament}
         participants={participants}
