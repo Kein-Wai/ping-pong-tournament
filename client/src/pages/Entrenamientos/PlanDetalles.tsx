@@ -36,13 +36,12 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { openAppConfirmModal } from '../../utils/modals';
 import { EXERCISE_CATEGORIES } from '../../constants/constants'; // Asegúrate de que la ruta es correcta
-import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { APP_ROUTES } from '../../constants/routes';
 
 export const PlanDetalles = () => {
   const { planId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
 
   // Estados del Plan
   const [loading, setLoading] = useState(true);
@@ -66,7 +65,7 @@ export const PlanDetalles = () => {
   const [targetSession, setTargetSession] = useState<{ id: string; number: number } | null>(null);
   const [sourceSessionId, setSourceSessionId] = useState<string | null>(null);
 
-  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin } = usePermissions();
 
   // 1. Cargar Plan
   const fetchPlanDetails = async () => {

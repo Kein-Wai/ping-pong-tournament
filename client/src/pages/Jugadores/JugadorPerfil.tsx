@@ -50,6 +50,7 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { openAppConfirmModal } from '../../utils/modals';
 import { notifications } from '@mantine/notifications';
@@ -192,8 +193,7 @@ export const JugadorPerfil = () => {
   );
 
   const isOwnProfile = currentUser?.id === id;
-  const isSuperAdmin = currentUser?.role === 'SuperAdmin';
-  const isAdmin = currentUser?.role === 'SuperAdmin' || currentUser?.role === 'AdminClub';
+  const { isSuperAdmin, isAdmin } = usePermissions();
   const canViewTrainings = isOwnProfile || isAdmin;
 
   // Puede expulsar si es Admin, no es su propio perfil, y el jugador pertenece a su club (o es SuperAdmin)
@@ -228,7 +228,7 @@ export const JugadorPerfil = () => {
 
       setRecentMatches(userMatches.slice(0, 10));
 
-      if (isOwnProfile || currentUser?.role === 'AdminClub' || currentUser?.role === 'SuperAdmin') {
+      if (isOwnProfile || isAdmin) {
         const trainRes = await api.get(ENDPOINTS.TRAININGS.BY_PLAYER(id!));
         setTrainings(trainRes.data.data);
       }

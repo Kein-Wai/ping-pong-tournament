@@ -39,6 +39,7 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { openAppConfirmModal } from '../../utils/modals';
 
@@ -81,7 +82,7 @@ export const EquipoDetalles = () => {
   const [editIsHome, setEditIsHome] = useState(true);
   const [editLocation, setEditLocation] = useState('');
 
-  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin } = usePermissions();
 
   const isTeamMember = team?.players?.some((p: any) => p.id === user?.id);
   const canEditMatch = isAdmin || isTeamMember;

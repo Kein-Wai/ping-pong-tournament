@@ -16,6 +16,7 @@ import {
   Loader,
 } from '@mantine/core';
 import { useAuthStore } from '../store/authStore';
+import { usePermissions } from '../hooks/usePermissions';
 import { api } from '../api/axios';
 import { ENDPOINTS } from '../api/endpoints';
 import { WidgetEntrenamientos } from '../components/common/WidgetEntrenamientos';
@@ -36,8 +37,7 @@ export const Dashboard = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const isPlayer = user?.role === 'Player';
-  const isAdminClub = user?.role === 'AdminClub';
+  const { isAdminClub, isPlayer } = usePermissions();
 
   // SOLUCIÓN: Misma lógica relajada e insensible a mayúsculas que en MainLayout
   const hasApprovedClub =

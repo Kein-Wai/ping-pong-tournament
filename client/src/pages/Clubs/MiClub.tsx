@@ -30,6 +30,7 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { LOCALIZACIONES_ESPANA } from '../../constants/localizaciones';
@@ -64,7 +65,7 @@ export const MiClub = () => {
   const [address, setAddress] = useState('');
   const [foundedAt, setFoundedAt] = useState<Date | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
-  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin } = usePermissions();
 
   const fetchClubDetails = async () => {
     if (!user?.clubId) return;

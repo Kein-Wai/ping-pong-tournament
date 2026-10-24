@@ -19,6 +19,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
   IconHome,
   IconTrophy,
@@ -51,6 +52,7 @@ import { notifications } from '@mantine/notifications';
 export const MainLayout = () => {
   const [opened, { toggle }] = useDisclosure();
   const { user, logout, updateUserFields } = useAuthStore();
+  const { isSuperAdmin, isAdminClub, isPlayer } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
@@ -73,7 +75,7 @@ export const MainLayout = () => {
   const [savingPassword, setSavingPassword] = useState(false);
 
   const fetchNotifications = () => {
-    if (user?.role === 'AdminClub' && user?.clubId) {
+    if (isAdminClub && user?.clubId) {
       api
         .get(ENDPOINTS.CLUBS.NOTIFICATIONS(user.clubId))
         .then((res) => setNotificationsBadge(res.data.data))
@@ -100,7 +102,7 @@ export const MainLayout = () => {
     }
 
     if (
-      user.role === 'Player' &&
+      isPlayer &&
       !hasCompletedLocal &&
       (!(user as any).dominantHand ||
         !(user as any).playstyle ||
@@ -112,7 +114,7 @@ export const MainLayout = () => {
     } else {
       setOnboardingOpen(false);
     }
-  }, [user]);
+  }, [user, isPlayer]);
 
   const handleForcePasswordChange = async () => {
     if (passwords.new !== passwords.confirm) {
@@ -185,9 +187,6 @@ export const MainLayout = () => {
   };
 
   // --- VARIABLES DE CONDICIÓN BLINDADAS ---
-  const isSuperAdmin = user?.role === 'SuperAdmin';
-  const isAdminClub = user?.role === 'AdminClub';
-  const isPlayer = user?.role === 'Player';
 
   // SOLUCIÓN: Condición amplia e insensible a mayúsculas
   const hasApprovedClub =

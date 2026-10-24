@@ -6,15 +6,17 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export const WidgetEntrenamientos = () => {
   const { user } = useAuthStore();
+  const { isPlayer } = usePermissions();
   const navigate = useNavigate();
   const [upcoming, setUpcoming] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.id && user?.role === 'Player') {
+    if (user?.id && isPlayer) {
       api
         .get(ENDPOINTS.TRAININGS.UPCOMING(user.id))
         .then((res) => setUpcoming(res.data.data))
@@ -23,7 +25,7 @@ export const WidgetEntrenamientos = () => {
     } else {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, isPlayer]);
 
   if (loading || upcoming.length === 0) return null; // Si no hay entrenos, no mostramos nada y no estorbamos
 

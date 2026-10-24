@@ -21,10 +21,9 @@ import {
 import { IconBug, IconMessageCircle, IconCheck, IconEye } from '@tabler/icons-react';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
-import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export const FeedbackPage = () => {
-  const { user } = useAuthStore();
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,7 +35,8 @@ export const FeedbackPage = () => {
   // Modal Admin
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
-  const isAdmin = user?.role === 'SuperAdmin';
+  // Solo el SuperAdmin gestiona la bandeja (el backend restringe igual el GET y el PUT).
+  const { isSuperAdmin: isAdmin } = usePermissions();
 
   const fetchData = async () => {
     try {

@@ -28,7 +28,7 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/axios';
-import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 // Interfaz actualizada con soporte Multi-tenant
@@ -50,7 +50,6 @@ interface Tournament {
 const ITEMS_PER_PAGE = 10;
 
 export const Torneos = () => {
-  const { user } = useAuthStore();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -60,7 +59,7 @@ export const Torneos = () => {
   const [page, setPage] = useState(1);
 
   // Comprobación de rol para permisos de creación
-  const canCreateTournament = user?.role === 'SuperAdmin' || user?.role === 'AdminClub';
+  const { isAdmin: canCreateTournament } = usePermissions();
 
   useEffect(() => {
     const fetchTournaments = async () => {

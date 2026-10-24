@@ -45,6 +45,7 @@ import { useAuthStore } from '../../store/authStore';
 import { openAppConfirmModal } from '../../utils/modals';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { returnEloColor } from '../../utils/helpers';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface User {
   id: string;
@@ -170,9 +171,7 @@ export const Jugadores = () => {
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [sendingReset, setSendingReset] = useState(false);
 
-  const isAdminClub = currentUser?.role === 'AdminClub';
-  const isSuperAdmin = currentUser?.role === 'SuperAdmin';
-  const canManage = isAdminClub || isSuperAdmin;
+  const { isAdmin: canManage, isSuperAdmin } = usePermissions();
 
   const fetchPlayers = async () => {
     try {

@@ -19,13 +19,14 @@ import { useTorneoInscripcion } from '../../hooks/useTorneoInscripcion';
 import { useTorneoIntercambio } from '../../hooks/useTorneoIntercambio';
 import { useTorneoAcciones } from '../../hooks/useTorneoAcciones';
 import { useTournamentDetails } from '../../hooks/useTournamentDetails';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { BracketMatch } from '../../types/tournament';
 
 export const TorneoDetalles = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin, isPlayer } = usePermissions();
 
   const {
     tournament,
@@ -166,7 +167,7 @@ export const TorneoDetalles = () => {
       <TournamentHeader
         tournament={tournament}
         isAdmin={isAdmin}
-        isPlayer={user?.role === 'Player'}
+        isPlayer={isPlayer}
         isEnrolled={isEnrolled}
         isRegistering={isRegistering}
         isGenerating={isGenerating}

@@ -18,6 +18,7 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export const Equipos = () => {
   const { user } = useAuthStore();
@@ -26,7 +27,7 @@ export const Equipos = () => {
   const [loading, setLoading] = useState(true);
   const [currentSeason, setCurrentSeason] = useState<string>('');
 
-  const canCreate = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin: canCreate } = usePermissions();
 
   useEffect(() => {
     api

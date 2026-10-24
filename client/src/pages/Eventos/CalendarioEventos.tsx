@@ -35,6 +35,7 @@ import {
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { openAppConfirmModal } from '../../utils/modals';
 import '@mantine/dates/styles.css';
 
@@ -58,7 +59,7 @@ const COLORES_MANTINE = [
 
 export const CalendarioEventos = () => {
   const { user } = useAuthStore();
-  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin } = usePermissions();
 
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
