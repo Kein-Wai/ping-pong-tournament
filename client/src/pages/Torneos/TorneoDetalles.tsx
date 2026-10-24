@@ -43,7 +43,8 @@ import { MatchResultModal } from '../../components/tournament/MatchResultModal';
 import { EnrollModal } from '../../components/tournament/EnrollModal';
 import { SwapPlayersModal } from '../../components/tournament/SwapPlayersModal';
 import { MatchResultViewModal } from '../../components/tournament/MatchResultViewModal';
-import { TournamentTabs } from '../../components/tournament/TournamentTabs';
+import { TournamentTabsContainer } from '../../components/tournament/TournamentTabsContainer';
+import { KNOCKOUT_STAGES } from '../../types/tournament';
 import type {
   TournamentClas,
   TournamentGroupClas,
@@ -51,17 +52,6 @@ import type {
   KnockoutRound,
   GroupMatch,
 } from '../../types/tournament';
-
-const KNOCKOUT_STAGES = [
-  'R128avos',
-  'R64avos',
-  'R32avos',
-  'R16avos',
-  'Octavos',
-  'Cuartos',
-  'Semifinales',
-  'Final',
-];
 
 export const TorneoDetalles = () => {
   const { id } = useParams();
@@ -87,12 +77,8 @@ export const TorneoDetalles = () => {
   const [results, setResults] = useState<TournamentClas[] | null>(null);
   const [bracketA, setBracketA] = useState<KnockoutRound[] | null>(null);
   const [bracketB, setBracketB] = useState<KnockoutRound[] | null>(null);
-  const [subBracketA, setSubBracketA] = useState<string | null>(null);
-  const [subBracketB, setSubBracketB] = useState<string | null>(null);
-
   const [groupsClas, setGroupsClas] = useState<TournamentGroupClas[] | null>(null);
   const [groupMatches, setGroupMatches] = useState<GroupMatch[] | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
 
@@ -205,10 +191,6 @@ export const TorneoDetalles = () => {
           setGroupsClas(clasData);
           setGroupMatches(resMatches.data.data);
 
-          if (clasData.length > 0) {
-            const firstGroupNum = String(clasData[0].tournamentGroup.group);
-            setSelectedGroup(firstGroupNum);
-          }
         } else if (activeTab === 'bracketA' && bracketA === null) {
           const res = await api.get(`${ENDPOINTS.TOURNAMENTS.BRACKETS(id)}?type=A`);
           setBracketA(res.data.data);
@@ -227,43 +209,6 @@ export const TorneoDetalles = () => {
   const confirmedPlayersCount = useMemo(() => {
     return participants?.filter((p) => p.status === 'Confirmado').length || 0;
   }, [participants]);
-
-  const { firstPlace, secondPlace, thirdPlace, otherResults } = useMemo<{
-    firstPlace: TournamentClas | null;
-    secondPlace: TournamentClas | null;
-    thirdPlace: TournamentClas | null;
-    otherResults: TournamentClas[];
-  }>(() => {
-    let firstPlace: TournamentClas | null = null;
-    let secondPlace: TournamentClas | null = null;
-    let thirdPlace: TournamentClas | null = null;
-    const otherResults: TournamentClas[] = [];
-
-    if (!results) return { firstPlace, secondPlace, thirdPlace, otherResults };
-
-    results.forEach((p) => {
-      if (p.position === 1) {
-        firstPlace = p;
-      } else if (p.position === 2) {
-        secondPlace = p;
-      } else if (p.position === 3 && !thirdPlace) {
-        thirdPlace = p;
-      } else {
-        otherResults.push(p);
-      }
-    });
-
-    otherResults.sort((a, b) => (a.position || 0) - (b.position || 0));
-    return { firstPlace, secondPlace, thirdPlace, otherResults };
-  }, [results]);
-
-  const groupOptions = useMemo(() => {
-    if (!groupsClas) return [];
-    const uniqueGroups = Array.from(new Set(groupsClas.map((c) => c.tournamentGroup.group))).sort(
-      (a, b) => a - b,
-    );
-    return uniqueGroups.map((g) => ({ value: String(g), label: `Grupo ${g}` }));
-  }, [groupsClas]);
 
   const handleInscribirse = () => {
     if (!id) return;
@@ -631,12 +576,9 @@ export const TorneoDetalles = () => {
   const isProgramado = currentStatus === 'Programado';
   const isGrupos = currentStatus === 'Grupos';
   const isKnockoutPhase = KNOCKOUT_STAGES.includes(currentStatus);
-  const isCompletado = currentStatus === 'Completado';
 
   const hasGroupsFormat =
     tournament.rounds === 'GruposKnockout' || tournament.rounds === 'TodosvsTodos';
-  const hasKnockoutFormat =
-    tournament.rounds === 'GruposKnockout' || tournament.rounds === 'Knockout';
 
   const currentPlayers = tournament.participants || [];
   const plazasDisponibles = tournament.numPlayers - currentPlayers.length;
@@ -776,62 +718,29 @@ export const TorneoDetalles = () => {
       </Card>
 
       {/*
-        TODO: Migrar a contenedores (Phase 1 follow-up) — NO ejecutar aún
-        (deja el wiring como PLACEHOLDER por condición #2 del plan).
+        MIGRADO: TournamentTabsContainer con 5 props estructuradas (no 28).
+        El container asume flags/podium/groupOptions/selectedGroup/subBrackets.
+        activeTab se mantiene controlado en TorneoDetalles.
 
-        Wiring objetivo: reduce TournamentTabs de 28 props a 5 estructuradas:
-
-          <TournamentTabsContainer
-            tournament={tournament}
-            tournamentData={tournamentData}
-            actions={{
-              onMatchClick: openEditMatchModal,
-              onBracketMatchClick,
-              onParticipantStatusChange: handleParticipantStatus,
-            }}
-            isAdmin={isAdmin}
-          />
-
-        - TournamentTabsContainer asume el state derivado (flags de fase,
-          podium, groupOptions, selectedGroup) y el state de UI (activeTab,
-          subBracketA/B). Regla de Oro: el JSX de TournamentTabs se mantiene
-          intacto.
-        - GroupClassificationsTableContainer + GroupMatchesTableContainer ya
-          están listos: el seam de filtro de grupo (selectedGroup/groupOptions)
-          queda internalizado, derivado vía computeGroupOptions / groupNumbersToOptions.
-        - GroupMatchesTable no se renderiza en producción todavía (dead code);
-          GroupMatchesTableContainer es su punto de entrada.
-        - Pendiente borrar de TorneoDetalles los state asumidos por el container
-          (selectedGroup, setSelectedGroup, groupOptions, podium, flags, activeTab,
-          setActiveTab, subBracketA/B, setSubBracketA/B).
       */}
-      <TournamentTabs
+      <TournamentTabsContainer
         tournament={tournament}
-        participants={participants}
-        groupsClas={groupsClas}
-        groupMatches={groupMatches}
-        bracketA={bracketA}
-        bracketB={bracketB}
+        tournamentData={{
+          participants,
+          groupClas: groupsClas,
+          groupMatches,
+          bracketA,
+          bracketB,
+          results,
+        }}
+        actions={{
+          onMatchClick: openEditMatchModal,
+          onBracketMatchClick,
+          onParticipantStatusChange: handleParticipantStatus,
+        }}
         isAdmin={isAdmin}
-        isProgramado={isProgramado}
-        isGrupos={isGrupos}
-        isKnockoutPhase={isKnockoutPhase}
-        isCompletado={isCompletado}
-        hasGroupsFormat={hasGroupsFormat}
-        hasKnockoutFormat={hasKnockoutFormat}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        selectedGroup={selectedGroup}
-        setSelectedGroup={setSelectedGroup}
-        groupOptions={groupOptions}
-        podium={{ firstPlace, secondPlace, thirdPlace, otherResults }}
-        subBracketA={subBracketA}
-        setSubBracketA={setSubBracketA}
-        subBracketB={subBracketB}
-        setSubBracketB={setSubBracketB}
-        onMatchClick={openEditMatchModal}
-        onBracketMatchClick={onBracketMatchClick}
-        onParticipantStatusChange={handleParticipantStatus}
+        onTabChange={setActiveTab}
       />
 
       {/* MODAL SOLO LECTURA JUGADORES */}

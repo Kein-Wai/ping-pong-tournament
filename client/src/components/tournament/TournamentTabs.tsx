@@ -1,16 +1,10 @@
 import { Tabs } from '@mantine/core';
-import {
-  IconInfoCircle,
-  IconUsers,
-  IconListNumbers,
-  IconMedal,
-  IconTournament,
-} from '@tabler/icons-react';
 import { KnockoutBracket } from './KnockoutBracket';
 import { ParticipantsTable } from './ParticipantsTable';
 import { Podium } from './Podium';
 import { GroupClassificationsTable } from './GroupClassificationsTable';
 import { TournamentInfoCards } from './TournamentInfoCards';
+import { TournamentTabsList } from './TournamentTabsList';
 import type {
   Tournament,
   TournamentClas,
@@ -91,43 +85,16 @@ export const TournamentTabs = ({
   return (
     <>
       <Tabs value={activeTab} onChange={setActiveTab} variant="outline" radius="md">
-        <Tabs.List>
-          <Tabs.Tab value="info" leftSection={<IconInfoCircle size={16} />}>
-            Información
-          </Tabs.Tab>
-          {(isProgramado || isGrupos || isKnockoutPhase) && (
-            <Tabs.Tab value="inscritos" leftSection={<IconUsers size={16} />}>
-              Inscritos ({participants?.length || 0})
-            </Tabs.Tab>
-          )}
-          {isCompletado && (
-            <Tabs.Tab value="resultados" leftSection={<IconMedal size={16} />}>
-              Resultados Finales
-            </Tabs.Tab>
-          )}
-          {hasGroupsFormat && (isGrupos || isKnockoutPhase || isCompletado) && (
-            <Tabs.Tab value="grupos" leftSection={<IconListNumbers size={16} />}>
-              {tournament?.rounds === 'TodosvsTodos'
-                ? 'Clasificación y Partidos'
-                : 'Fase de Grupos'}
-            </Tabs.Tab>
-          )}
-          {tournament?.rounds !== 'TodosvsTodos' &&
-            hasKnockoutFormat &&
-            (isKnockoutPhase || isCompletado) && (
-              <Tabs.Tab value="bracketA" leftSection={<IconTournament size={16} />}>
-                Cuadro Llave A
-              </Tabs.Tab>
-            )}
-          {tournament?.rounds !== 'TodosvsTodos' &&
-            hasKnockoutFormat &&
-            (isKnockoutPhase || isCompletado) &&
-            tournament?.typeKnockout === 'LlaveAB' && (
-              <Tabs.Tab value="bracketB" leftSection={<IconMedal size={16} />}>
-                Cuadro Llave B
-              </Tabs.Tab>
-            )}
-        </Tabs.List>
+        <TournamentTabsList
+          tournament={tournament}
+          participants={participants}
+          isProgramado={isProgramado}
+          isGrupos={isGrupos}
+          isKnockoutPhase={isKnockoutPhase}
+          isCompletado={isCompletado}
+          hasGroupsFormat={hasGroupsFormat}
+          hasKnockoutFormat={hasKnockoutFormat}
+        />
 
         {/* --- INFO --- */}
         <Tabs.Panel value="info" pt="xl">

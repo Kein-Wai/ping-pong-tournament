@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { TournamentTabs } from './TournamentTabs';
 import type { Tournament } from '../../types/tournament';
 import type {
@@ -20,7 +20,12 @@ export interface TournamentTabsContainerProps {
   actions: TournamentTabsActions;
   /** Si el usuario actual es admin. */
   isAdmin: boolean;
-  /** Notificacion de cambio de pestaña activa al padre (carga perezosa). */
+  /** Pestaña activa controlada (opcional). Cuando se omite el contenedor
+   *  gestiona su propio state; cuando se pasa, el padre es el source of
+   *  verdad —necesario porque TorneoDetalles usa activeTab en sus handlers. */
+  activeTab?: string | null;
+  /** Notificación de cambio de pestaña al padre (siempre se dispara,
+   *  tanto en modo controlado como interno). */
   onTabChange?: (tab: string | null) => void;
 }
 
@@ -40,12 +45,24 @@ export const TournamentTabsContainer = ({
   tournamentData,
   actions,
   isAdmin,
+  activeTab: controlledActiveTab,
   onTabChange,
 }: TournamentTabsContainerProps) => {
-  const [activeTab, setActiveTab] = useState<string | null>('info');
+  const [internalActiveTab, setInternalActiveTab] = useState<string | null>('info');
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [subBracketA, setSubBracketA] = useState<string | null>(null);
   const [subBracketB, setSubBracketB] = useState<string | null>(null);
+
+  // Auto-selecciona el primer grupo cuando los datos de clasificación llegan.
+  // Reemplaza al setSelectedGroup que antes vivía en fetchLazyData de
+  // TorneoDetalles, manteniendo el seam de filtro de grupo internalizado.
+  useEffect(() => {
+    if (tournamentData.groupClas && tournamentData.groupClas.length > 0 && !selectedGroup) {
+      setSelectedGroup(String(tournamentData.groupClas[0].tournamentGroup.group));
+    }
+  }, [tournamentData.groupClas, selectedGroup]);
 
   const flags = useMemo(() => computeTournamentFlags(tournament), [tournament]);
   const podium = useMemo(
@@ -58,7 +75,9 @@ export const TournamentTabsContainer = ({
   );
 
   const handleTabChange = (tab: string | null) => {
-    setActiveTab(tab);
+    if (controlledActiveTab === undefined) {
+      setInternalActiveTab(tab);
+    }
     onTabChange?.(tab);
   };
 
