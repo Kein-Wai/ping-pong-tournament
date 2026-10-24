@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -23,6 +23,7 @@ import { TournamentHeader } from '../../components/tournament/TournamentHeader';
 import { useTorneoFormato } from '../../hooks/useTorneoFormato';
 import { useTorneoPartido } from '../../hooks/useTorneoPartido';
 import { useTorneoInscripcion } from '../../hooks/useTorneoInscripcion';
+import { useTorneoIntercambio } from '../../hooks/useTorneoIntercambio';
 import { useTournamentDetails } from '../../hooks/useTournamentDetails';
 import type { BracketMatch } from '../../types/tournament';
 
@@ -52,25 +53,12 @@ export const TorneoDetalles = () => {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
-  const [swapModalOpen, setSwapModalOpen] = useState(false);
-  const [swapPlayerA, setSwapPlayerA] = useState<string | null>(null);
-  const [swapPlayerB, setSwapPlayerB] = useState<string | null>(null);
-  const [isSwapping, setIsSwapping] = useState(false);
 
   // --- Derived values ---
   const myParticipation = participants?.find((p) => p.player.id === user?.id) ?? null;
   const isEnrolled = !!myParticipation;
   const hasGroupsFormat =
     tournament?.rounds === 'GruposKnockout' || tournament?.rounds === 'TodosvsTodos';
-
-  const swapOptions = useMemo(() => {
-    const confirmed = participants?.filter((p) => p.status === 'Confirmado') || [];
-    // Solo permitimos intercambiar jugadores reales confirmados. Cero fantasmas.
-    return confirmed.map((p) => ({
-      value: p.player.id,
-      label: `${p.player.name} ${p.player.surname || ''}`,
-    }));
-  }, [participants]);
 
   const onMatchSaved = async () => {
     if (!id) return;
@@ -134,6 +122,25 @@ export const TorneoDetalles = () => {
     handleBulkEnroll,
   } = inscripcion;
 
+  const {
+    swapModalOpen,
+    setSwapModalOpen,
+    swapPlayerA,
+    setSwapPlayerA,
+    swapPlayerB,
+    setSwapPlayerB,
+    isSwapping,
+    swapOptions,
+    handleSwapPlayers,
+  } = useTorneoIntercambio({
+    id,
+    participants,
+    onSwapped: async () => {
+      await fetchTournamentInfo();
+      await reloadActiveTab();
+    },
+  });
+
   // handleInscribirse movido a useTorneoInscripcion
 
   // getStatusColor movido a TournamentHeader
@@ -165,28 +172,6 @@ export const TorneoDetalles = () => {
         }
       },
     });
-  };
-
-  const handleSwapPlayers = async () => {
-    if (!id || !swapPlayerA || !swapPlayerB) return;
-    setIsSwapping(true);
-    try {
-      await tournamentsService.swapPlayers(id, {
-        playerAId: swapPlayerA,
-        playerBId: swapPlayerB,
-      });
-      setSwapModalOpen(false);
-      setSwapPlayerA(null);
-      setSwapPlayerB(null);
-
-      // Recargamos todo para que la pantalla refresque los cuadros y los grupos
-      await fetchTournamentInfo();
-      await reloadActiveTab();
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsSwapping(false);
-    }
   };
 
   const handleGenerateTournament = () => {
