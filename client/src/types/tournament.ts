@@ -55,6 +55,9 @@ export interface Tournament {
   participants?: Participant[];
 }
 
+/** Torneo tal como lo lista la API, con el nombre de su club (multi-tenant). */
+export type TournamentWithClub = Tournament & { club?: { name: string } | null };
+
 /** Alias historico del participante del torneo. */
 export type Participant = TournamentParticipant;
 

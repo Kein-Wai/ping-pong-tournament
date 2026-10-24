@@ -133,13 +133,11 @@ describe('FeedbackPage', () => {
     });
 
     it('no rompe si falla la carga', async () => {
-      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       vi.mocked(api.get).mockRejectedValue(new Error('red caida'));
 
       await renderLoaded();
 
       expect(screen.getByText('No hay registros en la bandeja.')).toBeInTheDocument();
-      expect(consoleError).toHaveBeenCalled();
     });
   });
 

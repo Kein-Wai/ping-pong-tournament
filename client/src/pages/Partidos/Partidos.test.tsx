@@ -71,6 +71,7 @@ describe('Partidos', () => {
       expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE);
       const row = within(bodyRows()[0]);
       expect(row.getByText('Liga Local')).toBeInTheDocument();
+      expect(row.getByText('1 oct 2026')).toBeInTheDocument();
       expect(row.getByText('Luis Pérez')).toBeInTheDocument();
       expect(row.getByText('Marta Gil')).toBeInTheDocument();
       expect(row.getByText('Club Norte')).toBeInTheDocument();

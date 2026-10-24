@@ -14,6 +14,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import type { KnockoutRound, BracketMatch, BracketPlayer } from '../../types/tournament';
+import { formatSets } from '../../utils/match-format';
 
 interface KnockoutBracketProps {
   bracketData: KnockoutRound[] | null;
@@ -65,33 +66,6 @@ const getBracketGroups = (data: KnockoutRound[]) => {
   });
 
   return groups;
-};
-
-const formatSets = (match: BracketMatch) => {
-  if (match.status !== 'Completado')
-    return (
-      <Badge color="gray" variant="light">
-        {match.status}
-      </Badge>
-    );
-
-  const sets = [];
-  if (match.setOnePlayerOne !== null || match.setOnePlayerTwo !== null)
-    sets.push(`${match.setOnePlayerOne}-${match.setOnePlayerTwo}`);
-  if (match.setTwoPlayerOne !== null || match.setTwoPlayerTwo !== null)
-    sets.push(`${match.setTwoPlayerOne}-${match.setTwoPlayerTwo}`);
-  if (match.setThreePlayerOne !== null || match.setThreePlayerTwo !== null)
-    sets.push(`${match.setThreePlayerOne}-${match.setThreePlayerTwo}`);
-  if (match.setFourPlayerOne !== null || match.setFourPlayerTwo !== null)
-    sets.push(`${match.setFourPlayerOne}-${match.setFourPlayerTwo}`);
-  if (match.setFivePlayerOne !== null || match.setFivePlayerTwo !== null)
-    sets.push(`${match.setFivePlayerOne}-${match.setFivePlayerTwo}`);
-
-  return (
-    <Text fw={600} size="sm" c="blue.7">
-      {sets.filter((s) => s !== '0-0').join(' | ')}
-    </Text>
-  );
 };
 
 const getFirstStat = (stats: BracketPlayer['stats']) => {

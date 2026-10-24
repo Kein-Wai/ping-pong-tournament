@@ -17,21 +17,19 @@ import { IconBuildingCommunity, IconCheck, IconClock, IconUsers } from '@tabler/
 import { api } from '../../api/axios';
 import { useAuthStore } from '../../store/authStore';
 import { openAppConfirmModal } from '../../utils/modals';
+import { formatDate } from '../../utils/dates';
+import type { Club } from '../../types/api';
 import { ENDPOINTS } from '../../api/endpoints';
 
-interface Club {
-  id: string;
-  name: string;
-  city: string;
-  address?: string;
+/** Club del listado público: campos del modelo más el recuento de miembros que añade la API. */
+type ClubListItem = Pick<Club, 'id' | 'name' | 'city' | 'address' | 'foundedAt'> & {
   memberCount: number;
   createdAt: string;
-  foundedAt?: string;
-}
+};
 
 export const ClubSelection = () => {
   const { user, updateUserFields, logout } = useAuthStore();
-  const [clubs, setClubs] = useState<Club[]>([]);
+  const [clubs, setClubs] = useState<ClubListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
@@ -42,12 +40,12 @@ export const ClubSelection = () => {
 
         if (response.data.success) {
           const visibleClubs = response.data.data.filter(
-            (club: Club) => !club.name.toUpperCase().startsWith('(DEMO)'),
+            (club: ClubListItem) => !club.name.toUpperCase().startsWith('(DEMO)'),
           );
           setClubs(visibleClubs);
         }
       } catch (error: any) {
-        console.log(error);
+        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -73,8 +71,8 @@ export const ClubSelection = () => {
           if (response.data.success) {
             updateUserFields({ clubId, clubStatus: 'Pendiente' });
           }
-        } catch (error) {
-          console.error(error);
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         } finally {
           setSubmittingId(null);
         }
@@ -184,9 +182,7 @@ export const ClubSelection = () => {
 
                     <Text size="xs" c="dimmed" mt="auto">
                       Fundado el:{' '}
-                      {club.foundedAt
-                        ? new Date(club.foundedAt).toLocaleDateString()
-                        : new Date(club.createdAt).toLocaleDateString()}
+                      {club.foundedAt ? formatDate(club.foundedAt) : formatDate(club.createdAt)}
                     </Text>
                   </Stack>
 

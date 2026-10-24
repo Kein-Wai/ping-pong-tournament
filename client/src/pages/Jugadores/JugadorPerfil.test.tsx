@@ -587,12 +587,14 @@ describe('JugadorPerfil', () => {
 
       const win = within(rows[0]);
       expect(win.getByText('Victoria')).toBeInTheDocument();
+      expect(win.getByText('01 oct 2026')).toBeInTheDocument();
       expect(win.getByText('Liga Local')).toBeInTheDocument();
       expect(win.getByText('Zoe Zurda')).toBeInTheDocument();
       expect(win.getByText('3 - 0')).toBeInTheDocument();
 
       const loss = within(rows[1]);
       expect(loss.getByText('Derrota')).toBeInTheDocument();
+      expect(loss.getByText('20 sept 2026')).toBeInTheDocument();
       expect(loss.getByText('Amistoso')).toBeInTheDocument();
       expect(loss.getByText('Dani Diestro')).toBeInTheDocument();
       expect(loss.getByText('1 - 3')).toBeInTheDocument();
@@ -632,6 +634,7 @@ describe('JugadorPerfil', () => {
 
       expect(screen.getByText('🔥 Siguiente Compromiso')).toBeInTheDocument();
       expect(screen.getByText(/Rival Próximo/)).toBeInTheDocument();
+      expect(screen.getByText('viernes, 20 de noviembre de 2026, 18:00')).toBeInTheDocument();
       expect(screen.getByText('Pabellón Norte')).toBeInTheDocument();
     });
 
@@ -643,6 +646,9 @@ describe('JugadorPerfil', () => {
       expect(screen.getByText('3 - 1')).toBeInTheDocument();
       expect(screen.getByText('3 - 2')).toBeInTheDocument();
       expect(screen.getByText('Cancelado')).toBeInTheDocument();
+      expect(screen.getByText('10/9/26, 18:00')).toBeInTheDocument();
+      expect(screen.getByText('5/9/26, 18:00')).toBeInTheDocument();
+      expect(screen.getByText('1/9/26, 18:00')).toBeInTheDocument();
     });
 
     it('pagina el historial de cuatro en cuatro', async () => {
@@ -676,6 +682,7 @@ describe('JugadorPerfil', () => {
 
       expect(screen.getByText('Historial de Macrociclos')).toBeInTheDocument();
       expect(screen.getByText('Plan de 8 Semanas')).toBeInTheDocument();
+      expect(screen.getByText('Inicio: 15/9/2026')).toBeInTheDocument();
       expect(screen.getByText('12 Sesiones')).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Ver Macrociclo' }));

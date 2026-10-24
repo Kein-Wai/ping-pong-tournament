@@ -42,8 +42,8 @@ export const FeedbackPage = () => {
     try {
       const res = await api.get(ENDPOINTS.FEEDBACK.BASE);
       setFeedbacks(res.data.data);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setLoading(false);
     }
@@ -60,8 +60,8 @@ export const FeedbackPage = () => {
       await api.post(ENDPOINTS.FEEDBACK.BASE, { type, content });
       setContent('');
       fetchData(); // Recargamos para que aparezca abajo en su historial
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setSaving(false);
     }
@@ -73,8 +73,8 @@ export const FeedbackPage = () => {
       await api.put(ENDPOINTS.FEEDBACK.UPDATE_STATUS(selectedItem.id), { status });
       setSelectedItem(null);
       fetchData();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 

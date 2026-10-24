@@ -30,25 +30,12 @@ import {
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { getPlayerAvatar } from '../../utils/avatar';
+import { formatDate } from '../../utils/dates';
+import type { Club } from '../../types/api';
+import type { Tournament } from '../../types/tournament';
 import { useAuthStore } from '../../store/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
-interface Tournament {
-  id: string;
-  name: string;
-  dateStart: string;
-  numPlayers: number;
-  typeTournament: string | null;
-  levelTournament: string | null;
-  rounds: string | null;
-  status: string | null;
-  typeKnockout: string | null;
-}
-
-interface Club {
-  id: string;
-  name: string;
-  city: string;
-}
+type MatchClub = Pick<Club, 'id' | 'name' | 'city'>;
 
 export interface Match {
   id: string;
@@ -85,7 +72,7 @@ export interface Match {
     name: string;
     surname: string | null;
     avatarUrl?: string | null; // Añadimos soporte para el avatar
-    club: Club | null;
+    club: MatchClub | null;
   } | null;
 
   playerTwo?: {
@@ -93,7 +80,7 @@ export interface Match {
     name: string;
     surname: string | null;
     avatarUrl?: string | null; // Añadimos soporte para el avatar
-    club: Club | null;
+    club: MatchClub | null;
   } | null;
 
   group?: {
@@ -187,7 +174,7 @@ export const Partidos = () => {
             <IconCalendar size={16} stroke={1.5} color="blue" />
             <div>
               <Text fz="sm" fw={500}>
-                {new Date(match?.dateStart).toLocaleDateString('es-ES', {
+                {formatDate(match?.dateStart, {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',

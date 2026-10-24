@@ -35,6 +35,8 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { openAppConfirmModal } from '../../utils/modals';
+import { formatDate } from '../../utils/dates';
+import { SKILL_FIELDS } from '../../constants/skills';
 
 const SCHEDULE_COLORS = [
   'blue',
@@ -47,21 +49,6 @@ const SCHEDULE_COLORS = [
   'violet',
   'yellow',
   'indigo',
-];
-
-const SKILLS = [
-  { key: 'derechaPlano', label: 'Derecha Plano' },
-  { key: 'revesPlano', label: 'Revés Plano' },
-  { key: 'topspinDerecha', label: 'Topspin Derecha' },
-  { key: 'topspinReves', label: 'Topspin Revés' },
-  { key: 'corte', label: 'Corte' },
-  { key: 'bloqueoDerecha', label: 'Bloqueo Derecha' },
-  { key: 'bloqueoReves', label: 'Bloqueo Revés' },
-  { key: 'servicio', label: 'Servicio' },
-  { key: 'recepcion', label: 'Recepción' },
-  { key: 'movilidad', label: 'Movilidad' },
-  { key: 'fortalezaMental', label: 'Fortaleza Mental' },
-  { key: 'experiencia', label: 'Experiencia / Táctica' },
 ];
 
 const DAYS_OF_WEEK = [
@@ -186,8 +173,8 @@ export const EntrenamientosGenerales = () => {
       setScheduleModalOpen(false);
       setSchedDays([]);
       fetchData();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 
@@ -204,7 +191,7 @@ export const EntrenamientosGenerales = () => {
     const maxDate = new Date(Math.max(...dates));
 
     // 3. Extraemos las habilidades marcadas como TRUE
-    const activeSkills = SKILLS.filter((s) => training.template?.[s.key] === true);
+    const activeSkills = SKILL_FIELDS.filter((s) => training.template?.[s.key] === true);
 
     setProgramDetails({
       description: training.description,
@@ -229,8 +216,8 @@ export const EntrenamientosGenerales = () => {
       });
       setTrainingModalOpen(false);
       fetchData();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 
@@ -248,8 +235,8 @@ export const EntrenamientosGenerales = () => {
           // Usamos la concatenación para llegar al endpoint correcto
           await api.delete(`${ENDPOINTS.GENERAL_TRAININGS.SCHEDULES}/${id}`);
           fetchData();
-        } catch (error) {
-          console.error(error);
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         }
       },
     });
@@ -284,8 +271,8 @@ export const EntrenamientosGenerales = () => {
       });
       setAttendanceModalOpen(false);
       fetchData();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setSavingAttendance(false);
     }
@@ -346,7 +333,7 @@ export const EntrenamientosGenerales = () => {
         <Card shadow="sm" p="md" radius="md" withBorder>
           <Group justify="space-between" mb="md">
             <Title order={4}>Clases Fijas</Title>
-            <ActionIcon color="blue" variant="light" onClick={() => handleOpenScheduleModal(true)}>
+            <ActionIcon color="blue" variant="light" onClick={() => handleOpenScheduleModal()}>
               <IconPlus size={18} />
             </ActionIcon>
           </Group>
@@ -424,9 +411,7 @@ export const EntrenamientosGenerales = () => {
                 <IconChevronLeft size={18} />
               </ActionIcon>
               <Title order={3}>
-                {currentDate
-                  .toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-                  .toUpperCase()}
+                {formatDate(currentDate, { month: 'long', year: 'numeric' }).toUpperCase()}
               </Title>
               <ActionIcon variant="light" onClick={nextMonth}>
                 <IconChevronRight size={18} />
@@ -532,7 +517,7 @@ export const EntrenamientosGenerales = () => {
         onClose={() => setDayModalOpen(false)}
         title={
           <Text size="lg" fw={700}>
-            Sesiones del {selectedDateForModal?.toLocaleDateString()}
+            Sesiones del {selectedDateForModal && formatDate(selectedDateForModal)}
           </Text>
         }
         centered
@@ -702,7 +687,7 @@ export const EntrenamientosGenerales = () => {
             ¿Qué habilidades se entrenarán?
           </Text>
           <SimpleGrid cols={2}>
-            {SKILLS.map((s) => (
+            {SKILL_FIELDS.map((s) => (
               <Checkbox
                 key={s.key}
                 label={s.label}
@@ -809,7 +794,7 @@ export const EntrenamientosGenerales = () => {
                   Fecha de Inicio
                 </Text>
                 <Text fw={700} size="lg" c="blue.7">
-                  {programDetails.minDate.toLocaleDateString('es-ES')}
+                  {formatDate(programDetails.minDate)}
                 </Text>
               </Paper>
               <Paper withBorder p="sm" ta="center">
@@ -817,7 +802,7 @@ export const EntrenamientosGenerales = () => {
                   Fecha de Fin
                 </Text>
                 <Text fw={700} size="lg" c="red.7">
-                  {programDetails.maxDate.toLocaleDateString('es-ES')}
+                  {formatDate(programDetails.maxDate)}
                 </Text>
               </Paper>
             </SimpleGrid>

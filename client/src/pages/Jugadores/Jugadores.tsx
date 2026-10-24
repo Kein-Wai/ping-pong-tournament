@@ -46,6 +46,7 @@ import { openAppConfirmModal } from '../../utils/modals';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { returnEloColor } from '../../utils/helpers';
 import { usePermissions } from '../../hooks/usePermissions';
+import { SKILL_FIELDS } from '../../constants/skills';
 
 interface User {
   id: string;
@@ -76,22 +77,6 @@ const LEVEL_BASE_STATS: Record<string, number> = {
   Avanzado: 60,
   Profesional: 80,
 };
-
-// --- ESTRUCTURA DE HABILIDADES ---
-const SKILL_FIELDS = [
-  { key: 'derechaPlano', label: 'Derecha Plano' },
-  { key: 'revesPlano', label: 'Revés Plano' },
-  { key: 'topspinDerecha', label: 'Topspin Derecha' },
-  { key: 'topspinReves', label: 'Topspin Revés' },
-  { key: 'corte', label: 'Corte' },
-  { key: 'bloqueoDerecha', label: 'Bloqueo Derecha' },
-  { key: 'bloqueoReves', label: 'Bloqueo Revés' },
-  { key: 'servicio', label: 'Servicio' },
-  { key: 'recepcion', label: 'Recepción' },
-  { key: 'movilidad', label: 'Movilidad' },
-  { key: 'fortalezaMental', label: 'Fortaleza Mental' },
-  { key: 'experiencia', label: 'Experiencia' },
-] as const;
 
 export const Jugadores = () => {
   const navigate = useNavigate();
@@ -252,8 +237,8 @@ export const Jugadores = () => {
         experiencia: '',
       });
       await fetchPlayers();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setCreatingGuest(false);
     }
@@ -294,8 +279,8 @@ export const Jugadores = () => {
           await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(adminClubId, playerId), { status: action });
           await fetchPlayers();
           window.dispatchEvent(new CustomEvent('refresh-notifications'));
-        } catch (error) {
-          console.error('Error al procesar la solicitud del miembro:', error);
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         }
       },
     });
@@ -339,8 +324,8 @@ export const Jugadores = () => {
       });
       await fetchPlayers();
       window.dispatchEvent(new CustomEvent('refresh-notifications'));
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setApproving(false);
     }
@@ -358,8 +343,8 @@ export const Jugadores = () => {
       await api.put(ENDPOINTS.USERS.BY_ID(editEloModal.player.id), { elo: Number(newElo) });
       setEditEloModal({ opened: false, player: null });
       await fetchPlayers();
-    } catch (error) {
-      console.error('Error al actualizar ELO', error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 
@@ -392,8 +377,8 @@ export const Jugadores = () => {
 
       setResetAccountModal({ opened: false, player: null });
       await fetchPlayers();
-    } catch (error) {
-      console.error('Error al enviar recuperación:', error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setSendingReset(false);
     }

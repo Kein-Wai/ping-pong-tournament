@@ -7,7 +7,7 @@ Resultado del análisis de deuda técnica de `client/` (127 archivos TS/TSX, ~26
 - **Referencia de lo que está bien:** `TorneoDetalles` y los hooks `useTorneo*` son módulos profundos (interfaz pequeña, seam hacia `tournamentsService`, tests).
 - **Seam de datos ignorado:** `api/client.ts` (`http`) y los 13 módulos de `api/services/*` solo los usan 5 archivos. Hay ~109 llamadas `api.get/post/put/delete` directas en 25 pantallas.
 - **Páginas gigantes (módulos superficiales):** `JugadorPerfil` (1639), `ManualMatchTracker` (1362), `EquipoDetalles` (974), `Jugadores` (954), `EntrenamientosGenerales` (887). Superan el máximo de 800 líneas de `.clinerules`.
-- **Duplicación:** 11 definiciones locales de `isAdmin`/`isAdminClub`/`isSuperAdmin` (con criterios distintos), `formatSets` copiado en 3 componentes, 26 `toLocale*` sueltos, listas de habilidades repetidas, tipos `Tournament`/`Club` redeclarados.
+- **Duplicación:** 11 definiciones locales de `isAdmin`/`isAdminClub`/`isSuperAdmin` (con criterios distintos), `formatSets` con una copia local en `KnockoutBracket`, 26 `toLocale*` sueltos, listas de habilidades repetidas, tipos `Tournament`/`Club` redeclarados.
 - **Higiene:** `any` en las pantallas grandes, 92 `console.*`, 7 rutas `navigate('/...')` escritas a mano, carpeta `client/src/services/` vacía.
 
 ## Reglas de ejecución (todas las fases)
@@ -52,7 +52,7 @@ Decisiones:
 
 ---
 
-## Fase 1: `usePermissions` (≈9 tareas)
+## Fase 1: `usePermissions` (≈9 tareas) — hecha y commiteada
 
 | # | Tarea | Done cuando |
 |---|---|---|
@@ -68,21 +68,21 @@ Decisiones:
 
 ---
 
-## Fase 2: duplicados sueltos (11 tareas)
+## Fase 2: duplicados sueltos (11 tareas) — hecha (2.10 parcial)
 
 | # | Tarea | Done cuando |
 |---|---|---|
-| 2.1 | Comparar con diff las 3 copias locales de `formatSets` (`GroupClassificationsTable`, `GroupMatchesTable`, `KnockoutBracket`) con `utils/match-format.tsx`. | Lista de diferencias, o confirmación de que son idénticas |
-| 2.2 | Sustituir las copias por el import de `utils/match-format`. Si 2.1 halló diferencias, se extienden primero con un test. | Tests de los 3 componentes en verde |
-| 2.3 | Tests de `utils/dates.ts` (`formatDate`, `formatDateTime`) con esperados literales y zona horaria controlada (RED). | Tests fallando por la razón correcta |
-| 2.4 | Implementar `utils/dates.ts` con las opciones `es-ES` más repetidas (GREEN). | Tests en verde |
-| 2.5 | Migrar los `toLocale*` de `Torneos`, `Partidos` y `ClubSelection`. | Sin `toLocale*` en esos 3 archivos |
-| 2.6 | Migrar los `toLocale*` de `EntrenamientosGenerales` y `PoliticaPrivacidad`. | Ídem |
-| 2.7 | Migrar los 5 `toLocale*` de `JugadorPerfil` (si una opción no encaja, se añade como parámetro). | Ídem |
-| 2.8 | Unificar las listas de habilidades (`SKILLS`, `SKILL_FIELDS`, `SKILLS_LIST`) en `constants/`. | Una sola fuente importada por las 3 pantallas |
-| 2.9 | Eliminar los `Tournament`/`Club` locales y usar `types/`. Revisar los otros tipos locales de `pages/` (12 en total). | `tsc` sin errores |
-| 2.10 | Quitar los `console.*` redundantes (se deja `console.error` en catch de handlers sin interceptor). | Menos de 20 `console.*` en pantallas (había 92) |
-| 2.11 | Borrar `client/src/services/` (vacía) tras comprobar que nada la importa. | Carpeta eliminada, build en verde |
+| 2.1 | Comparar con diff las copias locales de `formatSets` con `utils/match-format.tsx`. | Hecho: `GroupClassificationsTable` y `GroupMatchesTable` ya importaban la compartida; solo `KnockoutBracket` tenía copia local, idéntica en lógica y JSX (solo difería el tipo del parámetro y `const sets` sin tipar) |
+| 2.2 | Sustituir la copia local de `KnockoutBracket` por el import de `utils/match-format`. | Hecho: tests de `components/tournament/` en verde (16 ficheros, 150 tests), eslint y `tsc -b` limpios |
+| 2.3 | Tests de `utils/dates.ts` (`formatDate`, `formatDateTime`) con esperados literales y zona horaria controlada (RED). | Hecho: 10 tests, fallaban por módulo inexistente |
+| 2.4 | Implementar `utils/dates.ts` con las opciones `es-ES` más repetidas (GREEN). | Hecho: ambas funciones aceptan `options` opcional; 10/10 en verde |
+| 2.5 | Migrar los `toLocale*` de `Torneos`, `Partidos` y `ClubSelection`. | Hecho: añadidas aserciones de fecha a `Torneos` y `Partidos` y test nuevo de `ClubSelection` (19 tests + snapshot, verificado con mutación). **Cambio de comportamiento aprobado de facto:** `ClubSelection` pasa de `toLocaleDateString()` (idioma del navegador) a `es-ES` |
+| 2.6 | Migrar los `toLocale*` de `EntrenamientosGenerales` y `PoliticaPrivacidad`. | Hecho: ninguna de las dos tenía test; se crearon `EntrenamientosGenerales.test.tsx` (39 tests, 4 snapshots de DOM y modales, verificados con mutación) y `PoliticaPrivacidad.test.tsx` (4 tests + snapshot). `Date` congelado a 15/10/2026. **Bug corregido aparte (con aprobación):** el botón `+` de «Clases Fijas» llamaba a `handleOpenScheduleModal(true)` y rompía la pantalla (`TypeError` en `schedDays.includes`); ahora llama sin argumento y 3 tests lo cubren (41 en total). El día del modal usa `selectedDateForModal && formatDate(...)` para no mostrar `1/1/1970` con `null` |
+| 2.7 | Migrar los 5 `toLocale*` de `JugadorPerfil` (si una opción no encaja, se añade como parámetro). | Hecho: los 54 tests solo vigilaban el mes, así que se añadieron 5 aserciones de fecha antes de migrar (próximo compromiso, calendario, tabla de partidos, inicio del plan). Todas las opciones encajaron en `formatDate`/`formatDateTime` sin cambios; 54/54, `tsc -b` limpio. Los 4 errores de eslint de líneas 422-430 son previos |
+| 2.8 | Unificar las listas de habilidades (`SKILLS`, `SKILL_FIELDS`, `SKILLS_LIST`) en `constants/`. | Hecho para `EntrenamientosGenerales` y `Jugadores`: `constants/skills.ts` (`SKILL_FIELDS`, 3 tests); 131/131 en `constants/`, `Entrenamientos/` y `Jugadores/`. **Cambio de texto aprobado:** la última etiqueta del modal «Programar Fechas» pasa de «Experiencia / Táctica» a «Experiencia». **`SKILLS_LIST` de `ManualMatchTracker` queda fuera:** son 10 etiquetas libres de análisis con otro vocabulario (`'Derecha plano'`, `'TopSpin Derecha'`…), sin claves, probablemente guardadas como texto, y la pantalla no tiene tests; se aborda en la Fase 4 (4.M1) |
+| 2.9 | Eliminar los `Tournament`/`Club` locales y usar `types/`. Revisar los otros tipos locales de `pages/` (12 en total). | Hecho: `Torneos` usa el nuevo `TournamentWithClub` (`types/tournament.ts`), `Partidos` usa `Tournament` y `Pick<Club, …>`, `ClubSelection` usa `Pick<Club, …> & { memberCount, createdAt }`. El tipo compartido es más estricto (enums y `undefined`): obligó a ensanchar un parámetro de tipo en `getStatusColor` de `Torneos` (`status?: string \| null`), sin tocar lógica. `tsc -b` limpio, 587/587 tests del cliente. **Revisión de los otros 8, se quedan locales:** `AdminClubUser`/`ClubAdminData` (AdminPanel) y `ClubDetails` (MiClub) llevan `_count` y `users` anidados que el modelo no tiene; `Exercise` (Ejercicios) exige `category` y el compartido la hace opcional; `Match` (Partidos) tiene `leagueId`/`winnerGoesToMatchId` y estado `string \| null`, y no se importa fuera; `UserProfile` (JugadorPerfil) y `User` (Jugadores) son proyecciones llenas de `any`, van con su página en la Fase 4; `PlayerStats` (Estadisticas) es una fila de jugador con estadísticas, no el modelo. **Hallazgo:** el `PlayerStats` de `types/api.ts` no coincide con Prisma (`matchesWon`/`matchesPlayed` frente a `Stats.matchWon`/`matchLost`) y solo lo usa `User.stats`; corregirlo es una tarea aparte |
+| 2.10 | Quitar los `console.*` redundantes (se deja `console.error` en catch de handlers sin interceptor). | **Parcial: hecha solo en las pantallas que ya tienen test** (`FeedbackPage`, `ClubSelection`, `EntrenamientosGenerales`, `Jugadores`, `JugadorPerfil`, `MainLayout`, `useTorneoAcciones`); 587/587 tests, `tsc -b` limpio, sin errores nuevos de eslint. **Criterio aplicado:** el interceptor de `api/axios` ya muestra un toast ante cualquier fallo de red o de API, así que se quitan los `console.error` de los `catch` cuyo `try` solo llama a la API y actualiza estado (se sustituyen por un `catch` con comentario). Se **conservan** los de las cargas que procesan la respuesta, los que rodean cálculos propios (`toISOString`, payloads) y los que rodean callbacks de la pantalla, porque un `TypeError` no lo ve el interceptor y sería la única pista (así se detectó la regresión del sobre en `JugadorPerfil`). Un `console.log(error)` de `ClubSelection` pasó a `console.error`. Los tests que comprobaban el `console.error` de mutaciones ahora comprueban el efecto observable (formulario abierto, sin recarga). **Quedan ~60 `console.*` en `pages/`, la mayoría en pantallas sin test** (`EquipoDetalles`, `PlanDetalles`, `CalendarioEventos`, `SessionDetalles`, `AdminPanel`, `MiClub`, `Login`, `ManualMatchTracker`…): se limpian dentro de la Fase 3/4 al darles su red de seguridad. El objetivo `< 20` no se alcanza antes de eso |
+| 2.11 | Borrar `client/src/services/` (vacía) tras comprobar que nada la importa. | Hecho: sin archivos ni importadores, carpeta eliminada (git no versiona carpetas vacías); `npm run build` en verde |
 
 ---
 

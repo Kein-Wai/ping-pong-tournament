@@ -88,6 +88,7 @@ describe('Torneos', () => {
 
       const card = within(cardOf('Open Primavera'));
       expect(card.getByText('Programado')).toBeInTheDocument();
+      expect(card.getByText('20 nov 2026')).toBeInTheDocument();
       expect(card.getByText('Club Norte')).toBeInTheDocument();
       expect(card.getByText('Plazas: 16 max.')).toBeInTheDocument();
       expect(card.getByText('Avanzado · Interno')).toBeInTheDocument();

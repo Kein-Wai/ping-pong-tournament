@@ -31,26 +31,13 @@ import { api } from '../../api/axios';
 import { usePermissions } from '../../hooks/usePermissions';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
-// Interfaz actualizada con soporte Multi-tenant
-interface Tournament {
-  id: string;
-  name: string;
-  dateStart: string;
-  numPlayers: number;
-  typeTournament: string | null;
-  levelTournament: string | null;
-  rounds: string | null;
-  status: string | null;
-  clubId: string | null;
-  club?: {
-    name: string;
-  } | null;
-}
+import { formatDate } from '../../utils/dates';
+import type { TournamentWithClub } from '../../types/tournament';
 
 const ITEMS_PER_PAGE = 10;
 
 export const Torneos = () => {
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [tournaments, setTournaments] = useState<TournamentWithClub[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -116,7 +103,7 @@ export const Torneos = () => {
     );
   }
 
-  const getStatusColor = (status: string | null) => {
+  const getStatusColor = (status?: string | null) => {
     if (!status) return 'gray';
     if (status === 'Programado') return 'blue';
     if (status === 'Completado') return 'green';
@@ -220,7 +207,7 @@ export const Torneos = () => {
                 <Group gap="xs">
                   <IconCalendar size={16} stroke={1.5} color="var(--mantine-color-dimmed)" />
                   <Text size="sm" c="dimmed">
-                    {new Date(t.dateStart).toLocaleDateString('es-ES', {
+                    {formatDate(t.dateStart, {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',

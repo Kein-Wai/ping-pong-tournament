@@ -53,6 +53,7 @@ import { useAuthStore } from '../../store/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { openAppConfirmModal } from '../../utils/modals';
+import { formatDate, formatDateTime } from '../../utils/dates';
 import { notifications } from '@mantine/notifications';
 
 interface UserProfile {
@@ -260,8 +261,8 @@ export const JugadorPerfil = () => {
             status: 'Rechazado',
           });
           navigate(APP_ROUTES.JUGADORES.LIST);
-        } catch (error) {
-          console.error('Error al dar de baja al jugador:', error);
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         }
       },
     });
@@ -347,8 +348,8 @@ export const JugadorPerfil = () => {
         try {
           await api.delete(ENDPOINTS.TRAININGS.DELETE_PLAN(planId));
           await fetchPlayerInfo();
-        } catch (error) {
-          console.error('Error al eliminar el plan:', error);
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         }
       },
     });
@@ -1055,7 +1056,7 @@ export const JugadorPerfil = () => {
             </Text>
           </Group>
           <Text size="sm" c="dimmed" mt={7}>
-            En {new Date().toLocaleString('es-ES', { month: 'long' })}
+            En {formatDateTime(new Date(), { month: 'long' })}
           </Text>
         </Paper>
       </SimpleGrid>
@@ -1092,7 +1093,7 @@ export const JugadorPerfil = () => {
                     </Text>
                     <Group gap="sm">
                       <Text size="sm" c="blue.8" fw={600}>
-                        {new Date(nextMatch.date).toLocaleString('es-ES', {
+                        {formatDateTime(nextMatch.date, {
                           dateStyle: 'full',
                           timeStyle: 'short',
                         })}
@@ -1155,10 +1156,7 @@ export const JugadorPerfil = () => {
                           </Text>
                           <Group gap="xs">
                             <Text size="xs" c="dimmed" fw={600}>
-                              {new Date(m.date).toLocaleString('es-ES', {
-                                dateStyle: 'short',
-                                timeStyle: 'short',
-                              })}
+                              {formatDateTime(m.date)}
                             </Text>
                           </Group>
                         </Stack>
@@ -1246,7 +1244,7 @@ export const JugadorPerfil = () => {
                 return (
                   <Table.Tr key={m.id}>
                     <Table.Td>
-                      {new Date(m.dateStart).toLocaleDateString('es-ES', {
+                      {formatDate(m.dateStart, {
                         day: '2-digit',
                         month: 'short',
                         year: 'numeric',
@@ -1342,7 +1340,7 @@ export const JugadorPerfil = () => {
                     </Group>
                   </Group>
                   <Text size="sm" c="dimmed" mb="md">
-                    Inicio: {new Date(plan.startDate).toLocaleDateString('es-ES')}
+                    Inicio: {formatDate(plan.startDate)}
                   </Text>
                   <Button
                     variant="light"

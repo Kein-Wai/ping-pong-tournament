@@ -66,8 +66,8 @@ export const useTorneoAcciones = ({
         try {
           await tournamentsService.updateParticipantStatus(id, playerId, status);
           setParticipants(await tournamentsService.participants(id));
-        } catch (error) {
-          console.error(error);
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         }
       },
     });

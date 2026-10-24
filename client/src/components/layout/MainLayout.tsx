@@ -79,7 +79,9 @@ export const MainLayout = () => {
       api
         .get(ENDPOINTS.CLUBS.NOTIFICATIONS(user.clubId))
         .then((res) => setNotificationsBadge(res.data.data))
-        .catch(console.error);
+        .catch(() => {
+          // El interceptor de api/axios ya notifica el error.
+        });
     }
   };
 
@@ -142,8 +144,8 @@ export const MainLayout = () => {
       });
       updateUserFields({ forcePasswordChange: false });
       setForcePasswordOpen(false);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setSavingPassword(false);
     }
