@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import confetti from 'canvas-confetti';
 import { tournamentsService as tournaments } from '../api/services/tournaments';
 import { matchesService } from '../api/services/matches';
 import { usersService } from '../api/services/users';
+import { KNOCKOUT_STAGES } from '../types/tournament';
 import type {
   GroupMatch,
   KnockoutRound,
@@ -83,6 +85,21 @@ export interface UseTournamentDetailsResult {
   removeTournament: () => Promise<void>;
   /** Jugadores del club, para el modal de inscripcion en bloque. */
   loadClubPlayers: () => Promise<unknown[]>;
+  /** Recarga solo el torneo (sin participantes) y sincroniza la pestana activa. */
+  reloadTournament: () => Promise<void>;
+  /** Recarga los datos de la pestana activa (tras una mutacion). */
+  reloadActiveTab: () => Promise<void>;
+  /** Sustituye la lista de participantes con datos ya obtenidos por el llamador. */
+  setParticipants: Dispatch<SetStateAction<Participant[] | null>>;
+}
+
+/** Opciones del hook. */
+export interface UseTournamentDetailsOptions {
+  /**
+   * Selecciona automaticamente el primer grupo al cargar la pestana de grupos.
+   * Por defecto true; las pantallas que filtran por su cuenta lo desactivan.
+   */
+  autoSelectGroup?: boolean;
 }
 
 /** Celebracion al completar el torneo. */
@@ -117,7 +134,10 @@ const celebrate = () => {
   }, 250);
 };
 
-export const useTournamentDetails = (tournamentId: string | undefined): UseTournamentDetailsResult => {
+export const useTournamentDetails = (
+  tournamentId: string | undefined,
+  { autoSelectGroup = true }: UseTournamentDetailsOptions = {},
+): UseTournamentDetailsResult => {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<Participant[] | null>(null);
   const [results, setResults] = useState<TournamentClas[] | null>(null);
@@ -147,6 +167,7 @@ export const useTournamentDetails = (tournamentId: string | undefined): UseTourn
 
       setActiveTab((prevTab) => {
         if (tData.status === 'Completado') return 'resultados';
+        if (tData.status && KNOCKOUT_STAGES.includes(tData.status) && prevTab !== 'bracketB') return 'bracketA';
         return prevTab;
       });
     } catch (error) {
@@ -190,7 +211,7 @@ export const useTournamentDetails = (tournamentId: string | undefined): UseTourn
           setGroupsClas(clas);
           setGroupMatches(matches);
 
-          if (clas.length > 0) {
+          if (autoSelectGroup && clas.length > 0) {
             setSelectedGroup(String(clas[0].tournamentGroup.group));
           }
         } else if (activeTab === 'bracketA' && bracketA === null) {
@@ -204,7 +225,7 @@ export const useTournamentDetails = (tournamentId: string | undefined): UseTourn
     };
 
     void fetchLazyData();
-  }, [activeTab, tournamentId, results, groupsClas, groupMatches, bracketA, bracketB]);
+  }, [activeTab, tournamentId, results, groupsClas, groupMatches, bracketA, bracketB, autoSelectGroup]);
 
   /** Recarga los datos de la pestana activa (tras una mutacion). */
   const reloadActiveTab = useCallback(async () => {
@@ -323,11 +344,7 @@ export const useTournamentDetails = (tournamentId: string | undefined): UseTourn
   const swapPlayers = useCallback(
     async (playerAId: string, playerBId: string) => {
       if (!tournamentId) return;
-      await tournaments.swapPlayers(tournamentId, {
-        groupId: '',
-        playerOneId: playerAId,
-        playerTwoId: playerBId,
-      });
+      await tournaments.swapPlayers(tournamentId, { playerAId, playerBId });
       await fetchTournamentInfo();
       await reloadActiveTab();
     },
@@ -410,6 +427,9 @@ export const useTournamentDetails = (tournamentId: string | undefined): UseTourn
     removeTournament,
     loadClubPlayers,
     isGenerating,
+    reloadTournament: fetchTournamentInfo,
+    reloadActiveTab,
+    setParticipants,
   };
 };
 

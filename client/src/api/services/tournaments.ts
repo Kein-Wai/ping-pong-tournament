@@ -40,11 +40,10 @@ export interface RegisterBulkPayload {
   playerIds: string[];
 }
 
-/** Datos para intercambiar dos jugadores de un grupo. */
+/** Datos para intercambiar dos jugadores (contrato de swapPlayersSchema en la API). */
 export interface SwapPlayersPayload {
-  groupId: string;
-  playerOneId: string;
-  playerTwoId: string;
+  playerAId: string;
+  playerBId: string;
 }
 
 export const tournamentsService = {
