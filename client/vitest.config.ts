@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
+    // Las pantallas formatean fechas con la zona horaria local: sin fijarla, los
+    // snapshots y los textos de fecha cambian segun la maquina que ejecute los tests.
+    env: { TZ: 'UTC' },
     globals: true,
     setupFiles: ['./src/setupTests.ts'],
     css: false,

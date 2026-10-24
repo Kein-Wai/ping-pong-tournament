@@ -33,3 +33,14 @@ globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserv
 
 // scrollTo no esta implementado en jsdom y lo usan los modales de Mantine.
 window.scrollTo = vi.fn();
+
+// scrollIntoView tampoco existe en jsdom y lo usan los Select/Combobox de
+// Mantine al resaltar la opcion activa de su desplegable.
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
+// document.fonts no existe en jsdom y el Textarea autosize de Mantine se suscribe
+// a su evento "loadingdone" para recalcular la altura cuando cargan las fuentes.
+Object.defineProperty(document, 'fonts', {
+  configurable: true,
+  value: { addEventListener: vi.fn(), removeEventListener: vi.fn() },
+});
