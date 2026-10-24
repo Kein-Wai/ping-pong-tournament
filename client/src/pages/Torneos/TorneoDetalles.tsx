@@ -143,10 +143,6 @@ export const TorneoDetalles = () => {
       onDeleted: () => navigate(APP_ROUTES.TORNEOS.LIST),
     });
 
-  // handleInscribirse movido a useTorneoInscripcion
-
-  // getStatusColor movido a TournamentHeader
-
   const onBracketMatchClick = (match: BracketMatch) => {
     setSelectedMatch(match);
   };
@@ -164,7 +160,6 @@ export const TorneoDetalles = () => {
         <Text c="dimmed">Torneo no encontrado.</Text>
       </Center>
     );
-
 
   return (
     <Stack gap="xl">
