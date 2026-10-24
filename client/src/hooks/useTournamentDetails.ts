@@ -2,40 +2,27 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import confetti from 'canvas-confetti';
 import { tournamentsService as tournaments } from '../api/services/tournaments';
-import { matchesService } from '../api/services/matches';
-import { usersService } from '../api/services/users';
 import { KNOCKOUT_STAGES } from '../types/tournament';
 import type {
   GroupMatch,
   KnockoutRound,
-  MatchToEdit,
   Participant,
   Tournament,
   TournamentClas,
-  TournamentFormat,
   TournamentGroupClas,
 } from '../types/tournament';
-
-/** Re-export para compatibilidad con imports anteriores. */
-export type { TournamentFormat };
 
 /**
  * Seam de datos de la pantalla de detalle de torneo.
  *
- * Concentra toda la orquestacion de llamadas a la API: la carga del torneo y
- * sus participantes, la carga perezosa de cada pestana y todas las mutaciones
- * (inscribirse, generar grupos, cambiar el formato, guardar un resultado,
- * intercambiar jugadores, inscribir en bloque).
- *
- * La pagina queda con el JSX y el estado de los modales; la logica de datos
- * vive aqui y se puede probar sin renderizar.
+ * Concentra la carga del torneo y sus participantes, la carga perezosa de
+ * cada pestana y las recargas (torneo, participantes, pestana activa) que
+ * necesitan el resto de hooks de la pantalla. Las mutaciones viven en los
+ * hooks useTorneo* y reciben estas recargas como callbacks.
  */
-
-/** Re-export: TournamentFormat ahora reside en types/tournament.ts. */
 
 /** Resultado del hook. */
 export interface UseTournamentDetailsResult {
-  isGenerating: boolean;
   loading: boolean;
   tournament: Tournament | null;
   participants: Participant[] | null;
@@ -67,24 +54,6 @@ export interface UseTournamentDetailsResult {
   reload: () => Promise<void>;
   /** Recarga solo los participantes. */
   reloadParticipants: () => Promise<void>;
-  /** Se inscribe al jugador actual. */
-  registerSelf: (playerId: string) => Promise<void>;
-  /** Cambia el estado de un participante (confirmar / no presentado). */
-  updateParticipantStatus: (playerId: string, status: string) => Promise<void>;
-  /** Genera los grupos del torneo. */
-  generateGroups: () => Promise<void>;
-  /** Guarda el formato del torneo. */
-  saveFormat: (format: TournamentFormat) => Promise<void>;
-  /** Guarda el resultado de un partido. */
-  saveMatch: (match: MatchToEdit) => Promise<void>;
-  /** Inscribe a varios jugadores de una vez. */
-  bulkEnroll: (playerIds: string[]) => Promise<void>;
-  /** Intercambia dos jugadores. */
-  swapPlayers: (playerAId: string, playerBId: string) => Promise<void>;
-  /** Elimina el torneo. */
-  removeTournament: () => Promise<void>;
-  /** Jugadores del club, para el modal de inscripcion en bloque. */
-  loadClubPlayers: () => Promise<unknown[]>;
   /** Recarga solo el torneo (sin participantes) y sincroniza la pestana activa. */
   reloadTournament: () => Promise<void>;
   /** Recarga los datos de la pestana activa (tras una mutacion). */
@@ -249,115 +218,6 @@ export const useTournamentDetails = (
     await Promise.all([fetchTournamentInfo(), fetchParticipants()]);
   }, [fetchTournamentInfo, fetchParticipants]);
 
-  const registerSelf = useCallback(
-    async (playerId: string) => {
-      if (!tournamentId) return;
-      await tournaments.register(tournamentId, { playerId });
-      await reload();
-    },
-    [tournamentId, reload],
-  );
-
-  const updateParticipantStatus = useCallback(
-    async (playerId: string, status: string) => {
-      if (!tournamentId) return;
-      await tournaments.updateParticipantStatus(tournamentId, playerId, status);
-      await fetchParticipants();
-    },
-    [tournamentId, fetchParticipants],
-  );
-
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const generateGroups = useCallback(async () => {
-    if (!tournamentId) return;
-    setIsGenerating(true);
-    try {
-      await tournaments.generateGroups(tournamentId);
-      await fetchTournamentInfo();
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [tournamentId, fetchTournamentInfo]);
-
-  const saveFormat = useCallback(
-    async (format: TournamentFormat) => {
-      if (!tournamentId || !tournament) return;
-
-      const payload: Record<string, number> = {
-        setsToWinGroup: Number(format.setsToWinGroup),
-        setsToWinKnockout: Number(format.setsToWinKnockout),
-      };
-
-      if (tournament.rounds !== 'Knockout') {
-        payload.numGroup = Number(format.numGroup);
-        payload.numGroupPlayers = Number(format.numGroupPlayers);
-        payload.playersKnockout = Number(format.playersKnockout);
-      }
-
-      await tournaments.update(tournamentId, payload);
-      await fetchTournamentInfo();
-    },
-    [tournamentId, tournament, fetchTournamentInfo],
-  );
-
-  const saveMatch = useCallback(
-    async (match: MatchToEdit) => {
-      if (!tournamentId) return;
-
-      await matchesService.update(match.id, {
-        status: match.status,
-        setsToWin: match.setsToWin,
-        playerOneId: match.playerOneId,
-        playerTwoId: match.playerTwoId,
-        setOnePlayerOne: Number(match.set1P1),
-        setOnePlayerTwo: Number(match.set1P2),
-        setTwoPlayerOne: Number(match.set2P1),
-        setTwoPlayerTwo: Number(match.set2P2),
-        setThreePlayerOne: Number(match.set3P1),
-        setThreePlayerTwo: Number(match.set3P2),
-        setFourPlayerOne: Number(match.set4P1),
-        setFourPlayerTwo: Number(match.set4P2),
-        setFivePlayerOne: Number(match.set5P1),
-        setFivePlayerTwo: Number(match.set5P2),
-        setSixPlayerOne: Number(match.set6P1),
-        setSixPlayerTwo: Number(match.set6P2),
-        setSevenPlayerOne: Number(match.set7P1),
-        setSevenPlayerTwo: Number(match.set7P2),
-      });
-
-      await reloadActiveTab();
-      await fetchTournamentInfo();
-    },
-    [tournamentId, reloadActiveTab, fetchTournamentInfo],
-  );
-
-  const bulkEnroll = useCallback(
-    async (playerIds: string[]) => {
-      if (!tournamentId) return;
-      await tournaments.registerBulk(tournamentId, { playerIds });
-      await Promise.all([fetchParticipants(), fetchTournamentInfo()]);
-    },
-    [tournamentId, fetchParticipants, fetchTournamentInfo],
-  );
-
-  const swapPlayers = useCallback(
-    async (playerAId: string, playerBId: string) => {
-      if (!tournamentId) return;
-      await tournaments.swapPlayers(tournamentId, { playerAId, playerBId });
-      await fetchTournamentInfo();
-      await reloadActiveTab();
-    },
-    [tournamentId, fetchTournamentInfo, reloadActiveTab],
-  );
-
-  const removeTournament = useCallback(async () => {
-    if (!tournamentId) return;
-    await tournaments.remove(tournamentId);
-  }, [tournamentId]);
-
-  const loadClubPlayers = useCallback(async () => usersService.list(), []);
-
   const confirmedPlayersCount = useMemo(
     () => participants?.filter((p) => p.status === 'Confirmado').length || 0,
     [participants],
@@ -417,16 +277,6 @@ export const useTournamentDetails = (
     groupOptions,
     reload,
     reloadParticipants: fetchParticipants,
-    registerSelf,
-    updateParticipantStatus,
-    generateGroups,
-    saveFormat,
-    saveMatch,
-    bulkEnroll,
-    swapPlayers,
-    removeTournament,
-    loadClubPlayers,
-    isGenerating,
     reloadTournament: fetchTournamentInfo,
     reloadActiveTab,
     setParticipants,

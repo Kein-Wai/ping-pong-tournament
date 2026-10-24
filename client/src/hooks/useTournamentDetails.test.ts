@@ -9,24 +9,11 @@ vi.mock('../api/services/tournaments', () => ({
     groupMatches: vi.fn(),
     bracket: vi.fn(),
     classifications: vi.fn(),
-    register: vi.fn(),
-    registerBulk: vi.fn(),
-    update: vi.fn(),
-    generateGroups: vi.fn(),
-    swapPlayers: vi.fn(),
-    remove: vi.fn(),
   },
-}));
-vi.mock('../api/services/matches', () => ({
-  matchesService: { update: vi.fn() },
-}));
-vi.mock('../api/services/users', () => ({
-  usersService: { list: vi.fn() },
 }));
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
 
 import { tournamentsService } from '../api/services/tournaments';
-import { matchesService } from '../api/services/matches';
 import confetti from 'canvas-confetti';
 import { useTournamentDetails } from './useTournamentDetails';
 import type {
@@ -36,7 +23,6 @@ import type {
   GroupMatch,
   KnockoutRound,
   TournamentParticipant,
-  MatchToEdit,
 } from '../types/tournament';
 
 const mockTournament = (over: Partial<Tournament> = {}): Tournament =>
@@ -244,52 +230,6 @@ describe('useTournamentDetails', () => {
         { value: '1', label: 'Grupo 1' },
         { value: '3', label: 'Grupo 3' },
       ]);
-    });
-  });
-
-  describe('mutations', () => {
-    beforeEach(() => mockLazyData());
-
-    it('saveMatch llama matchesService.update', async () => {
-      const { result } = renderHook(() => useTournamentDetails('t1'));
-      await waitForLoaded(result);
-
-      await act(async () => {
-        await result.current.saveMatch({
-          id: 'm1',
-          playerOneId: 'p1',
-          playerTwoId: 'p2',
-          setsToWin: 2,
-          status: 'Completado',
-          isKnockout: false,
-          set1P1: 1, set1P2: 0,
-          set2P1: 1, set2P2: 0,
-          set3P1: 0, set3P2: 0,
-          set4P1: 0, set4P2: 0,
-          set5P1: 0, set5P2: 0,
-          set6P1: 0, set6P2: 0,
-          set7P1: 0, set7P2: 0,
-        } as MatchToEdit);
-      });
-
-      expect(matchesService.update).toHaveBeenCalledWith('m1', expect.objectContaining({
-        status: 'Completado',
-        setsToWin: 2,
-      }));
-    });
-
-    it('swapPlayers llama al servicio con los IDs correctos', async () => {
-      const { result } = renderHook(() => useTournamentDetails('t1'));
-      await waitForLoaded(result);
-
-      await act(async () => {
-        await result.current.swapPlayers('p1', 'p2');
-      });
-
-      expect(tournamentsService.swapPlayers).toHaveBeenCalledWith('t1', {
-        playerAId: 'p1',
-        playerBId: 'p2',
-      });
     });
   });
 
