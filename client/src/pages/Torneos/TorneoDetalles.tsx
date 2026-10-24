@@ -9,9 +9,8 @@ import {
   IconRocket,
   IconTrash,
 } from '@tabler/icons-react';
-import { api } from '../../api/axios';
+import { tournamentsService } from '../../api/services/tournaments';
 import { openAppConfirmModal } from '../../utils/modals';
-import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import type { MatchToEdit } from '../../types/tournament';
 import { EditFormatModal } from '../../components/tournament/EditFormatModal';
@@ -113,8 +112,7 @@ export const TorneoDetalles = () => {
     onInscribirseSuccess: async () => {
       await fetchTournamentInfo();
       if (participants !== null) {
-        const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id!));
-        setParticipants(res.data.data);
+        setParticipants(await tournamentsService.participants(id!));
         window.dispatchEvent(new CustomEvent('refresh-notifications'));
       }
     },
@@ -160,11 +158,8 @@ export const TorneoDetalles = () => {
       confirmLabel: isNoShow ? 'Sí, Sancionar' : 'Confirmar Jugador',
       onConfirm: async () => {
         try {
-          await api.put(ENDPOINTS.TOURNAMENTS.UPDATE_PARTICIPANT_STATUS(id, playerId), {
-            status,
-          });
-          const res = await api.get(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id));
-          setParticipants(res.data.data);
+          await tournamentsService.updateParticipantStatus(id, playerId, status);
+          setParticipants(await tournamentsService.participants(id));
         } catch (error) {
           console.error(error);
         }
@@ -176,7 +171,7 @@ export const TorneoDetalles = () => {
     if (!id || !swapPlayerA || !swapPlayerB) return;
     setIsSwapping(true);
     try {
-      await api.put(ENDPOINTS.TOURNAMENTS.SWAP_PLAYERS(id), {
+      await tournamentsService.swapPlayers(id, {
         playerAId: swapPlayerA,
         playerBId: swapPlayerB,
       });
@@ -212,7 +207,7 @@ export const TorneoDetalles = () => {
       onConfirm: async () => {
         setIsGenerating(true);
         try {
-          await api.post(ENDPOINTS.TOURNAMENTS.GENERATE_GROUPS(id));
+          await tournamentsService.generateGroups(id);
           await fetchTournamentInfo();
           setActiveTab(hasGroupsFormat ? 'grupos' : 'bracketA');
         } catch (error) {
@@ -238,7 +233,7 @@ export const TorneoDetalles = () => {
       confirmLabel: 'Sí, Eliminar Torneo',
       onConfirm: async () => {
         try {
-          await api.delete(ENDPOINTS.TOURNAMENTS.DELETE(id));
+          await tournamentsService.remove(id);
           navigate(APP_ROUTES.TORNEOS.LIST);
         } catch (error) {
           console.error('Error al eliminar el torneo', error);
