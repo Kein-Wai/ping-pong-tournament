@@ -462,4 +462,51 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
       expect(response.body.error).toContain('ya ha comenzado');
     });
   });
+
+  describe('POST /:id/register (autoinscripcion)', () => {
+    const PLAYER_ID = '11111111-1111-4111-a111-111111111111';
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('Debería buscar el torneo por el id de la URL e inscribir al jugador (201)', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue({
+        id: MOCK_UUID,
+        status: 'Programado',
+        clubId: 'club-1',
+        numPlayers: 8,
+        _count: { participants: 0 },
+      } as any);
+      vi.mocked(prisma.tournamentParticipant.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.tournamentParticipant.create).mockResolvedValue({
+        id: 'part-1',
+        tournamentId: MOCK_UUID,
+        playerId: PLAYER_ID,
+        status: 'Pendiente',
+      } as any);
+
+      const response = await request(app)
+        .post(`/api/tournaments/${MOCK_UUID}/register`)
+        .send({ playerId: PLAYER_ID });
+
+      expect(prisma.tournament.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: MOCK_UUID } }),
+      );
+      expect(response.status).toBe(201);
+      expect(prisma.tournamentParticipant.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ tournamentId: MOCK_UUID, playerId: PLAYER_ID }),
+      });
+    });
+
+    it('Debería responder 404 si el torneo no existe', async () => {
+      vi.mocked(prisma.tournament.findUnique).mockResolvedValue(null);
+
+      const response = await request(app)
+        .post(`/api/tournaments/${MOCK_UUID}/register`)
+        .send({ playerId: PLAYER_ID });
+
+      expect(response.status).toBe(404);
+    });
+  });
 });

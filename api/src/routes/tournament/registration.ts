@@ -12,7 +12,7 @@ import { asyncHandler } from '../../http/response';
 const router = Router();
 
 router.post('/:id/register', asyncHandler(async (req, res) => {
-  const tournamentId = req.params.idd as string;
+  const tournamentId = req.params.id as string;
   const userId = req.user?.id;
 
   if (!userId) {
