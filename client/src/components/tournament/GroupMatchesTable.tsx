@@ -9,6 +9,7 @@ import {
   Button,
 } from '@mantine/core';
 import { IconEdit } from '@tabler/icons-react';
+import type { CSSProperties } from 'react';
 import type { GroupMatch } from '../../types/tournament';
 import { formatSets } from '../../utils/match-format';
 
@@ -36,7 +37,7 @@ export const GroupMatchesTable = ({
   if (!matches) {
     return (
       <Center py="xl">
-        <span className="mantine-Loader-root" style={{ '--loader-color': 'var(--mantine-color-blue-filled)' }} />
+        <span className="mantine-Loader-root" style={{ '--loader-color': 'var(--mantine-color-blue-filled)' } as CSSProperties} />
       </Center>
     );
   }

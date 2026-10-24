@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
@@ -67,13 +67,13 @@ describe('TournamentInfoCards', () => {
 
   it('muestra nivel y tipo de torneo', () => {
     const tournament = createMockTournament({
-      levelTournament: 'Profesional',
+      levelTournament: 'Avanzado',
       typeTournament: 'Oficial',
     });
     renderInfoCards({ tournament });
 
     expect(screen.getByText('Nivel / Acceso')).toBeInTheDocument();
-    expect(screen.getByText('Profesional · Oficial')).toBeInTheDocument();
+    expect(screen.getByText('Avanzado · Oficial')).toBeInTheDocument();
   });
 
   it('usa valores por defecto si levelTournament o typeTournament son null', () => {
@@ -191,7 +191,7 @@ describe('TournamentInfoCards', () => {
     it('muestra "Solo Llave A" para tipo simple', () => {
       const tournament = createMockTournament({
         rounds: 'Knockout',
-        typeKnockout: 'Simple',
+        typeKnockout: 'LlaveA',
         playersKnockout: null,
       });
       renderInfoCards({ tournament });

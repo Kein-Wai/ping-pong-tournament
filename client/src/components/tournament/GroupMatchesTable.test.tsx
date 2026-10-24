@@ -13,7 +13,6 @@ const renderMatchesTable = (props: {
   groupOptions?: Array<{ value: string; label: string }>;
   onGroupChange?: (group: string | null) => void;
   isAdmin?: boolean;
-  isKnockoutPhase?: boolean;
   tournamentStatus?: string | null | undefined;
   onEditMatch?: (match: GroupMatch, isKnockout: boolean) => void;
 }) => {
@@ -38,7 +37,6 @@ const renderMatchesTable = (props: {
       groupOptions={props.groupOptions ?? [{ value: '1', label: 'Grupo 1' }]}
       onGroupChange={onGroupChange}
       isAdmin={props.isAdmin ?? false}
-      isKnockoutPhase={props.isKnockoutPhase ?? false}
       tournamentStatus={props.tournamentStatus ?? 'Grupos'}
       onEditMatch={onEditMatch}
     />,

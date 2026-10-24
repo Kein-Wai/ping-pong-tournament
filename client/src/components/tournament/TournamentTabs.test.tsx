@@ -11,6 +11,7 @@ import type {
   KnockoutRound,
   GroupMatch,
   TournamentParticipant,
+  BracketMatch,
 } from '../../types/tournament';
 import TournamentTabs from './TournamentTabs';
 
@@ -21,7 +22,6 @@ const renderTabs = (props: Partial<{
   groupMatches: GroupMatch[] | null;
   bracketA: KnockoutRound[] | null;
   bracketB: KnockoutRound[] | null;
-  confirmedPlayersCount: number;
   isAdmin: boolean;
   isProgramado: boolean;
   isGrupos: boolean;
@@ -44,8 +44,8 @@ const renderTabs = (props: Partial<{
   setSubBracketA: (val: string | null) => void;
   subBracketB: string | null;
   setSubBracketB: (val: string | null) => void;
-  onMatchClick: (match: GroupMatch) => void;
-  onBracketMatchClick: (match: GroupMatch, isKnockout: boolean) => void;
+  onMatchClick: (match: BracketMatch, isKnockout: boolean) => void;
+  onBracketMatchClick: (match: BracketMatch) => void;
   onParticipantStatusChange: (
     playerId: string,
     playerName: string,
@@ -80,7 +80,6 @@ const renderTabs = (props: Partial<{
       groupMatches={props.groupMatches ?? null}
       bracketA={props.bracketA ?? null}
       bracketB={props.bracketB ?? null}
-      confirmedPlayersCount={props.confirmedPlayersCount ?? 0}
       isAdmin={props.isAdmin ?? false}
       isProgramado={props.isProgramado ?? false}
       isGrupos={props.isGrupos ?? false}
@@ -191,7 +190,7 @@ describe('TournamentTabs', () => {
   });
 
   it('NO muestra pestaña Cuadro Llave B cuando no es LlaveAB', () => {
-    const tournament = createMockTournament({ rounds: 'GruposKnockout', typeKnockout: 'Simple', status: 'Octavos' });
+    const tournament = createMockTournament({ rounds: 'GruposKnockout', typeKnockout: 'LlaveA', status: 'Octavos' });
     renderTabs({ tournament, hasKnockoutFormat: true, isKnockoutPhase: true });
 
     expect(screen.queryByText('Cuadro Llave B')).not.toBeInTheDocument();
@@ -202,7 +201,7 @@ describe('TournamentTabs', () => {
     const tournament = createMockTournament();
     renderTabs({ tournament, isProgramado: true, setActiveTab });
 
-    const inscritosTab = screen.getByText('Inscritos (0)');
+    screen.getByText('Inscritos (0)');
     // Note: The tab might not be clickable in test due to Mantine implementation
     // Just verify the callback exists
     expect(setActiveTab).toBeDefined();

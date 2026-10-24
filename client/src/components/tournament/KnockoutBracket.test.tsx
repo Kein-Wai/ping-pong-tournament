@@ -174,7 +174,7 @@ describe('KnockoutBracket', () => {
     renderBracket({ bracketData: [round], isAdmin: true, onEditMatch });
 
     const paper = screen.getByText('Juan Pérez').closest('[style*="cursor: pointer"]');
-    fireEvent.click(paper);
+    fireEvent.click(paper as HTMLElement);
 
     await waitFor(() => {
       expect(onEditMatch).toHaveBeenCalledWith(match, true);
@@ -188,7 +188,7 @@ describe('KnockoutBracket', () => {
     renderBracket({ bracketData: [round], isAdmin: false, onViewMatch });
 
     const paper = screen.getByText('Juan Pérez').closest('[style*="cursor: pointer"]');
-    fireEvent.click(paper);
+    fireEvent.click(paper as HTMLElement);
 
     await waitFor(() => {
       expect(onViewMatch).toHaveBeenCalledWith(match);
@@ -202,7 +202,7 @@ describe('KnockoutBracket', () => {
     renderBracket({ bracketData: [round], isAdmin: true, onEditMatch });
 
     const paper = screen.getByText('Juan Pérez').closest('[style*="cursor: pointer"]');
-    fireEvent.click(paper);
+    fireEvent.click(paper as HTMLElement);
 
     await waitFor(() => {
       expect(onEditMatch).toHaveBeenCalledWith(match, true);
@@ -219,7 +219,7 @@ describe('KnockoutBracket', () => {
     renderBracket({ bracketData: [round], isAdmin: true, onEditMatch });
 
     const paper = screen.getByText('Juan Pérez').closest('[style*="cursor: pointer"]');
-    fireEvent.click(paper);
+    fireEvent.click(paper as HTMLElement);
 
     await waitFor(() => {
       expect(onEditMatch).not.toHaveBeenCalled();
@@ -236,7 +236,7 @@ describe('KnockoutBracket', () => {
     renderBracket({ bracketData: [round], isAdmin: true, onEditMatch });
 
     const paper = screen.getByText('Juan Pérez').closest('[style*="cursor: pointer"]');
-    fireEvent.click(paper);
+    fireEvent.click(paper as HTMLElement);
 
     await waitFor(() => {
       expect(onEditMatch).not.toHaveBeenCalled();
