@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import prisma from '../../db';
-import { asyncHandler } from '../../http/response';
-import { buildNullableClubScope } from '../../utils/auth';
+import { asyncHandler, sendData } from '../../http/response';
+import { buildNullableClubScope, canAccessClub } from '../../utils/auth';
+import { toSafeUser } from '../../utils/safe-user';
 
 const router = Router();
 
@@ -74,6 +75,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
   }
 
+  // La autorización va ANTES de cualquier otra consulta: solo se puede ver el
+  // perfil propio o el de jugadores del propio club (el SuperAdmin ve todos).
+  const isOwnProfile = req.user?.id === user.id;
+  if (!isOwnProfile && !canAccessClub(req.user, user.clubId)) {
+    return res
+      .status(403)
+      .json({ success: false, error: 'No tienes permiso para ver este jugador' });
+  }
+
   // 2. Sumamos todas las micromejoras que están en estado EXPECTED
   const pendingUpdates = await prisma.playerSkillUpdate.aggregate({
     where: { playerId: id, status: 'EXPECTED' },
@@ -94,8 +104,10 @@ router.get('/:id', asyncHandler(async (req, res) => {
   });
 
   // 3. Devolvemos el usuario mezclado con sus mejoras pendientes
-  res.json({
-    ...user,
+  // `include` trae todos los escalares del usuario (password, tokens...): se
+  // quitan antes de responder.
+  sendData(res, {
+    ...toSafeUser(user),
     pendingSkills: pendingUpdates._sum, // Esto enviará un objeto con las sumas
   });
 

@@ -3,6 +3,7 @@ import prisma from '../../db';
 import bcrypt from 'bcryptjs';
 import { asyncHandler } from '../../http/response';
 import { updateProfileSchema } from '../../schemas/user';
+import { toSafeUser } from '../../utils/safe-user';
 
 const router = Router();
 
@@ -43,7 +44,7 @@ router.get('/me', asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     data: {
-      ...user,
+      ...toSafeUser(user),
       pendingSkills: pendingUpdates._sum,
     },
   });
