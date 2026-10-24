@@ -31,6 +31,20 @@ Monorepo for a table-tennis tournament/training app. The stack, naming, security
 - Refactors are surgical extractions: copy logic and JSX verbatim, don't change them, and add tests for what is created.
 - Don't `git add`/commit until the user approves; commit messages are long, descriptive and in Spanish like the history.
 
+### Refactor rules (apply to every refactor/migration task, all session long)
+
+The plan lives in `docs/plan-refactor-client.md`. While executing it:
+
+1. **One at a time.** Move logic piece by piece, never several concerns in one step.
+2. **JSX golden rule.** Copy the visual code exactly as is: no changes to Mantine props/classes, icons, margins or texts. Only create the new component, pass the needed variables as props and import it in the page it came from.
+3. **Re-check every finished file:** no unused variables/imports, and no lint, formatting or type warnings or errors.
+4. **Pure surgical extraction.** Don't alter the logic of the functions being moved.
+5. **Design vocabulary.** Review `docs/matt/skills/engineering/codebase-design/SKILL.md` first (depth, seam, adapter, deletion test) and apply it.
+6. **Types.** If readability needs new types, add them under `client/src/types/`.
+7. **Exploration only through the `codebase-memory` MCP server** (index and read the project with it). Shell commands to explore files (`ls`, `find`, `cat`, `grep`, `head`, `tail`) are forbidden and denied in `.claude/settings.json`; `npm`/`npx` stay allowed for lint, build and tests.
+8. **Tests for everything created**, colocated as `*.test.ts(x)`.
+9. **No `git add` or `git commit` until the user explicitly approves.** Once approved, add and commit with an extensive Spanish description. `git add`/`git commit` are denied in `.claude/settings.json`; the user lifts that when approving.
+
 ## Agent skills
 
 ### Issue tracker
