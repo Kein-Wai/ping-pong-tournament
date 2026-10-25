@@ -104,6 +104,10 @@ export const tournamentsService = {
   updateParticipantStatus: (id: string, playerId: string, status: PlayerTournamentStatus) =>
     http.put<void>(ENDPOINTS.TOURNAMENTS.UPDATE_PARTICIPANT_STATUS(id, playerId), { status }),
 
+  /** Torneos sin terminar en los que esta inscrito el jugador; solo los ve el propio jugador. */
+  enrolledByPlayer: (playerId: string) =>
+    http.get<Tournament[]>(ENDPOINTS.TOURNAMENTS.ENROLLED(playerId)),
+
   groupClassifications: (id: string) =>
     http.get<TournamentGroupClas[]>(ENDPOINTS.TOURNAMENTS.GROUPS(id)),
 

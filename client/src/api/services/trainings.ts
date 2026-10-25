@@ -1,6 +1,12 @@
 import { http } from '../client';
 import { ENDPOINTS } from '../endpoints';
-import type { Exercise, PlayerTraining, SessionExercise, TrainingSession } from '../../types/api';
+import type {
+  Exercise,
+  PlayerTraining,
+  SessionExercise,
+  TrainingSession,
+  UpcomingTrainingSession,
+} from '../../types/api';
 import type { ExerciseCategory } from '../../types/enums';
 
 /**
@@ -58,6 +64,10 @@ export const trainingsService = {
 
   sessionDetails: (sessionId: string) =>
     http.get<TrainingSession>(ENDPOINTS.TRAININGS.SESSION_DETAILS(sessionId)),
+
+  /** Las tres proximas sesiones con ejercicios sin completar; solo las ve el propio jugador. */
+  upcoming: (playerId: string) =>
+    http.get<UpcomingTrainingSession[]>(ENDPOINTS.TRAININGS.UPCOMING(playerId)),
 
   addExercise: (sessionId: string, payload: AddExercisePayload) =>
     http.post<SessionExercise>(ENDPOINTS.TRAININGS.SESSIONS(sessionId), payload),

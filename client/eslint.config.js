@@ -33,5 +33,27 @@ export default defineConfig([
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
+  // 3. El acceso a datos pasa por api/services (o por el adaptador http de api/client):
+  //    pantallas, hooks y componentes no deben importar api/axios directamente. En modo
+  //    `warn` mientras se migran las pantallas (Fase 3 del plan de refactor); los tests
+  //    y api/client.ts quedan exentos porque mockean o envuelven esa frontera.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/api/client.ts', 'src/**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: {
+      'no-restricted-imports': [
+        'warn',
+        {
+          patterns: [
+            {
+              group: ['**/api/axios'],
+              message:
+                'No importes api/axios: usa los servicios de api/services (o el adaptador http de api/client).',
+            },
+          ],
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
 ]);

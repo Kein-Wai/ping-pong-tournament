@@ -145,9 +145,27 @@ describe('trainingsService', () => {
     });
   });
 
-  it('no expone createSession ni upcoming: ninguna pantalla los usa', () => {
+  it('upcoming pide las próximas sesiones pendientes del jugador, con su plan y su recuento de ejercicios', async () => {
+    mockedApi.get.mockResolvedValue(
+      envelope([
+        {
+          id: 's1',
+          date: '2026-11-02T10:00:00.000Z',
+          training: { id: 'plan1', objectives: 'Subir de nivel' },
+          _count: { exercises: 4 },
+        },
+      ]),
+    );
+
+    const result = await trainingsService.upcoming('p1');
+
+    expect(mockedApi.get).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.UPCOMING('p1'), undefined);
+    expect(result[0].training.objectives).toBe('Subir de nivel');
+    expect(result[0]._count.exercises).toBe(4);
+  });
+
+  it('no expone createSession: la sesión libre no la usa ninguna pantalla', () => {
     expect(trainingsService).not.toHaveProperty('createSession');
-    expect(trainingsService).not.toHaveProperty('upcoming');
   });
 });
 

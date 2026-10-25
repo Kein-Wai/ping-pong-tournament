@@ -235,7 +235,12 @@ describe('tournamentsService', () => {
     });
   });
 
-  it('no expone enrolledByPlayer: ninguna pantalla lo usa', () => {
-    expect(tournamentsService).not.toHaveProperty('enrolledByPlayer');
+  it('enrolledByPlayer pide los torneos activos en los que está inscrito el jugador', async () => {
+    mockedApi.get.mockResolvedValue(envelope([{ id: 't1', name: 'Open', status: 'Programado' }]));
+
+    const result = await tournamentsService.enrolledByPlayer('p1');
+
+    expect(mockedApi.get).toHaveBeenCalledWith(ENDPOINTS.TOURNAMENTS.ENROLLED('p1'), undefined);
+    expect(result[0].name).toBe('Open');
   });
 });

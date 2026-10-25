@@ -269,6 +269,12 @@ export interface TrainingSession {
   exercises?: SessionExercise[];
 }
 
+/** Sesion pendiente del aviso del dashboard (GET /trainings/player/:id/upcoming). */
+export interface UpcomingTrainingSession extends Omit<TrainingSession, 'training'> {
+  training: { id: string; objectives: string | null };
+  _count: { exercises: number };
+}
+
 /** Plan de entrenamiento de un jugador. */
 export interface PlayerTraining {
   id: string;
