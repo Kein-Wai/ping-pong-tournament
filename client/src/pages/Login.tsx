@@ -1,54 +1,23 @@
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Title,
-  Center,
-  Stack,
-  TextInput,
-  PasswordInput,
-  Paper,
-  Text,
-  Divider,
-  Tabs,
-  Group,
-  SegmentedControl,
-  Box,
-  Overlay,
-  Anchor,
-  Checkbox,
-} from '@mantine/core';
+import { Title, Paper, Text, Tabs, Box, Overlay } from '@mantine/core';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../api/services/auth';
-import { GoogleLogin } from '@react-oauth/google';
-import { IconLock, IconUserPlus, IconBrandGoogle } from '@tabler/icons-react';
+import type { CredentialResponse } from '@react-oauth/google';
+import { IconLock, IconUserPlus } from '@tabler/icons-react';
 import DICTIONARY from '../constants/dictionary.json';
 import { notifications } from '@mantine/notifications';
 import { APP_ROUTES } from '../constants/routes';
+import { LoginForm } from '../components/auth/LoginForm';
+import { RegisterForm } from '../components/auth/RegisterForm';
+import { GoogleSection } from '../components/auth/GoogleSection';
+import type { ApiErrorLike, NativeGoogleResult, RegisterRole } from '../types/auth';
 
-// 1. IMPORTAR CAPACITOR Y GOOGLE AUTH NATIVO (Plugin moderno)
-import { Capacitor } from '@capacitor/core';
+// 1. GOOGLE AUTH NATIVO (Plugin moderno)
 import { SocialLogin } from '@capgo/capacitor-social-login';
 
 import styles from './Login.module.css';
-
-const inputStyles = {
-  input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    color: '#000',
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    '&::placeholder': {
-      color: '#666',
-    },
-  },
-  label: {
-    color: '#fff',
-    fontWeight: 600,
-  },
-};
-
-const LOGIN_BG =
-  'https://images.unsplash.com/photo-1534158914592-062992fbe900?q=80&w=1920&auto=format&fit=crop';
+import LOGIN_BG from '../assets/login-bg.jpg';
 
 export const Login = () => {
   const login = useAuthStore((state) => state.login);
@@ -69,7 +38,7 @@ export const Login = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [selectedRole, setSelectedRole] = useState<'Player' | 'AdminClub'>('Player');
+  const [selectedRole, setSelectedRole] = useState<RegisterRole>('Player');
   const [isSlowLoad, setIsSlowLoad] = useState(false);
 
   useEffect(() => {
@@ -143,12 +112,13 @@ export const Login = () => {
     };
 
     login(token, loggedUser);
-    navigate('/');
+    navigate(APP_ROUTES.HOME);
   };
 
-  const handleLoginError = (error: any) => {
-    if (error.response && error.response.data.error) {
-      setErrorMsg(error.response.data.error);
+  const handleLoginError = (error: unknown) => {
+    const apiError = error as ApiErrorLike;
+    if (apiError.response && apiError.response.data.error) {
+      setErrorMsg(apiError.response.data.error);
     } else {
       setErrorMsg('Error de conexión con el servidor');
     }
@@ -161,7 +131,7 @@ export const Login = () => {
     try {
       const { token } = await authService.login({ email, password });
       processSuccessfulLogin(token);
-    } catch (error: any) {
+    } catch (error) {
       handleLoginError(error);
     } finally {
       setIsLoginLoading(false);
@@ -205,7 +175,7 @@ export const Login = () => {
       setTimeout(() => {
         setActiveTab('login');
       }, 100);
-    } catch (error: any) {
+    } catch (error) {
       handleLoginError(error);
       setIsRegisterLoading(false);
     } finally {
@@ -214,16 +184,16 @@ export const Login = () => {
   };
 
   // Handler para la versión Web
-  const handleGoogleSuccessWeb = async (credentialResponse: any) => {
+  const handleGoogleSuccessWeb = async (credentialResponse: CredentialResponse) => {
     setIsLoginLoading(true);
     setErrorMsg('');
     try {
       const { token } = await authService.loginWithGoogle(
-        credentialResponse.credential,
+        credentialResponse.credential as string,
         activeTab === 'register' ? selectedRole : 'Player',
       );
       processSuccessfulLogin(token);
-    } catch (error: any) {
+    } catch (error) {
       handleLoginError(error);
     } finally {
       setIsLoginLoading(false);
@@ -241,7 +211,7 @@ export const Login = () => {
         options: {},
       });
 
-      const resultData = res.result as any;
+      const resultData = res.result as NativeGoogleResult;
       const idToken = resultData.idToken || resultData.authentication?.idToken;
 
       if (!idToken) {
@@ -254,12 +224,13 @@ export const Login = () => {
         activeTab === 'register' ? selectedRole : 'Player',
       );
       processSuccessfulLogin(token);
-    } catch (error: any) {
-      if (error?.message !== 'user canceled' && error?.message !== 'User cancelled login') {
+    } catch (error) {
+      const apiError = error as ApiErrorLike;
+      if (apiError?.message !== 'user canceled' && apiError?.message !== 'User cancelled login') {
         console.error('ERROR GOOGLE NATIVO:', error);
 
         const backendError =
-          error.response?.data?.error || error.response?.data?.message || error.message;
+          apiError.response?.data?.error || apiError.response?.data?.message || apiError.message;
         alert('DETALLE DEL ERROR: ' + JSON.stringify(backendError));
         setErrorMsg('Error al iniciar sesión con Google');
       }
@@ -339,167 +310,49 @@ export const Login = () => {
           </Tabs.List>
 
           <Tabs.Panel value="login">
-            <form onSubmit={handleRealLogin}>
-              <Stack gap="sm">
-                <TextInput
-                  label="Correo electrónico"
-                  placeholder="tu@email.com"
-                  required
-                  value={email}
-                  styles={inputStyles}
-                  onChange={(e) => setEmail(e.currentTarget.value)}
-                />
-                <PasswordInput
-                  label="Contraseña"
-                  placeholder="Tu contraseña"
-                  required
-                  value={password}
-                  styles={inputStyles}
-                  onChange={(e) => setPassword(e.currentTarget.value)}
-                />
-                <Group justify="space-between" mt="xs">
-                  <Anchor size="xs" onClick={() => navigate(APP_ROUTES.FORGOT_PASSWORD)}>
-                    ¿Olvidaste tu contraseña?
-                  </Anchor>
-                </Group>
-                <Button type="submit" fullWidth mt="xs" loading={isLoginLoading} color="blue">
-                  Iniciar Sesión
-                </Button>
-              </Stack>
-            </form>
+            <LoginForm
+              email={email}
+              password={password}
+              loading={isLoginLoading}
+              onEmailChange={setEmail}
+              onPasswordChange={setPassword}
+              onForgotPassword={() => navigate(APP_ROUTES.FORGOT_PASSWORD)}
+              onSubmit={handleRealLogin}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value="register">
-            <form onSubmit={handleRegister}>
-              <Stack gap="xs">
-                <SegmentedControl
-                  fullWidth
-                  value={selectedRole}
-                  onChange={(val: string) => setSelectedRole(val as 'Player' | 'AdminClub')}
-                  data={[
-                    { label: 'Jugador Libre', value: 'Player' },
-                    { label: 'Fundar Club', value: 'AdminClub' },
-                  ]}
-                  color={selectedRole === 'AdminClub' ? 'orange' : 'blue'}
-                  mb="xs"
-                />
-
-                <TextInput
-                  label="Nombre"
-                  placeholder="Tu nombre"
-                  required
-                  value={name}
-                  styles={inputStyles}
-                  onChange={(e) => setName(e.currentTarget.value)}
-                />
-                <Group grow gap="sm">
-                  <TextInput
-                    label="Primer Apellido"
-                    placeholder="Primer apellido"
-                    required
-                    value={surname}
-                    styles={inputStyles}
-                    onChange={(e) => setSurname(e.currentTarget.value)}
-                  />
-                  <TextInput
-                    label="Segundo Apellido"
-                    placeholder="Opcional"
-                    value={secondSurname}
-                    styles={inputStyles}
-                    onChange={(e) => setSecondSurname(e.currentTarget.value)}
-                  />
-                </Group>
-                <TextInput
-                  label="Correo electrónico"
-                  placeholder="tu@email.com"
-                  required
-                  type="email"
-                  value={email}
-                  styles={inputStyles}
-                  onChange={(e) => setEmail(e.currentTarget.value)}
-                />
-                <PasswordInput
-                  label="Contraseña"
-                  placeholder="Mínimo 8 caracteres"
-                  required
-                  value={password}
-                  styles={inputStyles}
-                  onChange={(e) => setPassword(e.currentTarget.value)}
-                />
-                <PasswordInput
-                  label="Confirmar Contraseña"
-                  placeholder="Repite tu contraseña"
-                  required
-                  value={confirmPassword}
-                  styles={inputStyles}
-                  onChange={(e) => setConfirmPassword(e.currentTarget.value)}
-                />
-                <Checkbox
-                  mt="sm"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.currentTarget.checked)}
-                  label={
-                    <Text size="xs" c="white">
-                      He leído y acepto la{' '}
-                      <Anchor onClick={() => navigate(APP_ROUTES.LEGAL)} c="cyan">
-                        Política de Privacidad
-                      </Anchor>
-                      . Declaro ser mayor de 14 años o contar con autorización legal.
-                    </Text>
-                  }
-                />
-
-                <Button
-                  type="submit"
-                  fullWidth
-                  color={selectedRole === 'AdminClub' ? 'orange' : 'green'}
-                  mt="xs"
-                  loading={isRegisterLoading}
-                  disabled={!acceptedTerms} // 👈 BLOQUEADO SI NO ACEPTA
-                >
-                  {selectedRole === 'AdminClub' ? 'Crear Cuenta de Sede' : 'Crear Cuenta Libre'}
-                </Button>
-              </Stack>
-            </form>
+            <RegisterForm
+              selectedRole={selectedRole}
+              name={name}
+              surname={surname}
+              secondSurname={secondSurname}
+              email={email}
+              password={password}
+              confirmPassword={confirmPassword}
+              acceptedTerms={acceptedTerms}
+              loading={isRegisterLoading}
+              onRoleChange={setSelectedRole}
+              onNameChange={setName}
+              onSurnameChange={setSurname}
+              onSecondSurnameChange={setSecondSurname}
+              onEmailChange={setEmail}
+              onPasswordChange={setPassword}
+              onConfirmPasswordChange={setConfirmPassword}
+              onAcceptedTermsChange={setAcceptedTerms}
+              onOpenPrivacy={() => navigate(APP_ROUTES.LEGAL)}
+              onSubmit={handleRegister}
+            />
           </Tabs.Panel>
         </Tabs>
 
-        {/* 4. RENDERIZADO CONDICIONAL DE GOOGLE LOGIN */}
-        <Divider label="O continuar con" labelPosition="center" my="lg" />
-        <Text size="xs" c="dimmed" ta="center" mb="sm" px="sm">
-          Al iniciar sesión o registrarte con Google, confirmas ser mayor de 14 años y aceptas
-          nuestra{' '}
-          <Anchor onClick={() => navigate(APP_ROUTES.LEGAL)} c="cyan">
-            Política de Privacidad
-          </Anchor>
-          .
-        </Text>
-        <Center>
-          {Capacitor.isNativePlatform() ? (
-            /* Botón nativo para iOS y Android */
-            <Button
-              variant="default"
-              fullWidth
-              leftSection={<IconBrandGoogle size={18} />}
-              onClick={handleGoogleNativeLogin}
-              loading={isLoginLoading}
-              style={{
-                backgroundColor: '#ffffff',
-                color: '#000000',
-                borderColor: '#dadce0',
-              }}
-            >
-              Continuar con Google
-            </Button>
-          ) : (
-            /* Componente oficial de Google para Web */
-            <GoogleLogin
-              onSuccess={handleGoogleSuccessWeb}
-              onError={() => setErrorMsg('Error interno al conectar con Google')}
-              useOneTap={false}
-            />
-          )}
-        </Center>
+        <GoogleSection
+          loading={isLoginLoading}
+          onNativeLogin={handleGoogleNativeLogin}
+          onWebSuccess={handleGoogleSuccessWeb}
+          onWebError={() => setErrorMsg('Error interno al conectar con Google')}
+          onOpenPrivacy={() => navigate(APP_ROUTES.LEGAL)}
+        />
         {isSlowLoad && (
           <Text c="orange" size="sm" ta="center" mt="md" fw={500} className={styles.animacionLenta}>
             Despertando al servidor de la capa gratuita... <br />

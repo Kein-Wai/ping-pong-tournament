@@ -4,7 +4,7 @@ import type {
   Exercise,
   PlayerTraining,
   SessionExercise,
-  TrainingSession,
+  TrainingSessionDetail,
   UpcomingTrainingSession,
 } from '../../types/api';
 import type { ExerciseCategory } from '../../types/enums';
@@ -63,7 +63,7 @@ export const trainingsService = {
   deletePlan: (planId: string) => http.delete<void>(ENDPOINTS.TRAININGS.PLAN_BY_ID(planId)),
 
   sessionDetails: (sessionId: string) =>
-    http.get<TrainingSession>(ENDPOINTS.TRAININGS.SESSION_DETAILS(sessionId)),
+    http.get<TrainingSessionDetail>(ENDPOINTS.TRAININGS.SESSION_DETAILS(sessionId)),
 
   /** Las tres proximas sesiones con ejercicios sin completar; solo las ve el propio jugador. */
   upcoming: (playerId: string) =>
@@ -90,7 +90,8 @@ export const exercisesService = {
   list: <T = Exercise>(category?: ExerciseCategory) =>
     http.get<T[]>(ENDPOINTS.EXERCISES.BASE, category ? { params: { category } } : undefined),
 
-  create: (payload: CreateExercisePayload) => http.post<Exercise>(ENDPOINTS.EXERCISES.BASE, payload),
+  create: (payload: CreateExercisePayload) =>
+    http.post<Exercise>(ENDPOINTS.EXERCISES.BASE, payload),
 };
 
 export default trainingsService;

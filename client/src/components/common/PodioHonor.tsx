@@ -1,16 +1,26 @@
+import type { ReactNode } from 'react';
 import { Card, Group, Stack, Avatar, Text, ThemeIcon, Badge } from '@mantine/core';
 import { IconTrophy, IconMedal } from '@tabler/icons-react';
 import { getPlayerAvatar } from '../../utils/avatar'; // 👈 1. Importamos la función
 import { returnEloColor } from '../../utils/helpers';
 
-interface PlayerProps {
-  name: string;
-  surname?: string;
-  avatarUrl?: string;
-  stats?: { elo: number; tournamentWon?: number };
+interface PodioStats {
+  elo: number;
+  tournamentWon?: number;
 }
 
-const getS = (p: any) => (Array.isArray(p?.stats) ? p.stats[0] : p?.stats);
+/** La API devuelve las estadísticas como objeto o como array de un elemento. */
+export interface PlayerProps {
+  name: string;
+  surname?: string | null;
+  avatarUrl?: string | null;
+  stats?: PodioStats | PodioStats[] | null;
+}
+
+const getS = (p?: PlayerProps | null) => {
+  const stats = p?.stats;
+  return Array.isArray(stats) ? stats[0] : stats;
+};
 
 // Declarado fuera de PodioHonor: un componente creado durante el render se remonta en cada render.
 const Escalón = ({
@@ -24,7 +34,7 @@ const Escalón = ({
   puesto: number;
   color: string;
   altura: number;
-  icono: any;
+  icono: ReactNode;
 }) => {
   if (!player) return <div style={{ width: 150 }} />;
   const s = getS(player); // 👈 Usamos el helper aquí
@@ -79,7 +89,7 @@ const Escalón = ({
   );
 };
 
-export const PodioHonor = ({ players }: { players: any[] }) => {
+export const PodioHonor = ({ players }: { players: PlayerProps[] }) => {
   const sortedPlayers = [...players].sort((a, b) => (getS(b)?.elo || 0) - (getS(a)?.elo || 0));
   const oro = sortedPlayers[0];
   const plata = sortedPlayers[1];

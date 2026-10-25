@@ -39,6 +39,7 @@ import type {
   RubberType,
 } from '../../types/enums';
 import { APP_ROUTES } from '../../constants/routes';
+import type { ManualMatch } from '../../types/api';
 import { DateInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
 
@@ -46,7 +47,7 @@ const ITEMS_PER_PAGE = 8;
 
 export const AnalisisList = () => {
   const navigate = useNavigate();
-  const [matches, setMatches] = useState<any[]>([]);
+  const [matches, setMatches] = useState<ManualMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);

@@ -34,6 +34,8 @@ import {
   IconUsers,
 } from '@tabler/icons-react';
 import { APP_ROUTES } from '../constants/routes';
+import type { ClubDetails, ClubTeam, Season } from '../types/api';
+import type { DashboardPlayer, UpcomingTeamMatch } from '../types/dashboard';
 
 export const Dashboard = () => {
   const { user, logout } = useAuthStore();
@@ -48,17 +50,17 @@ export const Dashboard = () => {
     user?.clubStatus?.toLowerCase() !== 'rechazado';
   const isPendingClub = user?.clubStatus?.toLowerCase() === 'pendiente';
 
-  const [currentSeason, setCurrentSeason] = useState<any>(null);
-  const [clubDetails, setClubDetails] = useState<any>(null);
-  const [playerData, setPlayerData] = useState<any>(null);
-  const [adminTeams, setAdminTeams] = useState<any[]>([]);
+  const [currentSeason, setCurrentSeason] = useState<Season | null>(null);
+  const [clubDetails, setClubDetails] = useState<ClubDetails | null>(null);
+  const [playerData, setPlayerData] = useState<DashboardPlayer | null>(null);
+  const [adminTeams, setAdminTeams] = useState<ClubTeam[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
         const activeS = await seasonsService.current();
-        setCurrentSeason(activeS);
+        setCurrentSeason(activeS ?? null);
 
         if (isAdminClub && user?.clubId) {
           const [club, teams] = await Promise.all([
@@ -68,7 +70,7 @@ export const Dashboard = () => {
           setClubDetails(club);
           setAdminTeams(teams);
         } else if (isPlayer && user?.id) {
-          const player = await usersService.byId(user.id);
+          const player = await usersService.byId<DashboardPlayer>(user.id);
           setPlayerData(player);
         }
       } catch (error) {
@@ -89,15 +91,11 @@ export const Dashboard = () => {
   }
 
   const s = Array.isArray(playerData?.stats) ? playerData.stats[0] : playerData?.stats;
-  const allTeamMatches =
-    playerData?.teams?.flatMap((t: any) =>
-      t.matches.map((m: any) => ({ ...m, teamName: t.name })),
-    ) || [];
+  const allTeamMatches: UpcomingTeamMatch[] =
+    playerData?.teams?.flatMap((t) => t.matches.map((m) => ({ ...m, teamName: t.name }))) || [];
   const upcomingMatches = allTeamMatches
-    .filter(
-      (m: any) => m.status === 'Programado' && new Date(m.date).getTime() >= new Date().getTime(),
-    )
-    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .filter((m) => m.status === 'Programado' && new Date(m.date).getTime() >= new Date().getTime())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const nextMatch = upcomingMatches[0];
 
   return (
@@ -127,7 +125,7 @@ export const Dashboard = () => {
             size="sm"
             onClick={() => {
               logout();
-              navigate('/login');
+              navigate(APP_ROUTES.LOGIN);
             }}
           >
             Cerrar Sesión

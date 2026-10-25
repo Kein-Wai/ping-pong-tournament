@@ -107,11 +107,11 @@ export const MainLayout = () => {
     if (
       isPlayer &&
       !hasCompletedLocal &&
-      (!(user as any).dominantHand ||
-        !(user as any).playstyle ||
-        !(user as any).birthDate ||
-        !(user as any).rubberForehand ||
-        !(user as any).rubberBackhand)
+      (!user.dominantHand ||
+        !user.playstyle ||
+        !user.birthDate ||
+        !user.rubberForehand ||
+        !user.rubberBackhand)
     ) {
       setOnboardingOpen(true);
     } else {
@@ -170,11 +170,11 @@ export const MainLayout = () => {
       });
 
       updateUserFields({
-        dominantHand: hand as any,
-        playstyle: style as any,
-        birthDate: birthDate.toISOString() as any,
-        rubberForehand: rubberForehand as any,
-        rubberBackhand: rubberBackhand as any,
+        dominantHand: hand,
+        playstyle: style,
+        birthDate: birthDate.toISOString(),
+        rubberForehand: rubberForehand,
+        rubberBackhand: rubberBackhand,
       });
 
       // BLINDAJE: Marcamos en el navegador que ya lo hizo

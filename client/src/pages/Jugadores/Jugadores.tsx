@@ -15,6 +15,7 @@ import { PlayersHeader } from '../../components/players/PlayersHeader';
 import { PlayersTable } from '../../components/players/PlayersTable';
 import { ResetAccountModal } from '../../components/players/ResetAccountModal';
 import { filterPlayers } from '../../utils/players';
+import { APP_ROUTES } from '../../constants/routes';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -118,7 +119,7 @@ export const Jugadores = () => {
         onProcessRequest={handleProcessRequest}
         onEditElo={openEditElo}
         onResetAccount={handleOpenResetAccount}
-        onViewProfile={(playerId) => navigate(`/jugadores/${playerId}`)}
+        onViewProfile={(playerId) => navigate(APP_ROUTES.JUGADORES.PROFILE(playerId))}
       />
 
       {totalPages > 1 && (

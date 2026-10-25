@@ -519,6 +519,18 @@ describe('Login', () => {
     });
   });
 
+  describe('fondo', () => {
+    // Un fondo remoto deja la app nativa sin imagen cuando no hay red.
+    it('usa la imagen incluida en la app y no una URL externa', () => {
+      const { container } = renderPage();
+
+      const background = container.querySelector<HTMLElement>('[style*="background-image"]');
+
+      expect(background?.style.backgroundImage).toContain('login-bg');
+      expect(background?.style.backgroundImage).not.toContain('unsplash');
+    });
+  });
+
   describe('estructura del DOM', () => {
     // Verificador mecanico de la regla de oro del JSX.
     it('la pantalla de acceso conserva su estructura', () => {

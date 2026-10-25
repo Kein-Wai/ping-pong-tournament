@@ -4,12 +4,13 @@ import { Card, Title, Text, Group, Button, Stack, ThemeIcon } from '@mantine/cor
 import { IconTrophy, IconSearch } from '@tabler/icons-react';
 import { tournamentsService } from '../../api/services/tournaments';
 import { APP_ROUTES } from '../../constants/routes';
+import type { Tournament } from '../../types/tournament';
 import { useAuthStore } from '../../store/authStore';
 
 export const WidgetTorneos = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const [activeTournaments, setActiveTournaments] = useState<any[]>([]);
+  const [activeTournaments, setActiveTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

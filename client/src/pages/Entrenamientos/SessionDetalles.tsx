@@ -20,6 +20,7 @@ import {
 } from '@mantine/core';
 import { IconArrowLeft, IconBook, IconCheck } from '@tabler/icons-react';
 import { trainingsService } from '../../api/services/trainings';
+import type { TrainingSessionDetail } from '../../types/api';
 
 // Rellena esto con los datos exactos de tu foto
 const NOMENCLATURA = [
@@ -44,7 +45,7 @@ export const SessionDetalles = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<TrainingSessionDetail | null>(null);
 
   // const isOwnProfile = currentUser?.id === id;
 
@@ -177,7 +178,7 @@ export const SessionDetalles = () => {
         Ejercicios a Ejecutar
       </Title>
       {session.exercises.length > 0 &&
-        session.exercises.filter((ex: any) => ex.completed).length === session.exercises.length && (
+        session.exercises.filter((ex) => ex.completed).length === session.exercises.length && (
           <Alert variant="light" color="green" title="¡Gran trabajo!" icon={<IconCheck />} mb="md">
             Has completado todos los ejercicios de esta sesión. Puedes volver al Macrociclo cuando
             quieras.
@@ -187,7 +188,7 @@ export const SessionDetalles = () => {
       {session.exercises.length === 0 ? (
         <Text c="dimmed">No hay ejercicios asignados a esta sesión.</Text>
       ) : (
-        session.exercises.map((item: any, index: number) => (
+        session.exercises.map((item, index) => (
           <Card key={item.id} shadow="sm" radius="md" withBorder>
             <Group justify="space-between" align="flex-start" mb="xs">
               <Group gap="sm" style={{ flex: 1 }}>

@@ -35,7 +35,7 @@ export const ClubSelection = () => {
           (club) => !club.name.toUpperCase().startsWith('(DEMO)'),
         );
         setClubs(visibleClubs);
-      } catch (error: any) {
+      } catch (error) {
         console.error(error);
       } finally {
         setLoading(false);

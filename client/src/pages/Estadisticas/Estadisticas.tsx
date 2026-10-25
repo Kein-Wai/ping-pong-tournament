@@ -33,12 +33,15 @@ import { usersService } from '../../api/services/users';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { PodioHonor } from '../../components/common/PodioHonor';
 import { returnEloColor } from '../../utils/helpers';
+import type { Match } from '../../types/api';
+import type { TrainingSession } from '../../types/generalTraining';
 
 interface PlayerStats {
   id: string;
   name: string;
   surname: string | null;
   avatarUrl: string | null;
+  birthDate?: string | null;
   clubStatus: string;
   stats: {
     elo: number;
@@ -53,8 +56,8 @@ const ITEMS_PER_PAGE = 10;
 
 export const Estadisticas = () => {
   const [players, setPlayers] = useState<PlayerStats[]>([]);
-  const [matches, setMatches] = useState<any[]>([]);
-  const [trainings, setTrainings] = useState<any[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [trainings, setTrainings] = useState<TrainingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
 
@@ -65,7 +68,7 @@ export const Estadisticas = () => {
         const [usersData, matchesData, trainingsData] = await Promise.all([
           usersService.list<PlayerStats>(),
           matchesService.list(),
-          generalTrainingsService.list(),
+          generalTrainingsService.list<TrainingSession>(),
         ]);
 
         let data: PlayerStats[] = usersData;
@@ -139,7 +142,7 @@ export const Estadisticas = () => {
   const attendanceCount: Record<string, number> = {};
   const scheduleStats: Record<string, { total: number; count: number }> = {};
 
-  trainings.forEach((t: any) => {
+  trainings.forEach((t) => {
     // Media por horario
     if (t.schedule?.name) {
       const name = t.schedule.name;
@@ -149,7 +152,7 @@ export const Estadisticas = () => {
     }
 
     // Top asistencias
-    t.attendances?.forEach((a: any) => {
+    t.attendances?.forEach((a) => {
       if (a.attended) {
         attendanceCount[a.playerId] = (attendanceCount[a.playerId] || 0) + 1;
       }
@@ -209,7 +212,7 @@ export const Estadisticas = () => {
 
   const today = new Date();
 
-  players.forEach((u: any) => {
+  players.forEach((u) => {
     if (u.birthDate) {
       const birthDate = new Date(u.birthDate);
       let age = today.getFullYear() - birthDate.getFullYear();

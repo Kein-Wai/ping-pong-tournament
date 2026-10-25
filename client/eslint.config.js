@@ -26,8 +26,8 @@ export default defineConfig([
       // Apagamos la regla estricta que te daba error en los useEffects
       'react-hooks/set-state-in-effect': 'off',
 
-      // Convertimos el error de usar "any" en una simple advertencia (naranja en vez de rojo)
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // El cliente ya no tiene ningún "any" explícito: se mantiene como error para que no vuelva
+      '@typescript-eslint/no-explicit-any': 'error',
 
       // Convertimos las dependencias faltantes del useEffect en advertencia
       'react-hooks/exhaustive-deps': 'warn',
@@ -51,6 +51,25 @@ export default defineConfig([
                 'No importes api/axios: usa los servicios de api/services (o el adaptador http de api/client).',
             },
           ],
+        },
+      ],
+      // Las rutas de navegación salen de APP_ROUTES (constants/routes.ts), no de un path escrito a mano.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.name='navigate'] > Literal.arguments:first-child[value=/^\\//]",
+          message: 'No escribas la ruta a mano: usa APP_ROUTES (constants/routes.ts).',
+        },
+        {
+          selector:
+            "CallExpression[callee.name='navigate'] > TemplateLiteral.arguments:first-child[quasis.0.value.raw=/^\\//]",
+          message: 'No escribas la ruta a mano: usa APP_ROUTES (constants/routes.ts).',
+        },
+        {
+          selector:
+            "JSXOpeningElement[name.name='Navigate'] > JSXAttribute[name.name='to'] > Literal[value=/^\\//]",
+          message: 'No escribas la ruta a mano: usa APP_ROUTES (constants/routes.ts).',
         },
       ],
     },

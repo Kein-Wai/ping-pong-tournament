@@ -16,6 +16,7 @@ import { clubsService } from '../../api/services/clubs';
 import { useAuthStore } from '../../store/authStore';
 import { Autocomplete } from '@mantine/core';
 import { LOCALIZACIONES_ESPANA } from '../../constants/localizaciones';
+import { APP_ROUTES } from '../../constants/routes';
 
 export const ClubSetup = () => {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export const ClubSetup = () => {
         clubStatus: 'Aprobado',
       });
 
-      navigate('/');
+      navigate(APP_ROUTES.HOME);
     } catch (error) {
       console.error('Error al registrar la sede:', error);
     } finally {

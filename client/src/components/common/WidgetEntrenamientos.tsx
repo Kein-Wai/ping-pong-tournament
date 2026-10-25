@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Title, Text, Group, Button, Stack, ThemeIcon } from '@mantine/core';
 import { IconBarbell, IconCalendarEvent } from '@tabler/icons-react';
 import { trainingsService } from '../../api/services/trainings';
+import type { UpcomingTrainingSession } from '../../types/api';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -11,7 +12,7 @@ export const WidgetEntrenamientos = () => {
   const { user } = useAuthStore();
   const { isPlayer } = usePermissions();
   const navigate = useNavigate();
-  const [upcoming, setUpcoming] = useState<any[]>([]);
+  const [upcoming, setUpcoming] = useState<UpcomingTrainingSession[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export const WidgetEntrenamientos = () => {
       <Stack gap="sm">
         {upcoming.map((session, index) => {
           // Calculamos cuántos ha hecho
-          const completedCount = (session.exercises || []).filter((e: any) => e.completed).length;
+          const completedCount = (session.exercises || []).filter((e) => e.completed).length;
           const totalCount = session._count.exercises;
 
           return (

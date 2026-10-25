@@ -6,6 +6,7 @@
  * esta verificado contra Prisma por el test de contrato de la API.
  */
 import type {
+  AnalysisType,
   ClubStatus,
   DominantHand,
   EventRegion,
@@ -231,6 +232,7 @@ export interface ManualMatch {
   status: MatchStatus;
   mySets: number;
   opponentSets: number;
+  analysisType?: AnalysisType;
   points?: ManualMatchPoint[];
 }
 
@@ -267,6 +269,11 @@ export interface TrainingSession {
   title?: string | null;
   training?: PlayerTraining | null;
   exercises?: SessionExercise[];
+}
+
+/** Sesion con sus ejercicios, tal como la devuelve el detalle (GET /trainings/sessions/:id). */
+export interface TrainingSessionDetail extends TrainingSession {
+  exercises: SessionExercise[];
 }
 
 /** Sesion pendiente del aviso del dashboard (GET /trainings/player/:id/upcoming). */
@@ -393,7 +400,9 @@ export interface AppFeedback {
   type: FeedbackType;
   content: string;
   status: FeedbackStatus;
-  createdAt?: string;
+  createdAt: string;
+  /** Autor del feedback: solo lo incluye la bandeja del SuperAdmin. */
+  user?: { name: string; surname?: string | null; email: string } | null;
 }
 
 /** Nodo del cuadro de eliminatorias. */

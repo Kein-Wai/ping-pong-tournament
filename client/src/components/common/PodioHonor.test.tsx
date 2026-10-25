@@ -1,14 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
 import { normalizeIds, renderWithProviders } from '../../test/utils';
-import { PodioHonor } from './PodioHonor';
+import { PodioHonor, type PlayerProps } from './PodioHonor';
 
 const ANA = { id: 'p1', name: 'Ana', stats: { elo: 1500, tournamentWon: 3 } };
 const BEA = { id: 'p2', name: 'Bea', stats: [{ elo: 1200 }] };
 const DANI = { id: 'p3', name: 'Dani', stats: { elo: 900, tournamentWon: 0 } };
 const CARLOS = { id: 'p4', name: 'Carlos' };
 
-const renderPodio = (players: unknown[]) => renderWithProviders(<PodioHonor players={players} />);
+const renderPodio = (players: PlayerProps[]) =>
+  renderWithProviders(<PodioHonor players={players} />);
 
 describe('PodioHonor', () => {
   it('no pinta nada sin jugadores', () => {

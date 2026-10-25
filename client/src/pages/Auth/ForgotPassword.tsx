@@ -29,8 +29,8 @@ export const ForgotPassword = () => {
     try {
       await authService.forgotPassword(email);
       setSubmitted(true);
-    } catch (error: any) {
-      console.log(error);
+    } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }

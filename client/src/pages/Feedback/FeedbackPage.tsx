@@ -21,9 +21,10 @@ import {
 import { IconBug, IconMessageCircle, IconCheck, IconEye } from '@tabler/icons-react';
 import { feedbackService } from '../../api/services/feedback';
 import { usePermissions } from '../../hooks/usePermissions';
+import type { AppFeedback } from '../../types/api';
 
 export const FeedbackPage = () => {
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<AppFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -32,7 +33,7 @@ export const FeedbackPage = () => {
   const [content, setContent] = useState('');
 
   // Modal Admin
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<AppFeedback | null>(null);
 
   // Solo el SuperAdmin gestiona la bandeja (el backend restringe igual el GET y el PUT).
   const { isSuperAdmin: isAdmin } = usePermissions();

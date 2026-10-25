@@ -28,6 +28,7 @@ import { useTrainingPlan } from '../../hooks/useTrainingPlan';
 import { AddExerciseModal } from '../../components/training/AddExerciseModal';
 import { CloneSessionModal } from '../../components/training/CloneSessionModal';
 import { PlanSessionCard } from '../../components/training/PlanSessionCard';
+import { APP_ROUTES } from '../../constants/routes';
 
 export const PlanDetalles = () => {
   const { planId } = useParams();
@@ -90,7 +91,7 @@ export const PlanDetalles = () => {
           onClick={() => {
             if (planData?.playerId) {
               // Te lleva directamente al perfil del jugador
-              navigate(`/jugadores/${planData.playerId}`);
+              navigate(APP_ROUTES.JUGADORES.PROFILE(planData.playerId));
             } else {
               navigate(-1); // Respaldo por si aún no ha cargado
             }

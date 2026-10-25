@@ -115,7 +115,7 @@ function AppContent() {
           if (decodedPayload.exp && decodedPayload.exp < currentTime) {
             console.warn('Token caducado, cerrando sesión...');
             logout();
-            navigate('/login');
+            navigate(APP_ROUTES.LOGIN);
           } else if (!user) {
             // Si el token es válido pero aún no tenemos los datos del usuario, los traemos
             await fetchProfile();

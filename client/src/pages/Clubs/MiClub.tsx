@@ -35,6 +35,7 @@ import { clubsService } from '../../api/services/clubs';
 import { LOCALIZACIONES_ESPANA } from '../../constants/localizaciones';
 import type { ClubDetails } from '../../types/api';
 import '@mantine/dates/styles.css';
+import { APP_ROUTES } from '../../constants/routes';
 
 export const MiClub = () => {
   const { user } = useAuthStore();
@@ -316,7 +317,7 @@ export const MiClub = () => {
               color="blue"
               fullWidth
               mt="md"
-              onClick={() => navigate('/jugadores')}
+              onClick={() => navigate(APP_ROUTES.JUGADORES.LIST)}
             >
               Gestionar Solicitudes y Plantilla
             </Button>
