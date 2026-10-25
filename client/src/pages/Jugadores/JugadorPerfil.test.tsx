@@ -834,6 +834,22 @@ describe('JugadorPerfil', () => {
       );
     });
 
+    // Regresión: al guardar el perfil de otro jugador se copiaban sus datos a la sesión del
+    // administrador (updateUserFields), que pasaba a llamarse como el jugador editado.
+    it('un administrador que edita a otro jugador no modifica su propia sesión', async () => {
+      loginAs(ADMIN);
+      await renderProfile();
+      await openEdit();
+      fireEvent.change(screen.getByLabelText(/^Nickname/), { target: { value: 'El Muro' } });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar Cambios' }));
+
+      await waitFor(() => expect(api.put).toHaveBeenCalled());
+      await waitFor(() => expect(api.get).toHaveBeenCalledTimes(8));
+      expect(useAuthStore.getState().user).toMatchObject({ id: 'admin-1', name: 'Visitante' });
+      expect(useAuthStore.getState().user?.nickname).toBeUndefined();
+    });
+
     it('el propio jugador no ve los atributos base ni, sin cuenta local, el cambio de contrasena', async () => {
       await renderProfile();
 

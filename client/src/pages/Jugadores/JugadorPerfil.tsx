@@ -322,12 +322,15 @@ export const JugadorPerfil = () => {
 
       await api.put(targetEndpoint, payload);
       setEditModalOpened(false);
-      updateUserFields({
-        name: editData.name,
-        surname: editData.surname,
-        nickname: editData.nickname,
-        avatarUrl: editData.avatarUrl,
-      });
+      // La sesión solo refleja el perfil propio: un administrador que edita a otro no debe sobrescribirla.
+      if (isOwnProfile) {
+        updateUserFields({
+          name: editData.name,
+          surname: editData.surname,
+          nickname: editData.nickname,
+          avatarUrl: editData.avatarUrl,
+        });
+      }
       await fetchPlayerInfo();
     } catch (error) {
       console.error('Error actualizando el perfil:', error);
@@ -419,15 +422,19 @@ export const JugadorPerfil = () => {
     const didWin = isPlayerOne ? p1Sets > p2Sets : p2Sets > p1Sets;
 
     if (opponent.dominantHand === 'Diestro') {
-      didWin ? rivalStats.Diestro.win++ : rivalStats.Diestro.loss++;
+      if (didWin) rivalStats.Diestro.win++;
+      else rivalStats.Diestro.loss++;
     } else if (opponent.dominantHand === 'Zurdo') {
-      didWin ? rivalStats.Zurdo.win++ : rivalStats.Zurdo.loss++;
+      if (didWin) rivalStats.Zurdo.win++;
+      else rivalStats.Zurdo.loss++;
     }
 
     if (opponent.playstyle === 'Ofensivo') {
-      didWin ? rivalStats.Ofensivo.win++ : rivalStats.Ofensivo.loss++;
+      if (didWin) rivalStats.Ofensivo.win++;
+      else rivalStats.Ofensivo.loss++;
     } else if (opponent.playstyle === 'Defensivo') {
-      didWin ? rivalStats.Defensivo.win++ : rivalStats.Defensivo.loss++;
+      if (didWin) rivalStats.Defensivo.win++;
+      else rivalStats.Defensivo.loss++;
     }
   });
 

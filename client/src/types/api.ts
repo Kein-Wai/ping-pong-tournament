@@ -48,16 +48,18 @@ export interface UserType {
   name: TypeUser;
 }
 
-/** Estadisticas agregadas de un jugador. */
+/** Estadisticas agregadas de un jugador (modelo Stats de Prisma). */
 export interface PlayerStats {
   id: string;
   elo: number | null;
-  matchesPlayed: number | null;
-  matchesWon: number | null;
-  setsPlayed?: number | null;
-  setsWon?: number | null;
-  pointsPlayed?: number | null;
-  pointsWon?: number | null;
+  matchWon?: number | null;
+  matchLost?: number | null;
+  setWon?: number | null;
+  setLost?: number | null;
+  pointWon?: number | null;
+  pointLost?: number | null;
+  tournamentWon?: number | null;
+  tournamentPart?: number | null;
 }
 
 /** Skills tecnicas de un jugador. */

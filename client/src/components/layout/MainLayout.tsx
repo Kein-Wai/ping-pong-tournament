@@ -126,7 +126,7 @@ export const MainLayout = () => {
         color: 'red',
       });
     }
-    const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!\%*?&]).{8,32}$/.test(passwords.new);
+    const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,32}$/.test(passwords.new);
     if (!isStrong) {
       return notifications.show({
         title: 'Contraseña débil',
