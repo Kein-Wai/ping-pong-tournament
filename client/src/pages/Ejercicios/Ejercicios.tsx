@@ -14,10 +14,10 @@ import {
 } from '@mantine/core';
 import { IconPlus, IconBook, IconFilter } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { exercisesService } from '../../api/services/trainings';
 import { APP_ROUTES } from '../../constants/routes';
 import { EXERCISE_CATEGORIES } from '../../constants/constants';
+import type { ExerciseCategory } from '../../types/enums';
 
 interface Exercise {
   id: string;
@@ -38,13 +38,11 @@ export const Ejercicios = () => {
     const fetchExercises = async () => {
       setLoading(true);
       try {
-        // Si hay categoría seleccionada, la mandamos en la URL (?category=...)
-        const url = categoryFilter
-          ? `${ENDPOINTS.EXERCISES.BASE}?category=${categoryFilter}`
-          : ENDPOINTS.EXERCISES.BASE;
-
-        const response = await api.get(url);
-        setExercises(response.data.data);
+        // Si hay categoría seleccionada, el servicio la manda como ?category=...
+        const data = await exercisesService.list<Exercise>(
+          categoryFilter ? (categoryFilter as ExerciseCategory) : undefined,
+        );
+        setExercises(data);
       } catch (error) {
         console.error('Error cargando catálogo:', error);
       } finally {

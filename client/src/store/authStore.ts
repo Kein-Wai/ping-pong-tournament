@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { api } from '../api/axios'; // Ajusta el import según tu estructura
-import { ENDPOINTS } from '../api/endpoints'; // Ajusta el import
+import { usersService } from '../api/services/users';
 
 // Interfaz completa del usuario en el cliente
 export interface User {
@@ -59,8 +58,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!token) return;
 
     try {
-      const response = await api.get(ENDPOINTS.USERS.ME);
-      const fullUser = response.data.data;
+      // El perfil llega con la relación userType, que el tipo de dominio no declara.
+      const fullUser = (await usersService.me()) as unknown as User & {
+        userType?: { name?: string };
+      };
 
       // Mapeamos el rol desde la relación para que el frontend no se rompa
       const userToStore: User = {

@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 
-import { api } from '../api/axios';
-import { ENDPOINTS } from '../api/endpoints';
+import { matchesService } from '../api/services/matches';
 import { openAppConfirmModal } from '../utils/modals';
 import { IconTournament, IconTrophy } from '@tabler/icons-react';
 import type {
@@ -115,7 +114,7 @@ export const useTorneoPartido = ({
         setSevenPlayerTwo: Number(editMatch.set7P2),
       };
 
-      await api.put(ENDPOINTS.MATCHES.BY_ID(editMatch.id), payload);
+      await matchesService.update(editMatch.id, payload);
       setEditMatch(null);
       await onMatchSaved();
     } catch (error) {

@@ -2,8 +2,10 @@
  * Barrel de los servicios de la API.
  *
  * Cada dominio tiene su modulo con una funcion por operacion. Las paginas
- * importan de aqui (o del modulo concreto) en lugar de llamar a axios, lo que
- * deja el acceso a datos en un unico sitio.
+ * importan del modulo concreto (o de aqui) en lugar de llamar a axios, lo que
+ * deja el acceso a datos en un unico sitio. La regla de lint
+ * `no-restricted-imports` (eslint.config.js) impide importar `api/axios`; solo
+ * las 5 pantallas gigantes siguen avisando hasta que la Fase 4 las migre.
  */
 export { authService } from './auth';
 export { usersService } from './users';

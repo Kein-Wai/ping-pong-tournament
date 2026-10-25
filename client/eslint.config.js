@@ -34,12 +34,37 @@ export default defineConfig([
     },
   },
   // 3. El acceso a datos pasa por api/services (o por el adaptador http de api/client):
-  //    pantallas, hooks y componentes no deben importar api/axios directamente. En modo
-  //    `warn` mientras se migran las pantallas (Fase 3 del plan de refactor); los tests
-  //    y api/client.ts quedan exentos porque mockean o envuelven esa frontera.
+  //    pantallas, hooks y componentes no deben importar api/axios directamente. Los tests
+  //    y api/client.ts quedan exentos porque mockean o envuelven esa frontera; main.tsx
+  //    también, porque registra en el interceptor el cierre de sesión (setUnauthorizedHandler).
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/api/client.ts', 'src/**/*.test.{ts,tsx}', 'src/test/**'],
+    ignores: ['src/api/client.ts', 'src/main.tsx', 'src/**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/api/axios'],
+              message:
+                'No importes api/axios: usa los servicios de api/services (o el adaptador http de api/client).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // 4. Las 5 pantallas gigantes migran su acceso a datos dentro de la Fase 4 del plan de
+  //    refactor (para no tocar dos veces el mismo archivo): hasta entonces solo avisan.
+  {
+    files: [
+      'src/pages/Equipos/EquipoDetalles.tsx',
+      'src/pages/Jugadores/JugadorPerfil.tsx',
+      'src/pages/Jugadores/Jugadores.tsx',
+      'src/pages/Entrenamientos/EntrenamientosGenerales.tsx',
+      'src/pages/Analisis/ManualMatchTracker.tsx',
+    ],
     rules: {
       'no-restricted-imports': [
         'warn',

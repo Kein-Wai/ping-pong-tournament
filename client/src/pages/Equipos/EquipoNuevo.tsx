@@ -13,8 +13,7 @@ import {
   SimpleGrid,
 } from '@mantine/core';
 import { IconShield, IconDeviceFloppy, IconArrowLeft } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { teamsService } from '../../api/services/teams';
 import { APP_ROUTES } from '../../constants/routes';
 
 export const EquipoNuevo = () => {
@@ -31,7 +30,7 @@ export const EquipoNuevo = () => {
 
     setLoading(true);
     try {
-      await api.post(ENDPOINTS.TEAMS.BASE, { name, category, level });
+      await teamsService.create({ name, category, level });
       navigate(APP_ROUTES.EQUIPOS.LIST);
     } catch (error) {
       console.error(error);

@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 
-import { api } from '../api/axios';
-import { ENDPOINTS } from '../api/endpoints';
+import { tournamentsService, type CreateTournamentPayload } from '../api/services/tournaments';
 import type { Tournament } from '../types/tournament';
 
 /**
@@ -42,7 +41,7 @@ export const useTorneoFormato = ({ id, tournament, onFormatSaved }: UseTorneoFor
   const saveFormat = useCallback(async () => {
     if (!id || !tournament) return;
     try {
-      const payload: Record<string, number> = {
+      const payload: Partial<CreateTournamentPayload> = {
         setsToWinGroup: Number(setsToWinGroup),
         setsToWinKnockout: Number(setsToWinKnockout),
       };
@@ -53,7 +52,7 @@ export const useTorneoFormato = ({ id, tournament, onFormatSaved }: UseTorneoFor
         payload.playersKnockout = Number(playersKnockout);
       }
 
-      await api.put(ENDPOINTS.TOURNAMENTS.UPDATE(id), payload);
+      await tournamentsService.update(id, payload);
       setEditFormatOpened(false);
       await onFormatSaved();
     } catch (error) {

@@ -32,6 +32,8 @@ describe('useTorneoFormato', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     onFormatSaved.mockResolvedValue(undefined);
+    // El adaptador http lee `response.data`: el mock debe devolver una respuesta.
+    vi.mocked(api.put).mockResolvedValue({ data: { success: true } } as never);
   });
 
   it('inicializa valores por defecto', () => {
@@ -97,7 +99,7 @@ describe('useTorneoFormato', () => {
       numGroup: 6,
       numGroupPlayers: 3,
       playersKnockout: 2,
-    });
+    }, undefined);
     expect(result.current.editFormatOpened).toBe(false);
     expect(onFormatSaved).toHaveBeenCalled();
   });
@@ -119,6 +121,7 @@ describe('useTorneoFormato', () => {
       setsToWinGroup: 2,
       setsToWinKnockout: 3,
     });
+    expect(callArgs[2]).toBeUndefined();
   });
 
   it('saveFormat captura errores sin lanzar', async () => {

@@ -105,7 +105,7 @@ describe('useTorneoPartido', () => {
       setSixPlayerTwo: 0,
       setSevenPlayerOne: 0,
       setSevenPlayerTwo: 0,
-    });
+    }, undefined);
 
     expect(result.current.editMatch).toBeNull();
     expect(result.current.submittingMatch).toBe(false);

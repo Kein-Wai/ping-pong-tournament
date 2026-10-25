@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { notifications } from '@mantine/notifications';
-import { api } from './axios';
+import { api, setUnauthorizedHandler } from './axios';
 import { resetErrorNotifier } from './notify';
 
 vi.mock('@mantine/notifications', () => ({
@@ -83,5 +83,56 @@ describe('Interceptor de errores (client/src/api/axios.ts)', () => {
     };
     // @ts-expect-error -- se simula el error de axios
     await expect(api.interceptors.response.handlers[0].rejected(error)).rejects.toBe(error);
+  });
+
+  describe('sesión caducada (401)', () => {
+    const onUnauthorized = vi.fn();
+
+    beforeEach(() => {
+      setUnauthorizedHandler(onUnauthorized);
+      vi.stubGlobal('location', { href: '/torneos' });
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      setUnauthorizedHandler(null);
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    const rejectUnauthorized = async (url: string) => {
+      const error = {
+        isAxiosError: true,
+        response: { status: 401, data: {}, config: { method: 'get', url } },
+      };
+      // @ts-expect-error -- se simula el error de axios
+      await expect(api.interceptors.response.handlers[0].rejected(error)).rejects.toBe(error);
+    };
+
+    it('avisa al manejador registrado, redirige al login y no muestra toast', async () => {
+      await rejectUnauthorized('/users/me');
+
+      expect(onUnauthorized).toHaveBeenCalledTimes(1);
+      expect(window.location.href).toBe('/login');
+      expect(notifications.show).not.toHaveBeenCalled();
+    });
+
+    it('redirige al login aunque no haya manejador registrado', async () => {
+      setUnauthorizedHandler(null);
+
+      await rejectUnauthorized('/users/me');
+
+      expect(window.location.href).toBe('/login');
+    });
+
+    it.each(['/auth/login', '/auth/google'])(
+      'un 401 de %s no cierra la sesión ni redirige',
+      async (url) => {
+        await rejectUnauthorized(url);
+
+        expect(onUnauthorized).not.toHaveBeenCalled();
+        expect(window.location.href).toBe('/torneos');
+      },
+    );
   });
 });

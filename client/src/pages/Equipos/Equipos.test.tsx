@@ -5,7 +5,7 @@ import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
-import { loginAs, renderWithProviders } from '../../test/utils';
+import { loginAs, normalizeIds, renderWithProviders } from '../../test/utils';
 import { Equipos } from './Equipos';
 
 // Se mockea el `api` de bajo nivel (la frontera del sistema) y no los servicios,
@@ -23,8 +23,8 @@ const TEAMS = [
 
 const serve = ({ seasons = [{ name: 'Temporada 2026/2027', isCurrent: true }], teams = TEAMS } = {}) => {
   vi.mocked(api.get).mockImplementation((async (url: string) => {
-    if (url === ENDPOINTS.SEASONS.BASE) return { data: { data: seasons } };
-    if (url === ENDPOINTS.TEAMS.BY_CLUB('club-1')) return { data: { data: teams } };
+    if (url === ENDPOINTS.SEASONS.BASE) return { data: { success: true, data: seasons } };
+    if (url === ENDPOINTS.TEAMS.BY_CLUB('club-1')) return { data: { success: true, data: teams } };
     throw new Error(`Peticion no esperada: ${url}`);
   }) as never);
 };
@@ -55,7 +55,8 @@ describe('Equipos', () => {
   it('lista los equipos del club con categoria, nivel y plantilla', async () => {
     await renderLoaded();
 
-    expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TEAMS.BY_CLUB('club-1'));
+    expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TEAMS.BY_CLUB('club-1'), undefined);
+    expect(api.get).toHaveBeenCalledWith(ENDPOINTS.SEASONS.BASE, undefined);
     expect(screen.getByText('Equipo A')).toBeInTheDocument();
     expect(screen.getByText('Senior')).toBeInTheDocument();
     expect(screen.getByText('Avanzado')).toBeInTheDocument();
@@ -89,7 +90,7 @@ describe('Equipos', () => {
 
     await renderLoaded();
 
-    expect(api.get).not.toHaveBeenCalledWith(ENDPOINTS.TEAMS.BY_CLUB('club-1'));
+    expect(api.get).not.toHaveBeenCalledWith(ENDPOINTS.TEAMS.BY_CLUB('club-1'), undefined);
     expect(screen.getByText('Tu club aún no ha registrado ningún equipo para ligas.')).toBeInTheDocument();
   });
 
@@ -99,6 +100,13 @@ describe('Equipos', () => {
     fireEvent.click(screen.getByText('Equipo A'));
 
     expect(await screen.findByText('Pantalla de equipo')).toBeInTheDocument();
+  });
+
+  it('el DOM del listado no cambia', async () => {
+    const { container } = await renderLoaded();
+    await screen.findByText('Temporada 2026/2027');
+
+    expect(normalizeIds(container.innerHTML)).toMatchSnapshot();
   });
 
   describe('crear equipo', () => {

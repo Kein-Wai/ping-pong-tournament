@@ -19,15 +19,28 @@ const lintRule = async (code: string, filePath: string) => {
 const importAxios = (from: string) => `import { api } from '${from}';\nexport const x = api;\n`;
 
 describe('regla no-restricted-imports sobre api/axios', () => {
-  it('avisa (no falla) cuando una pantalla importa api/axios', async () => {
+  it('falla (error) cuando una pantalla importa api/axios', async () => {
     const messages = await lintRule(importAxios('../../api/axios'), 'src/pages/Ejemplo.tsx');
 
     expect(messages).toHaveLength(1);
-    expect(messages[0].severity).toBe(1);
+    expect(messages[0].severity).toBe(2);
     expect(messages[0].message).toContain('api/services');
   });
 
-  it('avisa cuando lo importa un hook, un componente o el store', async () => {
+  it.each([
+    'src/pages/Equipos/EquipoDetalles.tsx',
+    'src/pages/Jugadores/JugadorPerfil.tsx',
+    'src/pages/Jugadores/Jugadores.tsx',
+    'src/pages/Entrenamientos/EntrenamientosGenerales.tsx',
+    'src/pages/Analisis/ManualMatchTracker.tsx',
+  ])('solo avisa (warn) en %s, que migra en la Fase 4', async (file) => {
+    const messages = await lintRule(importAxios('../../api/axios'), file);
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0].severity).toBe(1);
+  });
+
+  it('falla cuando lo importa un hook, un componente o el store', async () => {
     const hook = await lintRule(importAxios('../api/axios'), 'src/hooks/useEjemplo.ts');
     const component = await lintRule(importAxios('../../api/axios'), 'src/components/common/Ejemplo.tsx');
     const store = await lintRule(importAxios('../api/axios'), 'src/store/ejemploStore.ts');
@@ -39,6 +52,12 @@ describe('regla no-restricted-imports sobre api/axios', () => {
 
   it('no avisa en api/client.ts, que es el adaptador que sí lo usa', async () => {
     const messages = await lintRule(importAxios('../api/axios'), 'src/api/client.ts');
+
+    expect(messages).toHaveLength(0);
+  });
+
+  it('no avisa en main.tsx, que registra el cierre de sesión en el interceptor', async () => {
+    const messages = await lintRule(importAxios('./api/axios'), 'src/main.tsx');
 
     expect(messages).toHaveLength(0);
   });

@@ -8,6 +8,12 @@ import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
 import '@mantine/charts/styles.css';
 import './index.css';
+import { setUnauthorizedHandler } from './api/axios';
+import { useAuthStore } from './store/authStore';
+
+// Un 401 fuera del login significa sesión caducada: el interceptor avisa y el store la cierra.
+setUnauthorizedHandler(() => useAuthStore.getState().logout());
+
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

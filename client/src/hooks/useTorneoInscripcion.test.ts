@@ -67,7 +67,7 @@ describe('useTorneoInscripcion', () => {
     const mockPlayers: ClubPlayer[] = [
       { id: 'u1', name: 'Ana', surname: null, avatarUrl: null },
     ];
-    vi.mocked(api.get).mockResolvedValue({ data: { data: mockPlayers } } as unknown as AxiosResponse);
+    vi.mocked(api.get).mockResolvedValue({ data: { success: true, data: mockPlayers } } as unknown as AxiosResponse);
 
     const { result } = renderHook(() =>
       useTorneoInscripcion({
@@ -83,7 +83,7 @@ describe('useTorneoInscripcion', () => {
       await result.current.handleOpenEnrollModal();
     });
 
-    expect(api.get).toHaveBeenCalledWith('/users');
+    expect(api.get).toHaveBeenCalledWith('/users', undefined);
     expect(result.current.clubPlayers).toEqual(mockPlayers);
     expect(result.current.checkedToEnroll).toEqual([]);
     expect(result.current.enrollModalOpen).toBe(true);
@@ -140,7 +140,7 @@ describe('useTorneoInscripcion', () => {
       playerId: 'u1',
       registeredAt: expect.any(String),
       status: 'Pendiente',
-    });
+    }, undefined);
     expect(onInscribirseSuccess).toHaveBeenCalled();
     expect(result.current.isRegistering).toBe(false);
   });
@@ -168,7 +168,7 @@ describe('useTorneoInscripcion', () => {
 
     expect(api.post).toHaveBeenCalledWith('/tournaments/t1/register-bulk', {
       playerIds: ['u1', 'u2'],
-    });
+    }, undefined);
     expect(result.current.enrollModalOpen).toBe(false);
     expect(onBulkEnrollSuccess).toHaveBeenCalled();
     expect(result.current.enrolling).toBe(false);

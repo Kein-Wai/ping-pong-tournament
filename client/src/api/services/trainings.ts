@@ -83,9 +83,12 @@ export const trainingsService = {
 };
 
 export const exercisesService = {
-  /** Catalogo de ejercicios, opcionalmente filtrado por categoria (?category=). */
-  list: (category?: ExerciseCategory) =>
-    http.get<Exercise[]>(ENDPOINTS.EXERCISES.BASE, category ? { params: { category } } : undefined),
+  /**
+   * Catalogo de ejercicios, opcionalmente filtrado por categoria (?category=).
+   * `T` permite a la pantalla tipar su propia proyeccion del ejercicio.
+   */
+  list: <T = Exercise>(category?: ExerciseCategory) =>
+    http.get<T[]>(ENDPOINTS.EXERCISES.BASE, category ? { params: { category } } : undefined),
 
   create: (payload: CreateExercisePayload) => http.post<Exercise>(ENDPOINTS.EXERCISES.BASE, payload),
 };

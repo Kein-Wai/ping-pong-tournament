@@ -1,8 +1,15 @@
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
-import { useAuthStore } from '../store/authStore';
 import { extractErrorMessage, NETWORK_ERROR_MESSAGE } from './errors';
 import { errorNotifier } from './notify';
+
+// Quien cierra la sesión lo registra main.tsx: importar el store aquí cerraba el ciclo
+// axios → authStore → servicios → client → axios.
+let onUnauthorized: (() => void) | null = null;
+
+export const setUnauthorizedHandler = (handler: (() => void) | null) => {
+  onUnauthorized = handler;
+};
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -45,7 +52,7 @@ api.interceptors.response.use(
 
         console.warn('Sesión caducada. Redirigiendo al Login...');
 
-        useAuthStore.getState().logout();
+        onUnauthorized?.();
 
         window.location.href = '/login';
         return Promise.reject(error);

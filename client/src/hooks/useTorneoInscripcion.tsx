@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
-import { api } from '../api/axios';
-import { ENDPOINTS } from '../api/endpoints';
+import { tournamentsService } from '../api/services/tournaments';
+import { usersService } from '../api/services/users';
 import { openAppConfirmModal } from '../utils/modals';
 import { IconTrophy } from '@tabler/icons-react';
 import type { Tournament, ClubPlayer } from '../types/tournament';
@@ -42,8 +42,8 @@ export const useTorneoInscripcion = ({
 
   const handleOpenEnrollModal = useCallback(async () => {
     try {
-      const res = await api.get(ENDPOINTS.USERS.BASE);
-      setClubPlayers(res.data.data);
+      const players = await usersService.list<ClubPlayer>();
+      setClubPlayers(players);
       setCheckedToEnroll([]);
       setEnrollModalOpen(true);
     } catch (e) {
@@ -65,8 +65,8 @@ export const useTorneoInscripcion = ({
       onConfirm: async () => {
         setIsRegistering(true);
         try {
-          await api.post(ENDPOINTS.TOURNAMENTS.REGISTER(id), {
-            playerId: user?.id,
+          await tournamentsService.register(id, {
+            playerId: user?.id as string,
             registeredAt: new Date().toISOString(),
             status: 'Pendiente',
           });
@@ -84,7 +84,7 @@ export const useTorneoInscripcion = ({
     if (!id) return;
     setEnrolling(true);
     try {
-      await api.post(ENDPOINTS.TOURNAMENTS.REGISTER_BULK(id), { playerIds: checkedToEnroll });
+      await tournamentsService.registerBulk(id, { playerIds: checkedToEnroll });
       setEnrollModalOpen(false);
       await onBulkEnrollSuccess();
     } catch (error) {

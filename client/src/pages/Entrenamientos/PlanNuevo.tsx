@@ -16,9 +16,10 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { IconClipboardList, IconDeviceFloppy, IconArrowLeft } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { trainingsService } from '../../api/services/trainings';
+import { usersService } from '../../api/services/users';
 import { APP_ROUTES } from '../../constants/routes';
+import type { User } from '../../types/api';
 
 export const PlanNuevo = () => {
   // 1. Extraemos el playerId de la URL mágica de React Router
@@ -26,7 +27,7 @@ export const PlanNuevo = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
-  const [playerData, setPlayerData] = useState<{ name: string; surname: string } | null>(null);
+  const [playerData, setPlayerData] = useState<Pick<User, 'name' | 'surname'> | null>(null);
 
   // Estados del Formulario (Alineados con tus reglas de Zod)
   const [strengths, setStrengths] = useState('');
@@ -39,9 +40,9 @@ export const PlanNuevo = () => {
   // Al montar la pantalla, buscamos el nombre del jugador para la UX
   useEffect(() => {
     if (!playerId) return;
-    api
-      .get(ENDPOINTS.USERS.BY_ID(playerId))
-      .then((res) => setPlayerData(res.data.data))
+    usersService
+      .byId(playerId)
+      .then(setPlayerData)
       .catch((err) => console.error('Error al cargar jugador', err));
   }, [playerId]);
 
@@ -62,11 +63,10 @@ export const PlanNuevo = () => {
       };
 
       // 1. Guardamos la respuesta del backend
-      const response = await api.post(ENDPOINTS.TRAININGS.BASE, payload);
+      const newPlan = await trainingsService.createPlan(payload);
 
       // 3. Extraemos el ID del nuevo plan y navegamos DIRECTAMENTE a sus detalles
-      const newPlanId = response.data.data.id;
-      navigate(APP_ROUTES.ENTRENAMIENTOS.DETAILS(newPlanId));
+      navigate(APP_ROUTES.ENTRENAMIENTOS.DETAILS(newPlan.id));
     } catch (error) {
       console.error('Error al crear el plan:', error);
     } finally {
