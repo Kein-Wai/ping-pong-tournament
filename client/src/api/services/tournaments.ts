@@ -8,31 +8,64 @@ import type {
   KnockoutRound,
   GroupMatch,
 } from '../../types/tournament';
+import type {
+  LevelTournament,
+  PlayerTournamentStatus,
+  Rounds,
+  SortGroups,
+  SortKnockout,
+  TournamentStatus,
+  TypeKnockout,
+  TypeTournament,
+} from '../../types/enums';
 
-/** Servicios de torneos: consulta, inscripcion, grupos y cuadro. */
+/**
+ * Servicios de torneos: consulta, inscripcion, grupos y cuadro.
+ *
+ * Los payloads reflejan los esquemas Zod de la API (api/src/schemas/tournament.ts).
+ * Dos rutas responden FUERA del sobre { success, data }: crear un torneo devuelve
+ * { message, tournament } e inscribir a un jugador { message, participant }.
+ * Borrar, inscripcion masiva, cambio de estado, generacion y cambio de jugadores
+ * responden solo { success, message }: no devuelven datos.
+ */
 
-/** Datos para crear un torneo. */
+/** Datos para crear un torneo (baseTournamentObject). El club sale del token, no del cuerpo. */
 export interface CreateTournamentPayload {
   name: string;
   dateStart: string;
   numPlayers: number;
-  clubId?: string;
-  typeTournament?: string;
-  levelTournament?: string;
-  rounds?: string;
-  typeKnockout?: string;
-  playersKnockout?: number;
-  sortGroups?: string;
-  sortKnockout?: string;
-  numGroup?: number;
-  numGroupPlayers?: number;
-  setsToWinGroup?: number;
-  setsToWinKnockout?: number;
+  typeTournament?: TypeTournament;
+  levelTournament?: LevelTournament;
+  rounds?: Rounds;
+  status?: TournamentStatus;
+  typeKnockout?: TypeKnockout | null;
+  playersKnockout?: number | null;
+  sortGroups?: SortGroups | null;
+  sortKnockout?: SortKnockout | null;
+  allPos?: boolean | null;
+  numGroup?: number | null;
+  numGroupPlayers?: number | null;
+  setsToWinGroup?: number | null;
+  setsToWinKnockout?: number | null;
 }
 
-/** Datos de una inscripcion individual. */
+/** Respuesta de crear un torneo: la API la manda sin sobre. */
+export interface CreateTournamentResult {
+  message: string;
+  tournament: Tournament;
+}
+
+/** Datos de una inscripcion individual (registerParticipantSchema). */
 export interface RegisterPayload {
   playerId: string;
+  registeredAt?: string;
+  status?: PlayerTournamentStatus;
+}
+
+/** Respuesta de inscribir a un jugador: la API la manda sin sobre. */
+export interface RegisterResult {
+  message: string;
+  participant: TournamentParticipant;
 }
 
 /** Datos de una inscripcion multiple. */
@@ -52,7 +85,7 @@ export const tournamentsService = {
   byId: (id: string) => http.get<Tournament>(ENDPOINTS.TOURNAMENTS.BY_ID(id)),
 
   create: (payload: CreateTournamentPayload) =>
-    http.post<Tournament>(ENDPOINTS.TOURNAMENTS.BASE, payload),
+    http.post<CreateTournamentResult>(ENDPOINTS.TOURNAMENTS.BASE, payload),
 
   update: (id: string, payload: Partial<CreateTournamentPayload>) =>
     http.put<Tournament>(ENDPOINTS.TOURNAMENTS.UPDATE(id), payload),
@@ -63,23 +96,13 @@ export const tournamentsService = {
     http.get<TournamentParticipant[]>(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id)),
 
   register: (id: string, payload: RegisterPayload) =>
-    http.post<TournamentParticipant>(ENDPOINTS.TOURNAMENTS.REGISTER(id), payload),
+    http.post<RegisterResult>(ENDPOINTS.TOURNAMENTS.REGISTER(id), payload),
 
   registerBulk: (id: string, payload: RegisterBulkPayload) =>
-    http.post<TournamentParticipant[]>(ENDPOINTS.TOURNAMENTS.REGISTER_BULK(id), payload),
+    http.post<void>(ENDPOINTS.TOURNAMENTS.REGISTER_BULK(id), payload),
 
-  updateParticipantStatus: (
-    id: string,
-    playerId: string,
-    status: string,
-  ) =>
-    http.put<TournamentParticipant>(
-      ENDPOINTS.TOURNAMENTS.UPDATE_PARTICIPANT_STATUS(id, playerId),
-      { status },
-    ),
-
-  enrolledByPlayer: (playerId: string) =>
-    http.get<Tournament[]>(ENDPOINTS.TOURNAMENTS.ENROLLED(playerId)),
+  updateParticipantStatus: (id: string, playerId: string, status: PlayerTournamentStatus) =>
+    http.put<void>(ENDPOINTS.TOURNAMENTS.UPDATE_PARTICIPANT_STATUS(id, playerId), { status }),
 
   groupClassifications: (id: string) =>
     http.get<TournamentGroupClas[]>(ENDPOINTS.TOURNAMENTS.GROUPS(id)),

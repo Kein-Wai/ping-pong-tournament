@@ -8,6 +8,7 @@
 import type {
   ClubStatus,
   DominantHand,
+  EventRegion,
   FeedbackStatus,
   FeedbackType,
   ManualMatchType,
@@ -116,6 +117,35 @@ export interface Club {
   foundedAt?: string | null;
   users?: User[];
 }
+
+/** Club tal como lo lista la API publica (GET /clubs): con su recuento de miembros. */
+export interface ClubListItem extends Pick<Club, 'id' | 'name' | 'city' | 'address' | 'foundedAt'> {
+  memberCount: number;
+  createdAt: string;
+}
+
+/** Club del listado global del SuperAdmin (GET /clubs/admin/all), con sus administradores. */
+export interface ClubAdminData extends Pick<Club, 'id' | 'name' | 'city' | 'status'> {
+  createdAt: string;
+  _count: { users: number };
+  users: { name: string; surname: string | null; email: string }[];
+}
+
+/** Detalle de un club (GET /clubs/:id): recuento y fechas de nacimiento de sus miembros aprobados. */
+export interface ClubDetails extends Omit<Club, 'users'> {
+  _count: { users: number };
+  users: { birthDate: string | null }[];
+}
+
+/** Contadores de solicitudes pendientes de un club (GET /clubs/:id/notifications). */
+export interface ClubNotifications {
+  pendingMembers: number;
+  pendingTournaments: number;
+  total: number;
+}
+
+/** Valor de cada habilidad tecnica (0 a 100), por clave del modelo. */
+export type SkillValues = Record<string, number>;
 
 /** Temporada de la aplicacion. */
 export interface Season {
@@ -267,13 +297,14 @@ export interface GeneralTraining {
   scheduleId?: string | null;
 }
 
-/** Entrenamiento general programado. */
+/** Horario fijo de un club para los entrenamientos generales (0 = domingo ... 6 = sabado). */
 export interface GeneralTrainingSchedule {
   id: string;
   clubId?: string;
-  dayOfWeek?: number | null;
-  startTime?: string | null;
-  endTime?: string | null;
+  name: string;
+  startTime: string;
+  endTime: string;
+  daysOfWeek: number[];
 }
 
 /** Equipo de un club. */
@@ -287,13 +318,54 @@ export interface Team {
   players?: User[];
 }
 
+/** Estado de un partido de equipo. */
+export type TeamMatchStatus = 'Programado' | 'Completado' | 'Cancelado';
+
+/** Jugador que ha confirmado su asistencia a un partido de equipo. */
+export interface TeamMatchAvailability {
+  id: string;
+  matchId?: string;
+  playerId: string;
+  player?: { id: string; name: string; avatarUrl: string | null };
+}
+
+/** Partido del calendario de un equipo. */
+export interface TeamMatch {
+  id: string;
+  teamId?: string;
+  rivalName: string;
+  date: string;
+  isHome: boolean;
+  location?: string | null;
+  status: TeamMatchStatus;
+  ourScore?: number | null;
+  rivalScore?: number | null;
+  availabilities?: TeamMatchAvailability[];
+}
+
+/** Jugador de la plantilla tal como lo incluye el listado de equipos del club. */
+export interface TeamPlayer {
+  id: string;
+  name: string;
+  surname: string | null;
+  level: PlayerLevel | null;
+  stats: PlayerStats | PlayerStats[] | null;
+}
+
+/** Equipo con su plantilla y su calendario (GET /teams/club/:clubId). */
+export interface ClubTeam extends Omit<Team, 'players'> {
+  _count: { players: number };
+  players: TeamPlayer[];
+  matches: TeamMatch[];
+}
+
 /** Evento de club. */
 export interface ClubEvent {
   id: string;
   clubId?: string;
   seasonId?: string | null;
   name: string;
-  region?: string | null;
+  region?: EventRegion | null;
   date: string;
   endDate?: string | null;
   location?: string | null;

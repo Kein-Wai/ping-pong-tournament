@@ -96,8 +96,8 @@ Decisiones:
 ## Fase 3: migrar al seam de datos (≈24 tareas)
 
 **Preparación**
-- 3.0a Auditar `api/services/*` frente a las llamadas directas: tabla endpoint → servicio.
-- 3.0b Añadir a los servicios los métodos que falten, con tests, agrupados por dominio (máx. 3 servicios por tarea; se puede dividir en 2–3 subtareas).
+- 3.0a Auditar `api/services/*` frente a las llamadas directas: tabla endpoint → servicio. **Hecha: ver `docs/fase3-auditoria-servicios.md`.** ≈99 llamadas directas en 33 ficheros = 73 operaciones: 44 ✅ cubiertas, 20 ⚠️ con discrepancia y 9 ❌ sin servicio. Los servicios se escribieron sin pantallas que los ejercieran y no son fiables tal cual: en 4 operaciones el método HTTP del servicio es erróneo y la pantalla tiene razón (verificado en `api/src/routes/*`). La API responde fuera del sobre `{ success, data }` en `/auth/login`, `/auth/google`, `/auth/register` y `POST /tournaments`.
+- 3.0b Corregir y completar los servicios **con TDD** (test en rojo → implementación mínima → verde), agrupados por dominio y con máximo 3 servicios por subtarea: (a) auth + users **[hecha, sin commitear]**, (b) clubs + tournaments + manualMatches + skills **[hecha, sin commitear]**, (c) trainings/exercises + generalTrainings **[hecha, sin commitear]**, (d) teams + events **[hecha, sin commitear; con ella la 3.0b está completa]**. Hay que corregir los 20 ⚠️, añadir los 9 ❌, declarar antes en `ENDPOINTS` las URLs que hoy se componen a mano, tipar según la respuesta real de la API (sin cambiarla) y eliminar los métodos huérfanos que ninguna tarea reclame.
 - 3.0c Regla de lint `no-restricted-imports` para `api/axios`, en modo `warn`, con `client.ts` y los tests exentos.
 
 **Migración, una pantalla por tarea** (hook de datos si hace falta, `api.*` → servicio, test del hook)
@@ -106,8 +106,14 @@ Decisiones:
 
 Las 5 pantallas grandes migran sus datos dentro de la Fase 4, para no tocar dos veces el mismo archivo.
 
+**Ajustes tras la auditoría 3.0a** (consumidores que este listado omitía):
+- 3.5 (`WidgetTorneos`, `WidgetEntrenamientos`, `PodioHonor`) **no tiene nada que migrar**: no llaman a `api`. Se retira del listado.
+- 3.14 (`PlanDetalles`) no es "migrar a servicios": ya existen `hooks/useTrainingPlan.ts`, `hooks/useApi.ts` y `components/training/*` con tests, sin uso en producción. Decidir entre **adoptarlos** (su límite `MAX_EXERCISES_PER_SESSION = 6` coincide con el que ya impone la API, así que no cambia el resultado final, solo avisa antes) o borrarlos.
+- Tareas añadidas, una pantalla cada una: 3.19 `Ejercicios` + `EjercicioNuevo` · 3.20 `Equipos` + `EquipoNuevo` + `ClubSetup` · 3.21 `ForgotPassword` + `PlanNuevo` · 3.22 hooks `useTorneoFormato` + `useTorneoInscripcion` + `useTorneoPartido` · 3.23 `store/authStore` (resolver antes el ciclo de importación `axios → authStore → servicio → client → axios`).
+- Antes de migrar cada pantalla, su red de seguridad (Fase 0 incremental): ninguna de estas lista tiene test, salvo las ya cubiertas.
+
 **Cierre**
-- 3.19 Pasar la regla de lint a `error`, corregir el comentario de `api/services/index.ts` y contar las llamadas directas que quedan (solo deben quedar las de la Fase 4).
+- 3.24 (antes 3.19) Pasar la regla de lint a `error`, corregir el comentario de `api/services/index.ts` y contar las llamadas directas que quedan (solo deben quedar las de la Fase 4).
 
 ---
 

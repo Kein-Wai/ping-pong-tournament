@@ -57,6 +57,7 @@ export const ENDPOINTS = {
   },
   TRAININGS: {
     BASE: '/trainings',
+    PLAN_BY_ID: (planId: string) => `/trainings/${planId}`,
     SESSIONS: (sessionId: string) => `/trainings/sessions/${sessionId}/exercises`,
     DELETE_EXERCISE: (sessionExerciseId: string) =>
       `/trainings/sessions/exercises/${sessionExerciseId}`,
@@ -72,6 +73,7 @@ export const ENDPOINTS = {
   GENERAL_TRAININGS: {
     BASE: '/general-trainings',
     SCHEDULES: '/general-trainings/schedules',
+    SCHEDULE_BY_ID: (id: string) => `/general-trainings/schedules/${id}`,
     BULK_ATTENDANCE: (id: string) => `/general-trainings/${id}/attendance/bulk`,
   },
   MANUAL_MATCHES: {
@@ -105,6 +107,7 @@ export const ENDPOINTS = {
     BASE: '/events',
     BY_CLUB: (clubId: string) => `/events/club/${clubId}`,
     UPDATE: (id: string) => `/events/${id}`,
+    DELETE: (id: string) => `/events/${id}`,
     REMINDERS: (id: string) => `/events/${id}/reminders`,
   },
 } as const;
