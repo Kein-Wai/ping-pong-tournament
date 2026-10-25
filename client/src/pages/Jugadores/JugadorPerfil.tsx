@@ -1,201 +1,91 @@
-import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card,
-  Avatar,
   Text,
-  Group,
   Button,
   SimpleGrid,
   Title,
   Center,
   Loader,
-  Badge,
-  Paper,
-  ThemeIcon,
   Stack,
-  Table,
-  ScrollArea,
-  Modal,
-  TextInput,
-  ActionIcon,
-  Select,
-  Box,
-  Progress,
-  NumberInput,
-  Pagination,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
-import '@mantine/dates/styles.css';
 import {
   IconArrowLeft,
-  IconTrophy,
-  IconPingPong,
-  IconChartBar,
-  IconMathSymbols,
-  IconHistory,
-  IconEdit,
-  IconClipboardList,
-  IconTrash,
-  IconTrendingUp,
-  IconTrendingDown,
-  IconTarget,
-  IconSwords,
-  IconCalendarEvent,
-  IconMapPin,
-  IconUserMinus,
 } from '@tabler/icons-react';
-import { RadarChart, BarChart } from '@mantine/charts';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
-import { getPlayerAvatar } from '../../utils/avatar';
-import { openAppConfirmModal } from '../../utils/modals';
-import { formatDate, formatDateTime } from '../../utils/dates';
-import { notifications } from '@mantine/notifications';
-
-interface UserProfile {
-  id: string;
-  email: string;
-  name: string;
-  surname?: string;
-  nickname?: string;
-  avatarUrl?: string | null;
-  dominantHand?: 'Diestro' | 'Zurdo' | null;
-  playstyle?: 'Ofensivo' | 'Defensivo' | null;
-  level?: string | null;
-  clubId?: string | null;
-  birthDate?: string | null;
-  stats?: {
-    elo: number;
-    matchWon: number;
-    matchLost: number;
-    setWon: number;
-    setLost: number;
-    pointWon: number;
-    pointLost: number;
-    tournamentWon: number;
-    tournamentPart: number;
-  };
-  skills?: {
-    derechaPlano: number;
-    revesPlano: number;
-    topspinDerecha: number;
-    topspinReves: number;
-    corte: number;
-    bloqueoDerecha: number;
-    bloqueoReves: number;
-    servicio: number;
-    recepcion: number;
-    movilidad: number;
-    fortalezaMental: number;
-    experiencia: number;
-  };
-  pendingSkills?: {
-    derechaPlano: number | null;
-    revesPlano: number | null;
-    topspinDerecha: number | null;
-    topspinReves: number | null;
-    corte: number | null;
-    bloqueoDerecha: number | null;
-    bloqueoReves: number | null;
-    servicio: number | null;
-    recepcion: number | null;
-    movilidad: number | null;
-    fortalezaMental: number | null;
-    experiencia: number | null;
-  };
-  teams?: {
-    id: string;
-    name: string;
-    category: string;
-    matches: {
-      id: string;
-      rivalName: string;
-      date: string;
-      isHome: boolean;
-      location: string | null;
-      status: string;
-    }[];
-  }[];
-  generalAttendances?: {
-    generalTraining: { date: string };
-  }[];
-}
+import { useJugadorPerfil } from '../../hooks/useJugadorPerfil';
+import { useJugadorEdicion } from '../../hooks/useJugadorEdicion';
+import { useJugadorConsolidacion } from '../../hooks/useJugadorConsolidacion';
+import { useJugadorAdministracion } from '../../hooks/useJugadorAdministracion';
+import { PlayerProfileHeader } from '../../components/player/PlayerProfileHeader';
+import { SkillsPanel } from '../../components/player/SkillsPanel';
+import { BalanceCard } from '../../components/player/BalanceCard';
+import { RivalsCard } from '../../components/player/RivalsCard';
+import { PlayerStatCards } from '../../components/player/PlayerStatCards';
+import { TeamCalendarCard } from '../../components/player/TeamCalendarCard';
+import { RecentMatchesTable } from '../../components/player/RecentMatchesTable';
+import { TrainingPlansCard } from '../../components/player/TrainingPlansCard';
+import { TechnicalAnalysisCard } from '../../components/player/TechnicalAnalysisCard';
+import { EditProfileModal } from '../../components/player/EditProfileModal';
+import { ConsolidateModal } from '../../components/player/ConsolidateModal';
+import {
+  countAttendances,
+  getEfficiencyData,
+  getRivalChartData,
+  getSkillsData,
+  getTeamCalendar,
+} from '../../utils/player-profile';
 
 export const JugadorPerfil = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser, updateUserFields } = useAuthStore();
+  const { user: currentUser } = useAuthStore();
 
-  const [player, setPlayer] = useState<UserProfile | null>(null);
-  const [recentMatches, setRecentMatches] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentSeason, setCurrentSeason] = useState<string>('');
-  const [editModalOpened, setEditModalOpened] = useState(false);
-  const [consolidateModalOpened, setConsolidateModalOpened] = useState(false);
-  const [approvedGains, setApprovedGains] = useState<Record<string, number>>({});
-  const [consolidating, setConsolidating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editData, setEditData] = useState<{
-    name: string;
-    surname: string;
-    nickname: string;
-    avatarUrl: string;
-    dominantHand: string;
-    playstyle: string;
-    rubberForehand: string; // 👈
-    rubberBackhand: string; // 👈
-    birthDate: Date | null;
-    currentPassword?: string;
-    newPassword?: string;
-    confirmPassword?: string;
-    skills: Record<string, number>;
-  }>({
-    name: '',
-    surname: '',
-    nickname: '',
-    avatarUrl: '',
-    dominantHand: '',
-    playstyle: '',
-    rubberForehand: '', // 👈
-    rubberBackhand: '', // 👈
-    birthDate: null,
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-    skills: {},
-  });
-  const [trainings, setTrainings] = useState<any[]>([]);
-
-  const [teamMatchPage, setTeamMatchPage] = useState(1);
-  const TEAM_MATCHES_PER_PAGE = 4;
-
-  const allTeamMatches =
-    player?.teams?.flatMap((t) => t.matches.map((m) => ({ ...m, teamName: t.name }))) || [];
-
-  const now = new Date().getTime();
-  const upcomingMatches = allTeamMatches
-    .filter((m) => m.status === 'Programado' && new Date(m.date).getTime() >= now)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  const nextMatch = upcomingMatches.length > 0 ? upcomingMatches[0] : null;
-
-  const otherTeamMatches = allTeamMatches
-    .filter((m) => m.id !== nextMatch?.id)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  const totalTeamMatchPages = Math.ceil(otherTeamMatches.length / TEAM_MATCHES_PER_PAGE);
-  const paginatedTeamMatches = otherTeamMatches.slice(
-    (teamMatchPage - 1) * TEAM_MATCHES_PER_PAGE,
-    teamMatchPage * TEAM_MATCHES_PER_PAGE,
-  );
-
-  const isOwnProfile = currentUser?.id === id;
   const { isSuperAdmin, isAdmin } = usePermissions();
+  const isOwnProfile = currentUser?.id === id;
   const canViewTrainings = isOwnProfile || isAdmin;
+
+  const {
+    player,
+    recentMatches,
+    trainings,
+    currentSeason,
+    loading,
+    refetch: fetchPlayerInfo,
+  } = useJugadorPerfil(id, canViewTrainings);
+
+  const {
+    editModalOpened,
+    setEditModalOpened,
+    saving,
+    editData,
+    setEditData,
+    handleOpenEdit,
+    handleSaveProfile,
+  } = useJugadorEdicion({ id, player, isOwnProfile, refetch: fetchPlayerInfo });
+
+  const {
+    consolidateModalOpened,
+    setConsolidateModalOpened,
+    approvedGains,
+    setApprovedGains,
+    consolidating,
+    handleOpenConsolidate,
+    handleExecuteConsolidate,
+  } = useJugadorConsolidacion({ id, player, refetch: fetchPlayerInfo });
+
+  const { handleKickPlayer, handleDeletePlan } = useJugadorAdministracion({
+    player,
+    refetch: fetchPlayerInfo,
+    onKicked: () => navigate(APP_ROUTES.JUGADORES.LIST),
+  });
+
+  const {
+    all: allTeamMatches,
+    nextMatch,
+    others: otherTeamMatches,
+  } = getTeamCalendar(player?.teams, new Date());
 
   // Puede expulsar si es Admin, no es su propio perfil, y el jugador pertenece a su club (o es SuperAdmin)
   const canKickPlayer =
@@ -203,160 +93,6 @@ export const JugadorPerfil = () => {
     !isOwnProfile &&
     player?.clubId &&
     (isSuperAdmin || player.clubId === currentUser?.clubId);
-
-  const fetchPlayerInfo = async () => {
-    try {
-      const [playerRes, matchesRes, seasonsRes] = await Promise.all([
-        api.get(ENDPOINTS.USERS.BY_ID(id!)),
-        api.get(ENDPOINTS.MATCHES.BASE),
-        api.get(ENDPOINTS.SEASONS.BASE),
-      ]);
-
-      const activeS = seasonsRes.data.data.find((s: any) => s.isCurrent);
-      if (activeS) setCurrentSeason(activeS.name);
-
-      const playerData = playerRes.data.data;
-      setPlayer(playerData);
-
-      const allMatches = matchesRes.data.data;
-      const userMatches = allMatches
-        .filter(
-          (m: any) => (m.playerOneId === id || m.playerTwoId === id) && m.status === 'Completado',
-        )
-        .sort(
-          (a: any, b: any) => new Date(b.dateStart).getTime() - new Date(a.dateStart).getTime(),
-        );
-
-      setRecentMatches(userMatches.slice(0, 10));
-
-      if (isOwnProfile || isAdmin) {
-        const trainRes = await api.get(ENDPOINTS.TRAININGS.BY_PLAYER(id!));
-        setTrainings(trainRes.data.data);
-      }
-    } catch (error) {
-      console.error('Error cargando perfil del jugador:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPlayerInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  const handleKickPlayer = () => {
-    openAppConfirmModal({
-      title: 'Dar de baja del club',
-      icon: <IconUserMinus size={18} />,
-      color: 'red',
-      description: '¿Estás seguro de que deseas expulsar a este jugador del club?',
-      highlightText: `${player?.name} ${player?.surname || ''}`,
-      warningText:
-        'El jugador perderá acceso a los torneos internos y al calendario del club. Su cuenta no se borrará, pasará a ser un Jugador Libre.',
-      confirmLabel: 'Sí, dar de baja',
-      onConfirm: async () => {
-        try {
-          await api.put(ENDPOINTS.CLUBS.MEMBER_STATUS(player!.clubId!, player!.id), {
-            status: 'Rechazado',
-          });
-          navigate(APP_ROUTES.JUGADORES.LIST);
-        } catch {
-          // El interceptor de api/axios ya notifica el error.
-        }
-      },
-    });
-  };
-
-  const handleOpenEdit = () => {
-    if (player) {
-      const currentSkills = Array.isArray(player.skills) ? player.skills[0] : player.skills;
-      setEditData({
-        name: player.name || '',
-        surname: player.surname || '',
-        nickname: player.nickname || '',
-        avatarUrl: player.avatarUrl || '',
-        dominantHand: player.dominantHand || '',
-        playstyle: player.playstyle || '',
-        birthDate: player.birthDate ? new Date(player.birthDate) : null,
-        rubberForehand: (player as any).rubberForehand || '',
-        rubberBackhand: (player as any).rubberBackhand || '',
-        skills: currentSkills ? { ...currentSkills } : {},
-      });
-      setEditModalOpened(true);
-    }
-  };
-
-  const handleSaveProfile = async () => {
-    if (editData.newPassword && editData.newPassword !== editData.confirmPassword) {
-      return notifications.show({
-        title: 'Error',
-        message: 'Las contraseñas nuevas no coinciden.',
-        color: 'red',
-      });
-    }
-    if (editData.newPassword) {
-      const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,32}$/.test(
-        editData.newPassword,
-      );
-      if (!isStrong) {
-        return notifications.show({
-          title: 'Contraseña débil',
-          message:
-            'Debe tener mín. 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial (@$!%*?&).',
-          color: 'red',
-        });
-      }
-    }
-    setSaving(true);
-    try {
-      const payload: any = { ...editData };
-      if (!payload.newPassword) {
-        delete payload.currentPassword;
-        delete payload.newPassword;
-        delete payload.confirmPassword;
-      }
-      payload.birthDate = payload.birthDate ? payload.birthDate.toISOString() : null;
-
-      const targetEndpoint = isOwnProfile ? ENDPOINTS.USERS.ME : ENDPOINTS.USERS.BY_ID(id!);
-
-      await api.put(targetEndpoint, payload);
-      setEditModalOpened(false);
-      // La sesión solo refleja el perfil propio: un administrador que edita a otro no debe sobrescribirla.
-      if (isOwnProfile) {
-        updateUserFields({
-          name: editData.name,
-          surname: editData.surname,
-          nickname: editData.nickname,
-          avatarUrl: editData.avatarUrl,
-        });
-      }
-      await fetchPlayerInfo();
-    } catch (error) {
-      console.error('Error actualizando el perfil:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeletePlan = (planId: string) => {
-    openAppConfirmModal({
-      title: 'Eliminar Plan de Entrenamiento',
-      icon: <IconTrash size={18} />,
-      color: 'red',
-      description: '¿Estás seguro de que deseas eliminar este plan completo?',
-      highlightText: 'Esta acción no se puede deshacer',
-      confirmLabel: 'Sí, eliminar plan',
-      onConfirm: async () => {
-        try {
-          await api.delete(ENDPOINTS.TRAININGS.DELETE_PLAN(planId));
-          await fetchPlayerInfo();
-        } catch {
-          // El interceptor de api/axios ya notifica el error.
-        }
-      },
-    });
-  };
 
   if (loading) {
     return (
@@ -377,252 +113,27 @@ export const JugadorPerfil = () => {
   const s = Array.isArray(player.stats) ? player.stats[0] : player.stats;
   const currentSkills = Array.isArray(player.skills) ? player.skills[0] : player.skills;
   const totalMatches = (s?.matchWon || 0) + (s?.matchLost || 0);
-  const totalSets = (s?.setWon || 0) + (s?.setLost || 0);
-  const totalPoints = (s?.pointWon || 0) + (s?.pointLost || 0);
   const totalTournaments = s?.tournamentPart || 0;
-  const totalAsistencias = player.generalAttendances?.length || 0;
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-
-  const asistenciasMes =
-    player.generalAttendances?.filter((a) => {
-      const d = new Date(a.generalTraining.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    }).length || 0;
+  const { total: totalAsistencias, thisMonth: asistenciasMes } = countAttendances(
+    player.generalAttendances,
+    new Date(),
+  );
 
   const matchWinRate = totalMatches > 0 ? Math.round(((s?.matchWon || 0) / totalMatches) * 100) : 0;
 
-  const rivalStats = {
-    Diestro: { win: 0, loss: 0 },
-    Zurdo: { win: 0, loss: 0 },
-    Ofensivo: { win: 0, loss: 0 },
-    Defensivo: { win: 0, loss: 0 },
-  };
+  const { mano: chartDataMano, estilo: chartDataEstilo } = getRivalChartData(recentMatches, id!);
 
-  recentMatches.forEach((m) => {
-    const isPlayerOne = m.playerOneId === id;
-    const opponent = isPlayerOne ? m.playerTwo : m.playerOne;
+  const efficiencyData = getEfficiencyData(s);
 
-    let p1Sets = 0,
-      p2Sets = 0;
-    const sets = [
-      [m.setOnePlayerOne, m.setOnePlayerTwo],
-      [m.setTwoPlayerOne, m.setTwoPlayerTwo],
-      [m.setThreePlayerOne, m.setThreePlayerTwo],
-      [m.setFourPlayerOne, m.setFourPlayerTwo],
-      [m.setFivePlayerOne, m.setFivePlayerTwo],
-    ];
-    sets.forEach(([s1, s2]) => {
-      if (s1 !== null && s2 !== null && !(s1 === 0 && s2 === 0)) {
-        if (s1 > s2) p1Sets++;
-        else if (s2 > s1) p2Sets++;
-      }
-    });
+  const skillsData = getSkillsData(currentSkills, player.pendingSkills);
 
-    const didWin = isPlayerOne ? p1Sets > p2Sets : p2Sets > p1Sets;
-
-    if (opponent.dominantHand === 'Diestro') {
-      if (didWin) rivalStats.Diestro.win++;
-      else rivalStats.Diestro.loss++;
-    } else if (opponent.dominantHand === 'Zurdo') {
-      if (didWin) rivalStats.Zurdo.win++;
-      else rivalStats.Zurdo.loss++;
-    }
-
-    if (opponent.playstyle === 'Ofensivo') {
-      if (didWin) rivalStats.Ofensivo.win++;
-      else rivalStats.Ofensivo.loss++;
-    } else if (opponent.playstyle === 'Defensivo') {
-      if (didWin) rivalStats.Defensivo.win++;
-      else rivalStats.Defensivo.loss++;
-    }
-  });
-
-  const chartDataMano = [
-    { Rasgo: 'vs Diestros', Victorias: rivalStats.Diestro.win, Derrotas: rivalStats.Diestro.loss },
-    { Rasgo: 'vs Zurdos', Victorias: rivalStats.Zurdo.win, Derrotas: rivalStats.Zurdo.loss },
-  ];
-
-  const chartDataEstilo = [
-    {
-      Rasgo: 'vs Ofensivos',
-      Victorias: rivalStats.Ofensivo.win,
-      Derrotas: rivalStats.Ofensivo.loss,
-    },
-    {
-      Rasgo: 'vs Defensivos',
-      Victorias: rivalStats.Defensivo.win,
-      Derrotas: rivalStats.Defensivo.loss,
-    },
-  ];
-
-  const efficiencyData =
-    totalMatches > 0
-      ? [
-          {
-            metric: 'Partidos',
-            Victorias: matchWinRate,
-            Derrotas: totalMatches > 0 ? Math.round(((s?.matchLost || 0) / totalMatches) * 100) : 0,
-          },
-          {
-            metric: 'Sets',
-            Victorias: totalSets > 0 ? Math.round(((s?.setWon || 0) / totalSets) * 100) : 0,
-            Derrotas: totalSets > 0 ? Math.round(((s?.setLost || 0) / totalSets) * 100) : 0,
-          },
-          {
-            metric: 'Puntos',
-            Victorias: totalPoints > 0 ? Math.round(((s?.pointWon || 0) / totalPoints) * 100) : 0,
-            Derrotas: totalPoints > 0 ? Math.round(((s?.pointLost || 0) / totalPoints) * 100) : 0,
-          },
-          {
-            metric: 'Campeon Torneos',
-            Victorias:
-              totalTournaments > 0
-                ? Math.round(((s?.tournamentWon || 0) / totalTournaments) * 100)
-                : 0,
-            Participaciones:
-              totalTournaments > 0
-                ? Math.round(((s?.tournamentPart || 0) / totalTournaments) * 100)
-                : 0,
-          },
-        ]
-      : [];
-
-  const skillsData = currentSkills
-    ? [
-        {
-          attribute: 'Plano Der.',
-          value: currentSkills.derechaPlano,
-          pending: player.pendingSkills?.derechaPlano || 0,
-          potential: currentSkills.derechaPlano + (player.pendingSkills?.derechaPlano || 0),
-        },
-        {
-          attribute: 'Plano Rev.',
-          value: currentSkills.revesPlano,
-          pending: player.pendingSkills?.revesPlano || 0,
-          potential: currentSkills.revesPlano + (player.pendingSkills?.revesPlano || 0),
-        },
-        {
-          attribute: 'Top Der.',
-          value: currentSkills.topspinDerecha,
-          pending: player.pendingSkills?.topspinDerecha || 0,
-          potential: currentSkills.topspinDerecha + (player.pendingSkills?.topspinDerecha || 0),
-        },
-        {
-          attribute: 'Top Rev.',
-          value: currentSkills.topspinReves,
-          pending: player.pendingSkills?.topspinReves || 0,
-          potential: currentSkills.topspinReves + (player.pendingSkills?.topspinReves || 0),
-        },
-        {
-          attribute: 'Corte',
-          value: currentSkills.corte,
-          pending: player.pendingSkills?.corte || 0,
-          potential: currentSkills.corte + (player.pendingSkills?.corte || 0),
-        },
-        {
-          attribute: 'Bloqueo Der.',
-          value: currentSkills.bloqueoDerecha,
-          pending: player.pendingSkills?.bloqueoDerecha || 0,
-          potential: currentSkills.bloqueoDerecha + (player.pendingSkills?.bloqueoDerecha || 0),
-        },
-        {
-          attribute: 'Bloqueo Rev.',
-          value: currentSkills.bloqueoReves,
-          pending: player.pendingSkills?.bloqueoReves || 0,
-          potential: currentSkills.bloqueoReves + (player.pendingSkills?.bloqueoReves || 0),
-        },
-        {
-          attribute: 'Servicio',
-          value: currentSkills.servicio,
-          pending: player.pendingSkills?.servicio || 0,
-          potential: currentSkills.servicio + (player.pendingSkills?.servicio || 0),
-        },
-        {
-          attribute: 'Recepción',
-          value: currentSkills.recepcion,
-          pending: player.pendingSkills?.recepcion || 0,
-          potential: currentSkills.recepcion + (player.pendingSkills?.recepcion || 0),
-        },
-        {
-          attribute: 'Movilidad',
-          value: currentSkills.movilidad,
-          pending: player.pendingSkills?.movilidad || 0,
-          potential: currentSkills.movilidad + (player.pendingSkills?.movilidad || 0),
-        },
-        {
-          attribute: 'Mentalidad',
-          value: currentSkills.fortalezaMental,
-          pending: player.pendingSkills?.fortalezaMental || 0,
-          potential: currentSkills.fortalezaMental + (player.pendingSkills?.fortalezaMental || 0),
-        },
-        {
-          attribute: 'Experiencia',
-          value: currentSkills.experiencia,
-          pending: player.pendingSkills?.experiencia || 0,
-          potential: currentSkills.experiencia + (player.pendingSkills?.experiencia || 0),
-        },
-      ]
-    : [];
-
-  const getSkillColor = (val: number) => {
-    if (val < 30) return 'red';
-    if (val < 60) return 'yellow';
-    if (val < 80) return 'blue';
-    return 'green';
-  };
+  const showTrainings = canViewTrainings && (isAdmin || (trainings.length > 0 && isOwnProfile));
 
   const latestPlan = trainings.length > 0 ? trainings[0] : null;
-
-  const SKILL_KEYS = [
-    { key: 'derechaPlano', label: 'Plano Derecha' },
-    { key: 'revesPlano', label: 'Plano Revés' },
-    { key: 'topspinDerecha', label: 'Top Derecha' },
-    { key: 'topspinReves', label: 'Top Revés' },
-    { key: 'corte', label: 'Corte' },
-    { key: 'bloqueoDerecha', label: 'Bloqueo Der.' },
-    { key: 'bloqueoReves', label: 'Bloqueo Rev.' },
-    { key: 'servicio', label: 'Servicio' },
-    { key: 'recepcion', label: 'Recepción' },
-    { key: 'movilidad', label: 'Movilidad' },
-    { key: 'fortalezaMental', label: 'Fortaleza Mental' },
-    { key: 'experiencia', label: 'Experiencia / Táctica' },
-  ];
 
   const hasPendingSkills =
     player?.pendingSkills &&
     Object.values(player.pendingSkills).some((val) => val !== null && val > 0);
-
-  const handleOpenConsolidate = () => {
-    const initialGains: Record<string, number> = {};
-    SKILL_KEYS.forEach((s) => {
-      initialGains[s.key] =
-        player?.pendingSkills?.[s.key as keyof typeof player.pendingSkills] || 0;
-    });
-    setApprovedGains(initialGains);
-    setConsolidateModalOpened(true);
-  };
-
-  const handleExecuteConsolidate = async () => {
-    if (!id || !player) return;
-    setConsolidating(true);
-    try {
-      const finalSkills: Record<string, number> = {};
-      SKILL_KEYS.forEach((sKey) => {
-        const base = currentSkills?.[sKey.key as keyof typeof currentSkills] || 0;
-        const gain = approvedGains[sKey.key] || 0;
-        finalSkills[sKey.key] = Number((base + gain).toFixed(2));
-      });
-
-      await api.put(ENDPOINTS.SKILLS.CONSOLIDATE(id), finalSkills);
-      setConsolidateModalOpened(false);
-      await fetchPlayerInfo();
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setConsolidating(false);
-    }
-  };
 
   return (
     <Stack gap="xl">
@@ -638,1007 +149,78 @@ export const JugadorPerfil = () => {
         </div>
       )}
 
-      {/* Cabecera del Perfil */}
-      <Card shadow="sm" padding="xl" radius="md" withBorder>
-        <Group align="flex-start" justify="space-between">
-          <Group gap="lg">
-            <Avatar
-              src={getPlayerAvatar(player.name, player.avatarUrl)}
-              size={100}
-              radius={100}
-              color="blue"
-            />
-            <div>
-              <Title order={1}>
-                {player.name} {player.surname}
-              </Title>
-              <Badge color="grape" variant="light" mb="xs">
-                {currentSeason}
-              </Badge>
-              {player.nickname && (
-                <Text c="dimmed" size="md" fs="italic">
-                  "{player.nickname}"
-                </Text>
-              )}
-              {(isAdmin || currentUser?.id === player.id) && (
-                <Text c="dimmed" size="lg">
-                  {player.email}
-                </Text>
-              )}
-              <Group gap="xs" mt="sm">
-                <Badge
-                  size="lg"
-                  color={
-                    s?.elo && s.elo >= 1000 ? 'green' : s?.elo && s.elo >= 750 ? 'blue' : 'gray'
-                  }
-                  variant="filled"
-                >
-                  {s?.elo || 500} ELO
-                </Badge>
-                {player.level && (
-                  <Badge size="lg" variant="light" color="grape">
-                    {player.level}
-                  </Badge>
-                )}
-              </Group>
-              <Group gap="xs" mt="xs">
-                {player.dominantHand && (
-                  <Badge variant="outline" color="gray" tt="none">
-                    🖐️ {player.dominantHand}
-                  </Badge>
-                )}
-                {player.playstyle && (
-                  <Badge variant="outline" color="orange" tt="none">
-                    ⚔️ {player.playstyle}
-                  </Badge>
-                )}
-                {(player as any).rubberForehand && (
-                  <Badge variant="outline" color="red" tt="none">
-                    🔴 Der: {(player as any).rubberForehand.replace('_', ' ')}
-                  </Badge>
-                )}
-                {(player as any).rubberBackhand && (
-                  <Badge variant="outline" color="dark" tt="none">
-                    ⚫ Rev: {(player as any).rubberBackhand.replace('_', ' ')}
-                  </Badge>
-                )}
-              </Group>
-              {player.teams && player.teams.length > 0 && (
-                <Text size="sm" mt="xs" fw={600} c="dimmed">
-                  Equipos:{' '}
-                  <Text span c="blue.4">
-                    {player.teams.map((t) => t.name).join(' / ')}
-                  </Text>
-                </Text>
-              )}
-            </div>
-          </Group>
-
-          <Stack align="flex-end">
-            {canKickPlayer && (
-              <Button
-                variant="light"
-                color="red"
-                leftSection={<IconUserMinus size={16} />}
-                onClick={handleKickPlayer}
-              >
-                Dar de Baja
-              </Button>
-            )}
-
-            {(isOwnProfile || isAdmin) && (
-              <Button
-                variant="light"
-                color="blue"
-                leftSection={<IconEdit size={16} />}
-                onClick={handleOpenEdit}
-              >
-                Editar Perfil
-              </Button>
-            )}
-
-            {isAdmin && hasPendingSkills && (
-              <Button
-                color="cyan"
-                leftSection={<IconTrendingUp size={16} />}
-                onClick={handleOpenConsolidate}
-                variant="light"
-              >
-                Consolidar Mejoras
-              </Button>
-            )}
-          </Stack>
-        </Group>
-      </Card>
+      <PlayerProfileHeader
+        player={player}
+        season={currentSeason}
+        elo={s?.elo}
+        showEmail={isAdmin || currentUser?.id === player.id}
+        canKick={!!canKickPlayer}
+        canEdit={isOwnProfile || isAdmin}
+        canConsolidate={isAdmin && !!hasPendingSkills}
+        onKick={handleKickPlayer}
+        onEdit={handleOpenEdit}
+        onConsolidate={handleOpenConsolidate}
+      />
 
       <Title order={3}>Perfil Técnico (Atributos)</Title>
 
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        <Card withBorder radius="md" shadow="sm" p="lg">
-          <Group gap="xs" mb="md">
-            <ThemeIcon color="orange" variant="light">
-              <IconSwords size={18} />
-            </ThemeIcon>
-            <Title order={4}>Desglose de Habilidades</Title>
-          </Group>
-
-          {skillsData.length > 0 ? (
-            <ScrollArea h={320} offsetScrollbars>
-              <Stack gap="xs" pr="sm">
-                {skillsData.map((skill) => (
-                  <Box key={skill.attribute}>
-                    <Group justify="space-between" mb={2}>
-                      <Text size="sm" fw={600}>
-                        {skill.attribute}
-                      </Text>
-                      <Text size="sm" fw={700} c={getSkillColor(skill.value)}>
-                        {Math.floor(skill.value)}
-                        {skill.pending > 0 && (
-                          <Text component="span" c="cyan.5" fz="xs" ml={4}>
-                            (+{skill.pending.toFixed(2)})
-                          </Text>
-                        )}
-                        <Text component="span" c="dimmed" fz="xs" ml={4}>
-                          / 100
-                        </Text>
-                      </Text>
-                    </Group>
-
-                    <Progress.Root size="md" radius="xl">
-                      <Progress.Section value={skill.value} color={getSkillColor(skill.value)} />
-                      {skill.pending > 0 && (
-                        <Progress.Section value={skill.pending} color="cyan.4" striped animated />
-                      )}
-                    </Progress.Root>
-                  </Box>
-                ))}
-              </Stack>
-            </ScrollArea>
-          ) : (
-            <Center
-              h={200}
-              bg="var(--mantine-color-gray-0)"
-              style={{ borderRadius: 8, darkHidden: true }}
-            >
-              <Text c="dimmed" size="sm" ta="center">
-                Sin habilidades registradas.
-              </Text>
-            </Center>
-          )}
-        </Card>
-
-        <Card withBorder radius="md" shadow="sm" p="lg">
-          <Group gap="xs" mb="lg">
-            <ThemeIcon color="grape" variant="light">
-              <IconTarget size={18} />
-            </ThemeIcon>
-            <Title order={4}>Radar de Juego</Title>
-          </Group>
-          {skillsData.length > 0 ? (
-            <Center h={320}>
-              <RadarChart
-                h={300}
-                w="100%"
-                data={skillsData}
-                dataKey="attribute"
-                withPolarGrid
-                withPolarAngleAxis
-                withPolarRadiusAxis
-                polarRadiusAxisProps={{ domain: [0, 100] }}
-                series={[
-                  { name: 'potential', color: 'cyan.5', opacity: 0.3 },
-                  { name: 'value', color: 'grape.5', opacity: 0.7 },
-                ]}
-              />
-            </Center>
-          ) : (
-            <Center
-              h={200}
-              bg="var(--mantine-color-gray-0)"
-              style={{ borderRadius: 8, darkHidden: true }}
-            >
-              <Text c="dimmed" size="sm" ta="center">
-                Sin habilidades registradas.
-              </Text>
-            </Center>
-          )}
-        </Card>
-      </SimpleGrid>
+      <SkillsPanel skillsData={skillsData} />
 
       <Title order={3} mt="md">
         Estadísticas Competitivas
       </Title>
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        <Card withBorder radius="md" shadow="sm" p="lg">
-          <Group gap="xs" mb="lg">
-            <ThemeIcon color="blue" variant="light">
-              <IconChartBar size={18} />
-            </ThemeIcon>
-            <Title order={4}>Balance General (Win Rate %)</Title>
-          </Group>
-          {totalMatches > 0 ? (
-            <Box mt="md">
-              <BarChart
-                h={250}
-                data={efficiencyData}
-                dataKey="metric"
-                type="stacked"
-                orientation="vertical"
-                series={[
-                  { name: 'Victorias', color: 'green.5' },
-                  { name: 'Derrotas', color: 'red.5' },
-                ]}
-              />
-            </Box>
-          ) : (
-            <Center
-              h={200}
-              bg="var(--mantine-color-gray-0)"
-              style={{ borderRadius: 8, darkHidden: true }}
-            >
-              <Stack align="center" gap="xs">
-                <IconChartBar size={40} color="var(--mantine-color-gray-4)" />
-                <Text c="dimmed" size="sm" ta="center">
-                  Juega tu primer partido para
-                  <br />
-                  desbloquear tus estadísticas.
-                </Text>
-              </Stack>
-            </Center>
-          )}
-        </Card>
-
-        <Card withBorder radius="md" shadow="sm" p="lg">
-          <Group gap="xs" mb="lg">
-            <ThemeIcon color="orange" variant="light">
-              <IconPingPong size={18} />
-            </ThemeIcon>
-            <Title order={4}>Desempeño vs Rivales</Title>
-          </Group>
-          {totalMatches > 0 ? (
-            <Stack gap="xl">
-              <Box>
-                <Text size="sm" c="dimmed" fw={600} mb="xs">
-                  Según Mano Dominante
-                </Text>
-                <BarChart
-                  h={120}
-                  data={chartDataMano}
-                  dataKey="Rasgo"
-                  type="stacked"
-                  orientation="vertical"
-                  series={[
-                    { name: 'Victorias', color: 'green.5' },
-                    { name: 'Derrotas', color: 'red.5' },
-                  ]}
-                />
-              </Box>
-              <Box>
-                <Text size="sm" c="dimmed" fw={600} mb="xs">
-                  Según Estilo de Juego
-                </Text>
-                <BarChart
-                  h={120}
-                  data={chartDataEstilo}
-                  dataKey="Rasgo"
-                  type="stacked"
-                  orientation="vertical"
-                  series={[
-                    { name: 'Victorias', color: 'green.5' },
-                    { name: 'Derrotas', color: 'red.5' },
-                  ]}
-                />
-              </Box>
-            </Stack>
-          ) : (
-            <Center
-              h={200}
-              bg="var(--mantine-color-gray-0)"
-              style={{ borderRadius: 8, darkHidden: true }}
-            >
-              <Text c="dimmed" size="sm" ta="center">
-                Sin datos de enfrentamientos.
-              </Text>
-            </Center>
-          )}
-        </Card>
+        <BalanceCard hasMatches={totalMatches > 0} efficiencyData={efficiencyData} />
+        <RivalsCard hasMatches={totalMatches > 0} mano={chartDataMano} estilo={chartDataEstilo} />
       </SimpleGrid>
 
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg" mt="md">
-        <Paper withBorder p="md" radius="md" shadow="sm">
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
-              Partidos
-            </Text>
-            <ThemeIcon color="blue" variant="light" size={38} radius="md">
-              <IconPingPong size={24} />
-            </ThemeIcon>
-          </Group>
-          <Group align="flex-end" gap="xs" mt={25}>
-            <Text size="xl" fw={700}>
-              {s?.matchWon || 0}V - {s?.matchLost || 0}D
-            </Text>
-          </Group>
-          <Text size="sm" c="dimmed" mt={7}>
-            {matchWinRate}% de Victorias
-          </Text>
-        </Paper>
+      <PlayerStatCards
+        stats={s}
+        matchWinRate={matchWinRate}
+        totalTournaments={totalTournaments}
+        totalAsistencias={totalAsistencias}
+        asistenciasMes={asistenciasMes}
+      />
 
-        <Paper withBorder p="md" radius="md" shadow="sm">
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
-              Torneos Jugados
-            </Text>
-            <ThemeIcon color="yellow" variant="light" size={38} radius="md">
-              <IconTrophy size={24} />
-            </ThemeIcon>
-          </Group>
-          <Group align="flex-end" gap="xs" mt={25}>
-            <Text size="xl" fw={700}>
-              {totalTournaments}
-            </Text>
-          </Group>
-          <Text size="sm" c="dimmed" mt={7}>
-            <Text component="span" c="green" fw={500}>
-              {s?.tournamentWon || 0} Ganados
-            </Text>
-          </Text>
-        </Paper>
-
-        <Paper withBorder p="md" radius="md" shadow="sm">
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
-              Balance de Sets
-            </Text>
-            <ThemeIcon color="grape" variant="light" size={38} radius="md">
-              <IconChartBar size={24} />
-            </ThemeIcon>
-          </Group>
-          <Group align="flex-end" gap="xs" mt={25}>
-            <Text size="xl" fw={700}>
-              {s?.setWon || 0} - {s?.setLost || 0}
-            </Text>
-          </Group>
-          <Text size="sm" c="dimmed" mt={7}>
-            Diferencia: {(s?.setWon || 0) - (s?.setLost || 0)}
-          </Text>
-        </Paper>
-
-        <Paper withBorder p="md" radius="md" shadow="sm">
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
-              Puntos Totales
-            </Text>
-            <ThemeIcon color="teal" variant="light" size={38} radius="md">
-              <IconMathSymbols size={24} />
-            </ThemeIcon>
-          </Group>
-          <Group align="flex-end" gap="xs" mt={25}>
-            <Text size="xl" fw={700}>
-              <Text component="span" c="green">
-                {s?.pointWon || 0}
-              </Text>{' '}
-              /{' '}
-              <Text component="span" c="red">
-                {s?.pointLost || 0}
-              </Text>
-            </Text>
-          </Group>
-          <Text size="sm" c="dimmed" mt={7}>
-            Ratio: {s?.pointLost ? ((s.pointWon || 0) / s.pointLost).toFixed(2) : 0}
-          </Text>
-        </Paper>
-        <Paper withBorder p="md" radius="md" shadow="sm">
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
-              Asistencias Totales
-            </Text>
-            <ThemeIcon color="cyan" variant="light" size={38} radius="md">
-              <IconCalendarEvent size={24} />
-            </ThemeIcon>
-          </Group>
-          <Group align="flex-end" gap="xs" mt={25}>
-            <Text size="xl" fw={700}>
-              {totalAsistencias}
-            </Text>
-          </Group>
-          <Text size="sm" c="dimmed" mt={7}>
-            Clases grupales atendidas
-          </Text>
-        </Paper>
-
-        <Paper withBorder p="md" radius="md" shadow="sm">
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" fw={700} tt="uppercase">
-              Asistencias este Mes
-            </Text>
-            <ThemeIcon color="green" variant="light" size={38} radius="md">
-              <IconTrendingUp size={24} />
-            </ThemeIcon>
-          </Group>
-          <Group align="flex-end" gap="xs" mt={25}>
-            <Text size="xl" fw={700}>
-              {asistenciasMes}
-            </Text>
-          </Group>
-          <Text size="sm" c="dimmed" mt={7}>
-            En {formatDateTime(new Date(), { month: 'long' })}
-          </Text>
-        </Paper>
-      </SimpleGrid>
-
-      {/* SECCIÓN DE PARTIDOS DE EQUIPO */}
       {allTeamMatches.length > 0 && (
-        <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
-          <Group gap="sm" mb="md">
-            <IconCalendarEvent size={20} color="var(--mantine-color-blue-6)" />
-            <Title order={4}>Calendario de Equipos</Title>
-          </Group>
-
-          <Stack gap="md">
-            {nextMatch && (
-              <Card
-                withBorder
-                shadow="md"
-                radius="md"
-                p="md"
-                bg="blue.0"
-                style={{ borderColor: 'var(--mantine-color-blue-5)', borderWidth: 2 }}
-              >
-                <Text size="xs" fw={800} c="blue.7" tt="uppercase" mb="xs">
-                  🔥 Siguiente Compromiso
-                </Text>
-                <Group justify="space-between" align="center" wrap="nowrap">
-                  <Stack gap={4}>
-                    <Text fw={800} size="lg" c="blue.9">
-                      {nextMatch.isHome ? nextMatch.teamName : nextMatch.rivalName}
-                      <Text span c="blue.5" mx="sm">
-                        vs
-                      </Text>
-                      {nextMatch.isHome ? nextMatch.rivalName : nextMatch.teamName}
-                    </Text>
-                    <Group gap="sm">
-                      <Text size="sm" c="blue.8" fw={600}>
-                        {formatDateTime(nextMatch.date, {
-                          dateStyle: 'full',
-                          timeStyle: 'short',
-                        })}
-                      </Text>
-                      {nextMatch.location && (
-                        <Text size="sm" c="blue.8">
-                          <IconMapPin
-                            size={14}
-                            style={{ verticalAlign: 'middle', marginRight: 4 }}
-                          />
-                          {nextMatch.location}
-                        </Text>
-                      )}
-                    </Group>
-                  </Stack>
-                  <Badge color="blue" variant="filled" size="lg">
-                    {nextMatch.status}
-                  </Badge>
-                </Group>
-              </Card>
-            )}
-
-            {otherTeamMatches.length > 0 && (
-              <Stack gap="sm">
-                <Text size="sm" fw={700} c="dimmed" mt="sm">
-                  Historial y Resto del Calendario
-                </Text>
-                {paginatedTeamMatches.map((m: any) => {
-                  const isWin =
-                    m.ourScore !== null && m.rivalScore !== null && m.ourScore > m.rivalScore;
-                  const isLoss =
-                    m.ourScore !== null && m.rivalScore !== null && m.ourScore < m.rivalScore;
-
-                  let statusColor = 'gray';
-                  if (m.status === 'Programado') statusColor = 'blue';
-                  if (m.status === 'Cancelado') statusColor = 'red';
-                  if (m.status === 'Completado') {
-                    if (isWin) statusColor = 'green';
-                    else if (isLoss) statusColor = 'red';
-                    else statusColor = 'yellow';
-                  }
-
-                  return (
-                    <Paper
-                      key={m.id}
-                      withBorder
-                      radius="md"
-                      p="sm"
-                      bg="var(--mantine-color-gray-0)"
-                      style={{ darkHidden: true }}
-                    >
-                      <Group justify="space-between" align="center" wrap="nowrap">
-                        <Stack gap={4}>
-                          <Text fw={600} size="sm">
-                            {m.isHome ? m.teamName : m.rivalName}
-                            <Text span c="dimmed" mx="xs">
-                              vs
-                            </Text>
-                            {m.isHome ? m.rivalName : m.teamName}
-                          </Text>
-                          <Group gap="xs">
-                            <Text size="xs" c="dimmed" fw={600}>
-                              {formatDateTime(m.date)}
-                            </Text>
-                          </Group>
-                        </Stack>
-
-                        <Group gap="xs">
-                          {m.status === 'Completado' &&
-                            m.ourScore !== null &&
-                            m.rivalScore !== null && (
-                              <Badge size="md" variant="outline" color={statusColor}>
-                                {m.isHome
-                                  ? `${m.ourScore} - ${m.rivalScore}`
-                                  : `${m.rivalScore} - ${m.ourScore}`}
-                              </Badge>
-                            )}
-                          <Badge color={statusColor} variant="light" size="sm">
-                            {m.status}
-                          </Badge>
-                        </Group>
-                      </Group>
-                    </Paper>
-                  );
-                })}
-              </Stack>
-            )}
-
-            {totalTeamMatchPages > 1 && (
-              <Center mt="sm">
-                <Pagination
-                  total={totalTeamMatchPages}
-                  value={teamMatchPage}
-                  onChange={setTeamMatchPage}
-                  color="blue"
-                  size="sm"
-                  withEdges
-                />
-              </Center>
-            )}
-          </Stack>
-        </Card>
+        <TeamCalendarCard nextMatch={nextMatch} otherMatches={otherTeamMatches} />
       )}
 
-      {/* Historial de Partidos */}
-      <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
-        <Group gap="sm" mb="md">
-          <IconHistory size={20} color="var(--mantine-color-blue-6)" />
-          <Title order={4}>Últimos Partidos Jugados</Title>
-        </Group>
+      <RecentMatchesTable matches={recentMatches} playerId={id!} />
 
-        <ScrollArea>
-          <Table striped highlightOnHover verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Fecha</Table.Th>
-                <Table.Th>Torneo</Table.Th>
-                <Table.Th>Resultado</Table.Th>
-                <Table.Th>Oponente</Table.Th>
-                <Table.Th>Marcador (Sets)</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {recentMatches.map((m) => {
-                const isPlayerOne = m.playerOneId === id;
-                const opponent = isPlayerOne ? m.playerTwo : m.playerOne;
-
-                let p1Sets = 0;
-                let p2Sets = 0;
-                const sets = [
-                  [m.setOnePlayerOne, m.setOnePlayerTwo],
-                  [m.setTwoPlayerOne, m.setTwoPlayerTwo],
-                  [m.setThreePlayerOne, m.setThreePlayerTwo],
-                  [m.setFourPlayerOne, m.setFourPlayerTwo],
-                  [m.setFivePlayerOne, m.setFivePlayerTwo],
-                ];
-
-                sets.forEach(([s1, s2]) => {
-                  if (s1 !== null && s2 !== null && !(s1 === 0 && s2 === 0)) {
-                    if (s1 > s2) p1Sets++;
-                    else if (s2 > s1) p2Sets++;
-                  }
-                });
-
-                const didWin = isPlayerOne ? p1Sets > p2Sets : p2Sets > p1Sets;
-                const setScore = isPlayerOne ? `${p1Sets} - ${p2Sets}` : `${p2Sets} - ${p1Sets}`;
-
-                return (
-                  <Table.Tr key={m.id}>
-                    <Table.Td>
-                      {formatDate(m.dateStart, {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" fw={500} truncate w={150}>
-                        {m.tournament?.name || 'Amistoso'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge color={didWin ? 'green' : 'red'} variant="light">
-                        {didWin ? 'Victoria' : 'Derrota'}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <Avatar
-                          src={getPlayerAvatar(opponent.name, opponent.avatarUrl)}
-                          radius="xl"
-                          size="sm"
-                        />
-                        <Text size="sm">
-                          {opponent?.name} {opponent?.surname || ''}
-                        </Text>
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fw={700} size="sm" c="dimmed">
-                        {setScore}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-              {recentMatches.length === 0 && (
-                <Table.Tr>
-                  <Table.Td colSpan={5}>
-                    <Center py="md">
-                      <Text c="dimmed">No hay historial de partidos registrados.</Text>
-                    </Center>
-                  </Table.Td>
-                </Table.Tr>
-              )}
-            </Table.Tbody>
-          </Table>
-        </ScrollArea>
-      </Card>
-
-      {/* SECCIÓN DE HISTORIAL DE MACROCICLOS */}
-      {canViewTrainings && (isAdmin || (trainings.length > 0 && isOwnProfile)) && (
-        <Card shadow="sm" padding="lg" radius="md" withBorder mt="md">
-          <Group justify="space-between" mb="md">
-            <Group gap="sm">
-              <IconClipboardList size={20} color="var(--mantine-color-orange-6)" />
-              <Title order={4}>Historial de Macrociclos</Title>
-            </Group>
-            {isAdmin && (
-              <Button
-                size="xs"
-                color="orange"
-                onClick={() => navigate(APP_ROUTES.ENTRENAMIENTOS.NEW(player.id))}
-              >
-                + Crear Plan
-              </Button>
-            )}
-          </Group>
-
-          {trainings.length === 0 ? (
-            <Center py="md">
-              <Text c="dimmed">No hay planes de entrenamiento asignados.</Text>
-            </Center>
-          ) : (
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              {trainings.map((plan) => (
-                <Card key={plan.id} withBorder shadow="sm" radius="md" p="md">
-                  <Group justify="space-between" mb="xs" align="flex-start">
-                    <Text fw={700}>Plan de {plan.weeks} Semanas</Text>
-                    <Group gap="xs">
-                      <Badge color="orange" variant="light">
-                        {plan._count?.sessions || 0} Sesiones
-                      </Badge>
-                      {isAdmin && (
-                        <ActionIcon
-                          color="red"
-                          variant="subtle"
-                          size="sm"
-                          onClick={() => handleDeletePlan(plan.id)}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      )}
-                    </Group>
-                  </Group>
-                  <Text size="sm" c="dimmed" mb="md">
-                    Inicio: {formatDate(plan.startDate)}
-                  </Text>
-                  <Button
-                    variant="light"
-                    color="blue"
-                    fullWidth
-                    onClick={() => navigate(APP_ROUTES.ENTRENAMIENTOS.DETAILS(plan.id))}
-                  >
-                    Ver Macrociclo
-                  </Button>
-                </Card>
-              ))}
-            </SimpleGrid>
-          )}
-        </Card>
+      {showTrainings && (
+        <TrainingPlansCard
+          plans={trainings}
+          isAdmin={isAdmin}
+          onCreatePlan={() => navigate(APP_ROUTES.ENTRENAMIENTOS.NEW(player.id))}
+          onOpenPlan={(planId) => navigate(APP_ROUTES.ENTRENAMIENTOS.DETAILS(planId))}
+          onDeletePlan={handleDeletePlan}
+        />
       )}
 
-      {/* ANÁLISIS TÉCNICO CUALITATIVO (PLANES) */}
-      {canViewTrainings && (isAdmin || (trainings.length > 0 && isOwnProfile)) && (
-        <Card withBorder radius="md" shadow="sm" p="lg" style={{ gridColumn: '1 / -1' }}>
-          <Group gap="xs" mb="md">
-            <ThemeIcon color="orange" variant="light">
-              <IconClipboardList size={18} />
-            </ThemeIcon>
-            <Title order={4}>Último Análisis Técnico</Title>
-          </Group>
+      {showTrainings && <TechnicalAnalysisCard latestPlan={latestPlan} />}
 
-          {latestPlan ? (
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-              <Paper
-                withBorder
-                p="sm"
-                bg="var(--mantine-color-gray-0)"
-                style={{ darkHidden: true }}
-              >
-                <Group gap="xs" mb={4}>
-                  <IconTrendingUp size={16} color="var(--mantine-color-green-6)" />
-                  <Text fw={600} size="sm">
-                    Fortalezas
-                  </Text>
-                </Group>
-                <Text size="sm" c="dimmed">
-                  {latestPlan.strengths}
-                </Text>
-              </Paper>
-
-              <Paper
-                withBorder
-                p="sm"
-                bg="var(--mantine-color-gray-0)"
-                style={{ darkHidden: true }}
-              >
-                <Group gap="xs" mb={4}>
-                  <IconTrendingDown size={16} color="var(--mantine-color-red-6)" />
-                  <Text fw={600} size="sm">
-                    A Mejorar
-                  </Text>
-                </Group>
-                <Text size="sm" c="dimmed">
-                  {latestPlan.weaknesses}
-                </Text>
-              </Paper>
-            </SimpleGrid>
-          ) : (
-            <Center
-              h={100}
-              bg="var(--mantine-color-gray-0)"
-              style={{ borderRadius: 8, darkHidden: true }}
-            >
-              <Text c="dimmed" size="sm" ta="center">
-                El entrenador aún no ha creado un macrociclo para ti.
-              </Text>
-            </Center>
-          )}
-        </Card>
-      )}
-
-      {/* MODAL DE EDICIÓN */}
-      <Modal
+      <EditProfileModal
         opened={editModalOpened}
         onClose={() => setEditModalOpened(false)}
-        title={
-          <Text fw={700} size="lg">
-            Editar Mis Datos
-          </Text>
-        }
-        centered
-      >
-        <Stack gap="md">
-          <TextInput
-            label="Nombre"
-            required
-            value={editData.name}
-            onChange={(e) => setEditData({ ...editData, name: e.currentTarget.value })}
-          />
-          <TextInput
-            label="Apellidos"
-            value={editData.surname}
-            onChange={(e) => setEditData({ ...editData, surname: e.currentTarget.value })}
-          />
-          <TextInput
-            label="Nickname / Mote (Opcional)"
-            placeholder="Ej. El Muro"
-            value={editData.nickname}
-            onChange={(e) => setEditData({ ...editData, nickname: e.currentTarget.value })}
-          />
-          <TextInput
-            label="URL de Foto de Perfil (Opcional)"
-            placeholder="https://ejemplo.com/mi-foto.jpg"
-            value={editData.avatarUrl || ''}
-            onChange={(e) => setEditData({ ...editData, avatarUrl: e.currentTarget.value })}
-          />
-          <DateInput
-            label="Fecha de Nacimiento"
-            placeholder="Opcional"
-            value={editData.birthDate}
-            onChange={(val) => setEditData({ ...editData, birthDate: val ? new Date(val) : null })}
-            clearable
-          />
-          <SimpleGrid cols={2}>
-            <Select
-              label="Mano Dominante"
-              data={['Diestro', 'Zurdo']}
-              value={editData.dominantHand}
-              onChange={(val) => setEditData({ ...editData, dominantHand: val || '' })}
-            />
-            <Select
-              label="Estilo de Juego"
-              data={['Ofensivo', 'Defensivo']}
-              value={editData.playstyle}
-              onChange={(val) => setEditData({ ...editData, playstyle: val || '' })}
-            />
-          </SimpleGrid>
-          <SimpleGrid cols={2}>
-            <Select
-              label="Goma Derecha"
-              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
-              value={editData.rubberForehand}
-              onChange={(val) => setEditData({ ...editData, rubberForehand: val || '' })}
-            />
-            <Select
-              label="Goma Revés"
-              data={['LISA', 'PICOS_CORTOS', 'PICOS_MEDIOS', 'PICOS_LARGOS', 'ANTISPIN']}
-              value={editData.rubberBackhand}
-              onChange={(val) => setEditData({ ...editData, rubberBackhand: val || '' })}
-            />
-          </SimpleGrid>
-          {isAdmin && (
-            <Card
-              withBorder
-              radius="md"
-              p="md"
-              bg="var(--mantine-color-gray-0)"
-              style={{ darkHidden: true }}
-            >
-              <Text fw={600} size="sm" mb="xs">
-                Atributos Técnicos Base (Modificación Manual)
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-                {SKILL_KEYS.map((field) => (
-                  <NumberInput
-                    key={field.key}
-                    label={field.label}
-                    value={editData.skills?.[field.key] || 0}
-                    onChange={(val) =>
-                      setEditData({
-                        ...editData,
-                        skills: { ...editData.skills, [field.key]: Number(val) || 0 },
-                      })
-                    }
-                    min={0}
-                    max={100}
-                  />
-                ))}
-              </SimpleGrid>
-            </Card>
-          )}
+        editData={editData}
+        onEditDataChange={setEditData}
+        showSkills={isAdmin}
+        showPasswordSection={currentUser?.authProvider === 'LOCAL' && isOwnProfile}
+        saving={saving}
+        onSave={handleSaveProfile}
+      />
 
-          {(currentUser as any)?.authProvider === 'LOCAL' && isOwnProfile && (
-            <Paper withBorder p="sm" radius="md" mt="sm">
-              <Title order={6} mb="sm" c="dimmed">
-                Cambiar Contraseña (Opcional)
-              </Title>
-              <Stack gap="xs">
-                <TextInput
-                  type="password"
-                  label="Contraseña Actual"
-                  value={editData.currentPassword}
-                  onChange={(e) =>
-                    setEditData({ ...editData, currentPassword: e.currentTarget.value })
-                  }
-                />
-                <TextInput
-                  type="password"
-                  label="Nueva Contraseña"
-                  value={editData.newPassword}
-                  onChange={(e) => setEditData({ ...editData, newPassword: e.currentTarget.value })}
-                />
-                <TextInput
-                  type="password"
-                  label="Confirmar Nueva Contraseña"
-                  value={editData.confirmPassword}
-                  onChange={(e) =>
-                    setEditData({ ...editData, confirmPassword: e.currentTarget.value })
-                  }
-                />
-              </Stack>
-            </Paper>
-          )}
-          <Button color="blue" fullWidth mt="md" loading={saving} onClick={handleSaveProfile}>
-            Guardar Cambios
-          </Button>
-        </Stack>
-      </Modal>
-
-      {/* MODAL DE CONSOLIDACIÓN DE SKILLS */}
-      <Modal
+      <ConsolidateModal
         opened={consolidateModalOpened}
         onClose={() => setConsolidateModalOpened(false)}
-        title={
-          <Text fw={700} size="lg">
-            Consolidar Progreso
-          </Text>
-        }
-        size="lg"
-        centered
-      >
-        <Stack gap="md">
-          <Text size="sm" c="dimmed">
-            El sistema ha calculado estas subidas basándose en la asistencia a entrenamientos.
-            Puedes aceptar los valores calculados o ajustarlos manualmente si consideras que el
-            rendimiento ha sido distinto.
-          </Text>
-
-          <ScrollArea h={400}>
-            <Table striped highlightOnHover verticalSpacing="sm">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Habilidad</Table.Th>
-                  <Table.Th ta="center">Base Actual</Table.Th>
-                  <Table.Th ta="center">Mejora (+)</Table.Th>
-                  <Table.Th ta="center">Total Estimado</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {SKILL_KEYS.map((s) => {
-                  const base = player?.skills?.[s.key as keyof typeof player.skills] || 0;
-                  const gain = approvedGains[s.key] || 0;
-                  const final = base + gain;
-
-                  if (gain === 0 && base === 0) return null;
-
-                  return (
-                    <Table.Tr key={s.key}>
-                      <Table.Td fw={500}>{s.label}</Table.Td>
-                      <Table.Td ta="center">{Math.floor(base)}</Table.Td>
-                      <Table.Td>
-                        <NumberInput
-                          value={gain}
-                          onChange={(val) =>
-                            setApprovedGains({ ...approvedGains, [s.key]: Number(val) || 0 })
-                          }
-                          min={0}
-                          step={0.1}
-                          decimalScale={2}
-                          w={100}
-                          mx="auto"
-                        />
-                      </Table.Td>
-                      <Table.Td ta="center">
-                        <Badge size="lg" color="cyan" variant="light">
-                          {final.toFixed(2)}
-                        </Badge>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-
-          <Button
-            color="cyan"
-            fullWidth
-            mt="md"
-            loading={consolidating}
-            onClick={handleExecuteConsolidate}
-          >
-            Confirmar y Aplicar Subidas
-          </Button>
-        </Stack>
-      </Modal>
+        skills={player.skills}
+        approvedGains={approvedGains}
+        onGainsChange={setApprovedGains}
+        consolidating={consolidating}
+        onConfirm={handleExecuteConsolidate}
+      />
     </Stack>
   );
 };

@@ -36,7 +36,8 @@ export interface BulkAttendancePayload {
 }
 
 export const generalTrainingsService = {
-  list: () => http.get<GeneralTraining[]>(ENDPOINTS.GENERAL_TRAININGS.BASE),
+  /** `T` deja a cada pantalla tipar la sesión con la proyección que consume (horario, plantilla, asistencias). */
+  list: <T = GeneralTraining>() => http.get<T[]>(ENDPOINTS.GENERAL_TRAININGS.BASE),
 
   schedules: () => http.get<GeneralTrainingSchedule[]>(ENDPOINTS.GENERAL_TRAININGS.SCHEDULES),
 

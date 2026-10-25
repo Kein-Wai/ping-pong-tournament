@@ -55,30 +55,5 @@ export default defineConfig([
       ],
     },
   },
-  // 4. Las 5 pantallas gigantes migran su acceso a datos dentro de la Fase 4 del plan de
-  //    refactor (para no tocar dos veces el mismo archivo): hasta entonces solo avisan.
-  {
-    files: [
-      'src/pages/Equipos/EquipoDetalles.tsx',
-      'src/pages/Jugadores/JugadorPerfil.tsx',
-      'src/pages/Jugadores/Jugadores.tsx',
-      'src/pages/Entrenamientos/EntrenamientosGenerales.tsx',
-      'src/pages/Analisis/ManualMatchTracker.tsx',
-    ],
-    rules: {
-      'no-restricted-imports': [
-        'warn',
-        {
-          patterns: [
-            {
-              group: ['**/api/axios'],
-              message:
-                'No importes api/axios: usa los servicios de api/services (o el adaptador http de api/client).',
-            },
-          ],
-        },
-      ],
-    },
-  },
   eslintConfigPrettier,
 ]);

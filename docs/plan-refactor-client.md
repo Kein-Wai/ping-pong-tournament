@@ -50,6 +50,8 @@ Decisiones:
 
 **Pendiente, tras acabar `client/`:** pasada de seguridad y contrato por toda la API (buscar `include` sobre `user` que devuelva el usuario completo y `res.json(` sin `success`). Valorar también invalidar los `resetPasswordToken` vigentes si ese comportamiento llegó a producción.
 
+**Anotado para esa pasada de API (hallado en la 4.11):** `GET /teams/club/:clubId` (`api/src/routes/team.ts`, `players: { select: { id, name, surname, level, stats } }`) no selecciona `avatarUrl`, así que la pestaña Plantilla de `EquipoDetalles` siempre muestra el avatar genérico aunque el jugador tenga foto. Arreglo: añadir `avatarUrl: true` al `select` (con test de la ruta) y `avatarUrl?: string | null` a `TeamPlayer` en `client/src/types/api.ts`; en `TeamRosterTab` pasar `p.avatarUrl` a `getPlayerAvatar`.
+
 ---
 
 ## Fase 1: `usePermissions` (≈9 tareas) — hecha y commiteada
@@ -164,9 +166,84 @@ Plantilla por página:
 | d | **Componentes presentacionales:** extraer el JSX por bloque o modal (máx. 2–3 por tarea). |
 | e | **Cierre:** tipar los `any` de la página, comprobar que ronda las 300 líneas o menos, revisar `console.*` y rutas. |
 
-Extra para `ManualMatchTracker`, antes de la plantilla:
-- 4.M1 Extraer `WON_TREE`, `LOST_TREE` y `PLACEMENTS` a `utils/` o `constants/`.
-- 4.M2 Extraer `getSetSummary` y el cálculo de sets a funciones puras, con tests.
+**Progreso de la Fase 4 (empezada a 2026-10-25):**
+
+| Tarea | Resultado |
+|---|---|
+| 4.0 `EquipoDetalles`, pasos a y red de seguridad | Mapa hecho (24 `useState`, 5 responsabilidades, 9 llamadas directas). `EquipoDetalles.test.tsx`: 46 tests + 6 snapshots (pantalla, calendario y 4 modales) capturados contra el código antiguo. El panel «Calendario» solo se monta al activar su pestaña. **Decisión (aprobada por el usuario): en el paso d, una tarjeta de partido unificada** (`NextMatchCard` + filas → un solo componente con variantes), lo que cambia el JSX del destacado y de las filas; el bloque de asistencia se extrae primero porque es idéntico salvo el `disabled` |
+| 4.10-4.11 + cierre (pasos d y e) — **`EquipoDetalles` COMPLETA** | `components/team/TeamHeader` (3 tests), `TeamRosterTab` (5), `TeamCalendarTab` (10) y `utils/team-matches.getNextMatch` (6, función pura con `now` inyectado). La página queda en una composición de **244 líneas** (975 al principio), sin `any`, sin `console.*` y sin `api/axios`. Los 6 snapshots de la pantalla coinciden con el golden. Cierre: se aplica el criterio 2.10 a los hooks de mutación (se quita el `console.error` redundante; se conserva el de la carga y el del borrado del equipo, que ejecuta navegación). **Hallazgo (sin tocar): `GET /teams/club/:clubId` no selecciona `avatarUrl` de los jugadores, así que la pestaña Plantilla siempre muestra el avatar genérico** (`api/src/routes/team.ts`, `players.select`); el componente lo documenta. Verificado: 1174/1174 tests (dos ejecuciones), lint 0 errores (105 avisos), `tsc -b` y `npm run build` correctos |
+| 4.8-4.9 modales (paso d, parte 2) | `components/team/RosterModal` (5 tests), `EditTeamModal` (7), `NewMatchModal` (7) y `EditMatchModal` (12, la más ancha: 21 props, que vienen tal cual del estado de `useEquipoPartido`). Las listas de categorías y niveles de liga, que `EquipoNuevo` repetía, pasan a `constants/teams.ts` (3 tests) y las usan `EditTeamModal` y `EquipoNuevo`. Los 6 snapshots coinciden con el golden anterior. **Se detectó y corrigió una fragilidad de los snapshots de modales:** capturaban el `style` de la transición de Mantine en la raíz del diálogo, que depende del tiempo y fallaba solo en la suite completa; ahora se quita ese atributo de la etiqueta raíz (`stableDialog`) y se comprobó contra el golden antiguo que el resto del HTML es idéntico. `EquipoDetalles` 613 → 407 líneas. Verificado: 1150/1150 (dos ejecuciones completas), lint 0 errores |
+| 4.6-4.7 componentes (paso d, parte 1) | `components/team/AttendanceBlock` (6 tests; el bloque estaba duplicado) y `TeamMatchCard` unificada (19 tests): una sola tarjeta con `featured` para el «Siguiente Compromiso». **Único cambio visible frente al código anterior** (comprobado comparando el snapshot antiguo y el nuevo): el `gap` de la agrupación derecha de la tarjeta destacada pasa de `xs` a `sm`; también deja de pasar `color="blue"` al botón (es el color por defecto) y el `checked` de la asistencia es siempre booleano (antes podía ser `undefined`). El resto de snapshots idénticos. `EquipoDetalles` 844 → 613 líneas. Verificado: 1117/1117 tests, lint 0 errores |
+| 4.2-4.5 hooks de acciones (paso c, uno por modal) | `useEquipoInfo` (editar/eliminar equipo, 8 tests), `useEquipoPlantilla` (5), `useEquipoNuevoPartido` (4) y `useEquipoPartido` (actualizar/borrar partido y asistencia, 11). Cada uno con su `saving` (solo hay un modal abierto a la vez) y los efectos de pantalla como callbacks (`refetch`, `onTeamDeleted`). Los 46 tests de la pantalla pasan sin cambios y los 6 snapshots siguen idénticos. `EquipoDetalles` ya no importa `api/axios` (sale del bloque `warn` de eslint, con test): 975 → 844 líneas, 9 llamadas directas → 0. `selectedMatch` pasa de `any` a `TeamMatch` (`ourScore ?? ''` cubre también `undefined`). Verificado: 1094/1094 tests, lint 0 errores |
+| 4.1 `useEquipoDetalles` (paso b) | Hook de datos con 8 tests (`team`, `clubPlayers` aprobados, `loading`, `refetch`; sin `id`/club no pide nada y sigue cargando, como antes). La pantalla lo usa y pierde `fetchData`/3 estados. El efecto depende de `user?.clubId` y no del objeto `user` entero. Quedan 7 tests en rojo, los de las mutaciones (paso c) |
+
+**`JugadorPerfil` (1639 líneas, 54 tests previos) — pasos a, b y c hechos, sin commitear:**
+
+| Tarea | Resultado |
+|---|---|
+| 4.12 `useJugadorPerfil` (paso b) | Hook de datos (10 tests): jugador, temporada vigente, 10 últimos partidos completados y macrociclos solo si `canViewTrainings`. Tipos nuevos en `types/playerProfile.ts` (`PlayerProfile`, `ProfileMatch`, `ProfileEditData`); `usersService.byId<T>()`. Red de seguridad adaptada (mocks con sobre, aserciones en formato adaptador; RED: 3 tests). **Se elimina un test** («responde sin el sobre»): reproducía el bug del sobre de `GET /users/:id`, que ya no se produce con el adaptador (mismo caso que el de `Dashboard` en 3.4). El efecto depende ahora también de `canViewTrainings`, así que recarga si cambian los permisos |
+| 4.13 `useJugadorEdicion` | Editar perfil (13 tests): formulario, validación de contraseña y guardado en `/users/me` (`usersService.updateProfile`) o `/users/:id` (`update`); actualiza la sesión solo en el perfil propio. Se quita el `console.error` redundante |
+| 4.14 `useJugadorConsolidacion` | Consolidar mejoras (6 tests, `skillsService.consolidate`). `SKILL_KEYS` pasa a `constants/skills.ts` como `PROFILE_SKILL_KEYS` (etiquetas del perfil, distintas de `SKILL_FIELDS`; 2 tests) |
+| 4.15 `useJugadorAdministracion` | Dar de baja (`clubsService.updateMemberStatus`) y borrar plan (`trainingsService.deletePlan`), ambas con confirmación (6 tests) |
+
+`JugadorPerfil` ya no importa `api/axios` (sale del bloque `warn` de eslint, con test), 8 llamadas directas → 0; 1639 → 1372 líneas. Verificado: 1209/1209 tests, lint 0 errores. **Siguiente (paso d):** `utils/player-profile.ts` con las funciones puras (recuento de sets, estadísticas contra rivales, datos de eficiencia y de habilidades, partidos de equipo) y luego los componentes en `components/player/` (cabecera, habilidades y radar, estadísticas, calendario de equipos, últimos partidos, macrociclos, análisis técnico y los 2 modales).
+
+| Tarea | Resultado (paso d y cierre) |
+|---|---|
+| 4.16 `utils/player-profile.ts` | Funciones puras con 24 tests y valores esperados escritos a mano: `getMatchResult` (el recuento de sets estaba duplicado), `getRivalChartData`, `getEfficiencyData`, `getSkillsData`, `getTeamCalendar` y `countAttendances` (la fecha actual se inyecta). 1372 → 1177 líneas |
+| 4.17-4.20 componentes en `components/player/` | `PlayerProfileHeader` (7 tests), `SkillsPanel` (5), `BalanceCard`/`RivalsCard` (4), `PlayerStatCards` (6), `TeamCalendarCard` (6, absorbe la paginación), `RecentMatchesTable` (5), `TrainingPlansCard`/`TechnicalAnalysisCard` (8). Se generaron copiando el JSX literal de la página y sustituyendo solo variables por props; los snapshots existentes no cambiaron. `getTeamMatchOutcome` (en `utils/team-matches.ts`, 5 tests) comparte el color de estado y el resultado entre esta pantalla y `TeamMatchCard` |
+| 4.21 modales | Antes de extraer se añadieron 3 snapshots (modal de edición de administrador, de edición propia con cuenta local y de consolidación; con la raíz del diálogo sin `style`, ver la lección de los snapshots de modales). `EditProfileModal` (7 tests) y `ConsolidateModal` (7). Los 4 snapshots coinciden con el golden |
+| 4.22 cierre | Último `any` fuera: `authProvider?: string` en el `User` del store. Sin `console.*` en la página |
+
+**`JugadorPerfil` COMPLETA: 1639 → 229 líneas**, sin `any` ni `api/axios`. Verificado: 1294/1294 tests (dos ejecuciones), lint 0 errores (89 avisos), `tsc -b` y `npm run build` correctos.
+
+### `Jugadores` (4.23-4.37)
+
+| Tarea | Resultado |
+|---|---|
+| 4.23 red de seguridad | Los 33 tests existentes cubrían la pantalla; se añadieron 5 snapshots de modales (ajustar ELO, aprobación con nivel elegido, añadir jugador, resetear cuenta de invitado y de jugador con correo), generados contra el código antiguo |
+| 4.24 seam de datos | RED con mocks en formato sobre y aserciones `(url, cuerpo, undefined)` (10 fallos por la razón correcta). Migrada a `usersService` / `clubsService` / `authService`; `PlayerListItem`, `GuestFormData` y `SkillInputs` en `types/players.ts` sustituyen al `User` local. `ENDPOINTS.PLAYERS` desaparece (era el mismo `/users`). `Jugadores` sale del bloque `warn` de eslint y de `axios-import-rule.test.ts` |
+| 4.25 `useJugadoresLista` | Lista, `loading` y `refetch` (5 tests); cada recarga pasa por `loading`, como antes |
+| 4.26 utilidades | `utils/players.ts` (14 tests): `getPlayerStats`, `getWinRate`, `filterPlayers`, `buildFinalSkills` (estaba duplicado), `isGuestEmail`, `EMPTY_SKILL_INPUTS` (el objeto de 12 claves vacías estaba 3 veces) y `constants/players.ts` con `LEVEL_BASE_STATS` |
+| 4.27-4.30 hooks de acción | `useJugadorElo` (7 tests), `useJugadorResetCuenta` (8), `useJugadorInvitado` (8), `useJugadorAprobacion` (14; rechazar pasa por `openAppConfirmModal`, mockeado como frontera de UI) |
+| 4.31-4.37 componentes en `components/players/` | `PlayerRow` (9), `PlayersTable` (6), `PlayersHeader` (6), `EditEloModal` (4), `ApprovePlayerModal` (8), `GuestPlayerModal` (9), `ResetAccountModal` (8). JSX copiado literal; los 6 snapshots no cambiaron |
+
+**`Jugadores` COMPLETA: 954 → 176 líneas**, sin `any`, `console.*` ni `api/axios`. Verificado: 1405/1405 tests, lint 0 errores (88 avisos), `tsc -b` y `npm run build` correctos.
+
+Anotado para la pasada de cierre: el JSX conserva dos props que Mantine no define (`style={{ darkHidden: true }}` en las tarjetas de habilidades y `justifyRight: 'true'` en el grupo de búsqueda); por la regla de oro del JSX no se tocaron. En `EditEloModal` (4.34) se escribió el test y el componente sin ejecutar antes el rojo.
+
+### `EntrenamientosGenerales` (4.38-4.49)
+
+| Tarea | Resultado |
+|---|---|
+| 4.38 red de seguridad | Los 41 tests existentes cubrían la pantalla; se añadieron 3 snapshots de modales (horario base, programar fechas, asistentes) contra el código antiguo |
+| 4.39 seam de datos | RED con aserciones `(url, cuerpo, undefined)` (6 fallos por la razón correcta). Migrada a `generalTrainingsService` / `usersService`; `generalTrainingsService.list<T>()` admite la proyección con horario, plantilla y asistencias; `types/generalTraining.ts` (`TrainingSession`, `TrainingAttendance`, `ProgramDetails`) sustituye a 17 `any`. Sale del bloque `warn` de eslint y de `axios-import-rule.test.ts` (el último que queda es `ManualMatchTracker`) |
+| 4.40 utilidades | `utils/general-trainings.ts` (20 tests con calendarios calculados a mano): `getScheduleColor`, `getMonthGrid`, `shiftMonth`, `getSessionsOnDay`, `getProgramDetails`, `getAttendedPlayers`, `toggleInList` (estaba duplicado 2 veces); `constants/generalTrainings.ts` con `SCHEDULE_COLORS` y `DAYS_OF_WEEK` |
+| 4.41-4.45 hooks | `useEntrenamientosGenerales` (carga, 5 tests), `useEntrenamientoHorarios` (11), `useEntrenamientoProgramacion` (7), `useEntrenamientoAsistencia` (8; avisa con `onOpenAttendance` para que la pantalla cierre el modal del día), `useEntrenamientoCalendario` (8) |
+| 4.46-4.49 componentes en `components/generalTraining/` | `ScheduleList` y `TrainingCalendar` (13 tests), `DaySessionsModal` y `AttendeesModal` (11), `AttendanceListModal` y `ProgramDetailsModal` (9), `ScheduleFormModal` y `ProgramTrainingModal` (16). JSX copiado literal salvo `blanks`, que pasa de array a número (se recrea con `Array.from` dentro del calendario); los 7 snapshots no cambiaron |
+
+**`EntrenamientosGenerales` COMPLETA: 873 → 194 líneas**, sin `any`, y sin `api/axios`; el único `console.error` que queda está en `useEntrenamientosGenerales` (carga que procesa la respuesta). Verificado: 1516/1516 tests, lint 0 errores (72 avisos), `tsc -b` y `npm run build` correctos.
+
+Anotado para la pasada de cierre: `darkHidden` en `ScheduleList` y `ProgramDetailsModal` (como en `Jugadores`). El test del loader de esta pantalla emite un aviso de `act(...)` porque no espera a que termine la carga.
+
+### `ManualMatchTracker` (4.50-4.M20)
+
+| Tarea | Resultado |
+|---|---|
+| 4.50 red de seguridad | La pantalla no tenía ningún test. Se escribieron 77 tests y 9 snapshots contra el código antiguo (planificación, modo rápido, modo profundo con el árbol de puntos, final de set y de partido, resumen de un set, reporte en los dos modos). Los snapshots no incluyen el acordeón de planificación porque su contenido en el HTML depende del orden de ejecución; ese acordeón lo cubren tests de comportamiento |
+| 4.M1 constantes | `constants/manualMatch.ts` con `PointNode`, `SKILLS_LIST`, `PLACEMENTS`, `RESTO_PLACEMENTS`, `WON_TREE` y `LOST_TREE` (13 tests; toda categoría, subcategoría y colocación se contrasta con los enums de `types/enums.ts`) |
+| 4.M2 utilidades | `utils/manual-match.ts` (46 tests con valores calculados a mano): `getPointLabel`, `getSetSummary`, `getSortedCategories`, `getActiveSet`, `getReportSetScores`, `parsePlanningNotes`, `formatPlanningText`, `buildQuickNotes`, `findInvalidQuickSet`, `toSetScorePayload`, `resizeSetScores`, `isReadyToComplete`. Tipos en `types/manualMatch.ts` (`TrackedMatch`, `TrackedPoint`, `SetSummary`…) |
+| 4.M3 seam de datos | RED con aserciones `(url, cuerpo, undefined)` (12 fallos por la razón correcta). Migrada a `manualMatchesService` (`byId<T>` y `addPoint<T>` admiten la proyección de la pantalla). **La regla de eslint pasa a `error` sin excepciones**: se elimina el bloque `warn` y `axios-import-rule.test.ts` ya solo tiene el caso de error |
+| 4.M4-4.M9 hooks | `useManualMatch` (carga; expone `match` y `loaded`), `useRivalEdicion`, `usePlanificacionPartido`, `useRegistroPuntos` (16 tests), `useSetsPartido` (14), `useCierrePartido` (11). El estado visible del partido cargado (puntos, set actual, sets ganados) se ajusta durante el render y no en un efecto, para no pintar un fotograma vacío |
+| 4.M10-4.M20 componentes en `components/manualMatch/` | `RivalEditModal` (sustituye 3 copias), `PlanningAccordion` (2 copias), `SetCategoriesGrid` (4 copias) con `EndSetModal`, `SetSummaryModal` y `EndMatchModal`, `MatchReport`, `PlanningView`, `DeepScoreboard`, `PointSelector`, `SetHistory` y `QuickMatchView`. Los 9 snapshots no cambiaron |
+
+**`ManualMatchTracker` COMPLETA: 1362 → 305 líneas**, sin `any`, `console.*` en la página ni `api/axios`. Verificado: 1788/1788 tests, lint 0 errores (52 avisos), `tsc -b` y `npm run build` correctos.
+
+Anotado para la pasada de cierre y no tocado por la regla de extracción quirúrgica: el modal del rival guarda las gomas (`opponentRubberForehand/Backhand`) y las envía pero no tiene campos para editarlas; al terminar en modo rápido `setMatch` no guarda `setScores`, así que el reporte inmediato no muestra los tanteos por set hasta recargar; `isValidSet` del cierre rápido repite `isValidTableTennisSet` con una regla ligeramente distinta (ahora `findInvalidQuickSet` en `utils/manual-match.ts`); el test del acordeón de planificación y `darkHidden` en varios componentes.
+
+## Fase 4 COMPLETA
+
+Las cinco pantallas gigantes (`EquipoDetalles` 975 → 244, `JugadorPerfil` 1639 → 229, `Jugadores` 954 → 176, `EntrenamientosGenerales` 873 → 194, `ManualMatchTracker` 1362 → 305) están migradas al seam de datos, con hooks por responsabilidad, utilidades puras y componentes presentacionales, todo con tests. Ninguna importa `api/axios`: la regla de eslint es `error` en todo `src/`.
 
 ---
 

@@ -181,9 +181,9 @@ describe('EntrenamientosGenerales', () => {
     it('pide horarios, entrenamientos y usuarios', async () => {
       await renderLoaded();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.GENERAL_TRAININGS.SCHEDULES);
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.GENERAL_TRAININGS.BASE);
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.USERS.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.GENERAL_TRAININGS.SCHEDULES, undefined);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.GENERAL_TRAININGS.BASE, undefined);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.USERS.BASE, undefined);
     });
 
     it('no rompe si falla la carga', async () => {
@@ -259,7 +259,7 @@ describe('EntrenamientosGenerales', () => {
           startTime: '17:00',
           endTime: '19:00',
           daysOfWeek: [2],
-        }),
+        }, undefined),
       );
       expect(api.put).not.toHaveBeenCalled();
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(6));
@@ -298,7 +298,7 @@ describe('EntrenamientosGenerales', () => {
           startTime: '17:00',
           endTime: '19:00',
           daysOfWeek: [1, 3],
-        }),
+        }, undefined),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(6));
     });
@@ -338,7 +338,7 @@ describe('EntrenamientosGenerales', () => {
       expect(api.delete).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole('button', { name: 'Sí, Eliminar' }));
 
-      await waitFor(() => expect(api.delete).toHaveBeenCalledWith(`${SCHEDULES_URL}/s1`));
+      await waitFor(() => expect(api.delete).toHaveBeenCalledWith(`${SCHEDULES_URL}/s1`, undefined));
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(6));
     });
 
@@ -570,7 +570,7 @@ describe('EntrenamientosGenerales', () => {
       await waitFor(() =>
         expect(api.put).toHaveBeenCalledWith(ENDPOINTS.GENERAL_TRAININGS.BULK_ATTENDANCE('t1'), {
           playerIds: ['p1'],
-        }),
+        }, undefined),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(6));
     });
@@ -633,7 +633,7 @@ describe('EntrenamientosGenerales', () => {
           endDate: '2026-10-22T00:00:00.000Z',
           scheduleId: 's1',
           skillsToTrain: { servicio: true, corte: true },
-        }),
+        }, undefined),
       );
       await waitFor(() => expect(screen.queryByText('Programar Fechas')).not.toBeInTheDocument());
       expect(api.get).toHaveBeenCalledTimes(6);
@@ -701,6 +701,32 @@ describe('EntrenamientosGenerales', () => {
       await openDay(5);
       fireEvent.click(screen.getByRole('button', { name: 'Editar Lista' }));
       await screen.findByText('Lista de Asistencia');
+
+      const dialogs = screen.getAllByRole('dialog');
+      expect(normalizeIds(modalBody(dialogs[dialogs.length - 1]))).toMatchSnapshot();
+    });
+
+    it('el modal de horario base conserva su estructura', async () => {
+      await renderLoaded();
+      clickIcon(scheduleCard('Clase Adultos'), 'edit');
+      await screen.findByText('Crear Horario Base');
+
+      expect(normalizeIds(modalBody(screen.getByRole('dialog')))).toMatchSnapshot();
+    });
+
+    it('el modal de programar fechas conserva su estructura', async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole('button', { name: 'Programar' }));
+      await screen.findByText('Programar Fechas');
+
+      expect(normalizeIds(modalBody(screen.getByRole('dialog')))).toMatchSnapshot();
+    });
+
+    it('el modal de asistentes conserva su estructura', async () => {
+      await renderLoaded();
+      await openDay(5);
+      fireEvent.click(screen.getByRole('button', { name: 'Ver Asistentes (2)' }));
+      await screen.findByText('Jugadores que asistieron');
 
       const dialogs = screen.getAllByRole('dialog');
       expect(normalizeIds(modalBody(dialogs[dialogs.length - 1]))).toMatchSnapshot();

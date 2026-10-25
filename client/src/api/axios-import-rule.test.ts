@@ -33,11 +33,11 @@ describe('regla no-restricted-imports sobre api/axios', () => {
     'src/pages/Jugadores/Jugadores.tsx',
     'src/pages/Entrenamientos/EntrenamientosGenerales.tsx',
     'src/pages/Analisis/ManualMatchTracker.tsx',
-  ])('solo avisa (warn) en %s, que migra en la Fase 4', async (file) => {
+  ])('falla en %s, que ya migró en la Fase 4', async (file) => {
     const messages = await lintRule(importAxios('../../api/axios'), file);
 
     expect(messages).toHaveLength(1);
-    expect(messages[0].severity).toBe(1);
+    expect(messages[0].severity).toBe(2);
   });
 
   it('falla cuando lo importa un hook, un componente o el store', async () => {

@@ -18,6 +18,8 @@ export interface User {
   rubberBackhand?: string | null;
   birthDate?: string | null;
   forcePasswordChange?: boolean;
+  /** Cómo inicia sesión el usuario: solo las cuentas `LOCAL` pueden cambiar la contraseña. */
+  authProvider?: string;
 }
 
 interface AuthState {

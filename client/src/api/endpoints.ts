@@ -16,9 +16,6 @@ export const ENDPOINTS = {
     ME: '/users/me',
     CREATE_GUEST: '/users/guest',
   },
-  PLAYERS: {
-    BASE: '/users',
-  },
   CLUBS: {
     BASE: '/clubs',
     ADMIN_ALL: '/clubs/admin/all',

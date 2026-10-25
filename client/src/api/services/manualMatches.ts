@@ -81,7 +81,8 @@ export interface CompleteMatchPayload {
 export const manualMatchesService = {
   list: () => http.get<ManualMatch[]>(ENDPOINTS.MANUAL_MATCHES.BASE),
 
-  byId: (id: string) => http.get<ManualMatch>(ENDPOINTS.MANUAL_MATCHES.BY_ID(id)),
+  /** `T` deja a cada pantalla tipar el partido con la proyección que consume (puntos, tanteos, notas). */
+  byId: <T = ManualMatch>(id: string) => http.get<T>(ENDPOINTS.MANUAL_MATCHES.BY_ID(id)),
 
   create: (payload: CreateManualMatchPayload) =>
     http.post<ManualMatch>(ENDPOINTS.MANUAL_MATCHES.BASE, payload),
@@ -89,8 +90,9 @@ export const manualMatchesService = {
   update: (id: string, payload: UpdateManualMatchPayload) =>
     http.put<ManualMatch>(ENDPOINTS.MANUAL_MATCHES.UPDATE(id), payload),
 
-  addPoint: (id: string, payload: AddPointPayload) =>
-    http.post<ManualMatchPoint>(ENDPOINTS.MANUAL_MATCHES.ADD_POINT(id), payload),
+  /** `T` deja a cada pantalla tipar el punto con la proyección que consume. */
+  addPoint: <T = ManualMatchPoint>(id: string, payload: AddPointPayload) =>
+    http.post<T>(ENDPOINTS.MANUAL_MATCHES.ADD_POINT(id), payload),
 
   deletePoint: (id: string, pointId: string) =>
     http.delete<void>(ENDPOINTS.MANUAL_MATCHES.DELETE_POINT(id, pointId)),

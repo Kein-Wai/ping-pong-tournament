@@ -15,6 +15,7 @@ import {
 import { IconShield, IconDeviceFloppy, IconArrowLeft } from '@tabler/icons-react';
 import { teamsService } from '../../api/services/teams';
 import { APP_ROUTES } from '../../constants/routes';
+import { TEAM_CATEGORIES, TEAM_LEVELS } from '../../constants/teams';
 
 export const EquipoNuevo = () => {
   const navigate = useNavigate();
@@ -78,16 +79,7 @@ export const EquipoNuevo = () => {
               <Select
                 label="Categoría de Liga"
                 description="División en la que compite"
-                data={[
-                  'Superdivisión',
-                  'División de Honor',
-                  '1ª Nacional',
-                  '2ª Nacional',
-                  '3ª Nacional (Superautonomica)',
-                  '1ª Autonómica',
-                  '2ª Autonómica',
-                  'Liga Local',
-                ]}
+                data={TEAM_CATEGORIES}
                 value={category}
                 onChange={setCategory}
                 required
@@ -98,7 +90,7 @@ export const EquipoNuevo = () => {
               <Select
                 label="Nivel Base Inicial"
                 description="Se recalculará al añadir jugadores"
-                data={['Iniciacion', 'Principiante', 'Intermedio', 'Avanzado', 'Profesional']}
+                data={TEAM_LEVELS}
                 value={level}
                 onChange={setLevel}
                 required

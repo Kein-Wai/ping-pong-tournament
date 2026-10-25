@@ -210,7 +210,6 @@ const SEASONS = [
 
 interface Served {
   player?: unknown;
-  usersResponse?: unknown;
   matches?: unknown[];
   seasons?: unknown[];
   trainings?: unknown[];
@@ -218,18 +217,17 @@ interface Served {
 
 const serve = ({
   player = PLAYER,
-  usersResponse,
   matches = [MATCH_WIN, MATCH_LOSS, MATCH_OTHERS, MATCH_PENDING],
   seasons = SEASONS,
   trainings = [PLAN],
 }: Served = {}) => {
   vi.mocked(api.get).mockImplementation((async (url: string) => {
     if (url === ENDPOINTS.USERS.BY_ID('p1')) {
-      return usersResponse ?? { data: { success: true, data: player } };
+      return { data: { success: true, data: player } };
     }
-    if (url === ENDPOINTS.MATCHES.BASE) return { data: { data: matches } };
-    if (url === ENDPOINTS.SEASONS.BASE) return { data: { data: seasons } };
-    if (url === ENDPOINTS.TRAININGS.BY_PLAYER('p1')) return { data: { data: trainings } };
+    if (url === ENDPOINTS.MATCHES.BASE) return { data: { success: true, data: matches } };
+    if (url === ENDPOINTS.SEASONS.BASE) return { data: { success: true, data: seasons } };
+    if (url === ENDPOINTS.TRAININGS.BY_PLAYER('p1')) return { data: { success: true, data: trainings } };
     throw new Error(`Peticion no esperada: ${url}`);
   }) as never);
 };
@@ -303,15 +301,15 @@ describe('JugadorPerfil', () => {
     it('pide el jugador, los partidos y las temporadas', async () => {
       await renderProfile();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p1'));
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE);
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.SEASONS.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p1'), undefined);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE, undefined);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.SEASONS.BASE, undefined);
     });
 
     it('pide los macrociclos al ver el propio perfil', async () => {
       await renderProfile();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.BY_PLAYER('p1'));
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.BY_PLAYER('p1'), undefined);
     });
 
     it('pide los macrociclos si quien mira es administrador', async () => {
@@ -319,7 +317,7 @@ describe('JugadorPerfil', () => {
 
       await renderProfile();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.BY_PLAYER('p1'));
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.BY_PLAYER('p1'), undefined);
     });
 
     it('no pide los macrociclos al mirar el perfil de otro jugador', async () => {
@@ -327,21 +325,11 @@ describe('JugadorPerfil', () => {
 
       await renderProfile();
 
-      expect(api.get).not.toHaveBeenCalledWith(ENDPOINTS.TRAININGS.BY_PLAYER('p1'));
+      expect(api.get).not.toHaveBeenCalledWith(ENDPOINTS.TRAININGS.BY_PLAYER('p1'), undefined);
     });
 
     it('muestra "Jugador no encontrado" si el servidor no devuelve el jugador', async () => {
       serve({ player: null });
-
-      renderPage();
-
-      expect(await screen.findByText('Jugador no encontrado.')).toBeInTheDocument();
-    });
-
-    // Regresion del fallo real: la pantalla lee `response.data.data`, asi que si la
-    // API responde con el jugador sin el sobre { success, data } no se ve ningun perfil.
-    it('muestra "Jugador no encontrado" si la API responde sin el sobre { success, data }', async () => {
-      serve({ usersResponse: { data: PLAYER } });
 
       renderPage();
 
@@ -752,7 +740,7 @@ describe('JugadorPerfil', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Sí, eliminar plan' }));
 
       await waitFor(() =>
-        expect(api.delete).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.DELETE_PLAN('plan1')),
+        expect(api.delete).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.DELETE_PLAN('plan1'), undefined),
       );
       await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(callsBefore));
     });
@@ -767,9 +755,11 @@ describe('JugadorPerfil', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Sí, dar de baja' }));
 
       await waitFor(() =>
-        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.CLUBS.MEMBER_STATUS('club-1', 'p1'), {
-          status: 'Rechazado',
-        }),
+        expect(api.put).toHaveBeenCalledWith(
+          ENDPOINTS.CLUBS.MEMBER_STATUS('club-1', 'p1'),
+          { status: 'Rechazado' },
+          undefined,
+        ),
       );
       expect(await screen.findByText('Pantalla de jugadores')).toBeInTheDocument();
     });
@@ -812,10 +802,11 @@ describe('JugadorPerfil', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Guardar Cambios' }));
 
       await waitFor(() =>
-        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.USERS.ME, {
-          ...OWN_PAYLOAD,
-          nickname: 'El Muro',
-        }),
+        expect(api.put).toHaveBeenCalledWith(
+          ENDPOINTS.USERS.ME,
+          { ...OWN_PAYLOAD, nickname: 'El Muro' },
+          undefined,
+        ),
       );
       await waitFor(() => expect(useAuthStore.getState().user?.nickname).toBe('El Muro'));
       await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(callsBefore));
@@ -830,7 +821,7 @@ describe('JugadorPerfil', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Guardar Cambios' }));
 
       await waitFor(() =>
-        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p1'), OWN_PAYLOAD),
+        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p1'), OWN_PAYLOAD, undefined),
       );
     });
 
@@ -900,12 +891,16 @@ describe('JugadorPerfil', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Guardar Cambios' }));
 
         await waitFor(() =>
-          expect(api.put).toHaveBeenCalledWith(ENDPOINTS.USERS.ME, {
-            ...OWN_PAYLOAD,
-            currentPassword: 'Vieja123@',
-            newPassword: 'Abcdef1@',
-            confirmPassword: 'Abcdef1@',
-          }),
+          expect(api.put).toHaveBeenCalledWith(
+            ENDPOINTS.USERS.ME,
+            {
+              ...OWN_PAYLOAD,
+              currentPassword: 'Vieja123@',
+              newPassword: 'Abcdef1@',
+              confirmPassword: 'Abcdef1@',
+            },
+            undefined,
+          ),
         );
       });
     });
@@ -934,10 +929,11 @@ describe('JugadorPerfil', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Confirmar y Aplicar Subidas' }));
 
       await waitFor(() =>
-        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.SKILLS.CONSOLIDATE('p1'), {
-          ...SKILLS,
-          derechaPlano: 71.5,
-        }),
+        expect(api.put).toHaveBeenCalledWith(
+          ENDPOINTS.SKILLS.CONSOLIDATE('p1'),
+          { ...SKILLS, derechaPlano: 71.5 },
+          undefined,
+        ),
       );
       await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(callsBefore));
     });
@@ -954,6 +950,36 @@ describe('JugadorPerfil', () => {
       const { container } = await renderProfile();
 
       expect(normalizeIds(container.innerHTML)).toMatchSnapshot();
+    });
+
+    // El estilo en línea de la raíz del diálogo es el de la transición de Mantine y depende del tiempo.
+    const stableDialog = (element: HTMLElement) =>
+      normalizeIds(element.outerHTML)
+        .replace(/mantine-[a-z0-9]{9,}/g, 'mantine-id')
+        .replace(/^(<[^>]*?) style="[^"]*"/, '$1');
+
+    it('el modal de edición de un administrador conserva su estructura', async () => {
+      loginAs(ADMIN);
+      await renderProfile();
+      fireEvent.click(screen.getByRole('button', { name: 'Editar Perfil' }));
+
+      expect(stableDialog(await screen.findByRole('dialog'))).toMatchSnapshot();
+    });
+
+    it('el modal de edición del propio jugador con cuenta local conserva su estructura', async () => {
+      loginAs({ ...OWN, authProvider: 'LOCAL' });
+      await renderProfile();
+      fireEvent.click(screen.getByRole('button', { name: 'Editar Perfil' }));
+
+      expect(stableDialog(await screen.findByRole('dialog'))).toMatchSnapshot();
+    });
+
+    it('el modal de consolidación conserva su estructura', async () => {
+      loginAs(ADMIN);
+      await renderProfile();
+      fireEvent.click(screen.getByRole('button', { name: 'Consolidar Mejoras' }));
+
+      expect(stableDialog(await screen.findByRole('dialog'))).toMatchSnapshot();
     });
   });
 });

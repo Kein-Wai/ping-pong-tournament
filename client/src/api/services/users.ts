@@ -71,7 +71,8 @@ export const usersService = {
   /** `T` deja a cada pantalla tipar el jugador con la proyección que consume. */
   list: <T = User>() => http.get<T[]>(ENDPOINTS.USERS.BASE),
 
-  byId: (id: string) => http.get<User>(ENDPOINTS.USERS.BY_ID(id)),
+  /** `T` deja a cada pantalla tipar el jugador con la proyección que consume. */
+  byId: <T = User>(id: string) => http.get<T>(ENDPOINTS.USERS.BY_ID(id)),
 
   me: () => http.get<User>(ENDPOINTS.USERS.ME),
 

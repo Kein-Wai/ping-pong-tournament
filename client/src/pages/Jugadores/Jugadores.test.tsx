@@ -92,7 +92,7 @@ const loginAs = (overrides: Partial<User> = {}) => {
 };
 
 const serve = (players: PlayerFixture[] = PLAYERS) => {
-  vi.mocked(api.get).mockResolvedValue({ data: { data: players } } as never);
+  vi.mocked(api.get).mockResolvedValue({ data: { success: true, data: players } } as never);
 };
 
 const renderPage = () =>
@@ -144,8 +144,8 @@ describe('Jugadores', () => {
     localStorage.clear();
     useAuthStore.setState({ token: null, user: null, isAuthenticated: false });
     serve();
-    vi.mocked(api.put).mockResolvedValue({ data: { data: {} } } as never);
-    vi.mocked(api.post).mockResolvedValue({ data: { data: {} } } as never);
+    vi.mocked(api.put).mockResolvedValue({ data: { success: true, data: {} } } as never);
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true, data: {} } } as never);
     loginAs();
   });
 
@@ -161,7 +161,7 @@ describe('Jugadores', () => {
     it('carga los jugadores y por defecto solo muestra la plantilla aprobada', async () => {
       await renderLoaded();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.PLAYERS.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.USERS.BASE, undefined);
       expect(screen.getByText('Luis Pérez')).toBeInTheDocument();
       expect(screen.getByText('Marta Gil')).toBeInTheDocument();
       expect(screen.getByText('Gus')).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('Jugadores', () => {
     });
 
     it('muestra el mensaje de vacio si el servidor no devuelve una lista', async () => {
-      vi.mocked(api.get).mockResolvedValue({ data: { data: { no: 'lista' } } } as never);
+      vi.mocked(api.get).mockResolvedValue({ data: { success: true, data: { no: 'lista' } } } as never);
 
       await renderLoaded();
 
@@ -363,7 +363,7 @@ describe('Jugadores', () => {
       await waitFor(() =>
         expect(api.put).toHaveBeenCalledWith(ENDPOINTS.CLUBS.MEMBER_STATUS('club-1', 'p3'), {
           status: 'Rechazado',
-        }),
+        }, undefined),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
       expect(onRefresh).toHaveBeenCalledTimes(1);
@@ -382,7 +382,7 @@ describe('Jugadores', () => {
       await waitFor(() =>
         expect(api.put).toHaveBeenCalledWith(ENDPOINTS.CLUBS.MEMBER_STATUS('club-9', 'p3'), {
           status: 'Rechazado',
-        }),
+        }, undefined),
       );
     });
 
@@ -422,7 +422,7 @@ describe('Jugadores', () => {
           level: 'Intermedio',
           elo: 500,
           skills: skillsAll(40),
-        }),
+        }, undefined),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
     });
@@ -441,6 +441,7 @@ describe('Jugadores', () => {
         expect(api.put).toHaveBeenCalledWith(
           ENDPOINTS.CLUBS.MEMBER_STATUS('club-1', 'p3'),
           expect.objectContaining({ skills: { ...skillsAll(60), derechaPlano: 90 } }),
+          undefined,
         ),
       );
     });
@@ -465,7 +466,7 @@ describe('Jugadores', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Guardar Cambios' }));
 
       await waitFor(() =>
-        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p1'), { elo: 1300 }),
+        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p1'), { elo: 1300 }, undefined),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
     });
@@ -519,7 +520,7 @@ describe('Jugadores', () => {
           rubberBackhand: 'LISA',
           elo: 500,
           skills: skillsAll(0),
-        }),
+        }, undefined),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
     });
@@ -546,7 +547,7 @@ describe('Jugadores', () => {
           rubberBackhand: 'LISA',
           elo: 500,
           skills: skillsAll(0),
-        }),
+        }, undefined),
       );
       expect(api.post).toHaveBeenCalledTimes(1);
     });
@@ -568,12 +569,12 @@ describe('Jugadores', () => {
       await waitFor(() =>
         expect(api.put).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p5'), {
           email: 'gus@real.com',
-        }),
+        }, undefined),
       );
       await waitFor(() =>
         expect(api.post).toHaveBeenCalledWith(ENDPOINTS.AUTH.FORGOT_PASSWORD, {
           email: 'gus@real.com',
-        }),
+        }, undefined),
       );
       expect(await screen.findByText('Correo Enviado')).toBeInTheDocument();
     });
@@ -591,7 +592,7 @@ describe('Jugadores', () => {
       await waitFor(() =>
         expect(api.post).toHaveBeenCalledWith(ENDPOINTS.AUTH.FORGOT_PASSWORD, {
           email: 'luis@test.com',
-        }),
+        }, undefined),
       );
       expect(api.put).not.toHaveBeenCalled();
     });
@@ -605,6 +606,50 @@ describe('Jugadores', () => {
       const { container } = await renderLoaded();
 
       expect(normalizeIds(container.innerHTML)).toMatchSnapshot();
+    });
+
+    // El estilo en línea de la raíz del diálogo es el de la transición de Mantine y depende del tiempo.
+    const stableDialog = (element: HTMLElement) =>
+      normalizeIds(element.outerHTML)
+        .replace(/mantine-[a-z0-9]{9,}/g, 'mantine-id')
+        .replace(/^(<[^>]*?) style="[^"]*"/, '$1');
+
+    it('el modal de ajustar ELO conserva su estructura', async () => {
+      await renderLoaded();
+      clickRowAction('Luis Pérez', 'edit');
+
+      expect(stableDialog(await screen.findByRole('dialog'))).toMatchSnapshot();
+    });
+
+    it('el modal de aprobación con un nivel elegido conserva su estructura', async () => {
+      await renderLoaded();
+      await showRequests();
+      clickRowAction('Pedro Ruiz', 'check');
+      await screen.findByText('Nivel de Entrada Inicial');
+      await chooseOption(/Nivel Técnico Base/, 'Intermedio');
+
+      expect(stableDialog(await screen.findByRole('dialog'))).toMatchSnapshot();
+    });
+
+    it('el modal de añadir jugador conserva su estructura', async () => {
+      await renderLoaded();
+      fireEvent.click(screen.getByRole('button', { name: 'Añadir Jugador' }));
+
+      expect(stableDialog(await screen.findByRole('dialog'))).toMatchSnapshot();
+    });
+
+    it('el modal de resetear la cuenta de un invitado conserva su estructura', async () => {
+      await renderLoaded();
+      clickRowAction('Gus', 'key');
+
+      expect(stableDialog(await screen.findByRole('dialog'))).toMatchSnapshot();
+    });
+
+    it('el modal de resetear la cuenta de un jugador con correo conserva su estructura', async () => {
+      await renderLoaded();
+      clickRowAction('Luis Pérez', 'key');
+
+      expect(stableDialog(await screen.findByRole('dialog'))).toMatchSnapshot();
     });
   });
 });
