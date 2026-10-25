@@ -28,7 +28,8 @@ export interface MatchResultPayload {
 }
 
 export const matchesService = {
-  list: () => http.get<Match[]>(ENDPOINTS.MATCHES.BASE),
+  /** `T` deja a cada pantalla tipar el partido con la proyección que consume. */
+  list: <T = Match>() => http.get<T[]>(ENDPOINTS.MATCHES.BASE),
 
   byId: (id: string) => http.get<Match>(ENDPOINTS.MATCHES.BY_ID(id)),
 

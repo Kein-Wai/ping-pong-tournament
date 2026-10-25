@@ -27,9 +27,8 @@ import {
   IconFileExcel,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../api/axios';
+import { tournamentsService } from '../../api/services/tournaments';
 import { usePermissions } from '../../hooks/usePermissions';
-import { ENDPOINTS } from '../../api/endpoints';
 import { APP_ROUTES } from '../../constants/routes';
 import { formatDate } from '../../utils/dates';
 import type { TournamentWithClub } from '../../types/tournament';
@@ -51,8 +50,7 @@ export const Torneos = () => {
   useEffect(() => {
     const fetchTournaments = async () => {
       try {
-        const response = await api.get(ENDPOINTS.TOURNAMENTS.BASE);
-        const data = response.data.data;
+        const data = await tournamentsService.list<TournamentWithClub>();
         if (Array.isArray(data)) {
           setTournaments(data);
         }

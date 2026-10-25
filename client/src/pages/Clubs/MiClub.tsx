@@ -31,24 +31,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { clubsService } from '../../api/services/clubs';
 import { LOCALIZACIONES_ESPANA } from '../../constants/localizaciones';
+import type { ClubDetails } from '../../types/api';
 import '@mantine/dates/styles.css';
-
-interface ClubDetails {
-  id: string;
-  name: string;
-  city: string;
-  address: string | null;
-  foundedAt: string | null;
-  logoUrl: string | null;
-  status: string;
-  _count: {
-    users: number;
-  };
-  users: { birthDate: string | null }[];
-}
 
 export const MiClub = () => {
   const { user } = useAuthStore();
@@ -71,13 +57,12 @@ export const MiClub = () => {
     if (!user?.clubId) return;
     try {
       setLoading(true);
-      const res = await api.get(ENDPOINTS.CLUBS.BY_ID(user.clubId));
-      const data = res.data.data;
+      const data = await clubsService.byId(user.clubId);
       setClub(data);
 
       // Sincronizar formulario
       setName(data.name);
-      setCity(data.city);
+      setCity(data.city ?? '');
       setAddress(data.address || '');
       setFoundedAt(data.foundedAt ? new Date(data.foundedAt) : null);
       setLogoUrl(data.logoUrl || '');
@@ -105,7 +90,7 @@ export const MiClub = () => {
         logoUrl: logoUrl || null,
       };
 
-      await api.put(ENDPOINTS.CLUBS.UPDATE(user.clubId), payload);
+      await clubsService.update(user.clubId, payload);
       setIsEditing(false);
       await fetchClubDetails();
     } catch (error) {

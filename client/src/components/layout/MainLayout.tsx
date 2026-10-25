@@ -43,8 +43,9 @@ import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { useState, useEffect } from 'react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { clubsService } from '../../api/services/clubs';
+import { usersService } from '../../api/services/users';
+import type { DominantHand, Playstyle, RubberType } from '../../types/enums';
 import { DateInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
 import { notifications } from '@mantine/notifications';
@@ -76,9 +77,9 @@ export const MainLayout = () => {
 
   const fetchNotifications = () => {
     if (isAdminClub && user?.clubId) {
-      api
-        .get(ENDPOINTS.CLUBS.NOTIFICATIONS(user.clubId))
-        .then((res) => setNotificationsBadge(res.data.data))
+      clubsService
+        .notifications(user.clubId)
+        .then((badge) => setNotificationsBadge(badge))
         .catch(() => {
           // El interceptor de api/axios ya notifica el error.
         });
@@ -137,7 +138,7 @@ export const MainLayout = () => {
     }
     setSavingPassword(true);
     try {
-      await api.put(ENDPOINTS.USERS.ME, {
+      await usersService.updateProfile({
         currentPassword: passwords.current,
         newPassword: passwords.new,
         confirmPassword: passwords.confirm,
@@ -160,12 +161,12 @@ export const MainLayout = () => {
     if (!hand || !style || !birthDate || !rubberForehand || !rubberBackhand) return;
     setSavingOnboarding(true);
     try {
-      await api.put(ENDPOINTS.USERS.ME, {
-        dominantHand: hand,
-        playstyle: style,
+      await usersService.updateProfile({
+        dominantHand: hand as DominantHand,
+        playstyle: style as Playstyle,
         birthDate: birthDate.toISOString(),
-        rubberForehand,
-        rubberBackhand,
+        rubberForehand: rubberForehand as RubberType,
+        rubberBackhand: rubberBackhand as RubberType,
       });
 
       updateUserFields({

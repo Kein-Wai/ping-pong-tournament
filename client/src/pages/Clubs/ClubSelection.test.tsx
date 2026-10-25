@@ -75,7 +75,7 @@ describe('ClubSelection', () => {
     it('pide los clubes y muestra una tarjeta por cada uno', async () => {
       await renderLoaded();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.CLUBS.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.CLUBS.BASE, undefined);
       expect(screen.getByText('Club Norte')).toBeInTheDocument();
       expect(screen.getByText('Club Sur')).toBeInTheDocument();
     });
@@ -209,7 +209,8 @@ describe('ClubSelection', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Enviar solicitud' }));
 
-      await waitFor(() => expect(api.post).toHaveBeenCalledWith(ENDPOINTS.CLUBS.JOIN('c2')));
+      await waitFor(() => expect(api.post).toHaveBeenCalledWith(ENDPOINTS.CLUBS.JOIN('c2'), undefined, undefined),
+      );
       await waitFor(() =>
         expect(useAuthStore.getState().user).toMatchObject({ clubId: 'c2', clubStatus: 'Pendiente' }),
       );
@@ -232,18 +233,6 @@ describe('ClubSelection', () => {
       expect(useAuthStore.getState().user?.clubStatus).toBeUndefined();
     });
 
-    it('si el servidor no confirma, el usuario no cambia', async () => {
-      vi.mocked(api.post).mockResolvedValue({ data: { success: false } } as never);
-      await renderLoaded();
-      await openConfirm('Club Sur');
-
-      fireEvent.click(screen.getByRole('button', { name: 'Enviar solicitud' }));
-
-      await waitFor(() => expect(api.post).toHaveBeenCalled());
-      expect(useAuthStore.getState().user?.clubStatus).toBeUndefined();
-      expect(useAuthStore.getState().user?.clubId).toBeNull();
-    });
-
     it('si falla el envío, no cambia al usuario', async () => {
       vi.mocked(api.post).mockRejectedValue(new Error('red caida'));
       await renderLoaded();
@@ -256,6 +245,7 @@ describe('ClubSelection', () => {
         expect(within(cardOf('Club Sur')).getByRole('button', { name: 'Solicitar Acceso' })).toBeEnabled(),
       );
       expect(useAuthStore.getState().user?.clubStatus).toBeUndefined();
+      expect(useAuthStore.getState().user?.clubId).toBeNull();
     });
   });
 

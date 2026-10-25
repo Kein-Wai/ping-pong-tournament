@@ -17,7 +17,7 @@ export interface UseApiResult<T> {
   data: T | undefined;
   isLoading: boolean;
   error: Error | undefined;
-  /** Recarga los datos usando la misma funcion de carga. */
+  /** Recarga los datos usando la misma funcion de carga, sin volver a marcar `isLoading`. */
   refetch: () => Promise<void>;
   /** Permite fijar el valor manualmente (por ejemplo tras una mutacion). */
   setData: (value: T | undefined) => void;
@@ -62,8 +62,10 @@ export const useApi = <T>(
     };
   }, []);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  // `showLoading` distingue la carga inicial (o por cambio de deps) de una recarga:
+  // en una recarga se conservan los datos y no vuelve el cargador.
+  const load = useCallback(async (showLoading: boolean) => {
+    if (showLoading) setIsLoading(true);
     setError(undefined);
 
     try {
@@ -84,11 +86,13 @@ export const useApi = <T>(
       return;
     }
 
-    void load();
+    void load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, load, ...deps]);
 
-  return { data, isLoading, error, refetch: load, setData };
+  const refetch = useCallback(() => load(false), [load]);
+
+  return { data, isLoading, error, refetch, setData };
 };
 
 export default useApi;

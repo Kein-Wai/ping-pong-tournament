@@ -19,8 +19,7 @@ import {
   Textarea,
 } from '@mantine/core';
 import { IconArrowLeft, IconBook, IconCheck } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { trainingsService } from '../../api/services/trainings';
 
 // Rellena esto con los datos exactos de tu foto
 const NOMENCLATURA = [
@@ -51,9 +50,8 @@ export const SessionDetalles = () => {
 
   const fetchSession = async () => {
     try {
-      const res = await api.get(ENDPOINTS.TRAININGS.SESSION_DETAILS(sessionId!));
-      console.log(res.data.data);
-      setSession(res.data.data);
+      const sessionData = await trainingsService.sessionDetails(sessionId!);
+      setSession(sessionData);
     } catch (error) {
       console.error(error);
     } finally {
@@ -67,23 +65,23 @@ export const SessionDetalles = () => {
 
   const handleToggleCompleted = async (sessionExerciseId: string, currentStatus: boolean) => {
     try {
-      await api.put(ENDPOINTS.TRAININGS.UPDATE_EXERCISE(sessionExerciseId), {
+      await trainingsService.updateExercise(sessionExerciseId, {
         completed: !currentStatus,
       });
       await fetchSession(); // Recargamos para reflejar el check
-    } catch (error) {
-      console.error('Error al actualizar:', error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 
   const handleUpdateNotes = async (sessionExerciseId: string, notes: string) => {
     try {
-      await api.put(ENDPOINTS.TRAININGS.UPDATE_EXERCISE(sessionExerciseId), {
+      await trainingsService.updateExercise(sessionExerciseId, {
         notes, // Mandamos solo las notas al backend
       });
       // No recargamos la página aquí para no interrumpir al usuario mientras escribe
-    } catch (error) {
-      console.error('Error al guardar las notas:', error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 

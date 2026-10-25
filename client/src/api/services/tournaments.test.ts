@@ -36,6 +36,18 @@ describe('tournamentsService', () => {
       expect(result).toHaveLength(1);
     });
 
+    it('list permite a la pantalla tipar el torneo con su propia proyección', async () => {
+      interface FilaTorneo {
+        id: string;
+        club: { name: string } | null;
+      }
+      mockedApi.get.mockResolvedValue(envelope([{ id: 't1', club: { name: 'Club Norte' } }]));
+
+      const result = await tournamentsService.list<FilaTorneo>();
+
+      expect(result[0].club?.name).toBe('Club Norte');
+    });
+
     it('byId pide el torneo', async () => {
       mockedApi.get.mockResolvedValue(envelope({ id: 't1', name: 'Open' }));
 

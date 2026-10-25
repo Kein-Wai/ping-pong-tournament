@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Routes, Route } from 'react-router-dom';
 import { api } from '../../api/axios';
 import { ENDPOINTS } from '../../api/endpoints';
@@ -32,6 +33,9 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   ...overrides,
 });
 
+// Respuesta con el sobre real de la API: el adaptador `http` solo desenvuelve si existe `success`.
+const envelope = (data: unknown) => ({ data: { success: true, data } });
+
 const loginAs = (overrides: Partial<User> = {}) => {
   useAuthStore.setState({
     token: 'token-test',
@@ -57,10 +61,10 @@ describe('MainLayout', () => {
     vi.clearAllMocks();
     localStorage.clear();
     useAuthStore.setState({ token: null, user: null, isAuthenticated: false });
-    vi.mocked(api.get).mockResolvedValue({
-      data: { data: { pendingMembers: 0, pendingTournaments: 0 } },
-    } as never);
-    vi.mocked(api.put).mockResolvedValue({ data: { data: {} } } as never);
+    vi.mocked(api.get).mockResolvedValue(
+      envelope({ pendingMembers: 0, pendingTournaments: 0, total: 0 }) as never,
+    );
+    vi.mocked(api.put).mockResolvedValue(envelope({}) as never);
   });
 
   describe('menu de navegacion por rol', () => {
@@ -172,16 +176,16 @@ describe('MainLayout', () => {
 
   describe('insignias de notificaciones', () => {
     it('AdminClub carga las notificaciones de su club y muestra las insignias', async () => {
-      vi.mocked(api.get).mockResolvedValue({
-        data: { data: { pendingMembers: 3, pendingTournaments: 2 } },
-      } as never);
+      vi.mocked(api.get).mockResolvedValue(
+        envelope({ pendingMembers: 3, pendingTournaments: 2, total: 5 }) as never,
+      );
       loginAs({ role: 'AdminClub' });
 
       renderLayout();
 
       expect(await screen.findByText('3')).toBeInTheDocument();
       expect(screen.getByText('2')).toBeInTheDocument();
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.CLUBS.NOTIFICATIONS('club-1'));
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.CLUBS.NOTIFICATIONS('club-1'), undefined);
     });
 
     it('recarga las notificaciones al recibir el evento refresh-notifications', async () => {
@@ -211,6 +215,69 @@ describe('MainLayout', () => {
 
       expect(await screen.findByText('¡Último paso, Ana!')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Completar mi Perfil' })).toBeDisabled();
+    });
+
+    // Los dos desplegables de goma comparten opciones y Mantine los mantiene montados:
+    // se elige dentro de la lista que controla cada campo.
+    const choose = async (user: ReturnType<typeof userEvent.setup>, label: RegExp, option: string) => {
+      const field = screen.getByRole('combobox', { name: label });
+      await user.click(field);
+      const list = document.getElementById(field.getAttribute('aria-controls') as string) as HTMLElement;
+      await user.click(within(list).getByRole('option', { name: option, hidden: true }));
+    };
+
+    const fillOnboarding = async () => {
+      const user = userEvent.setup();
+      await screen.findByText('¡Último paso, Ana!');
+      await user.type(screen.getByLabelText(/Fecha de Nacimiento/), 'January 1, 2000');
+      await choose(user, /Mano Dominante/, 'Zurdo');
+      await choose(user, /Estilo de Juego Principal/, 'Defensivo');
+      await choose(user, /Goma Derecha/, 'PICOS_CORTOS');
+      await choose(user, /Goma Revés/, 'ANTISPIN');
+      await user.click(screen.getByRole('button', { name: 'Completar mi Perfil' }));
+    };
+
+    it('guarda el perfil, actualiza el usuario, recuerda que ya lo hizo y cierra el modal', async () => {
+      loginAs({ role: 'Player', dominantHand: null });
+      renderLayout();
+
+      await fillOnboarding();
+
+      await waitFor(() =>
+        expect(api.put).toHaveBeenCalledWith(
+          ENDPOINTS.USERS.ME,
+          {
+            dominantHand: 'Zurdo',
+            playstyle: 'Defensivo',
+            birthDate: '2000-01-01T00:00:00.000Z',
+            rubberForehand: 'PICOS_CORTOS',
+            rubberBackhand: 'ANTISPIN',
+          },
+          undefined,
+        ),
+      );
+      await waitFor(() => expect(screen.queryByText('Completar mi Perfil')).not.toBeInTheDocument());
+      expect(useAuthStore.getState().user).toMatchObject({
+        dominantHand: 'Zurdo',
+        playstyle: 'Defensivo',
+        rubberForehand: 'PICOS_CORTOS',
+        rubberBackhand: 'ANTISPIN',
+      });
+      expect(localStorage.getItem('onboarding_done_u1')).toBe('true');
+    });
+
+    it('si falla el guardado cierra el modal igualmente y no vuelve a molestar', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(api.put).mockRejectedValue(new Error('red caida'));
+      loginAs({ role: 'Player', dominantHand: null });
+      renderLayout();
+
+      await fillOnboarding();
+
+      await waitFor(() => expect(screen.queryByText('Completar mi Perfil')).not.toBeInTheDocument());
+      expect(localStorage.getItem('onboarding_done_u1')).toBe('true');
+      expect(useAuthStore.getState().user?.dominantHand).toBeNull();
+      expect(consoleError).toHaveBeenCalled();
     });
 
     it('no vuelve a mostrar el modal si el jugador ya lo completo en este navegador', () => {
@@ -297,11 +364,15 @@ describe('MainLayout', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Actualizar y Entrar' }));
 
       await waitFor(() =>
-        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.USERS.ME, {
-          currentPassword: 'Temp1234@',
-          newPassword: 'Abcdef1@',
-          confirmPassword: 'Abcdef1@',
-        }),
+        expect(api.put).toHaveBeenCalledWith(
+          ENDPOINTS.USERS.ME,
+          {
+            currentPassword: 'Temp1234@',
+            newPassword: 'Abcdef1@',
+            confirmPassword: 'Abcdef1@',
+          },
+          undefined,
+        ),
       );
       await waitFor(() =>
         expect(useAuthStore.getState().user?.forcePasswordChange).toBe(false),

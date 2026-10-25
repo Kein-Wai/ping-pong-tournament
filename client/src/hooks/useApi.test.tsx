@@ -58,6 +58,52 @@ describe('Hook useApi (client/src/hooks/useApi.ts)', () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it('refetch recarga sin volver a marcar la carga inicial', async () => {
+    let release: (value: string) => void = () => {};
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce('primero')
+      .mockImplementationOnce(() => new Promise<string>((resolve) => (release = resolve)));
+    const { result } = renderHook(() => useApi(fetcher, []));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let refetching: Promise<void> = Promise.resolve();
+    act(() => {
+      refetching = result.current.refetch();
+    });
+
+    // Mientras llega la recarga se conservan los datos y no vuelve el cargador.
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.data).toBe('primero');
+
+    await act(async () => {
+      release('segundo');
+      await refetching;
+    });
+    expect(result.current.data).toBe('segundo');
+  });
+
+  it('marca la carga cuando cambian las dependencias', async () => {
+    let release: (value: string) => void = () => {};
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce('uno')
+      .mockImplementationOnce(() => new Promise<string>((resolve) => (release = resolve)));
+    const { result, rerender } = renderHook(({ id }) => useApi(fetcher, [id]), {
+      initialProps: { id: '1' },
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    rerender({ id: '2' });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    await act(async () => {
+      release('dos');
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toBe('dos');
+  });
+
   it('vuelve a cargar cuando cambian las dependencias', async () => {
     const fetcher = vi.fn().mockResolvedValue('dato');
     const { rerender } = renderHook(({ id }) => useApi(fetcher, [id]), {

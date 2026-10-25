@@ -50,6 +50,18 @@ describe('usersService', () => {
       expect(result).toHaveLength(2);
     });
 
+    it('list permite a la pantalla tipar el jugador con su propia proyección', async () => {
+      interface FilaJugador {
+        id: string;
+        stats: { elo: number } | null;
+      }
+      mockedApi.get.mockResolvedValue(envelope([{ id: 'p1', stats: { elo: 800 } }]));
+
+      const result = await usersService.list<FilaJugador>();
+
+      expect(result[0].stats?.elo).toBe(800);
+    });
+
     it('byId pide /users/:id', async () => {
       mockedApi.get.mockResolvedValue(envelope({ id: 'p1', name: 'Ana' }));
 

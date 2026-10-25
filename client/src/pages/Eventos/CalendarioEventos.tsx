@@ -32,11 +32,11 @@ import {
   IconChevronRight,
   IconEdit,
 } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { eventsService } from '../../api/services/events';
 import { useAuthStore } from '../../store/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { openAppConfirmModal } from '../../utils/modals';
+import type { EventRegion } from '../../types/enums';
 import '@mantine/dates/styles.css';
 
 const REGIONES = [
@@ -86,8 +86,8 @@ export const CalendarioEventos = () => {
     if (!user?.clubId) return;
     try {
       setLoading(true);
-      const res = await api.get(ENDPOINTS.EVENTS.BY_CLUB(user.clubId));
-      setEvents(res.data.data);
+      const clubEvents = await eventsService.byClub(user.clubId);
+      setEvents(clubEvents);
     } catch (error) {
       console.error(error);
     } finally {
@@ -124,20 +124,21 @@ export const CalendarioEventos = () => {
     try {
       const payload = {
         ...newEvent,
+        region: newEvent.region as EventRegion,
         date: eventDates[0].toISOString(),
         endDate: eventDates[1] ? eventDates[1].toISOString() : null,
       };
 
       if (editingId) {
-        await api.put(ENDPOINTS.EVENTS.UPDATE(editingId), payload);
+        await eventsService.update(editingId, payload);
       } else {
-        await api.post(ENDPOINTS.EVENTS.BASE, payload);
+        await eventsService.create(payload);
       }
 
       setModalOpen(false);
       fetchEvents();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setSaving(false);
     }
@@ -153,10 +154,10 @@ export const CalendarioEventos = () => {
       confirmLabel: 'Sí, eliminar',
       onConfirm: async () => {
         try {
-          await api.delete(`${ENDPOINTS.EVENTS.BASE}/${id}`);
+          await eventsService.remove(id);
           fetchEvents();
-        } catch (error) {
-          console.error(error);
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         }
       },
     });
@@ -165,13 +166,13 @@ export const CalendarioEventos = () => {
   const toggleReminder = async (eventId: string, hasReminder: boolean) => {
     try {
       if (hasReminder) {
-        await api.delete(ENDPOINTS.EVENTS.REMINDERS(eventId));
+        await eventsService.removeReminder(eventId);
       } else {
-        await api.post(ENDPOINTS.EVENTS.REMINDERS(eventId));
+        await eventsService.addReminder(eventId);
       }
       fetchEvents();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 

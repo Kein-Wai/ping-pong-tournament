@@ -77,7 +77,7 @@ describe('Torneos', () => {
     it('pide los torneos y muestra una tarjeta por cada uno', async () => {
       await renderLoaded();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TOURNAMENTS.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TOURNAMENTS.BASE, undefined);
       expect(screen.getByText('Open Primavera')).toBeInTheDocument();
       expect(screen.getByText('Liga Invierno')).toBeInTheDocument();
       expect(screen.getByText('Copa Libre')).toBeInTheDocument();

@@ -70,6 +70,9 @@ interface Served {
   enrolled?: unknown[];
 }
 
+// Respuesta con el sobre real de la API: el adaptador `http` solo desenvuelve si existe `success`.
+const envelope = (data: unknown) => ({ data: { success: true, data } });
+
 const serve = ({
   seasons = SEASONS,
   player = PLAYER_DATA,
@@ -79,13 +82,13 @@ const serve = ({
   vi.mocked(api.get).mockImplementation((async (url: string) => {
     if (url === ENDPOINTS.SEASONS.BASE) {
       if (seasons instanceof Error) throw seasons;
-      return { data: { data: seasons } };
+      return envelope(seasons);
     }
-    if (url === ENDPOINTS.CLUBS.BY_ID('club-1')) return { data: { data: CLUB } };
-    if (url === ENDPOINTS.TEAMS.BY_CLUB('club-1')) return { data: { data: TEAMS } };
-    if (url === ENDPOINTS.USERS.BY_ID('p1')) return { data: { success: true, data: player } };
-    if (url === ENDPOINTS.TRAININGS.UPCOMING('p1')) return { data: { data: trainings } };
-    if (url === ENDPOINTS.TOURNAMENTS.ENROLLED('p1')) return { data: { data: enrolled } };
+    if (url === ENDPOINTS.CLUBS.BY_ID('club-1')) return envelope(CLUB);
+    if (url === ENDPOINTS.TEAMS.BY_CLUB('club-1')) return envelope(TEAMS);
+    if (url === ENDPOINTS.USERS.BY_ID('p1')) return envelope(player);
+    if (url === ENDPOINTS.TRAININGS.UPCOMING('p1')) return envelope(trainings);
+    if (url === ENDPOINTS.TOURNAMENTS.ENROLLED('p1')) return envelope(enrolled);
     throw new Error(`Peticion no esperada: ${url}`);
   }) as never);
 };
@@ -185,8 +188,8 @@ describe('Dashboard', () => {
       await renderLoaded();
       await screen.findByText('Resumen Operativo de la Sede');
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.CLUBS.BY_ID('club-1'));
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TEAMS.BY_CLUB('club-1'));
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.CLUBS.BY_ID('club-1'), undefined);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TEAMS.BY_CLUB('club-1'), undefined);
       expect(screen.getByText('12')).toBeInTheDocument();
       expect(screen.getByText('3')).toBeInTheDocument();
       expect(screen.getByText('Operativa')).toBeInTheDocument();
@@ -204,10 +207,10 @@ describe('Dashboard', () => {
 
     it('no muestra el aviso de direccion si el club ya la tiene', async () => {
       vi.mocked(api.get).mockImplementation((async (url: string) => {
-        if (url === ENDPOINTS.SEASONS.BASE) return { data: { data: SEASONS } };
+        if (url === ENDPOINTS.SEASONS.BASE) return envelope(SEASONS);
         if (url === ENDPOINTS.CLUBS.BY_ID('club-1'))
-          return { data: { data: { ...CLUB, address: 'Calle Mayor 1' } } };
-        if (url === ENDPOINTS.TEAMS.BY_CLUB('club-1')) return { data: { data: TEAMS } };
+          return envelope({ ...CLUB, address: 'Calle Mayor 1' });
+        if (url === ENDPOINTS.TEAMS.BY_CLUB('club-1')) return envelope(TEAMS);
         throw new Error(`Peticion no esperada: ${url}`);
       }) as never);
 
@@ -222,7 +225,7 @@ describe('Dashboard', () => {
 
       await renderLoaded();
 
-      expect(api.get).not.toHaveBeenCalledWith(ENDPOINTS.CLUBS.BY_ID('club-1'));
+      expect(api.get).not.toHaveBeenCalledWith(ENDPOINTS.CLUBS.BY_ID('club-1'), undefined);
       expect(screen.queryByText('Resumen Operativo de la Sede')).not.toBeInTheDocument();
     });
 
@@ -258,22 +261,17 @@ describe('Dashboard', () => {
       await renderLoaded();
       await screen.findByText('Mi Rendimiento (Temporada 2026/2027)');
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p1'));
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.USERS.BY_ID('p1'), undefined);
       expect(screen.getByText('1100')).toBeInTheDocument();
       expect(screen.getByText('Nivel ELO')).toBeInTheDocument();
       expect(screen.getByText('Torneos Jugados')).toBeInTheDocument();
     });
 
-    // Regresion del fallo real: la pantalla lee `response.data.data`, asi que si la
-    // API devuelve el jugador sin el sobre { success, data } no hay estadisticas.
-    it('usa 500 de ELO si la API responde sin el sobre { success, data }', async () => {
-      vi.mocked(api.get).mockImplementation((async (url: string) => {
-        if (url === ENDPOINTS.SEASONS.BASE) return { data: { data: SEASONS } };
-        if (url === ENDPOINTS.USERS.BY_ID('p1')) return { data: PLAYER_DATA };
-        if (url === ENDPOINTS.TRAININGS.UPCOMING('p1')) return { data: { data: [] } };
-        if (url === ENDPOINTS.TOURNAMENTS.ENROLLED('p1')) return { data: { data: [] } };
-        throw new Error(`Peticion no esperada: ${url}`);
-      }) as never);
+    // Antes fijaba el fallo de la API que devolvia el jugador sin el sobre { success, data }.
+    // El adaptador `http` acepta cuerpos sin sobre, asi que aqui se fija lo que sigue
+    // valiendo: sin datos del jugador la pantalla usa 500 de ELO.
+    it('usa 500 de ELO si la API no devuelve datos del jugador', async () => {
+      serve({ player: null });
 
       await renderLoaded();
       await screen.findByText('Mi Rendimiento (Temporada 2026/2027)');
@@ -313,7 +311,7 @@ describe('Dashboard', () => {
       await renderLoaded();
       await screen.findByText('Entrenamientos Pendientes');
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.UPCOMING('p1'));
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TRAININGS.UPCOMING('p1'), undefined);
       expect(screen.getByText('Siguiente Sesión')).toBeInTheDocument();
       expect(screen.getByText('Progreso: 1 / 2 ejercicios')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Continuar' })).toBeInTheDocument();
@@ -332,7 +330,7 @@ describe('Dashboard', () => {
       await renderLoaded();
       await screen.findByText('Mis Torneos Activos');
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TOURNAMENTS.ENROLLED('p1'));
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.TOURNAMENTS.ENROLLED('p1'), undefined);
       expect(screen.getByText('Open Primavera')).toBeInTheDocument();
       expect(screen.getByText('Fase: Grupos')).toBeInTheDocument();
     });
@@ -355,7 +353,7 @@ describe('Dashboard', () => {
       await renderLoaded();
 
       expect(api.get).toHaveBeenCalledTimes(1);
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.SEASONS.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.SEASONS.BASE, undefined);
       expect(screen.queryByText('Resumen Operativo de la Sede')).not.toBeInTheDocument();
       expect(screen.queryByText(/Mi Rendimiento/)).not.toBeInTheDocument();
     });

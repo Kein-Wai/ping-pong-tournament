@@ -80,7 +80,8 @@ export interface SwapPlayersPayload {
 }
 
 export const tournamentsService = {
-  list: () => http.get<Tournament[]>(ENDPOINTS.TOURNAMENTS.BASE),
+  /** `T` deja a cada pantalla tipar el torneo con la proyección que consume. */
+  list: <T = Tournament>() => http.get<T[]>(ENDPOINTS.TOURNAMENTS.BASE),
 
   byId: (id: string) => http.get<Tournament>(ENDPOINTS.TOURNAMENTS.BY_ID(id)),
 

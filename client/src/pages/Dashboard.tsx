@@ -17,8 +17,10 @@ import {
 } from '@mantine/core';
 import { useAuthStore } from '../store/authStore';
 import { usePermissions } from '../hooks/usePermissions';
-import { api } from '../api/axios';
-import { ENDPOINTS } from '../api/endpoints';
+import { clubsService } from '../api/services/clubs';
+import { seasonsService } from '../api/services/seasons';
+import { teamsService } from '../api/services/teams';
+import { usersService } from '../api/services/users';
 import { WidgetEntrenamientos } from '../components/common/WidgetEntrenamientos';
 import { WidgetTorneos } from '../components/common/WidgetTorneos';
 import {
@@ -55,20 +57,19 @@ export const Dashboard = () => {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const seasonRes = await api.get(ENDPOINTS.SEASONS.BASE);
-        const activeS = seasonRes.data.data.find((s: any) => s.isCurrent);
+        const activeS = await seasonsService.current();
         setCurrentSeason(activeS);
 
         if (isAdminClub && user?.clubId) {
-          const [clubRes, teamsRes] = await Promise.all([
-            api.get(ENDPOINTS.CLUBS.BY_ID(user.clubId)),
-            api.get(ENDPOINTS.TEAMS.BY_CLUB(user.clubId)),
+          const [club, teams] = await Promise.all([
+            clubsService.byId(user.clubId),
+            teamsService.byClub(user.clubId),
           ]);
-          setClubDetails(clubRes.data.data);
-          setAdminTeams(teamsRes.data.data);
+          setClubDetails(club);
+          setAdminTeams(teams);
         } else if (isPlayer && user?.id) {
-          const playerRes = await api.get(ENDPOINTS.USERS.BY_ID(user.id));
-          setPlayerData(playerRes.data.data);
+          const player = await usersService.byId(user.id);
+          setPlayerData(player);
         }
       } catch (error) {
         console.error('Error cargando dashboard:', error);

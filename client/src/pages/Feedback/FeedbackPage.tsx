@@ -19,8 +19,7 @@ import {
   Paper,
 } from '@mantine/core';
 import { IconBug, IconMessageCircle, IconCheck, IconEye } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { feedbackService } from '../../api/services/feedback';
 import { usePermissions } from '../../hooks/usePermissions';
 
 export const FeedbackPage = () => {
@@ -40,8 +39,8 @@ export const FeedbackPage = () => {
 
   const fetchData = async () => {
     try {
-      const res = await api.get(ENDPOINTS.FEEDBACK.BASE);
-      setFeedbacks(res.data.data);
+      const feedbackList = await feedbackService.list();
+      setFeedbacks(feedbackList);
     } catch {
       // El interceptor de api/axios ya notifica el error.
     } finally {
@@ -57,7 +56,7 @@ export const FeedbackPage = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.post(ENDPOINTS.FEEDBACK.BASE, { type, content });
+      await feedbackService.create({ type, content });
       setContent('');
       fetchData(); // Recargamos para que aparezca abajo en su historial
     } catch {
@@ -70,7 +69,7 @@ export const FeedbackPage = () => {
   const handleUpdateStatus = async (status: string) => {
     if (!selectedItem) return;
     try {
-      await api.put(ENDPOINTS.FEEDBACK.UPDATE_STATUS(selectedItem.id), { status });
+      await feedbackService.updateStatus(selectedItem.id, status);
       setSelectedItem(null);
       fetchData();
     } catch {

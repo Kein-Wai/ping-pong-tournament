@@ -109,6 +109,74 @@ describe('Hook useTrainingPlan (client/src/hooks/useTrainingPlan.ts)', () => {
     expect(mockedTrainings.deleteExercise).toHaveBeenCalledWith('e1');
   });
 
+  it('no espera al catalogo para dar el plan por cargado', async () => {
+    mockedExercises.list.mockReturnValue(new Promise(() => {}) as never);
+
+    const { result } = renderHook(() => useTrainingPlan('plan-1'));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.sessions).toHaveLength(2);
+    expect(result.current.catalog).toEqual([]);
+  });
+
+  it('una recarga tras una accion no vuelve a marcar la carga', async () => {
+    let release: (plan: unknown) => void = () => {};
+    const { result } = renderHook(() => useTrainingPlan('plan-1'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    mockedTrainings.planById.mockImplementationOnce(
+      () => new Promise((resolve) => (release = resolve)) as never,
+    );
+
+    let pending: Promise<boolean> = Promise.resolve(true);
+    act(() => {
+      pending = result.current.removeExercise('e1');
+    });
+
+    await waitFor(() => expect(mockedTrainings.planById).toHaveBeenCalledTimes(2));
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.plan?.id).toBe('plan-1');
+
+    await act(async () => {
+      release(buildPlan());
+      await pending;
+    });
+  });
+
+  it.each([
+    ['addExercise', () => mockedTrainings.addExercise, (r: ReturnType<typeof useTrainingPlan>) => r.addExercise('sesion-1', { exerciseId: 'ej-1' })],
+    ['cloneSession', () => mockedTrainings.cloneSession, (r: ReturnType<typeof useTrainingPlan>) => r.cloneSession('sesion-2', 'sesion-1')],
+    ['removeExercise', () => mockedTrainings.deleteExercise, (r: ReturnType<typeof useTrainingPlan>) => r.removeExercise('e1')],
+  ])('%s devuelve true cuando la accion tiene exito', async (_name, _service, run) => {
+    const { result } = renderHook(() => useTrainingPlan('plan-1'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let outcome: boolean | undefined;
+    await act(async () => {
+      outcome = await run(result.current);
+    });
+
+    expect(outcome).toBe(true);
+  });
+
+  it.each([
+    ['addExercise', () => mockedTrainings.addExercise, (r: ReturnType<typeof useTrainingPlan>) => r.addExercise('sesion-1', { exerciseId: 'ej-1' })],
+    ['cloneSession', () => mockedTrainings.cloneSession, (r: ReturnType<typeof useTrainingPlan>) => r.cloneSession('sesion-2', 'sesion-1')],
+    ['removeExercise', () => mockedTrainings.deleteExercise, (r: ReturnType<typeof useTrainingPlan>) => r.removeExercise('e1')],
+  ])('%s devuelve false, sin lanzar y sin recargar, cuando la API falla', async (_name, service, run) => {
+    service().mockRejectedValue(new Error('400'));
+    const { result } = renderHook(() => useTrainingPlan('plan-1'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let outcome: boolean | undefined;
+    await act(async () => {
+      outcome = await run(result.current);
+    });
+
+    expect(outcome).toBe(false);
+    expect(mockedTrainings.planById).toHaveBeenCalledTimes(1);
+    expect(result.current.isSubmitting).toBe(false);
+  });
+
   it('expone el error cuando la carga falla', async () => {
     mockedTrainings.planById.mockRejectedValue(new Error('No encontrado'));
 

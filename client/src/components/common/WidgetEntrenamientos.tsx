@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Title, Text, Group, Button, Stack, ThemeIcon } from '@mantine/core';
 import { IconBarbell, IconCalendarEvent } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { trainingsService } from '../../api/services/trainings';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -17,9 +16,9 @@ export const WidgetEntrenamientos = () => {
 
   useEffect(() => {
     if (user?.id && isPlayer) {
-      api
-        .get(ENDPOINTS.TRAININGS.UPCOMING(user.id))
-        .then((res) => setUpcoming(res.data.data))
+      trainingsService
+        .upcoming(user.id)
+        .then((sessions) => setUpcoming(sessions))
         .catch((err) => console.error('Error cargando avisos de entrenamiento', err))
         .finally(() => setLoading(false));
     } else {

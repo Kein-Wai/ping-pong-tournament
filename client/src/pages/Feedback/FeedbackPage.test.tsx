@@ -79,8 +79,9 @@ describe('FeedbackPage', () => {
     vi.clearAllMocks();
     useAuthStore.setState({ token: null, user: null, isAuthenticated: false });
     serve();
-    vi.mocked(api.post).mockResolvedValue({ data: { data: {} } } as never);
-    vi.mocked(api.put).mockResolvedValue({ data: { data: {} } } as never);
+    // Respuestas con el sobre real de la API: el adaptador `http` solo desenvuelve si existe `success`.
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true, data: {} } } as never);
+    vi.mocked(api.put).mockResolvedValue({ data: { success: true, data: {} } } as never);
   });
 
   describe('segun el rol', () => {
@@ -114,7 +115,7 @@ describe('FeedbackPage', () => {
     it('pide los reportes y los lista con tipo y estado', async () => {
       await renderLoaded();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.FEEDBACK.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.FEEDBACK.BASE, undefined);
       const rows = screen.getAllByRole('row').slice(1);
       expect(rows).toHaveLength(3);
       expect(within(rows[0]).getByText('Bug')).toBeInTheDocument();
@@ -166,10 +167,11 @@ describe('FeedbackPage', () => {
       fireEvent.click(submit());
 
       await waitFor(() =>
-        expect(api.post).toHaveBeenCalledWith(ENDPOINTS.FEEDBACK.BASE, {
-          type: 'Sugerencia',
-          content: 'Me gustaria ver el ranking',
-        }),
+        expect(api.post).toHaveBeenCalledWith(
+          ENDPOINTS.FEEDBACK.BASE,
+          { type: 'Sugerencia', content: 'Me gustaria ver el ranking' },
+          undefined,
+        ),
       );
       await waitFor(() => expect(screen.getByLabelText(/^Detalles/)).toHaveValue(''));
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
@@ -190,10 +192,11 @@ describe('FeedbackPage', () => {
         screen.getByPlaceholderText('¿Qué ha fallado y cómo llegaste a ese error?'),
       ).toBeInTheDocument();
       await waitFor(() =>
-        expect(api.post).toHaveBeenCalledWith(ENDPOINTS.FEEDBACK.BASE, {
-          type: 'Bug',
-          content: 'Se cierra al guardar el perfil',
-        }),
+        expect(api.post).toHaveBeenCalledWith(
+          ENDPOINTS.FEEDBACK.BASE,
+          { type: 'Bug', content: 'Se cierra al guardar el perfil' },
+          undefined,
+        ),
       );
     });
   });
@@ -210,9 +213,11 @@ describe('FeedbackPage', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Marcar como Revisado' }));
 
       await waitFor(() =>
-        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.FEEDBACK.UPDATE_STATUS('f1'), {
-          status: 'Revisado',
-        }),
+        expect(api.put).toHaveBeenCalledWith(
+          ENDPOINTS.FEEDBACK.UPDATE_STATUS('f1'),
+          { status: 'Revisado' },
+          undefined,
+        ),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
     });
@@ -226,9 +231,11 @@ describe('FeedbackPage', () => {
       expect(screen.queryByRole('button', { name: 'Marcar como Revisado' })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Marcar como Resuelto' }));
       await waitFor(() =>
-        expect(api.put).toHaveBeenCalledWith(ENDPOINTS.FEEDBACK.UPDATE_STATUS('f2'), {
-          status: 'Resuelto',
-        }),
+        expect(api.put).toHaveBeenCalledWith(
+          ENDPOINTS.FEEDBACK.UPDATE_STATUS('f2'),
+          { status: 'Resuelto' },
+          undefined,
+        ),
       );
     });
 

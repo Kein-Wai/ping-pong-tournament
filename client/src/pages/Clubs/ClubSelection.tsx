@@ -14,18 +14,11 @@ import {
   Badge,
 } from '@mantine/core';
 import { IconBuildingCommunity, IconCheck, IconClock, IconUsers } from '@tabler/icons-react';
-import { api } from '../../api/axios';
+import { clubsService } from '../../api/services/clubs';
 import { useAuthStore } from '../../store/authStore';
 import { openAppConfirmModal } from '../../utils/modals';
 import { formatDate } from '../../utils/dates';
-import type { Club } from '../../types/api';
-import { ENDPOINTS } from '../../api/endpoints';
-
-/** Club del listado público: campos del modelo más el recuento de miembros que añade la API. */
-type ClubListItem = Pick<Club, 'id' | 'name' | 'city' | 'address' | 'foundedAt'> & {
-  memberCount: number;
-  createdAt: string;
-};
+import type { ClubListItem } from '../../types/api';
 
 export const ClubSelection = () => {
   const { user, updateUserFields, logout } = useAuthStore();
@@ -36,14 +29,12 @@ export const ClubSelection = () => {
   useEffect(() => {
     const fetchClubs = async () => {
       try {
-        const response = await api.get(ENDPOINTS.CLUBS.BASE);
+        const allClubs = await clubsService.list();
 
-        if (response.data.success) {
-          const visibleClubs = response.data.data.filter(
-            (club: ClubListItem) => !club.name.toUpperCase().startsWith('(DEMO)'),
-          );
-          setClubs(visibleClubs);
-        }
+        const visibleClubs = allClubs.filter(
+          (club) => !club.name.toUpperCase().startsWith('(DEMO)'),
+        );
+        setClubs(visibleClubs);
       } catch (error: any) {
         console.error(error);
       } finally {
@@ -67,10 +58,8 @@ export const ClubSelection = () => {
       onConfirm: async () => {
         setSubmittingId(clubId);
         try {
-          const response = await api.post(ENDPOINTS.CLUBS.JOIN(clubId));
-          if (response.data.success) {
-            updateUserFields({ clubId, clubStatus: 'Pendiente' });
-          }
+          await clubsService.join(clubId);
+          updateUserFields({ clubId, clubStatus: 'Pendiente' });
         } catch {
           // El interceptor de api/axios ya notifica el error.
         } finally {

@@ -19,8 +19,7 @@ import {
 } from '@mantine/core';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { api } from '../api/axios';
-import { ENDPOINTS } from '../api/endpoints';
+import { authService } from '../api/services/auth';
 import { GoogleLogin } from '@react-oauth/google';
 import { IconLock, IconUserPlus, IconBrandGoogle } from '@tabler/icons-react';
 import DICTIONARY from '../constants/dictionary.json';
@@ -160,8 +159,8 @@ export const Login = () => {
     setIsLoginLoading(true);
     setErrorMsg('');
     try {
-      const response = await api.post(ENDPOINTS.AUTH.LOGIN, { email, password });
-      processSuccessfulLogin(response.data.token);
+      const { token } = await authService.login({ email, password });
+      processSuccessfulLogin(token);
     } catch (error: any) {
       handleLoginError(error);
     } finally {
@@ -186,11 +185,9 @@ export const Login = () => {
 
     setIsRegisterLoading(true);
     setErrorMsg('');
-    console.log('1. Empezando registro...');
 
     try {
-      console.log('2. Llamando al backend...');
-      await api.post(ENDPOINTS.AUTH.REGISTER, {
+      await authService.register({
         email,
         password,
         confirmPassword,
@@ -199,8 +196,6 @@ export const Login = () => {
         secondSurname: secondSurname || null,
         role: selectedRole,
       });
-
-      console.log('3. Backend respondió OK. Lanzando notificación...');
 
       // 1. Limpiamos campos y apagamos el botón inmediatamente
       resetForm();
@@ -214,7 +209,6 @@ export const Login = () => {
       handleLoginError(error);
       setIsRegisterLoading(false);
     } finally {
-      console.log('7. Ejecutando bloque finally de seguridad.');
       setIsRegisterLoading(false);
     }
   };
@@ -224,11 +218,11 @@ export const Login = () => {
     setIsLoginLoading(true);
     setErrorMsg('');
     try {
-      const response = await api.post(ENDPOINTS.AUTH.GOOGLE, {
-        credential: credentialResponse.credential,
-        role: activeTab === 'register' ? selectedRole : 'Player',
-      });
-      processSuccessfulLogin(response.data.token);
+      const { token } = await authService.loginWithGoogle(
+        credentialResponse.credential,
+        activeTab === 'register' ? selectedRole : 'Player',
+      );
+      processSuccessfulLogin(token);
     } catch (error: any) {
       handleLoginError(error);
     } finally {
@@ -255,11 +249,11 @@ export const Login = () => {
       }
 
       // Enviamos el token al backend
-      const response = await api.post(ENDPOINTS.AUTH.GOOGLE, {
-        credential: idToken,
-        role: activeTab === 'register' ? selectedRole : 'Player',
-      });
-      processSuccessfulLogin(response.data.token);
+      const { token } = await authService.loginWithGoogle(
+        idToken,
+        activeTab === 'register' ? selectedRole : 'Player',
+      );
+      processSuccessfulLogin(token);
     } catch (error: any) {
       if (error?.message !== 'user canceled' && error?.message !== 'User cancelled login') {
         console.error('ERROR GOOGLE NATIVO:', error);

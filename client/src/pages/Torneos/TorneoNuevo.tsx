@@ -17,8 +17,7 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { IconTrophy, IconDeviceFloppy, IconArrowLeft } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { tournamentsService } from '../../api/services/tournaments';
 import { APP_ROUTES } from '../../constants/routes';
 import '@mantine/dates/styles.css';
 
@@ -93,11 +92,11 @@ export const TorneoNuevo = () => {
       }
 
       // 3. Enviamos al backend
-      const response = await api.post(ENDPOINTS.TOURNAMENTS.BASE, payload);
+      const created = await tournamentsService.create(payload);
 
-      if (response.data.tournament) {
+      if (created.tournament) {
         // Redirigimos directamente a la vista de detalles del nuevo torneo
-        navigate(APP_ROUTES.TORNEOS.DETAILS(response.data.tournament.id));
+        navigate(APP_ROUTES.TORNEOS.DETAILS(created.tournament.id));
       }
     } catch (error) {
       console.error('Error al crear el torneo', error);

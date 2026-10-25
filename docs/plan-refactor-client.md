@@ -106,6 +106,33 @@ Decisiones:
 
 Las 5 pantallas grandes migran sus datos dentro de la Fase 4, para no tocar dos veces el mismo archivo.
 
+**Progreso de la migración (3.1 a 3.18, hechas, sin commitear a 2026-10-25):** ficheros con aviso del lint **35 → 16**, tests **709 → 944**, lint 0 errores, `tsc -b` limpio. Método por pantalla: red de seguridad primero (casi ninguna tenía test), aserciones de llamada en formato adaptador como RED (`(url, cuerpo, undefined)`), migración mínima, verificación completa.
+
+| Tarea | Resultado |
+|---|---|
+| 3.1 `Partidos` | `matchesService.list<T = Match>()` (parámetro de tipo para la proyección de la pantalla). Se creó `matches.test.ts` |
+| 3.2 `Estadisticas` | Sin test previo: 15 tests + snapshot. `usersService.list<T = User>()` |
+| 3.3 `Torneos` | `tournamentsService.list<T = Tournament>()` |
+| 3.4 `Dashboard` | Mocks con sobre `{success,data}` (el adaptador solo desenvuelve con `success`). Test del «500 de ELO» reescrito: el bug del sobre ya no se reproduce con el adaptador. Se creó `seasons.test.ts` |
+| 3.5 widgets | `WidgetTorneos` y `WidgetEntrenamientos` con tests propios (16). `PodioHonor` no llama a la API |
+| 3.6 `MainLayout` | Se añadió el test del guardado del onboarding (no existía). Casts a enums en el payload |
+| 3.7 `ResetPassword` | 8 tests. Se quita el `console.error` redundante |
+| 3.8 `FeedbackPage` | Solo aserciones de llamada |
+| 3.9 `AnalisisList` | 14 tests + 2 snapshots. 8 casts a enums concentrados en `handleStartMatch` |
+| 3.10 `AdminPanel` | 13 tests. Adopta `ClubAdminData` compartido |
+| 3.11 `MiClub` | 15 tests. Adopta `ClubDetails` compartido (`setCity(data.city ?? '')`) |
+| 3.12 `ClubSelection` | Deja de leer `response.data.success`: el éxito es «la llamada no lanza». Adopta `ClubListItem`. Se elimina el test «si el servidor no confirma» (simulaba un 200 con `success:false`, que la API no envía) |
+| 3.13 `SessionDetalles` | 14 tests. Quita un `console.log` de depuración |
+| 3.14 `PlanDetalles` | **Decisión: adoptar `useTrainingPlan` + `components/training/*`** (prueba de borrado: la lógica reaparecería en la página). 27 tests + snapshot idéntico tras la sustitución; 556 → ~215 líneas. Correcciones en su módulo, test primero: `useApi.refetch` ya no marca `isLoading`; `useTrainingPlan.isLoading` no espera al catálogo; las 3 acciones devuelven `boolean` y no lanzan; `CloneSessionModal` excluye el destino, limpia al cerrar y solo cierra con éxito; `AddExerciseModal` solo cierra con éxito. Se quitó `refetch` del resultado del hook. Helpers `chooseOption` y `optionsOf` en `test/utils.tsx` |
+| 3.15 `CalendarioEventos` | 20 tests + snapshot. Quita `console.error` de las 3 mutaciones |
+| 3.16 `TorneoNuevo` | 13 tests + snapshot. Respuesta sin sobre (`{message, tournament}`) |
+| 3.17 `ExcelTournamentCreator` | 15 tests + snapshot (descarga de blob capturada). Sin RED por adaptador: el RED fue el aviso de lint |
+| 3.18 `Login` | 29 tests + snapshot. Mock de `@react-oauth/google`, `Capacitor` y `SocialLogin`. Quita 4 `console.log` |
+
+**Pendiente de la Fase 3 (16 ficheros con aviso):** 3.19 `Ejercicios` + `EjercicioNuevo`; 3.20 `Equipos` + `EquipoNuevo` + `ClubSetup`; 3.21 `ForgotPassword` + `PlanNuevo`; 3.22 hooks `useTorneoFormato` + `useTorneoInscripcion` + `useTorneoPartido`; 3.23 `store/authStore` (ciclo de importación); 3.24 cierre. El resto son las 5 pantallas grandes (Fase 4).
+
+**Hallazgos anotados:** un usuario sin club se queda con el spinner para siempre en `MiClub` y `CalendarioEventos` (un test lo fija en cada una; bug a corregir aparte). `Login` nativo muestra con `alert` el error del backend (`'DETALLE DEL ERROR: ...'`): revisar en la pasada de seguridad.
+
 **Ajustes tras la auditoría 3.0a** (consumidores que este listado omitía):
 - 3.5 (`WidgetTorneos`, `WidgetEntrenamientos`, `PodioHonor`): **corregido en la 3.0c**, los dos widgets sí llaman a la API (`tournamentsService.enrolledByPlayer` y `trainingsService.upcoming`, ya restaurados con test); `PodioHonor` no llama a nada, así que se queda fuera.
 - 3.14 (`PlanDetalles`) no es "migrar a servicios": ya existen `hooks/useTrainingPlan.ts`, `hooks/useApi.ts` y `components/training/*` con tests, sin uso en producción. Decidir entre **adoptarlos** (su límite `MAX_EXERCISES_PER_SESSION = 6` coincide con el que ya impone la API, así que no cambia el resultado final, solo avisa antes) o borrarlos.

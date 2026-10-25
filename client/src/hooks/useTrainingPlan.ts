@@ -48,14 +48,17 @@ export interface UseTrainingPlanResult {
   error: Error | undefined;
   /** Sesiones que tienen ejercicios, para el modal de clonado. */
   availableSourceSessions: SourceSessionOption[];
+  /**
+   * Las tres acciones no lanzan: devuelven si tuvieron exito. El aviso al usuario
+   * ya lo da el interceptor de api/axios, asi que quien llama solo decide si cierra
+   * su modal.
+   */
   /** Anade un ejercicio a una sesion. */
-  addExercise: (sessionId: string, payload: ExercisePayload) => Promise<void>;
+  addExercise: (sessionId: string, payload: ExercisePayload) => Promise<boolean>;
   /** Copia los ejercicios de una sesion a otra. */
-  cloneSession: (targetSessionId: string, sourceSessionId: string) => Promise<void>;
+  cloneSession: (targetSessionId: string, sourceSessionId: string) => Promise<boolean>;
   /** Quita un ejercicio de una sesion. */
-  removeExercise: (sessionExerciseId: string) => Promise<void>;
-  /** Recarga el plan. */
-  refetch: () => Promise<void>;
+  removeExercise: (sessionExerciseId: string) => Promise<boolean>;
 }
 
 /** Maximo de ejercicios por sesion que admite la API. */
@@ -101,11 +104,15 @@ export const useTrainingPlan = (
   );
 
   const runAction = useCallback(
-    async (action: () => Promise<unknown>) => {
+    async (action: () => Promise<unknown>): Promise<boolean> => {
       setIsSubmitting(true);
       try {
         await action();
         await planQuery.refetch();
+        return true;
+      } catch {
+        // El interceptor de api/axios ya notifica el error.
+        return false;
       } finally {
         setIsSubmitting(false);
       }
@@ -135,14 +142,14 @@ export const useTrainingPlan = (
     plan: planQuery.data,
     sessions,
     catalog: catalogQuery.data ?? [],
-    isLoading: planQuery.isLoading || catalogQuery.isLoading,
+    // El catalogo solo hace falta al abrir el modal de anadir: no retrasa el plan.
+    isLoading: planQuery.isLoading,
     isSubmitting,
     error: planQuery.error ?? catalogQuery.error,
     availableSourceSessions,
     addExercise,
     cloneSession,
     removeExercise,
-    refetch: planQuery.refetch,
   };
 };
 

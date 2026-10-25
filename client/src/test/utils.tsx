@@ -1,4 +1,11 @@
-import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  within,
+  type RenderOptions,
+  type RenderResult,
+} from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
@@ -73,4 +80,26 @@ export const renderWithProviders = (
     ...result,
     rerenderWithProviders: (nextUi: ReactElement) => result.rerender(nextUi),
   };
+};
+
+/**
+ * Opciones de un Select de Mantine. Mantine mantiene montada la lista de cada
+ * desplegable y varios comparten opciones, asi que se lee la lista que controla
+ * el campo (`aria-controls`) y no todo el documento.
+ */
+export const optionsOf = (label: RegExp): string[] => {
+  const field = screen.getByRole('combobox', { name: label });
+  fireEvent.click(field);
+  const list = document.getElementById(field.getAttribute('aria-controls') as string) as HTMLElement;
+  return within(list)
+    .getAllByRole('option', { hidden: true })
+    .map((option) => option.textContent ?? '');
+};
+
+/** Elige una opcion de un Select de Mantine por el texto de su etiqueta. */
+export const chooseOption = (label: RegExp, option: string): void => {
+  const field = screen.getByRole('combobox', { name: label });
+  fireEvent.click(field);
+  const list = document.getElementById(field.getAttribute('aria-controls') as string) as HTMLElement;
+  fireEvent.click(within(list).getByRole('option', { name: option, hidden: true }));
 };

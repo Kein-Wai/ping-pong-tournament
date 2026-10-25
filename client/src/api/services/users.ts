@@ -68,7 +68,8 @@ export interface UpdateProfilePayload {
 }
 
 export const usersService = {
-  list: () => http.get<User[]>(ENDPOINTS.USERS.BASE),
+  /** `T` deja a cada pantalla tipar el jugador con la proyección que consume. */
+  list: <T = User>() => http.get<T[]>(ENDPOINTS.USERS.BASE),
 
   byId: (id: string) => http.get<User>(ENDPOINTS.USERS.BY_ID(id)),
 

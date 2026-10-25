@@ -68,7 +68,7 @@ describe('Partidos', () => {
     it('pide los partidos y muestra torneo, jugadores y clubes', async () => {
       await renderLoaded();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE, undefined);
       const row = within(bodyRows()[0]);
       expect(row.getByText('Liga Local')).toBeInTheDocument();
       expect(row.getByText('1 oct 2026')).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe('Partidos', () => {
     it('un AdminClub con club pide los partidos', async () => {
       await renderLoaded();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE, undefined);
     });
 
     it.each([
@@ -183,7 +183,7 @@ describe('Partidos', () => {
 
       await renderLoaded();
 
-      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE);
+      expect(api.get).toHaveBeenCalledWith(ENDPOINTS.MATCHES.BASE, undefined);
       expect(screen.getByText('Liga Local')).toBeInTheDocument();
     });
   });

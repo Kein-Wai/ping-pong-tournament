@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Title, Text, Group, Button, Stack, ThemeIcon } from '@mantine/core';
 import { IconTrophy, IconSearch } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { tournamentsService } from '../../api/services/tournaments';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
 
@@ -15,10 +14,10 @@ export const WidgetTorneos = () => {
 
   useEffect(() => {
     if (user?.id) {
-      api
-        .get(ENDPOINTS.TOURNAMENTS.ENROLLED(user.id))
-        .then((res) => {
-          setActiveTournaments(res.data.data.slice(0, 3));
+      tournamentsService
+        .enrolledByPlayer(user.id)
+        .then((tournaments) => {
+          setActiveTournaments(tournaments.slice(0, 3));
         })
         .catch((err) => console.error('Error cargando torneos', err))
         .finally(() => setLoading(false));

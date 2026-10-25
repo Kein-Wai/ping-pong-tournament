@@ -19,8 +19,8 @@ export interface AddExerciseModalProps {
   onClose: () => void;
   /** Catalogo de ejercicios del club. */
   catalog: Exercise[];
-  /** Callback con el ejercicio elegido y sus parametros. */
-  onSubmit: (payload: ExercisePayload) => Promise<void>;
+  /** Callback con el ejercicio elegido y sus parametros; devuelve si la accion tuvo exito. */
+  onSubmit: (payload: ExercisePayload) => Promise<boolean>;
   /** Si se esta guardando. */
   isSubmitting?: boolean;
 }
@@ -62,14 +62,14 @@ export const AddExerciseModal = ({
   const handleSubmit = async () => {
     if (!exerciseId) return;
 
-    await onSubmit({
+    const succeeded = await onSubmit({
       exerciseId,
       sets: sets ? Number(sets) : undefined,
       reps: reps ? Number(reps) : undefined,
       durationMinutes: duration ? Number(duration) : undefined,
     });
 
-    onClose();
+    if (succeeded) onClose();
   };
 
   return (

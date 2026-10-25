@@ -27,8 +27,7 @@ import {
   IconUsersGroup,
   IconEye,
 } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { matchesService } from '../../api/services/matches';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { formatDate } from '../../utils/dates';
 import type { Club } from '../../types/api';
@@ -112,8 +111,8 @@ export const Partidos = () => {
         return;
       }
       try {
-        const response = await api.get(ENDPOINTS.MATCHES.BASE);
-        const data = response.data.data.sort(
+        const matchesData = await matchesService.list<Match>();
+        const data = matchesData.sort(
           (a: Match, b: Match) => (a.dateStart > b.dateStart ? -1 : 1), // Cambiado para mostrar los más recientes primero
         );
 

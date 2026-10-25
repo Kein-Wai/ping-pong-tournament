@@ -27,8 +27,9 @@ import {
 } from '@tabler/icons-react';
 
 import { BarChart, DonutChart } from '@mantine/charts'; // 👈 Importamos los gráficos
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { generalTrainingsService } from '../../api/services/generalTrainings';
+import { matchesService } from '../../api/services/matches';
+import { usersService } from '../../api/services/users';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { PodioHonor } from '../../components/common/PodioHonor';
 import { returnEloColor } from '../../utils/helpers';
@@ -61,13 +62,13 @@ export const Estadisticas = () => {
     const fetchDashboardData = async () => {
       try {
         // Traemos Jugadores y Partidos al mismo tiempo
-        const [resUsers, resMatches, resTrainings] = await Promise.all([
-          api.get(ENDPOINTS.USERS.BASE),
-          api.get(ENDPOINTS.MATCHES.BASE),
-          api.get(ENDPOINTS.GENERAL_TRAININGS.BASE),
+        const [usersData, matchesData, trainingsData] = await Promise.all([
+          usersService.list<PlayerStats>(),
+          matchesService.list(),
+          generalTrainingsService.list(),
         ]);
 
-        let data: PlayerStats[] = resUsers.data.data;
+        let data: PlayerStats[] = usersData;
         data = data
           .filter((p) => p.stats !== null)
           .sort((a, b) => {
@@ -77,8 +78,8 @@ export const Estadisticas = () => {
           });
 
         setPlayers(data);
-        setMatches(resMatches.data.data);
-        setTrainings(resTrainings.data.data);
+        setMatches(matchesData);
+        setTrainings(trainingsData);
       } catch (error) {
         console.error('Error cargando estadísticas:', error);
       } finally {
