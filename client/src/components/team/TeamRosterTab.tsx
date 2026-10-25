@@ -6,8 +6,7 @@ import type { TeamPlayer } from '../../types/api';
  * Pestaña «Plantilla» del detalle de un equipo: una tarjeta por jugador con su
  * nivel y ELO. Pulsar una tarjeta avisa para abrir el perfil del jugador.
  *
- * El listado de equipos de la API no incluye el avatar de los jugadores, así
- * que se muestra el genérico generado a partir del nombre.
+ * Sin foto, se muestra el avatar genérico generado a partir del nombre.
  *
  * Migration: extracción del panel «plantilla» de EquipoDetalles.
  */
@@ -36,7 +35,7 @@ export const TeamRosterTab = ({ players, onPlayerClick }: TeamRosterTabProps) =>
               onClick={() => onPlayerClick(p.id)}
             >
               <Group wrap="nowrap">
-                <Avatar src={getPlayerAvatar(p.name)} radius="xl" size="md" />
+                <Avatar src={getPlayerAvatar(p.name, p.avatarUrl)} radius="xl" size="md" />
                 <div style={{ flex: 1 }}>
                   <Text fw={600} size="sm" truncate>
                     {p.name} {p.surname}

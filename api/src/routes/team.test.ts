@@ -58,6 +58,15 @@ describe('CRUD Rutas de Equipos (/api/teams)', () => {
     expect(prisma.team.findMany).toHaveBeenCalledOnce();
   });
 
+  it('GET /club/:clubId - Debería pedir el avatar de los jugadores de la plantilla', async () => {
+    vi.mocked(prisma.team.findMany).mockResolvedValue([] as any);
+
+    await request(app).get('/api/teams/club/club-1');
+
+    const query = vi.mocked(prisma.team.findMany).mock.calls[0][0] as any;
+    expect(query.include.players.select).toMatchObject({ id: true, name: true, avatarUrl: true });
+  });
+
   it('POST / - Debería crear un equipo con validación (201)', async () => {
     vi.mocked(prisma.team.create).mockResolvedValue({ id: 'team-new', name: 'Alevines' } as any);
 

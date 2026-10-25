@@ -55,7 +55,11 @@ export const MiClub = () => {
   const { isAdmin } = usePermissions();
 
   const fetchClubDetails = async () => {
-    if (!user?.clubId) return;
+    if (!user?.clubId) {
+      // Sin club no hay nada que pedir: sin esto el spinner no terminaba nunca.
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const data = await clubsService.byId(user.clubId);

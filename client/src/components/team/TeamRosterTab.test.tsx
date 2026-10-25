@@ -18,7 +18,13 @@ const LUIS = {
   level: 'Intermedio',
   stats: { id: 's2', elo: 900 },
 } as unknown as TeamPlayer;
-const MARTA = { id: 'p3', name: 'Marta', surname: 'Ruiz', level: 'Principiante', stats: null } as unknown as TeamPlayer;
+const MARTA = {
+  id: 'p3',
+  name: 'Marta',
+  surname: 'Ruiz',
+  level: 'Principiante',
+  stats: null,
+} as unknown as TeamPlayer;
 
 describe('TeamRosterTab', () => {
   it('con la plantilla vacía lo avisa', () => {
@@ -47,6 +53,22 @@ describe('TeamRosterTab', () => {
     renderWithProviders(<TeamRosterTab players={[MARTA]} onPlayerClick={vi.fn()} />);
 
     expect(screen.getByText('500 ELO')).toBeInTheDocument();
+  });
+
+  it('muestra la foto del jugador si la tiene y el avatar genérico si no', () => {
+    const conFoto = { ...ANA, avatarUrl: 'https://fotos.test/ana.png' } as TeamPlayer;
+    const { container } = renderWithProviders(
+      <TeamRosterTab players={[conFoto, LUIS]} onPlayerClick={vi.fn()} />,
+    );
+
+    const sources = Array.from(container.querySelectorAll('img')).map((img) =>
+      img.getAttribute('src'),
+    );
+
+    expect(sources).toEqual([
+      'https://fotos.test/ana.png',
+      'https://api.dicebear.com/10.x/avataaars-neutral/svg?seed=Luis',
+    ]);
   });
 
   it('pulsar un jugador avisa con su id', () => {

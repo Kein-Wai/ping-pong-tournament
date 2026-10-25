@@ -208,6 +208,28 @@ describe('useCierrePartido', () => {
       expect(setShowEndMatchModal).toHaveBeenCalledWith(false);
     });
 
+    it('al cerrar en modo rápido guarda también los tanteos para que el reporte los muestre', async () => {
+      const { result } = setup({ mySetsWon: 2, oppSetsWon: 0 });
+      act(() => result.current.handleScoreChange(0, 'myScore', 11));
+      act(() => result.current.handleScoreChange(0, 'oppScore', 7));
+      act(() => result.current.handleScoreChange(1, 'myScore', 12));
+      act(() => result.current.handleScoreChange(1, 'oppScore', 10));
+
+      await act(async () => {
+        await result.current.executeCompleteMatch();
+      });
+
+      expect(setMatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'Completado',
+          setScores: [
+            { myScore: 11, oppScore: 7 },
+            { myScore: 12, oppScore: 10 },
+          ],
+        }),
+      );
+    });
+
     it('si falla no cambia el partido y registra el error', async () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       vi.mocked(api.put).mockRejectedValue(new Error('rechazado'));

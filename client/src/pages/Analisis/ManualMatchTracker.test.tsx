@@ -292,6 +292,32 @@ describe('ManualMatchTracker', () => {
       );
     });
 
+    it('permite elegir las gomas del rival y las guarda', async () => {
+      await renderTracker(
+        makeMatch({
+          status: 'Programado',
+          analysisType: null,
+          opponentRubberForehand: 'LISA',
+        }),
+      );
+      await openEditRival();
+      expect(screen.getByRole('combobox', { name: 'Goma Derecha' })).toHaveValue('LISA');
+      chooseOption(/^Goma Revés$/, 'ANTISPIN');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar Cambios' }));
+
+      await waitFor(() =>
+        expect(api.put).toHaveBeenCalledWith(
+          ENDPOINTS.MANUAL_MATCHES.UPDATE('m1'),
+          expect.objectContaining({
+            opponentRubberForehand: 'LISA',
+            opponentRubberBackhand: 'ANTISPIN',
+          }),
+          undefined,
+        ),
+      );
+    });
+
     it('si falla deja el formulario abierto y registra el error', async () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
       vi.mocked(api.put).mockRejectedValue(new Error('red caída'));

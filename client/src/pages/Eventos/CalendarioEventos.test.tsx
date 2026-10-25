@@ -111,7 +111,9 @@ describe('CalendarioEventos', () => {
       await renderLoaded();
       const [prev, next] = screen
         .getAllByRole('button')
-        .filter((button) => button.querySelector('.tabler-icon-chevron-left, .tabler-icon-chevron-right'));
+        .filter((button) =>
+          button.querySelector('.tabler-icon-chevron-left, .tabler-icon-chevron-right'),
+        );
 
       fireEvent.click(next);
       expect(screen.getByText('NOVIEMBRE DE 2026')).toBeInTheDocument();
@@ -132,13 +134,15 @@ describe('CalendarioEventos', () => {
       expect(consoleError).toHaveBeenCalled();
     });
 
-    it('un usuario sin club no pide nada y se queda cargando', () => {
+    it('un usuario sin club no pide nada y muestra el calendario vacío', async () => {
       loginAs({ role: 'Player', clubId: null });
 
       renderWithProviders(<CalendarioEventos />);
 
+      expect(
+        await screen.findByRole('heading', { name: 'Calendario de Eventos' }),
+      ).toBeInTheDocument();
       expect(api.get).not.toHaveBeenCalled();
-      expect(screen.queryByRole('heading', { name: 'Calendario de Eventos' })).not.toBeInTheDocument();
     });
   });
 
@@ -177,16 +181,19 @@ describe('CalendarioEventos', () => {
   });
 
   describe('segun el rol', () => {
-    it.each(['AdminClub', 'SuperAdmin'])('un %s puede añadir, editar y borrar eventos', async (role) => {
-      loginAs({ role, clubId: 'club-1' });
-      await renderLoaded();
+    it.each(['AdminClub', 'SuperAdmin'])(
+      'un %s puede añadir, editar y borrar eventos',
+      async (role) => {
+        loginAs({ role, clubId: 'club-1' });
+        await renderLoaded();
 
-      expect(screen.getByRole('button', { name: 'Añadir Evento' })).toBeInTheDocument();
-      await openDay(20);
-      const card = eventCard('Top Estatal');
-      expect(card.querySelector('.tabler-icon-edit')).not.toBeNull();
-      expect(card.querySelector('.tabler-icon-trash')).not.toBeNull();
-    });
+        expect(screen.getByRole('button', { name: 'Añadir Evento' })).toBeInTheDocument();
+        await openDay(20);
+        const card = eventCard('Top Estatal');
+        expect(card.querySelector('.tabler-icon-edit')).not.toBeNull();
+        expect(card.querySelector('.tabler-icon-trash')).not.toBeNull();
+      },
+    );
 
     it('un jugador solo consulta el calendario y gestiona sus recordatorios', async () => {
       loginAs({ role: 'Player', clubId: 'club-1' });
@@ -209,7 +216,11 @@ describe('CalendarioEventos', () => {
       clickIcon(eventCard('Top Estatal'), 'bell');
 
       await waitFor(() =>
-        expect(api.post).toHaveBeenCalledWith(ENDPOINTS.EVENTS.REMINDERS('e1'), undefined, undefined),
+        expect(api.post).toHaveBeenCalledWith(
+          ENDPOINTS.EVENTS.REMINDERS('e1'),
+          undefined,
+          undefined,
+        ),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
     });
@@ -262,7 +273,9 @@ describe('CalendarioEventos', () => {
         ),
       );
       await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
-      await waitFor(() => expect(screen.queryByText('Nuevo Evento Oficial')).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.queryByText('Nuevo Evento Oficial')).not.toBeInTheDocument(),
+      );
     });
 
     it('si falla el guardado el modal sigue abierto y no recarga', async () => {

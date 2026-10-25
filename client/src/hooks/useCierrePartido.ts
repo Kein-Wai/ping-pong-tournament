@@ -116,6 +116,8 @@ export const useCierrePartido = ({
         mySets: Number(mySetsWon),
         opponentSets: Number(oppSetsWon),
         lightNotes: finalNotes,
+        // Sin esto el reporte inmediato no muestra los tanteos hasta recargar el partido.
+        setScores: finalSetScores ?? match!.setScores,
       });
       setShowEndMatchModal(false);
     } catch (error) {

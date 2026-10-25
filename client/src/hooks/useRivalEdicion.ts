@@ -69,7 +69,9 @@ export const useRivalEdicion = ({ id, match, setMatch, loaded }: UseRivalEdicion
     editOppLevel,
     setEditOppLevel,
     editOppRubberForehand,
+    setEditOppRubberForehand,
     editOppRubberBackhand,
+    setEditOppRubberBackhand,
     handleUpdateRival,
   };
 };

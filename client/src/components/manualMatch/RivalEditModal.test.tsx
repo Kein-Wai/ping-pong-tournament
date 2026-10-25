@@ -10,6 +10,8 @@ const renderModal = (props: Partial<React.ComponentProps<typeof RivalEditModal>>
     onHandChange: vi.fn(),
     onStyleChange: vi.fn(),
     onLevelChange: vi.fn(),
+    onRubberForehandChange: vi.fn(),
+    onRubberBackhandChange: vi.fn(),
     onSave: vi.fn(),
   };
   const view = renderWithProviders(
@@ -19,6 +21,8 @@ const renderModal = (props: Partial<React.ComponentProps<typeof RivalEditModal>>
       hand="Diestro"
       style="Ofensivo"
       level="Igual"
+      rubberForehand="LISA"
+      rubberBackhand={null}
       {...handlers}
       {...props}
     />,
@@ -41,6 +45,8 @@ describe('RivalEditModal', () => {
     expect(screen.getByRole('combobox', { name: 'Mano' })).toHaveValue('Diestro');
     expect(screen.getByRole('combobox', { name: 'Estilo' })).toHaveValue('Ofensivo');
     expect(screen.getByRole('combobox', { name: 'Nivel' })).toHaveValue('Igual');
+    expect(screen.getByRole('combobox', { name: 'Goma Derecha' })).toHaveValue('LISA');
+    expect(screen.getByRole('combobox', { name: 'Goma Revés' })).toHaveValue('');
   });
 
   it('escribir el nombre avisa con el texto nuevo', async () => {
@@ -70,6 +76,30 @@ describe('RivalEditModal', () => {
     expect(onHandChange).toHaveBeenCalledWith('Zurdo', expect.anything());
     expect(onStyleChange).toHaveBeenCalledWith('Defensivo', expect.anything());
     expect(onLevelChange).toHaveBeenCalledWith('Mejor', expect.anything());
+  });
+
+  it('ofrece los cinco tipos de goma', async () => {
+    renderModal();
+    await screen.findByRole('dialog');
+
+    expect(optionsOf(/^Goma Derecha$/)).toEqual([
+      'LISA',
+      'PICOS_CORTOS',
+      'PICOS_MEDIOS',
+      'PICOS_LARGOS',
+      'ANTISPIN',
+    ]);
+  });
+
+  it('elegir la goma de derecha y de revés avisa con la opción', async () => {
+    const { onRubberForehandChange, onRubberBackhandChange } = renderModal();
+    await screen.findByRole('dialog');
+
+    chooseOption(/^Goma Derecha$/, 'ANTISPIN');
+    chooseOption(/^Goma Revés$/, 'PICOS_LARGOS');
+
+    expect(onRubberForehandChange).toHaveBeenCalledWith('ANTISPIN', expect.anything());
+    expect(onRubberBackhandChange).toHaveBeenCalledWith('PICOS_LARGOS', expect.anything());
   });
 
   it('«Guardar Cambios» avisa para guardar', async () => {

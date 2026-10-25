@@ -110,24 +110,14 @@ export const buildQuickNotes = ({
 }: QuickNotesInput): string =>
   `Fortalezas durante el partido:\n${strengths.length > 0 ? strengths.map((s) => `- ${s}`).join('\n') : 'Ninguna'}\nDetalles:\n${strDetails || 'Sin detalles'}\n\nCosas a mejorar:\n${weaknesses.length > 0 ? weaknesses.map((s) => `- ${s}`).join('\n') : 'Ninguna'}\nDetalles:\n${weakDetails || 'Sin detalles'}`;
 
-/** Un tanteo en blanco (0-0) se ignora; si no, debe ser un resultado posible de un set. */
-const isValidQuickSet = (s1: number, s2: number): boolean => {
-  if (s1 === 0 && s2 === 0) return true;
-  const max = Math.max(s1, s2);
-  const min = Math.min(s1, s2);
-  if (max < 11) return false;
-  if (max === 11 && min > 9) return false;
-  return max <= 11 || max - min === 2;
-};
-
-/** Primer tanteo escrito que es imposible en tenis de mesa, con su posición; null si todos valen. */
+/** Un tanteo en blanco (0-0) se ignora. Primer tanteo escrito que es imposible en tenis de mesa, con su posición; null si todos valen. */
 export const findInvalidQuickSet = (
   setScores: QuickSetScore[],
 ): { index: number; myScore: number; oppScore: number } | null => {
   for (let i = 0; i < setScores.length; i++) {
     const s1 = Number(setScores[i].myScore);
     const s2 = Number(setScores[i].oppScore);
-    if ((s1 > 0 || s2 > 0) && !isValidQuickSet(s1, s2)) {
+    if ((s1 > 0 || s2 > 0) && !isValidTableTennisSet(s1, s2)) {
       return { index: i, myScore: s1, oppScore: s2 };
     }
   }

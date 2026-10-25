@@ -57,7 +57,7 @@ router.get('/club/:clubId', verifyToken, asyncHandler(async (req, res) => {
     include: {
       _count: { select: { players: true } },
       players: {
-        select: { id: true, name: true, surname: true, level: true, stats: true },
+        select: { id: true, name: true, surname: true, avatarUrl: true, level: true, stats: true },
       },
       matches: {
         orderBy: { date: 'asc' },

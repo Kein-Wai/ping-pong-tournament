@@ -258,7 +258,61 @@ Las cinco pantallas gigantes (`EquipoDetalles` 975 → 244, `JugadorPerfil` 1639
 - 5.7 Extraer de `Login.tsx` el formulario de login/registro y la sección de Google a componentes (máx. 2 por tarea).
 - 5.8 Cierre global: build, lint, tests, informe de verificación de `.clinerules` y recuento final de líneas.
 
+**Progreso de la Fase 5 (empezada a 2026-10-25, sin commitear):**
+
+| Tarea | Resultado |
+|---|---|
+| 5.1 `MainLayout` | Los 10 `any` sobraban: `User` del store ya declara `dominantHand`, `playstyle`, `birthDate` y las gomas. Sin cambio de lógica; 26/26 tests |
+| 5.2 `Login` | `types/auth.ts` (`ApiErrorLike`, `NativeGoogleResult`); `catch (error)` sin `any`, `CredentialResponse` de la librería para Google web. 29/29 tests |
+| 5.3 `Estadisticas`, `CalendarioEventos` | `Match[]`, `TrainingSession[]` (vía `generalTrainingsService.list<TrainingSession>()`), `ClubEvent[]`; `birthDate` en la proyección local. `PlanDetalles` ya no tenía `any`. Tres ajustes de tipo sin cambio de lógica (`endStr?`, `hasReminder: boolean \| undefined`, `color ?? undefined`) y dos casts en el formulario de edición (`ev.color`, `ev.region`) |
+| 5.4 residuales + regla a `error` | `PodioHonor` (`PlayerProps` exportado, `icono: ReactNode`), widgets, `AnalisisList`, `FeedbackPage`, `SessionDetalles`, `Dashboard`, `TorneoNuevo`, `ForgotPassword`, `ClubSelection`. Modelos compartidos ampliados con lo que la API ya devuelve: `AppFeedback.user` y `createdAt` obligatorio, `ManualMatch.analysisType`, `TrainingSessionDetail` (el servicio `sessionDetails` lo devuelve); `types/dashboard.ts` (`DashboardPlayer`, `UpcomingTeamMatch`). `TorneoNuevo`: casts a enums concentrados al construir el payload, y `setsToWinGroup/Knockout as number` (el `NumberInput` puede dar string: comportamiento previo, no tocado). **La regla pasa a `error`** con test RED → verde (`no-explicit-any-rule.test.ts`) |
+| 5.5 rutas a mano | Eran 10 sitios (8 `navigate` y 2 `<Navigate to>`, no 7). Regla `no-restricted-syntax` en `eslint.config.js` (literal, plantilla y JSX; tests exentos) con 5 tests RED → verde (`hardcoded-routes-rule.test.ts`); sustituidos por `APP_ROUTES` en `App`, `Dashboard`, `Login`, `TorneoNuevo`, `ClubSetup`, `MiClub`, `PlanDetalles`, `Jugadores`, `ProtectedRoute` y `RequireClubSetup` |
+
+| 5.6 imagen de `Login` | **Decisión del usuario: descargarla a `assets/`.** La «imagen» era una URL de Unsplash (`LOGIN_BG`); ahora es `src/assets/login-bg.jpg` (144 KB, 1920×1239), así que la app nativa no depende de la red para el fondo. Test RED (`fondo` en `Login.test.tsx`; el primer selector era erróneo y se corrigió comprobando el rojo contra el código antiguo). El único cambio del snapshot es la URL del `background-image`. Pendiente de confirmar la licencia de la foto (Unsplash License permite el uso comercial sin atribución) |
+| 5.7a formularios | `components/auth/LoginForm` (6 tests) y `RegisterForm` (10) con `inputStyles.ts` compartido y `RegisterRole` en `types/auth.ts`. JSX copiado literal; los campos pasan de `setX` a `onXChange(value)`. `RegisterForm` tiene 18 props (interfaz ancha a propósito: el estado de email/contraseña lo comparten ambas pestañas y se reinicia en `Login`, moverlo sería cambiar lógica) |
+| 5.7b `GoogleSection` | Divisor, aviso de privacidad y botón web/nativo (8 tests, con `Capacitor` y `GoogleLogin` mockeados como fronteras). El aviso de «servidor lento» se queda en `Login` |
+
+`Login` pasa de **513 a 366 líneas**; los 30 tests y el snapshot de la pantalla no cambiaron salvo la URL de 5.6.
+
+Verificado tras 5.6-5.7: 1821/1821 tests (171 archivos), eslint 0 errores y 4 avisos, `tsc -b` y `npm run build` correctos.
+
+### 5.8 Cierre global (2026-10-25) — informe de verificación de `.clinerules`
+
+```
+VERIFICATION REPORT (client/)
+Build:     PASS   npm run build
+Types:     PASS   tsc -b
+Lint:      PASS   0 errores, 4 avisos (react-hooks/exhaustive-deps: App, MainLayout, SessionDetalles, Partidos)
+Tests:     PASS   1821/1821 (171 archivos). Cobertura: líneas 94.5 %, statements 93.5 %, funciones 90.6 %, ramas 86.1 % (objetivo 80 %)
+Security:  ATENCIÓN (ver abajo)
+Overall:   READY para commitear la Fase 5; seguridad pendiente en la pasada global
+```
+
+**Recuento final de `client/src`:** 197 archivos de producción (23.927 líneas) y 172 de test (28.453). Ningún archivo supera las 800 líneas; solo 5 pasan de 400: `Estadisticas` 589, `CalendarioEventos` 538, `MainLayout` 502, `Partidos` 460 y `types/api.ts` 423. Las cinco pantallas gigantes del diagnóstico: 975→244, 1639→229, 954→176, 873→194, 1362→305. 0 `any` (regla a `error`), 0 importaciones de `api/axios` fuera del adaptador, 0 rutas escritas a mano (regla a `error`).
+
+**Hallazgos de seguridad (no tocados, para la pasada global):**
+- `npm audit --omit=dev`: **6 vulnerabilidades, 2 críticas** (`@capacitor/android`, `@capacitor/ios`) y 4 altas (`axios`, `follow-redirects`, `react-router`, `react-router-dom`), todas con arreglo disponible. Actualizar puede romper la app nativa o el router: tarea aparte, con su propia verificación.
+- `Login.tsx` lleva escritos los Google client IDs (web e iOS). Son identificadores públicos, no secretos, pero `.clinerules` los prevé como `VITE_GOOGLE_CLIENT_ID`; pasarlos a variables de entorno.
+- `Login` nativo muestra con `alert` el error del backend (ya anotado).
+- 53 `console.error`/`warn` restantes: cargas que procesan la respuesta o `catch` con callbacks (criterio 2.10), más `.catch(console.error)` en `AnalisisList` y `Equipos`. Se corrigió el único `console.log` (`ForgotPassword`, ahora `console.error`).
+
+Verificado tras 5.1-5.5: 1796/1796 tests (168 archivos), eslint **0 errores y 4 avisos** (todos `react-hooks/exhaustive-deps`: `App`, `MainLayout`, `SessionDetalles`, `Partidos`; corregirlos cambia cuándo se ejecutan los efectos, no se tocan sin decisión), `tsc -b` y `npm run build` correctos.
+
 ---
+
+### Bugs corregidos tras la Fase 5 (2026-10-25, sin commitear)
+
+Cada uno con su test en rojo primero.
+
+| Bug | Corrección |
+|---|---|
+| `GET /teams/club/:clubId` no seleccionaba `avatarUrl` | `avatarUrl: true` en el `select` de `api/src/routes/team.ts` (test de ruta); `avatarUrl?` en `TeamPlayer` y `TeamRosterTab` pasa `p.avatarUrl` a `getPlayerAvatar` (test con foto y sin ella) |
+| Spinner infinito sin club en `MiClub` y `CalendarioEventos` | Sin `clubId` la carga hace `setLoading(false)` (`ProtectedRoute` garantiza el usuario, así que no hay falso error mientras llega el perfil). `MiClub` muestra su aviso «No se pudo cargar la información del club.» y `CalendarioEventos` el calendario vacío; los dos tests que fijaban el bug se reescribieron |
+| Reporte rápido sin tanteos por set hasta recargar | `useCierrePartido` guarda `setScores` en `setMatch` al completar |
+| Modal del rival sin campos de gomas | `RivalEditModal` gana «Goma Derecha» y «Goma Revés» (5 tipos de `RubberType`); `useRivalEdicion` expone sus setters; la pantalla los pasa en los 3 usos. Snapshot del modal actualizado |
+| `isValidQuickSet` duplicaba `isValidTableTennisSet` | No era un bug: comprobado en 1.681 combinaciones (incluidos negativos y NaN) que son equivalentes, y el 0-0 era inalcanzable por la guarda. Se borra la copia y `findInvalidQuickSet` usa la compartida |
+
+Verificado: client 1827/1827 tests, eslint 0 errores y 4 avisos, `tsc -b` y build correctos; api 378/378 tests.
 
 ## Resumen
 

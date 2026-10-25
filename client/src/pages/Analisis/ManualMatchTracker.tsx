@@ -38,6 +38,10 @@ export const ManualMatchTracker = () => {
     setEditOppStyle,
     editOppLevel,
     setEditOppLevel,
+    editOppRubberForehand,
+    setEditOppRubberForehand,
+    editOppRubberBackhand,
+    setEditOppRubberBackhand,
     handleUpdateRival,
   } = useRivalEdicion({ id, match, setMatch, loaded });
 
@@ -173,11 +177,15 @@ export const ManualMatchTracker = () => {
           hand={editOppHand}
           style={editOppStyle}
           level={editOppLevel}
+          rubberForehand={editOppRubberForehand}
+          rubberBackhand={editOppRubberBackhand}
           onClose={() => setEditRivalModal(false)}
           onNameChange={setEditOppName}
           onHandChange={setEditOppHand}
           onStyleChange={setEditOppStyle}
           onLevelChange={setEditOppLevel}
+          onRubberForehandChange={setEditOppRubberForehand}
+          onRubberBackhandChange={setEditOppRubberBackhand}
           onSave={handleUpdateRival}
         />
       </>
@@ -215,11 +223,15 @@ export const ManualMatchTracker = () => {
           hand={editOppHand}
           style={editOppStyle}
           level={editOppLevel}
+          rubberForehand={editOppRubberForehand}
+          rubberBackhand={editOppRubberBackhand}
           onClose={() => setEditRivalModal(false)}
           onNameChange={setEditOppName}
           onHandChange={setEditOppHand}
           onStyleChange={setEditOppStyle}
           onLevelChange={setEditOppLevel}
+          onRubberForehandChange={setEditOppRubberForehand}
+          onRubberBackhandChange={setEditOppRubberBackhand}
           onSave={handleUpdateRival}
         />
       </>
@@ -270,11 +282,15 @@ export const ManualMatchTracker = () => {
         hand={editOppHand}
         style={editOppStyle}
         level={editOppLevel}
+        rubberForehand={editOppRubberForehand}
+        rubberBackhand={editOppRubberBackhand}
         onClose={() => setEditRivalModal(false)}
         onNameChange={setEditOppName}
         onHandChange={setEditOppHand}
         onStyleChange={setEditOppStyle}
         onLevelChange={setEditOppLevel}
+        onRubberForehandChange={setEditOppRubberForehand}
+        onRubberBackhandChange={setEditOppRubberBackhand}
         onSave={handleUpdateRival}
       />
 

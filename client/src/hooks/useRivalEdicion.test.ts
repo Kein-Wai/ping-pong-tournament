@@ -92,6 +92,27 @@ describe('useRivalEdicion', () => {
     expect(result.current.editRivalModal).toBe(false);
   });
 
+  it('editar las gomas las envía al guardar', async () => {
+    const { result } = setup();
+    act(() => {
+      result.current.setEditOppRubberForehand('PICOS_CORTOS');
+      result.current.setEditOppRubberBackhand('ANTISPIN');
+    });
+
+    await act(async () => {
+      await result.current.handleUpdateRival();
+    });
+
+    expect(api.put).toHaveBeenCalledWith(
+      ENDPOINTS.MANUAL_MATCHES.UPDATE('m1'),
+      expect.objectContaining({
+        opponentRubberForehand: 'PICOS_CORTOS',
+        opponentRubberBackhand: 'ANTISPIN',
+      }),
+      undefined,
+    );
+  });
+
   it('si falla deja el formulario abierto, no actualiza el partido y registra el error', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(api.put).mockRejectedValue(new Error('rechazado'));

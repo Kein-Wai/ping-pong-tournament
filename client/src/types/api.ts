@@ -361,6 +361,7 @@ export interface TeamPlayer {
   id: string;
   name: string;
   surname: string | null;
+  avatarUrl?: string | null;
   level: PlayerLevel | null;
   stats: PlayerStats | PlayerStats[] | null;
 }

@@ -108,13 +108,15 @@ describe('MiClub', () => {
       expect(consoleError).toHaveBeenCalled();
     });
 
-    it('un usuario sin club no pide nada y se queda cargando', async () => {
+    it('un usuario sin club no pide nada y deja de cargar con el aviso', async () => {
       loginAs({ role: 'Player', clubId: null });
 
       renderPage();
 
+      expect(
+        await screen.findByText('No se pudo cargar la información del club.'),
+      ).toBeInTheDocument();
       expect(api.get).not.toHaveBeenCalled();
-      expect(screen.queryByText('No se pudo cargar la información del club.')).not.toBeInTheDocument();
       expect(screen.queryByRole('heading', { name: 'Club Norte' })).not.toBeInTheDocument();
     });
   });
@@ -141,16 +143,19 @@ describe('MiClub', () => {
   });
 
   describe('segun el rol', () => {
-    it.each(['AdminClub', 'SuperAdmin'])('un %s puede editar y gestionar la plantilla', async (role) => {
-      loginAs({ role, clubId: 'club-1' });
+    it.each(['AdminClub', 'SuperAdmin'])(
+      'un %s puede editar y gestionar la plantilla',
+      async (role) => {
+        loginAs({ role, clubId: 'club-1' });
 
-      await renderLoaded();
+        await renderLoaded();
 
-      expect(screen.getByRole('button', { name: 'Editar Datos' })).toBeInTheDocument();
-      expect(
-        screen.getByRole('button', { name: 'Gestionar Solicitudes y Plantilla' }),
-      ).toBeInTheDocument();
-    });
+        expect(screen.getByRole('button', { name: 'Editar Datos' })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: 'Gestionar Solicitudes y Plantilla' }),
+        ).toBeInTheDocument();
+      },
+    );
 
     it('un jugador solo consulta el club', async () => {
       loginAs({ role: 'Player', clubId: 'club-1' });
@@ -215,9 +220,7 @@ describe('MiClub', () => {
       await renderLoaded();
       await startEditing();
 
-      fireEvent.click(
-        document.querySelector('.tabler-icon-x')?.closest('button') as HTMLElement,
-      );
+      fireEvent.click(document.querySelector('.tabler-icon-x')?.closest('button') as HTMLElement);
 
       expect(await screen.findByRole('button', { name: 'Editar Datos' })).toBeInTheDocument();
       expect(api.put).not.toHaveBeenCalled();
