@@ -38,7 +38,9 @@ export const hasClubPermission = (
 ): boolean => {
   if (!user) return false;
   if (user.role === 'SuperAdmin') return true;
-  if (user.role === 'AdminClub') return user.clubId === targetClubId;
+  // Sin club en alguno de los dos lados no hay pertenencia: `null === null` no
+  // debe dar permiso a un AdminClub sin club sobre recursos sin club.
+  if (user.role === 'AdminClub') return !!user.clubId && user.clubId === targetClubId;
 
   return false;
 };

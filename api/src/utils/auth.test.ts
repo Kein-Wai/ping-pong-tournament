@@ -103,7 +103,14 @@ describe('Alcance de club (api/src/utils/auth.ts)', () => {
       expect(hasClubPermission(adminClub, 'club-2')).toBe(false);
     });
 
-    it('no permite al Player modificar recursos de club', () => {
+    it('regresión: un AdminClub sin club no tiene permiso sobre recursos sin club', () => {
+    const adminWithoutClub: UserPayload = { id: 'u-5', role: 'AdminClub', clubId: null };
+
+    expect(hasClubPermission(adminWithoutClub, null)).toBe(false);
+    expect(hasClubPermission(adminWithoutClub, undefined)).toBe(false);
+  });
+
+  it('no permite al Player modificar recursos de club', () => {
       expect(hasClubPermission(player, 'club-1')).toBe(false);
     });
 

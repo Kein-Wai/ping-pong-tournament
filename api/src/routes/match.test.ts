@@ -37,7 +37,8 @@ vi.mock('../db', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => {
-    req.user = { id: 'test-user-id', role: 'Player' };
+    // SuperAdmin: la autorización de escritura se prueba aparte, con guardas reales (match.authorization.test.ts).
+    req.user = { id: 'test-user-id', role: 'SuperAdmin' };
     next();
   },
   requireSuperAdmin: (req: any, res: any, next: any) => next(),

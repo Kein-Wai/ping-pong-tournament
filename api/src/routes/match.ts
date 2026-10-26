@@ -6,7 +6,9 @@ import { handleMatchStatsUpdate } from '../utils/stats';
 import { processMatchResult } from '../utils/match-processor';
 import { updateGroupStandings } from '../utils/standings';
 import { resolveCurrentSeason } from '../utils/season';
-import { getScopeClubId } from '../utils/auth';
+import { getScopeClubId, hasClubPermission } from '../utils/auth';
+import { getMatchOwnerClubId } from '../utils/match-access';
+import { requireAdminClub } from '../middleware/auth.middleware';
 import { asyncHandler, sendData, sendMessage } from '../http/response';
 
 const router = Router();
@@ -90,13 +92,18 @@ router.get(
 
 router.post(
   '/',
+  requireAdminClub,
   asyncHandler(async (req, res) => {
     const validation = createMatchSchema.safeParse(req.body);
 
     if (!validation.success) {
-      res.status(400).json({ success: false, error: 'Datos inválidos',
-        details: z.treeifyError(validation.error),
-      });
+      res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Datos inválidos',
+          details: z.treeifyError(validation.error),
+        });
       return;
     }
 
@@ -127,6 +134,27 @@ router.post(
 
     if (playerOneId === playerTwoId) {
       res.status(400).json({ success: false, error: 'Un jugador no puede enfrentarse a sí mismo' });
+      return;
+    }
+
+    // Autorización ANTES de escribir: el partido es del club del torneo o, sin torneo, del de los jugadores.
+    const ownership = tournamentId
+      ? {
+          tournament: await prisma.tournament.findUnique({
+            where: { id: tournamentId },
+            select: { clubId: true },
+          }),
+        }
+      : {
+          playerOne: await prisma.user.findUnique({
+            where: { id: playerOneId },
+            select: { clubId: true },
+          }),
+        };
+    if (!hasClubPermission(req.user, getMatchOwnerClubId(ownership))) {
+      res
+        .status(403)
+        .json({ success: false, error: 'No tienes permiso para crear partidos en este club' });
       return;
     }
     const currentSeason = await resolveCurrentSeason(prisma);
@@ -169,24 +197,38 @@ router.post(
 
 router.put(
   '/:id',
+  requireAdminClub,
   asyncHandler(async (req, res) => {
     const id = req.params.id as string;
 
     const validation = baseMatchObject.partial().safeParse(req.body);
 
     if (!validation.success) {
-      res.status(400).json({ success: false, error: 'Datos inválidos',
-        details: z.treeifyError(validation.error),
-      });
+      res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Datos inválidos',
+          details: z.treeifyError(validation.error),
+        });
       return;
     }
 
     const existingMatch = await prisma.match.findUnique({
       where: { id },
+      include: {
+        tournament: { select: { clubId: true } },
+        playerOne: { select: { clubId: true } },
+      },
     });
 
     if (!existingMatch) {
       res.status(404).json({ success: false, error: 'Partido no encontrado' });
+      return;
+    }
+
+    if (!hasClubPermission(req.user, getMatchOwnerClubId(existingMatch))) {
+      res.status(403).json({ success: false, error: 'No tienes permiso para editar este partido' });
       return;
     }
 
@@ -204,9 +246,13 @@ router.put(
       .safeParse(mergedData);
 
     if (!businessValidation.success) {
-      res.status(400).json({ success: false, error: 'El marcador no cumple las reglas del partido',
-        details: z.treeifyError(businessValidation.error),
-      });
+      res
+        .status(400)
+        .json({
+          success: false,
+          error: 'El marcador no cumple las reglas del partido',
+          details: z.treeifyError(businessValidation.error),
+        });
       return;
     }
 
