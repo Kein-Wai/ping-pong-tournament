@@ -3,8 +3,8 @@ import { getRequiredEnv } from '../config';
 import prisma from '../db';
 import type { UserPayload } from '../middleware/auth.middleware';
 
-/** Vigencia del token de acceso. Un único valor para login local, Google y los que vengan. */
-export const ACCESS_TOKEN_TTL = '30d';
+/** Vigencia del token de acceso; la sesión larga la sostiene el refresh token (`utils/refresh-token`). */
+export const ACCESS_TOKEN_TTL = '1h';
 
 interface TokenSubject {
   id: string;

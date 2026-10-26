@@ -14,7 +14,7 @@ Análisis hecho el 2026-10-26 con el grafo de `codebase-memory` y lectura direct
 | Fase | Objetivo | Estado |
 |---|---|---|
 | **A** | Cerrar agujeros de autorización y fugas de datos | **Hecha** (ver abajo) |
-| **B** | Seam de identidad: `verifyToken` lee rol y club vigentes de la base de datos (hoy los claims del JWT duran 30 días); un único `issueToken` | **B1 hecha** (sin commit): `utils/session.ts` con `issueToken` + `loadSessionIdentity`, `verifyToken` lee de la BD. **B2 pendiente**: JWT 1 h + refresh token |
+| **B** | Seam de identidad: `verifyToken` lee rol y club vigentes de la base de datos (hoy los claims del JWT duran 30 días); un único `issueToken` | **Hecha** (B1 `2a19d37`; B2 sin commit): `utils/session.ts` (`issueToken`, `loadSessionIdentity`), `verifyToken` lee de la BD; JWT de 1 h + refresh token opaco con hash en BD (tabla `refresh_token`), rotación por familia con detección de reutilización, `POST /auth/refresh` y `/auth/logout`, revocación al restablecer contraseña; cliente web y app Expo renuevan ante un 401 |
 | **C** | Perímetro: `helmet`, `express-rate-limit` (login, register, forgot, reset), Swagger fuera de producción, `GET /clubs` público, `npm audit` de `api/` | Pendiente |
 | **D** | Contrato de respuesta único (todas las rutas por `sendData/sendMessage/sendError`, regla de lint, las 4 respuestas fuera del sobre) y adaptar el cliente | Pendiente |
 | **E** | Módulos de dominio con `$transaction` (membresía de club, aplicación de resultado de partido); rutas finas | Pendiente |

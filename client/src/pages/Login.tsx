@@ -81,7 +81,7 @@ export const Login = () => {
     return () => clearTimeout(timeoutId);
   }, [isLoginLoading, isRegisterLoading]);
 
-  const processSuccessfulLogin = (token: string) => {
+  const processSuccessfulLogin = (token: string, refreshToken: string) => {
     const payloadBase64 = token.split('.')[1];
     const decodedPayload = JSON.parse(
       decodeURIComponent(
@@ -111,7 +111,7 @@ export const Login = () => {
       forcePasswordChange: decodedPayload.forcePasswordChange,
     };
 
-    login(token, loggedUser);
+    login(token, loggedUser, refreshToken);
     navigate(APP_ROUTES.HOME);
   };
 
@@ -129,8 +129,8 @@ export const Login = () => {
     setIsLoginLoading(true);
     setErrorMsg('');
     try {
-      const { token } = await authService.login({ email, password });
-      processSuccessfulLogin(token);
+      const { token, refreshToken } = await authService.login({ email, password });
+      processSuccessfulLogin(token, refreshToken);
     } catch (error) {
       handleLoginError(error);
     } finally {
@@ -188,11 +188,11 @@ export const Login = () => {
     setIsLoginLoading(true);
     setErrorMsg('');
     try {
-      const { token } = await authService.loginWithGoogle(
+      const { token, refreshToken } = await authService.loginWithGoogle(
         credentialResponse.credential as string,
         activeTab === 'register' ? selectedRole : 'Player',
       );
-      processSuccessfulLogin(token);
+      processSuccessfulLogin(token, refreshToken);
     } catch (error) {
       handleLoginError(error);
     } finally {
@@ -219,11 +219,11 @@ export const Login = () => {
       }
 
       // Enviamos el token al backend
-      const { token } = await authService.loginWithGoogle(
+      const { token, refreshToken } = await authService.loginWithGoogle(
         idToken,
         activeTab === 'register' ? selectedRole : 'Player',
       );
-      processSuccessfulLogin(token);
+      processSuccessfulLogin(token, refreshToken);
     } catch (error) {
       const apiError = error as ApiErrorLike;
       if (apiError?.message !== 'user canceled' && apiError?.message !== 'User cancelled login') {

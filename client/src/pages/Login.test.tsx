@@ -65,9 +65,9 @@ const FULL_PAYLOAD = {
   forcePasswordChange: false,
 };
 
-// La API responde FUERA del sobre { success, data }: { message, token }.
+// La API responde FUERA del sobre { success, data }: { message, token, refreshToken }.
 const tokenResponse = (payload: Record<string, unknown> = FULL_PAYLOAD) => ({
-  data: { message: 'ok', token: makeToken(payload) },
+  data: { message: 'ok', token: makeToken(payload), refreshToken: 'refresh-1' },
 });
 
 const backendError = (message: string) =>
@@ -169,6 +169,7 @@ describe('Login', () => {
       expect(await screen.findByText('Pantalla de inicio')).toBeInTheDocument();
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
       expect(useAuthStore.getState().token).toBe(makeToken(FULL_PAYLOAD));
+      expect(localStorage.getItem('pingpong_refresh_token')).toBe('refresh-1');
       expect(useAuthStore.getState().user).toMatchObject({
         id: 'u1',
         email: 'ana@test.com',

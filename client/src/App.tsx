@@ -38,6 +38,7 @@ import { EquipoDetalles } from './pages/Equipos/EquipoDetalles';
 import { App as CapApp } from '@capacitor/app';
 import { APP_ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
+import { refreshSession } from './api/session';
 
 const isNativeApp = () => {
   return (
@@ -113,9 +114,14 @@ function AppContent() {
           const currentTime = Math.floor(Date.now() / 1000);
 
           if (decodedPayload.exp && decodedPayload.exp < currentTime) {
-            console.warn('Token caducado, cerrando sesión...');
-            logout();
-            navigate(APP_ROUTES.LOGIN);
+            // El token de acceso dura una hora: al volver a abrir la app se renueva con el refresh token.
+            // Al renovarse, el store cambia de token y este efecto vuelve a ejecutarse con el vigente.
+            const renewed = await refreshSession().catch(() => 'sin-red');
+            if (!renewed) {
+              console.warn('Sesión caducada, cerrando sesión...');
+              logout();
+              navigate(APP_ROUTES.LOGIN);
+            }
           } else if (!user) {
             // Si el token es válido pero aún no tenemos los datos del usuario, los traemos
             await fetchProfile();

@@ -8,6 +8,7 @@ import { useAuthStore } from './authStore';
 vi.mock('../api/axios', () => ({
   api: {
     get: vi.fn(),
+    post: vi.fn(),
   },
 }));
 
@@ -36,10 +37,48 @@ describe('useAuthStore', () => {
       });
     });
 
+    it('login guarda también el refresh token cuando llega', () => {
+      useAuthStore.getState().login('tok-1', undefined, 'refresh-1');
+
+      expect(localStorage.getItem('pingpong_refresh_token')).toBe('refresh-1');
+    });
+
     it('login con datos de usuario los guarda', () => {
       useAuthStore.getState().login('tok-1', { ...USER, role: 'Player' });
 
       expect(useAuthStore.getState().user?.name).toBe('Ana');
+    });
+
+    it('logout revoca el refresh token en el servidor y borra la copia local', () => {
+      vi.mocked(api.post).mockResolvedValue({ data: { message: 'Sesión cerrada' } });
+      useAuthStore.getState().login('tok-1', { ...USER, role: 'Player' }, 'refresh-1');
+
+      useAuthStore.getState().logout();
+
+      expect(api.post).toHaveBeenCalledWith(
+        ENDPOINTS.AUTH.LOGOUT,
+        { refreshToken: 'refresh-1' },
+        undefined,
+      );
+      expect(localStorage.getItem('pingpong_refresh_token')).toBeNull();
+    });
+
+    it('logout cierra la sesión local aunque la revocación falle', async () => {
+      vi.mocked(api.post).mockRejectedValue(new Error('Network Error'));
+      useAuthStore.getState().login('tok-1', { ...USER, role: 'Player' }, 'refresh-1');
+
+      useAuthStore.getState().logout();
+      await Promise.resolve();
+
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+
+    it('logout sin refresh token no llama a la API', () => {
+      useAuthStore.getState().login('tok-1');
+
+      useAuthStore.getState().logout();
+
+      expect(api.post).not.toHaveBeenCalled();
     });
 
     it('logout borra el token y la sesión', () => {

@@ -1,7 +1,19 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { notifications } from '@mantine/notifications';
 import { extractErrorMessage, NETWORK_ERROR_MESSAGE } from './errors';
 import { errorNotifier } from './notify';
+import { ENDPOINTS } from './endpoints';
+import { ACCESS_TOKEN_KEY, refreshSession } from './session';
+
+// Estas rutas devuelven 401 por motivos propios (credenciales, sesión ya inválida): renovar no aplica.
+const AUTH_URLS = [
+  ENDPOINTS.AUTH.LOGIN,
+  ENDPOINTS.AUTH.GOOGLE,
+  ENDPOINTS.AUTH.REFRESH,
+  ENDPOINTS.AUTH.LOGOUT,
+];
+
+type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
 // Quien cierra la sesión lo registra main.tsx: importar el store aquí cerraba el ciclo
 // axios → authStore → servicios → client → axios.
@@ -18,7 +30,7 @@ export const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('pingpong_token');
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -41,13 +53,28 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     if (error.response) {
       const { status, data, config } = error.response;
 
       if (status === 401) {
-        if (config.url?.includes('/auth/login') || config.url?.includes('/auth/google')) {
+        if (AUTH_URLS.some((url) => config.url?.includes(url))) {
           return Promise.reject(error);
+        }
+
+        // El token de acceso dura una hora: antes de dar la sesión por caducada se intenta renovarla.
+        if (!(config as RetriableConfig)._retried) {
+          try {
+            const token = await refreshSession();
+            if (token) {
+              const retry: RetriableConfig = { ...config, _retried: true };
+              retry.headers = { ...config.headers, Authorization: `Bearer ${token}` } as never;
+              return api.request(retry);
+            }
+          } catch {
+            // Sin red no se sabe si la sesión sigue viva: se deja fallar la petición sin cerrarla.
+            return Promise.reject(error);
+          }
         }
 
         console.warn('Sesión caducada. Redirigiendo al Login...');

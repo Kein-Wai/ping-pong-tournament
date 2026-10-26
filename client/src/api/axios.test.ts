@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { notifications } from '@mantine/notifications';
 import { api, setUnauthorizedHandler } from './axios';
 import { resetErrorNotifier } from './notify';
+import { refreshSession } from './session';
 
 vi.mock('@mantine/notifications', () => ({
   notifications: { show: vi.fn() },
@@ -12,6 +13,8 @@ vi.mock('@mantine/notifications', () => ({
  * falla. Estos tests comprueban que nunca se rompe y que el mensaje de
  * validacion de Zod llega intacto.
  */
+vi.mock('./session', () => ({ refreshSession: vi.fn().mockResolvedValue(null) }));
+
 describe('Interceptor de errores (client/src/api/axios.ts)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -125,7 +128,64 @@ describe('Interceptor de errores (client/src/api/axios.ts)', () => {
       expect(window.location.href).toBe('/login');
     });
 
-    it.each(['/auth/login', '/auth/google'])(
+    describe('renovación de la sesión', () => {
+      const unauthorized = (config: Record<string, unknown> = {}) => ({
+        isAxiosError: true,
+        response: { status: 401, data: {}, config: { method: 'get', url: '/users/me', ...config } },
+      });
+      const handle = (error: unknown) =>
+        // @ts-expect-error -- se simula el error de axios
+        api.interceptors.response.handlers[0].rejected(error);
+
+      it('renueva el token y repite la petición original con el token nuevo', async () => {
+        vi.mocked(refreshSession).mockResolvedValueOnce('acceso-nuevo');
+        const retried = { data: { ok: true } };
+        const request = vi.spyOn(api, 'request').mockResolvedValue(retried);
+
+        const result = await handle(unauthorized({ headers: {} }));
+
+        expect(result).toBe(retried);
+        expect(request).toHaveBeenCalledWith(
+          expect.objectContaining({
+            url: '/users/me',
+            headers: expect.objectContaining({ Authorization: 'Bearer acceso-nuevo' }),
+          }),
+        );
+        expect(onUnauthorized).not.toHaveBeenCalled();
+        expect(window.location.href).toBe('/torneos');
+      });
+
+      it('no entra en bucle: una petición ya repetida que vuelve a dar 401 cierra la sesión', async () => {
+        const error = unauthorized({ _retried: true });
+
+        await expect(handle(error)).rejects.toBe(error);
+
+        expect(refreshSession).not.toHaveBeenCalled();
+        expect(onUnauthorized).toHaveBeenCalledTimes(1);
+      });
+
+      it('si la sesión no se puede renovar, cierra la sesión y redirige', async () => {
+        vi.mocked(refreshSession).mockResolvedValueOnce(null);
+        const error = unauthorized();
+
+        await expect(handle(error)).rejects.toBe(error);
+
+        expect(onUnauthorized).toHaveBeenCalledTimes(1);
+        expect(window.location.href).toBe('/login');
+      });
+
+      it('sin red al renovar rechaza el error sin cerrar la sesión', async () => {
+        vi.mocked(refreshSession).mockRejectedValueOnce(new Error('Network Error'));
+        const error = unauthorized();
+
+        await expect(handle(error)).rejects.toBe(error);
+
+        expect(onUnauthorized).not.toHaveBeenCalled();
+        expect(window.location.href).toBe('/torneos');
+      });
+    });
+
+    it.each(['/auth/login', '/auth/google', '/auth/refresh', '/auth/logout'])(
       'un 401 de %s no cierra la sesión ni redirige',
       async (url) => {
         await rejectUnauthorized(url);

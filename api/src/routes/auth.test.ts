@@ -21,6 +21,10 @@ vi.mock('../../src/db', () => ({
     },
     user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
     userType: { findUnique: vi.fn() },
+    refreshToken: {
+      create: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
   },
 }));
 

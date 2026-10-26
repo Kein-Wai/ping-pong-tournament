@@ -41,6 +41,10 @@ export const loginGoogleSchema = z.object({
   role: z.enum(['Player', 'AdminClub']).optional().default('Player'),
 });
 
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'El refresh token es obligatorio'),
+});
+
 export const registerSchema = z
   .object({
     email: z.email('El formato del email no es válido'),

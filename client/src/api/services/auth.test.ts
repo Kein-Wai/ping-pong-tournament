@@ -44,6 +44,21 @@ describe('authService', () => {
     });
   });
 
+  describe('logout', () => {
+    it('envía el refresh token a revocar por POST', async () => {
+      mockedApi.post.mockResolvedValue({ data: { message: 'Sesión cerrada' } });
+
+      const result = await authService.logout('refresh-1');
+
+      expect(mockedApi.post).toHaveBeenCalledWith(
+        ENDPOINTS.AUTH.LOGOUT,
+        { refreshToken: 'refresh-1' },
+        undefined,
+      );
+      expect(result).toEqual({ message: 'Sesión cerrada' });
+    });
+  });
+
   describe('register', () => {
     it('envía el registro tal cual lo manda la pantalla y devuelve solo el mensaje', async () => {
       mockedApi.post.mockResolvedValue({ data: { message: 'Jugador registrado con éxito' } });

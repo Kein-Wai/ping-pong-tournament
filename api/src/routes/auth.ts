@@ -8,6 +8,7 @@ import {
   registerSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  refreshTokenSchema,
 } from '../schemas/user';
 import { z } from 'zod';
 import { enviarCorreoGenerico } from '../services/email';
@@ -15,7 +16,7 @@ import { templateRegistro, templateResetPassword } from '../utils/emailtemplate'
 import crypto from 'crypto';
 import { resolveCurrentSeason } from '../utils/season';
 import { asyncHandler } from '../http/response';
-import { issueToken } from '../utils/session';
+import { revokeAllUserSessions, revokeRefreshToken, rotateRefreshToken, startSession } from '../utils/refresh-token';
 
 const router = Router();
 
@@ -127,9 +128,9 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
   }
 
-  const token = issueToken(user);
+  const tokens = await startSession(user);
 
-  res.status(200).json({ message: 'Login local exitoso', token });
+  res.status(200).json({ message: 'Login local exitoso', ...tokens });
 
 }, 'Error en el servidor', 500));
 
@@ -201,11 +202,30 @@ router.post('/google', asyncHandler(async (req, res) => {
     });
   }
 
-  const token = issueToken(user);
+  const tokens = await startSession(user);
 
-  res.status(200).json({ message: 'Login con Google exitoso', token });
+  res.status(200).json({ message: 'Login con Google exitoso', ...tokens });
 
 }, 'Fallo al autenticar con Google', 401));
+
+router.post('/refresh', asyncHandler(async (req, res) => {
+  const validation = refreshTokenSchema.safeParse(req.body);
+  if (!validation.success) return res.status(400).json({ success: false, error: 'Refresh token requerido' });
+
+  const tokens = await rotateRefreshToken(validation.data.refreshToken);
+  if (!tokens) return res.status(401).json({ success: false, error: 'Sesión caducada' });
+
+  res.status(200).json(tokens);
+}, 'Error al renovar la sesión', 500));
+
+router.post('/logout', asyncHandler(async (req, res) => {
+  const validation = refreshTokenSchema.safeParse(req.body);
+  if (!validation.success) return res.status(400).json({ success: false, error: 'Refresh token requerido' });
+
+  await revokeRefreshToken(validation.data.refreshToken);
+
+  res.status(200).json({ message: 'Sesión cerrada' });
+}, 'Error al cerrar la sesión', 500));
 
 // POST: Solicitar recuperación de contraseña
 router.post('/forgot-password', asyncHandler(async (req, res) => {
@@ -281,6 +301,9 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
       forcePasswordChange: false,
     },
   });
+
+  // Quien tuviera la contraseña vieja (o una sesión robada) no debe seguir dentro.
+  await revokeAllUserSessions(user.id);
 
   res
     .status(200)

@@ -27,9 +27,10 @@ export interface MessageResult {
   message: string;
 }
 
-/** Token devuelto tras autenticarse (login local y Google). */
+/** Sesión devuelta tras autenticarse (login local y Google): token de acceso corto y refresh token. */
 export interface AuthResult extends MessageResult {
   token: string;
+  refreshToken: string;
 }
 
 /** Datos de registro tal como los valida registerSchema en la API. */
@@ -52,6 +53,10 @@ export const authService = {
 
   loginWithGoogle: (credential: string, role: SelfServiceRole = 'Player') =>
     http.post<AuthResult>(ENDPOINTS.AUTH.GOOGLE, { credential, role }),
+
+  /** Revoca el refresh token en el servidor: sin esto el logout solo borraría la copia local. */
+  logout: (refreshToken: string) =>
+    http.post<MessageResult>(ENDPOINTS.AUTH.LOGOUT, { refreshToken }),
 
   forgotPassword: (email: string) =>
     http.post<MessageResult>(ENDPOINTS.AUTH.FORGOT_PASSWORD, { email }),
