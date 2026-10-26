@@ -93,6 +93,11 @@ router.delete('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) 
 // 2. CALENDARIO DE ENTRENAMIENTOS GENERALES
 // ==========================================
 router.get('/', asyncHandler(async (req, res) => {
+  // Sin club no hay entrenamientos que ver: sin esto el filtro quedaba vacío y devolvía los de todos los clubes.
+  if (isOutOfClubScope(req.user)) {
+    return res.status(200).json({ success: true, data: [] });
+  }
+
   const trainings = await prisma.generalTraining.findMany({
     where: buildClubScope(req.user),
     include: {
@@ -120,7 +125,9 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
   const { description, startDate, endDate, scheduleId, skillsToTrain } = validation.data;
 
   const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
-  if (!schedule) return res.status(404).json({ success: false, error: 'Horario no encontrado' });
+  if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
+    return res.status(404).json({ success: false, error: 'Horario no encontrado' });
+  }
 
   // Rango de fechas exacto
   const datesToCreate: Date[] = [];

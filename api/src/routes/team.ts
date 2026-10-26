@@ -125,10 +125,16 @@ router.put('/:id/players', verifyToken, requireAdminClub, asyncHandler(async (re
   const { playerIds } = validation.data;
 
   // Obtenemos los niveles de los jugadores seleccionados
+  // Solo pueden formar la plantilla jugadores del club del equipo.
   const selectedPlayers = await prisma.user.findMany({
-    where: { id: { in: playerIds } },
+    where: { id: { in: playerIds }, clubId: team.clubId },
     select: { level: true },
   });
+  if (selectedPlayers.length !== new Set(playerIds).size) {
+    return res
+      .status(400)
+      .json({ success: false, error: 'Algún jugador no existe o no pertenece al club del equipo' });
+  }
 
   const newTeamLevel = getLowestLevel(selectedPlayers);
 
@@ -293,6 +299,16 @@ router.post('/matches/:matchId/availability', asyncHandler(async (req, res) => {
   const matchId = req.params.matchId as string;
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+
+  // Solo los jugadores del equipo confirman su asistencia a sus partidos.
+  const teamMatch = await prisma.teamMatch.findUnique({
+    where: { id: matchId },
+    select: { team: { select: { players: { select: { id: true } } } } },
+  });
+  if (!teamMatch) return res.status(404).json({ success: false, error: 'Partido no encontrado' });
+  if (!teamMatch.team.players.some((player) => player.id === userId)) {
+    return res.status(403).json({ success: false, error: 'No formas parte de este equipo' });
+  }
 
   // Comprobar si ya existe
   const existing = await prisma.teamMatchAvailability.findUnique({

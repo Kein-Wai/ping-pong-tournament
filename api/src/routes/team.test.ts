@@ -25,7 +25,7 @@ vi.mock('../../src/db', () => ({
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
-    teamMatch: { create: vi.fn() },
+    teamMatch: { create: vi.fn(), findUnique: vi.fn() },
     user: { findMany: vi.fn() },
     teamMatchAvailability: { findUnique: vi.fn(), create: vi.fn(), delete: vi.fn() },
   },
@@ -136,6 +136,10 @@ describe('CRUD Rutas de Equipos (/api/teams)', () => {
     });
 
     it('POST /matches/:matchId/availability - Debería crear asistencia si no existe (200)', async () => {
+      // El usuario autenticado (admin-123) forma parte del equipo del partido.
+      vi.mocked(prisma.teamMatch.findUnique).mockResolvedValue({
+        team: { players: [{ id: 'admin-123' }] },
+      } as any);
       vi.mocked(prisma.teamMatchAvailability.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.teamMatchAvailability.create).mockResolvedValue({} as any);
 

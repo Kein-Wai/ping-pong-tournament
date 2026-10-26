@@ -68,6 +68,7 @@ describe('Rutas de Entrenamientos Grupales (/api/general-trainings)', () => {
   it('POST / - Debería crear sesiones calculando los días correctos (201)', async () => {
     vi.mocked(prisma.generalTrainingSchedule.findUnique).mockResolvedValue({
       id: '11111111-1111-4111-a111-111111111111',
+      clubId: 'club-1',
       daysOfWeek: [1, 3, 5],
     } as any);
     vi.mocked(prisma.skillUpdateTemplate.create).mockResolvedValue({ id: 'tpl-1' } as any);
