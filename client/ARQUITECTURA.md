@@ -196,7 +196,7 @@ El plan de regresión y de pruebas de extremo a extremo está en [`../docs/plan-
 
 ## 8. Cómo se trabaja aquí (refactor)
 
-El cliente se reestructuró en fases (`docs/plan-refactor-client.md`): red de seguridad de tests → seam de datos (`api/services`) → permisos únicos → extracción de pantallas gigantes a hooks y componentes. Las reglas que siguen vigentes para cualquier cambio:
+El cliente se reestructuró en fases (el historial está en `git log`; lo pendiente, en `docs/PENDIENTES.md`): red de seguridad de tests → seam de datos (`api/services`) → permisos únicos → extracción de pantallas gigantes a hooks y componentes. Las reglas que siguen vigentes para cualquier cambio:
 
 1. **Una cosa a la vez**: se mueve la lógica pieza a pieza.
 2. **Regla de oro del JSX**: al extraer un componente se copia el código visual tal cual (props de Mantine, clases, iconos, textos); solo se pasan las variables por props.

@@ -165,7 +165,7 @@ Lo que ninguna herramienta automática cubre bien. 10-15 minutos, con la app de 
 | Antes de cada commit | `tsc` + `lint` + `vitest run` del paquete tocado | 1-2 min | Tú (obligatorio por `.clinerules`) |
 | En cada Pull Request (CI) | **API:** `tsc`, `lint`, `vitest run`, `npm audit --omit=dev`, integración con PostgreSQL. **Client:** `tsc -b`, `lint`, `vitest run`, `build`, `npm audit --omit=dev`. **E2E P0** (E1-E5) | ~10 min | GitHub Actions |
 | Cada noche | E2E P0 + P1 y la matriz de autorización completa | ~20 min | GitHub Actions (`schedule`) |
-| Antes de cada release | Todo lo anterior + E2E P2 + checklist del iPhone + smoke de producción (`docs/plan-despliegue-produccion.md` §5) | ~1 h | Tú |
+| Antes de cada release | Todo lo anterior + E2E P2 + checklist del iPhone + smoke de producción (`COMANDOS.md` §9) | ~1 h | Tú |
 | Tras cada despliegue | Smoke de producción de 10 minutos | 10 min | Tú |
 
 **Puerta de calidad (no se fusiona a `main` si falla):** `tsc`, `lint`, tests unitarios y de integración, E2E P0, `build` del cliente y `npm audit --omit=dev` sin vulnerabilidades altas o críticas. Umbral de cobertura: 80 % en líneas de `api/src/utils`, `api/src/http`, `api/src/middleware` y `client/src/{hooks,api,utils}` (lo exige `.clinerules`).

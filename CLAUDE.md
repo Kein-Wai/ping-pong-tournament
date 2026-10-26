@@ -11,8 +11,8 @@ Monorepo for a table-tennis tournament/training app. The stack, naming, security
 ## Layout notes
 
 - There is no root `package.json`: run npm commands inside `api/` or `client/`.
-- `tm-evolve-mobile/` is a separate Expo app with its own `AGENTS.md` (check the Expo docs for the matching SDK version, use `npx expo install`).
-- `codigo_completo.txt` files are generated code dumps: ignore them.
+- `tm-evolve-mobile/` is a separate Expo app with its own `AGENTS.md` (check the Expo docs for the matching SDK version, use `npx expo install`). It is **abandoned**: do not work on it unless asked.
+- Day-to-day workflow (branches, commits, PRs, deploy, rollback, troubleshooting) is in `COMANDOS.md`; open work and decisions are in `docs/PENDIENTES.md`.
 
 ## Commands not listed in .clinerules
 
@@ -33,7 +33,7 @@ Monorepo for a table-tennis tournament/training app. The stack, naming, security
 
 ### Refactor rules (apply to every refactor/migration task, all session long)
 
-The plan lives in `docs/plan-refactor-client.md`. While executing it:
+Open refactor work is listed in `docs/PENDIENTES.md` (phases G1-G7) with evidence in `docs/auditoria-final-api-client.md`. While refactoring:
 
 1. **One at a time.** Move logic piece by piece, never several concerns in one step.
 2. **JSX golden rule.** Copy the visual code exactly as is: no changes to Mantine props/classes, icons, margins or texts. Only create the new component, pass the needed variables as props and import it in the page it came from.
