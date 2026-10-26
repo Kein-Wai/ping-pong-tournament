@@ -52,7 +52,7 @@ export const baseTournamentObject = z.object({
  * Adaptador de Zod: vuelca en el contexto los incumplimientos que detecta el
  * modulo puro de reglas de torneo.
  */
-export const validateTournamentBusinessRules = (data: any, ctx: z.RefinementCtx) => {
+export const validateTournamentBusinessRules = (data: z.infer<typeof baseTournamentObject>, ctx: z.RefinementCtx) => {
   validateTournamentRules({
     rounds: data.rounds,
     numPlayers: data.numPlayers,

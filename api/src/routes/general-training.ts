@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { UpdateSourceType, SkillUpdateStatus } from '@prisma/client';
 import prisma from '../db';
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
@@ -34,7 +35,7 @@ router.get('/schedules', asyncHandler(async (req, res) => {
 }, 'Error al obtener horarios', 500));
 
 router.post('/schedules', requireAdminClub, asyncHandler(async (req, res) => {
-  const clubId = req.user?.clubId!;
+  const clubId = req.user?.clubId;
   if (!clubId)
     return sendError(res, 403, 'No tienes un club asignado para crear horarios.');
 
@@ -50,7 +51,6 @@ router.post('/schedules', requireAdminClub, asyncHandler(async (req, res) => {
 }, 'Error al crear el horario', 500));
 
 router.put('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) => {
-  const clubId = req.user?.clubId!;
   const scheduleId = req.params.id as string;
 
   const validation = updateScheduleSchema.safeParse(req.body);
@@ -72,7 +72,6 @@ router.put('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) => 
 }, 'Error al actualizar el horario', 500));
 
 router.delete('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) => {
-  const clubId = req.user?.clubId!;
   const scheduleId = req.params.id as string;
 
   const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
@@ -109,7 +108,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }, 'Error al obtener los entrenamientos', 500));
 
 router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
-  const clubId = req.user?.clubId!;
+  const clubId = req.user?.clubId;
   if (!clubId) return sendError(res, 403, 'No tienes un club asignado.');
 
   const validation = createGeneralTrainingSchema.safeParse(req.body);
@@ -125,7 +124,7 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
 
   // Rango de fechas exacto
   const datesToCreate: Date[] = [];
-  let currentDate = new Date(startDate);
+  const currentDate = new Date(startDate);
   const end = new Date(endDate);
   end.setHours(23, 59, 59, 999);
 
@@ -168,7 +167,6 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
 }, 'Error al programar el entrenamiento', 500));
 
 router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
-  const clubId = req.user?.clubId!;
   const trainingId = req.params.id as string;
 
   const validation = updateGeneralTrainingSchema.safeParse(req.body);
@@ -202,7 +200,6 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 }, 'Error al actualizar el entrenamiento', 500));
 
 router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
-  const clubId = req.user?.clubId!;
   const trainingId = req.params.id as string;
 
   const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
@@ -224,7 +221,6 @@ router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 // ==========================================
 router.put('/:id/attendance/bulk', requireAdminClub, asyncHandler(async (req, res) => {
   const trainingId = req.params.id as string;
-  const clubId = req.user?.clubId!;
 
   const validation = bulkAttendanceSchema.safeParse(req.body);
   if (!validation.success) return sendError(res, 400, 'Datos inválidos');
@@ -254,9 +250,8 @@ router.put('/:id/attendance/bulk', requireAdminClub, asyncHandler(async (req, re
     where: { userId: { in: playersToAdd } },
   });
 
-  // Casteo a any seguro
   const getSkillLevel = (pId: string, skill: string) => {
-    const pSkill = playersSkillsDB.find((p) => p.userId === pId) as any;
+    const pSkill: Record<string, unknown> | undefined = playersSkillsDB.find((p) => p.userId === pId);
     return pSkill && pSkill[skill] ? Number(pSkill[skill]) : 0;
   };
 
@@ -281,9 +276,9 @@ router.put('/:id/attendance/bulk', requireAdminClub, asyncHandler(async (req, re
 
       const updatesData = playersToAdd.map((pId) => ({
         playerId: pId,
-        sourceType: 'EntrenamientoGeneral' as any,
+        sourceType: UpdateSourceType.EntrenamientoGeneral,
         generalTrainingId: trainingId,
-        status: 'EXPECTED' as any,
+        status: SkillUpdateStatus.EXPECTED,
         derechaPlano: calculateConditionalGrowth(
           tpl.derechaPlano,
           getSkillLevel(pId, 'derechaPlano'),

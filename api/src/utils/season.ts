@@ -1,4 +1,4 @@
-import { PrismaClient, Season } from '@prisma/client';
+import { Prisma, PrismaClient, Season } from '@prisma/client';
 
 /**
  * Periodo de la temporada vigente. La temporada va del 1 de agosto al 31 de julio.
@@ -27,7 +27,7 @@ export const getCurrentSeasonPeriod = (now: Date = new Date()): SeasonPeriod => 
  * Falla si la temporada no existe: su creacion es responsabilidad de
  * ensureCurrentSeason(), que se ejecuta una unica vez al arrancar la app.
  */
-export const resolveCurrentSeason = async (prisma: PrismaClient): Promise<Season> => {
+export const resolveCurrentSeason = async (prisma: Prisma.TransactionClient): Promise<Season> => {
   const { name } = getCurrentSeasonPeriod();
 
   const activeSeason = await prisma.season.findFirst({ where: { isCurrent: true } });
@@ -73,7 +73,7 @@ export const ensureCurrentSeason = async (prisma: PrismaClient): Promise<Season>
     data: { name, startDate, endDate, isCurrent: true },
   });
 
-  console.log(`🎉 ¡Nueva temporada iniciada automaticamente: ${name}`);
+  console.info(`🎉 ¡Nueva temporada iniciada automaticamente: ${name}`);
 
   return createdSeason;
 };

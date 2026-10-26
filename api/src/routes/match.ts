@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../db';
 import { createMatchSchema, baseMatchObject, validateMatchBusinessRules } from '../schemas/match';
 import { z } from 'zod';
@@ -23,7 +24,7 @@ router.get(
     // El club al que queda acotado el alcance lo decide el seam de utils/auth.
     const scopeClubId = getScopeClubId(req.user);
 
-    let whereCondition: any = {};
+    let whereCondition: Prisma.MatchWhereInput;
 
     if (role === 'SuperAdmin') {
       // El SuperAdmin puede ver absolutamente todos los partidos del sistema
@@ -228,8 +229,8 @@ router.put(
       return;
     }
 
-    const data = validation.data;
-    delete (data as any).setsToWin;
+    // setsToWin solo sirve para validar las reglas del marcador: no es una columna del partido.
+    const { setsToWin: _setsToWin, ...data } = validation.data;
 
     const matchStatus = data.status ? data.status : existingMatch.status;
 

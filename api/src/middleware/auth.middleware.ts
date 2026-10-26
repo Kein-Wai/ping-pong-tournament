@@ -13,6 +13,8 @@ export interface UserPayload {
 }
 
 declare global {
+  // La única forma de ampliar Request de Express es fusionar su namespace.
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: UserPayload;
@@ -85,7 +87,7 @@ export const verifyToken = async (
   let claims: UserPayload;
   try {
     claims = jwt.verify(token, getRequiredEnv('JWT_SECRET')) as UserPayload;
-  } catch (error) {
+  } catch {
     sendError(res, 401, 'Token inválido o expirado.');
     return;
   }

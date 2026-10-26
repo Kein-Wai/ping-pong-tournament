@@ -12,8 +12,6 @@ const router = Router();
 // PUT /api/skills/:playerId
 router.put('/:playerId', requireAdminClub, asyncHandler(async (req, res) => {
   const playerId = req.params.playerId as string;
-  const adminClubId = req.user?.clubId;
-  const role = req.user?.role;
 
   // 1. Validar que los stats están entre 0 y 100
   const validation = updateSkillsSchema.safeParse(req.body);
@@ -56,7 +54,6 @@ router.put('/:playerId', requireAdminClub, asyncHandler(async (req, res) => {
 }, 'Error al actualizar las habilidades del jugador', 500));
 router.put('/:playerId/consolidate', requireAdminClub, asyncHandler(async (req, res) => {
   const playerId = req.params.playerId as string;
-  const adminClubId = req.user?.clubId;
 
   const validation = updateSkillsSchema.safeParse(req.body);
   if (!validation.success) {

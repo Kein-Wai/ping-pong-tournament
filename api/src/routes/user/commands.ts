@@ -101,12 +101,12 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
       forcePasswordChange: isGenerated,
       authProvider: 'LOCAL',
       clubId: finalClubId,
-      clubStatus: finalClubStatus as any,
+      clubStatus: finalClubStatus,
       active: true, // Activado directamente porque lo crea el coach
       userTypeId: finalUserTypeId as string,
       stats: { create: { seasonId: currentSeason.id, elo: elo } },
-      rubberForehand: rubberForehand as any,
-      rubberBackhand: rubberBackhand as any,
+      rubberForehand,
+      rubberBackhand,
       skills: {
         create: {
           seasonId: currentSeason.id,
@@ -140,7 +140,6 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
 router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
   const id = req.params.id as string;
   const role = req.user?.role;
-  const adminClubId = req.user?.clubId;
 
   // 1. Buscamos al usuario que intentan editar
   const userToEdit = await prisma.user.findUnique({ where: { id } });
@@ -218,8 +217,6 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 
 router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
   const id = req.params.id as string;
-  const role = req.user?.role;
-  const adminClubId = req.user?.clubId;
 
   // 1. Buscamos al usuario que intentan borrar
   const userToDelete = await prisma.user.findUnique({ where: { id } });

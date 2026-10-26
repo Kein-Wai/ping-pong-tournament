@@ -41,7 +41,7 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
     });
 
     if (league) {
-      console.log(`Procesando partido de liga: ${league.id}`);
+      console.info(`Procesando partido de liga: ${league.id}`);
     }
   }
 };
@@ -110,7 +110,7 @@ const closeRoundRobinTournament = async (
   tournament: Tournament,
   group: TournamentGroup,
 ) => {
-  console.log(
+  console.info(
     `Torneo Todos vs Todos terminado (${tournament.id}). Guardando posiciones finales...`,
   );
 
@@ -145,7 +145,7 @@ const closeRoundRobinTournament = async (
       });
     });
 
-    console.log('Torneo Todos vs Todos completado y cerrado con exito.');
+    console.info('Torneo Todos vs Todos completado y cerrado con exito.');
   } catch (error) {
     console.error('Error al cerrar el torneo Todos vs Todos:', error);
   }
@@ -157,7 +157,7 @@ const closeRoundRobinTournament = async (
  * jugadores que se quedan fuera.
  */
 const createKnockoutFromGroups = async (prisma: PrismaClient, tournament: Tournament) => {
-  console.log(
+  console.info(
     `Fase de grupos terminada para el torneo ${tournament.id}. Generando eliminatorias...`,
   );
 
@@ -227,7 +227,7 @@ const createKnockoutFromGroups = async (prisma: PrismaClient, tournament: Tourna
       data: { knockoutCreated: true },
     });
 
-    console.log('Cuadro de eliminatorias generado y guardado exitosamente.');
+    console.info('Cuadro de eliminatorias generado y guardado exitosamente.');
   } catch (error) {
     console.error('Error critico al generar el cuadro automaticamente:', error);
   }

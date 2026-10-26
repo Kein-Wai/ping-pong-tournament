@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../db';
 import { getExercisesQuerySchema, createExerciseSchema } from '../schemas/exercise';
 import { z } from 'zod';
@@ -21,7 +22,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const userClubId = req.user?.clubId;
 
   // 1. Condición base: O es global (null) O es de tu club
-  let whereClause: any = {
+  const whereClause: Prisma.ExerciseWhereInput = {
     OR: [{ clubId: null }, { clubId: userClubId }],
   };
 

@@ -37,7 +37,7 @@ router.post('/', verifyToken, asyncHandler(async (req, res) => {
   const newFeedback = await prisma.appFeedback.create({
     data: {
       userId: req.user!.id,
-      type: validation.data.type as any,
+      type: validation.data.type,
       content: validation.data.content,
     },
   });

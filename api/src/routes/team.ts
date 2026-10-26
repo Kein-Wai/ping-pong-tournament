@@ -25,7 +25,7 @@ const LEVEL_WEIGHTS: Record<string, number> = {
   Profesional: 5,
 };
 
-const getLowestLevel = (players: any[]) => {
+const getLowestLevel = (players: { level: string | null }[]) => {
   if (!players || players.length === 0) return 'Sin Nivel';
 
   let minWeight = 99;
@@ -104,7 +104,6 @@ router.post('/', verifyToken, requireAdminClub, asyncHandler(async (req, res) =>
 // PUT: Actualizar la plantilla de un equipo (y recalcular nivel)
 router.put('/:id/players', verifyToken, requireAdminClub, asyncHandler(async (req, res) => {
   const teamId = req.params.id as string;
-  const adminClubId = req.user?.clubId;
 
   const validation = updateTeamPlayersSchema.safeParse(req.body);
   if (!validation.success) {
@@ -149,7 +148,6 @@ router.put('/:id/players', verifyToken, requireAdminClub, asyncHandler(async (re
 // POST: Añadir un partido al calendario del equipo
 router.post('/:id/matches', verifyToken, requireAdminClub, asyncHandler(async (req, res) => {
   const teamId = req.params.id as string;
-  const adminClubId = req.user?.clubId;
 
   const validation = createTeamMatchSchema.safeParse(req.body);
   if (!validation.success) {
@@ -199,7 +197,7 @@ router.put('/matches/:matchId', verifyToken, asyncHandler(async (req, res) => {
 
   // Lógica de Permisos: Es AdminClub de SU club, o es un Player que está en el array de jugadores del equipo
   const isClubAdmin = role === 'AdminClub' && match.team.clubId === clubId;
-  const isTeamMember = match.team.players.some((p: any) => p.id === userId);
+  const isTeamMember = match.team.players.some((p) => p.id === userId);
 
   if (!isClubAdmin && !isTeamMember && role !== 'SuperAdmin') {
     return sendError(res, 403, 'No tienes permiso. Solo el entrenador o los miembros de este equipo pueden actualizar el resultado.');
@@ -216,7 +214,6 @@ router.put('/matches/:matchId', verifyToken, asyncHandler(async (req, res) => {
 
 router.delete('/matches/:matchId', verifyToken, requireAdminClub, asyncHandler(async (req, res) => {
   const matchId = req.params.matchId as string;
-  const adminClubId = req.user?.clubId;
 
   const match = await prisma.teamMatch.findUnique({
     where: { id: matchId },
@@ -237,7 +234,6 @@ router.delete('/matches/:matchId', verifyToken, requireAdminClub, asyncHandler(a
 // PUT: Actualizar info básica de un equipo
 router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
   const teamId = req.params.id as string;
-  const adminClubId = req.user?.clubId;
 
   const validation = updateTeamSchema.safeParse(req.body);
   if (!validation.success) {
@@ -261,7 +257,6 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 // DELETE: Borrar un equipo
 router.delete('/:id', verifyToken, requireAdminClub, asyncHandler(async (req, res) => {
   const teamId = req.params.id as string;
-  const adminClubId = req.user?.clubId;
 
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team || !hasClubPermission(req.user, team.clubId)) {

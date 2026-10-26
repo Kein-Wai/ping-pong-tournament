@@ -43,7 +43,7 @@ export const baseMatchObject = z.object({
  * Adaptador de Zod: vuelca en el contexto los incumplimientos que detecta el
  * modulo puro de reglas de partido.
  */
-export const validateMatchBusinessRules = (data: any, ctx: z.RefinementCtx) => {
+export const validateMatchBusinessRules = (data: z.infer<typeof baseMatchObject>, ctx: z.RefinementCtx) => {
   validateMatchRules({
     scores: data,
     status: data.status,

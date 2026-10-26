@@ -20,7 +20,6 @@ const DAYS_OFFSET: Record<number, number[]> = {
 };
 
 router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
-  const userClubId = req.user?.clubId;
 
   // 1. Validar cuerpo de la petición
   const validation = createTrainingSchema.safeParse(req.body);

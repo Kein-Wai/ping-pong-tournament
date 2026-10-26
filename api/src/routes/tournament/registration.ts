@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { PlayerTournamentStatus } from '@prisma/client';
 import prisma from '../../db';
 import { registerBulkSchema, registerParticipantSchema } from '../../schemas/tournament';
 import { registerParticipant } from '../../utils/tournament-inscriptions';
@@ -124,7 +125,7 @@ router.post('/:id/register-bulk', requireAdminClub, asyncHandler(async (req, res
   const dataToInsert = newPlayers.map((id: string) => ({
     tournamentId,
     playerId: id,
-    status: 'Confirmado' as any,
+    status: PlayerTournamentStatus.Confirmado,
   }));
 
   await prisma.tournamentParticipant.createMany({ data: dataToInsert });

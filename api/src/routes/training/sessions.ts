@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { asyncHandler, sendData, sendError, sendMessage } from '../../http/response';
 import { createSingleSessionSchema, completeSessionSchema } from '../../schemas/training';
 import { calculateSkillGrowth } from '../../utils/skills';
-import { canManageTraining, canViewTraining } from '../../utils/training-access';
+import { canViewTraining } from '../../utils/training-access';
 
 const router = Router();
 
@@ -75,7 +75,7 @@ router.post('/sessions/:id/complete', asyncHandler(async (req, res) => {
   // Función auxiliar para calcular la curva de aprendizaje (la misma que usamos en los partidos)
 
   const currentSkills = session.player.skills[0]; // Las skills actuales del jugador
-  const updateData: any = {};
+  const updateData: Record<string, number> = {};
 
   // 2. Calculamos el crecimiento SOLO para las skills que el jugador seleccionó
   validation.data.skillsWorked.forEach((skillName) => {

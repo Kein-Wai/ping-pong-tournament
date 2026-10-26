@@ -170,7 +170,7 @@ router.put('/:id/complete', asyncHandler(async (req, res) => {
 
   // Envolvemos en transacción para asegurar la base de datos
   const updatedMatch = await prisma.$transaction(async (tx) => {
-    const currentSeason = await resolveCurrentSeason(tx as any);
+    const currentSeason = await resolveCurrentSeason(tx);
     const match = await tx.manualMatch.update({
       where: { id: req.params.id as string },
       data: {
@@ -216,7 +216,7 @@ router.put('/:id/complete', asyncHandler(async (req, res) => {
     });
 
     // Obtener stats y aplicar curva decreciente
-    const userSkills = await getPlayerCurrentSkills(tx as any, userId);
+    const userSkills = await getPlayerCurrentSkills(tx, userId);
 
     // Inyectar subida al tracker personal
     await tx.playerSkillUpdate.create({

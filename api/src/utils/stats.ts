@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient, MatchStatus, UpdateSourceType } from '@prisma/client';
+import { Prisma, MatchStatus, UpdateSourceType } from '@prisma/client';
 import { POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
 import { calculateMatchResults, CompletedMatch } from './match';
 import { resolveCurrentSeason } from './season';
@@ -265,7 +265,7 @@ export const handleMatchStatsUpdate = async (
 };
 
 /** Helper para obtener las estadisticas actuales de un jugador */
-export const getPlayerCurrentStats = async (prisma: PrismaClient, playerId: string) => {
+export const getPlayerCurrentStats = async (prisma: Prisma.TransactionClient, playerId: string) => {
   const currentSeason = await resolveCurrentSeason(prisma);
 
   return await prisma.stats.findUnique({
@@ -274,7 +274,7 @@ export const getPlayerCurrentStats = async (prisma: PrismaClient, playerId: stri
 };
 
 /** Helper para obtener las habilidades (RPG) actuales de un jugador */
-export const getPlayerCurrentSkills = async (prisma: PrismaClient, playerId: string) => {
+export const getPlayerCurrentSkills = async (prisma: Prisma.TransactionClient, playerId: string) => {
   const currentSeason = await resolveCurrentSeason(prisma);
 
   return await prisma.playerSkills.findUnique({

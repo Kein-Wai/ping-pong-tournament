@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../../db';
 import bcrypt from 'bcryptjs';
 import { asyncHandler, sendData, sendError, sendMessage } from '../../http/response';
@@ -70,7 +71,7 @@ router.put('/me', asyncHandler(async (req, res) => {
     return;
   }
 
-  const updateData: any = {};
+  const updateData: Prisma.UserUpdateInput = {};
   if (data.name) updateData.name = data.name;
   if (data.surname) updateData.surname = data.surname;
   if (req.body.secondSurname) updateData.secondSurname = req.body.secondSurname;

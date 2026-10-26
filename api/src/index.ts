@@ -77,7 +77,7 @@ if (process.env.NODE_ENV !== 'test') {
     }
 
     app.listen(PORT, () => {
-      console.log(`Servidor corriendo en http://localhost:${PORT}`);
+      console.info(`Servidor corriendo en http://localhost:${PORT}`);
     });
   };
 

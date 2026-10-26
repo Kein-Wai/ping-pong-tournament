@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../db';
 import { asyncHandler, sendData, sendError } from '../../http/response';
-import { canManageTraining, canViewTraining } from '../../utils/training-access';
+import { canViewTraining } from '../../utils/training-access';
 
 const router = Router();
 

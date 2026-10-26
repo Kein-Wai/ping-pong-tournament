@@ -80,8 +80,6 @@ const buildTournamentScope = (
 };
 
 router.get('/', asyncHandler(async (req, res) => {
-  const role = req.user?.role;
-  const clubId = req.user?.clubId;
   const userId = req.user?.id;
   let clubStatus = 'Registrado';
   if (userId) {

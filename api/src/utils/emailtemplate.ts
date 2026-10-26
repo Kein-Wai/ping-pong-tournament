@@ -42,9 +42,31 @@ const baseTemplate = (contentHtml: string) => {
   `;
 };
 
+/** Datos que escriben los usuarios (nombres de torneo, club o evento...) y acaban en HTML: se escapan. */
+const escapeHtml = (value: string | number | Date): string =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+interface TorneoEmail {
+  name: string;
+  dateStart: Date | string;
+}
+
+interface EventoEmail {
+  name: string;
+  date: Date | string;
+  endDate?: Date | string | null;
+  location?: string | null;
+}
+
+
 export const templateRegistro = (nombre: string, link: string) => {
   const contenidoEspecifico = `
-    <h1 style="color: #111827;">¡Bienvenido/a a la pista, ${nombre}! 🏓</h1>
+    <h1 style="color: #111827;">¡Bienvenido/a a la pista, ${escapeHtml(nombre)}! 🏓</h1>
     <p>Estamos emocionados de tenerte en nuestra comunidad. Prepárate para competir, mejorar tu nivel y disfrutar de los mejores torneos de tenis de mesa.</p>
     <p>Tu cuenta ha sido creada con éxito.</p> 
     <p>Para poder confirmar tu email, dale al link y podras entrar en tu cuenta, buscar clubs y torneos abiertos</p>
@@ -56,11 +78,11 @@ export const templateRegistro = (nombre: string, link: string) => {
   return baseTemplate(contenidoEspecifico);
 };
 
-export const templateInscripcionTorneo = (nombre: string, torneo: any) => {
+export const templateInscripcionTorneo = (nombre: string, torneo: TorneoEmail) => {
   const contenidoEspecifico = `
-    <h1 style="color: #111827;">¡Te has inscrito al torneo ${torneo.name}, ${nombre}! 🏓</h1>
+    <h1 style="color: #111827;">¡Te has inscrito al torneo ${escapeHtml(torneo.name)}, ${escapeHtml(nombre)}! 🏓</h1>
     <p>Tu inscripcion al torneo llegara al admin del club.</p>
-    <p>El torneo empezara el dia ${torneo.dateStart}.</p> 
+    <p>El torneo empezara el dia ${escapeHtml(torneo.dateStart)}.</p> 
     <p>¡Guarda la fecha en tu calendario!</p>
     <div style="text-align: center;">
       <a href="${process.env.CLIENT_URL}/login" class="btn">Empezar a jugar</a>
@@ -70,9 +92,9 @@ export const templateInscripcionTorneo = (nombre: string, torneo: any) => {
   return baseTemplate(contenidoEspecifico);
 };
 
-export const templateRecordatorioTorneo = (nombre: string, torneo: any) => {
+export const templateRecordatorioTorneo = (nombre: string, torneo: Pick<TorneoEmail, 'name'>) => {
   const contenidoEspecifico = `
-   <h1 style="color: #111827;">¡El torneo ${torneo.name} es mañana, ${nombre}! 🏓</h1>
+   <h1 style="color: #111827;">¡El torneo ${escapeHtml(torneo.name)} es mañana, ${escapeHtml(nombre)}! 🏓</h1>
     <p>Este es un recordatorio de que mañana empieza el torneo.</p>
     <p>¡Prepara tu raqueta y tus zapatillas, el dia ha llegado!.</p> 
     <div style="text-align: center;">
@@ -83,9 +105,9 @@ export const templateRecordatorioTorneo = (nombre: string, torneo: any) => {
   return baseTemplate(contenidoEspecifico);
 };
 
-export const templateAceptacionClub = (nombre: string, club: any) => {
+export const templateAceptacionClub = (nombre: string, club: { name: string } | null) => {
   const contenidoEspecifico = `
-     <h1 style="color: #111827;">¡Bienvenido/a al club ${club.name}, ${nombre}! 🏓</h1>
+     <h1 style="color: #111827;">¡Bienvenido/a al club ${escapeHtml(club?.name ?? 'tu club')}, ${escapeHtml(nombre)}! 🏓</h1>
     <p>Tu solicitud ha sido aprobada por el admin del club.</p>
     <p>Podras ver los torneos y ligas internas creadas de este club, asi como los partidos y estadisticas.</p>
     <p>¡Bienvenido!</p>
@@ -99,7 +121,7 @@ export const templateAceptacionClub = (nombre: string, club: any) => {
 
 export const templateResetPassword = (nombre: string, token: string) => {
   const contenidoEspecifico = `
-    <h1 style="color: #111827;">Recuperación de contraseña, ${nombre} 🏓</h1>
+    <h1 style="color: #111827;">Recuperación de contraseña, ${escapeHtml(nombre)} 🏓</h1>
     <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta.</p>
     <p>Haz clic en el botón de abajo para crear una nueva contraseña. Este enlace es válido durante 1 hora.</p>
     <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
@@ -111,14 +133,14 @@ export const templateResetPassword = (nombre: string, token: string) => {
   return baseTemplate(contenidoEspecifico);
 };
 
-export const templateRecordatorioEvento = (nombre: string, evento: any) => {
+export const templateRecordatorioEvento = (nombre: string, evento: EventoEmail) => {
   const contenidoEspecifico = `
-    <h1 style="color: #111827;">¡Recordatorio de Evento, ${nombre}! 📅</h1>
+    <h1 style="color: #111827;">¡Recordatorio de Evento, ${escapeHtml(nombre)}! 📅</h1>
     <p>Tienes un evento marcado en el calendario del club que se acerca rápidamente.</p>
     <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-      <h3 style="margin-top: 0; color: #1f2937;">${evento.name}</h3>
+      <h3 style="margin-top: 0; color: #1f2937;">${escapeHtml(evento.name)}</h3>
       <p style="margin: 5px 0;"><strong>Fecha:</strong> ${new Date(evento.date).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })}</p>
-      <p style="margin: 5px 0;"><strong>Lugar:</strong> ${evento.location || 'Por determinar'}</p>
+      <p style="margin: 5px 0;"><strong>Lugar:</strong> ${escapeHtml(evento.location || 'Por determinar')}</p>
     </div>
     <p>¡Asegúrate de preparar todo el material con antelación!</p>
     <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
@@ -129,10 +151,10 @@ export const templateRecordatorioEvento = (nombre: string, evento: any) => {
   return baseTemplate(contenidoEspecifico);
 };
 
-export const templateCambioFechaEvento = (nombre: string, evento: any) => {
+export const templateCambioFechaEvento = (nombre: string, evento: EventoEmail) => {
   const contenidoEspecifico = `
     <h1 style="color: #d97706;">¡Atención! Cambio de fecha 📅</h1>
-    <p>Hola ${nombre}, el evento <strong>${evento.name}</strong> al que estabas suscrito ha cambiado de fecha.</p>
+    <p>Hola ${escapeHtml(nombre)}, el evento <strong>${escapeHtml(evento.name)}</strong> al que estabas suscrito ha cambiado de fecha.</p>
     <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #f59e0b;">
       <h3 style="margin-top: 0; color: #92400e;">Nueva Fecha Confirmada</h3>
       <p style="margin: 5px 0; color: #92400e;"><strong>Fecha:</strong> ${new Date(evento.date).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })}</p>
@@ -149,11 +171,11 @@ export const templateCambioFechaEvento = (nombre: string, evento: any) => {
 
 export const templateCuentaCreada = (nombre: string, email: string, pass: string) => {
   const contenidoEspecifico = `
-    <h1 style="color: #111827;">¡Hola ${nombre}! Tu cuenta está lista 🏓</h1>
+    <h1 style="color: #111827;">¡Hola ${escapeHtml(nombre)}! Tu cuenta está lista 🏓</h1>
     <p>El administrador de tu club ha creado una cuenta para que puedas participar en los torneos y ligas internas.</p>
     <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-      <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
-      <p style="margin: 5px 0;"><strong>Contraseña temporal:</strong> ${pass}</p>
+      <p style="margin: 5px 0;"><strong>Email:</strong> ${escapeHtml(email)}</p>
+      <p style="margin: 5px 0;"><strong>Contraseña temporal:</strong> ${escapeHtml(pass)}</p>
     </div>
     <p>Por seguridad, el sistema te pedirá que cambies esta contraseña la primera vez que inicies sesión.</p>
     <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
