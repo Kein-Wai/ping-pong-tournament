@@ -12,6 +12,7 @@ import {
 import { resolveCurrentSeason } from '../utils/season';
 import { canAccessClub, hasClubPermission } from '../utils/auth';
 import { asyncHandler } from '../http/response';
+import { toSafeUser } from '../utils/safe-user';
 
 const router = Router();
 
@@ -142,7 +143,11 @@ router.put('/:id/players', verifyToken, requireAdminClub, asyncHandler(async (re
     include: { players: true },
   });
 
-  res.status(200).json({ success: true, data: updatedTeam });
+  // `include: { players: true }` trae todos los escalares de cada jugador (hash, tokens).
+  res.status(200).json({
+    success: true,
+    data: { ...updatedTeam, players: updatedTeam.players.map(toSafeUser) },
+  });
 
 }, 'Error al actualizar la plantilla del equipo', 500));
 

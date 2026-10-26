@@ -84,7 +84,11 @@ describe('CRUD Rutas de Equipos (/api/teams)', () => {
       { id: '11111111-1111-4111-a111-111111111111', level: 'Profesional' },
       { id: '22222222-2222-4222-a222-222222222222', level: 'Intermedio' },
     ] as any);
-    vi.mocked(prisma.team.update).mockResolvedValue({ id: 'team-1', level: 'Intermedio' } as any);
+    vi.mocked(prisma.team.update).mockResolvedValue({
+      id: 'team-1',
+      level: 'Intermedio',
+      players: [],
+    } as any);
 
     const response = await request(app)
       .put('/api/teams/team-1/players')

@@ -6,6 +6,7 @@ import { asyncHandler } from '../../http/response';
 import { createGuestSchema } from '../../schemas/user';
 import { requireAdminClub } from '../../middleware/auth.middleware';
 import { resolveCurrentSeason } from '../../utils/season';
+import { toSafeUser } from '../../utils/safe-user';
 
 const router = Router();
 
@@ -106,7 +107,7 @@ router.post('/guest', requireAdminClub, asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({ success: true, data: newGuest });
+  res.status(201).json({ success: true, data: toSafeUser(newGuest) });
 
 }, 'Error creando la cuenta de invitado', 500));
 

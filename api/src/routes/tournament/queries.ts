@@ -6,6 +6,7 @@ import { fetchGroupMatches, fetchGroupClassifications } from '../../utils/standi
 import { buildClubScope } from '../../utils/auth';
 import { UserPayload } from '../../middleware/auth.middleware';
 import { asyncHandler } from '../../http/response';
+import { toSafeUser } from '../../utils/safe-user';
 
 const router = Router();
 
@@ -78,7 +79,17 @@ router.get(
         },
       },
     });
-    if (tournament) return res.status(200).json({ success: true, data: tournament });
+    // `include` trae todos los escalares del jugador (hash, tokens): se quitan antes de responder.
+    if (tournament) {
+      const safeTournament = {
+        ...tournament,
+        participants: tournament.participants.map((participant) => ({
+          ...participant,
+          player: toSafeUser(participant.player),
+        })),
+      };
+      return res.status(200).json({ success: true, data: safeTournament });
+    }
     else
       return res
         .status(200)

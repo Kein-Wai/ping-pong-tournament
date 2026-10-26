@@ -9,6 +9,7 @@ import { resolveCurrentSeason } from '../../utils/season';
 import { templateCuentaCreada } from '../../utils/emailtemplate';
 import { enviarCorreoGenerico } from '../../services/email';
 import { hasClubPermission } from '../../utils/auth';
+import { toSafeUser } from '../../utils/safe-user';
 
 const router = Router();
 
@@ -215,7 +216,7 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
     include: { stats: true, skills: true },
   });
 
-  res.status(200).json({ success: true, data: updatedUser });
+  res.status(200).json({ success: true, data: toSafeUser(updatedUser) });
 
 }, 'Error al actualizar el usuario', 500));
 
