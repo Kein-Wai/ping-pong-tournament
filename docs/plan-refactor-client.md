@@ -314,6 +314,21 @@ Cada uno con su test en rojo primero.
 
 Verificado: client 1827/1827 tests, eslint 0 errores y 4 avisos, `tsc -b` y build correctos; api 378/378 tests.
 
+### Cierre de client/ (2026-10-26, rama `chore/seguridad-client`)
+
+| Commit | Contenido |
+|---|---|
+| `02ec939` | Capacitor fijado en la **8.5.3** (versión exacta en core, ios, android y cli). La vulnerabilidad crítica afectaba solo a 8.5.0, así que fue un parche. `cap sync` solo cambió `Package.swift` (`capacitor-swift-pm` exact 8.5.3) y el lockfile; el workflow no se toca |
+| `5988b59` | Google client IDs fuera del código (`VITE_GOOGLE_CLIENT_ID` y la nueva `VITE_GOOGLE_IOS_CLIENT_ID`, `client/.env.example`, línea nueva en `ios-build.yml`) y `alert` del login nativo eliminado (el error sigue en línea y el interceptor lo notifica) |
+| `e099b29` | `axios` 1.20.0, `follow-redirects` 1.16.2 y `react-router(-dom)` 7.18.4 dentro de su rango: `npm audit --omit=dev` pasa de 6 a **0** |
+| `17e6176` | Los 4 avisos de `exhaustive-deps` resueltos sin cambiar cuándo corre cada efecto; la regla pasa a `error` (con test) |
+
+**Estado de client/:** 1831/1831 tests (172 archivos), eslint 0 errores y 0 avisos, `tsc -b` y build correctos, audit de producción en 0.
+
+**Pendiente antes de fusionar:** crear el secreto `VITE_GOOGLE_IOS_CLIENT_ID` en GitHub (el workflow ya lo lee); sin él el login nativo de Google en iOS no tendría ID. Probar a mano la app nativa. `npm audit` completo: 23 vulnerabilidades solo en dependencias de desarrollo (cadena de `@capacitor/assets`, `vite`, `vitest`, `tar`, `handlebars`); `npm audit fix` reescribe muchas transitivas, tarea aparte.
+
+**Siguiente: pasada de seguridad y contrato de la API** (`include` de `user` completos, `res.json(` sin `success`, las 4 respuestas fuera del sobre, `resetPasswordToken`).
+
 ## Resumen
 
 | Fase | Tareas aprox. |

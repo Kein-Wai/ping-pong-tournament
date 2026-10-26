@@ -29,8 +29,8 @@ export default defineConfig([
       // El cliente ya no tiene ningún "any" explícito: se mantiene como error para que no vuelva
       '@typescript-eslint/no-explicit-any': 'error',
 
-      // Convertimos las dependencias faltantes del useEffect en advertencia
-      'react-hooks/exhaustive-deps': 'warn',
+      // Sin avisos pendientes: una dependencia olvidada en un efecto vuelve a ser un error
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
   // 3. El acceso a datos pasa por api/services (o por el adaptador http de api/client):

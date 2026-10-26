@@ -45,8 +45,8 @@ export const Login = () => {
     // Inicialización limpia multiplataforma con el nuevo plugin
     SocialLogin.initialize({
       google: {
-        webClientId: '867880972431-ttqe2fdhj8nj1bu000f7h60ipnoa283i.apps.googleusercontent.com',
-        iOSClientId: '867880972431-o7c0k6l2b782gc4h2e97uu073erff8rr.apps.googleusercontent.com',
+        webClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        iOSClientId: import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID,
       },
     });
   }, []);
@@ -227,11 +227,8 @@ export const Login = () => {
     } catch (error) {
       const apiError = error as ApiErrorLike;
       if (apiError?.message !== 'user canceled' && apiError?.message !== 'User cancelled login') {
+        // El detalle del backend ya lo notifica el interceptor de api/axios.
         console.error('ERROR GOOGLE NATIVO:', error);
-
-        const backendError =
-          apiError.response?.data?.error || apiError.response?.data?.message || apiError.message;
-        alert('DETALLE DEL ERROR: ' + JSON.stringify(backendError));
         setErrorMsg('Error al iniciar sesión con Google');
       }
     } finally {

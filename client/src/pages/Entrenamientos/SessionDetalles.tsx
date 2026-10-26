@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -49,7 +49,7 @@ export const SessionDetalles = () => {
 
   // const isOwnProfile = currentUser?.id === id;
 
-  const fetchSession = async () => {
+  const fetchSession = useCallback(async () => {
     try {
       const sessionData = await trainingsService.sessionDetails(sessionId!);
       setSession(sessionData);
@@ -58,11 +58,11 @@ export const SessionDetalles = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId]);
 
   useEffect(() => {
     if (sessionId) fetchSession();
-  }, [sessionId]);
+  }, [sessionId, fetchSession]);
 
   const handleToggleCompleted = async (sessionExerciseId: string, currentStatus: boolean) => {
     try {
