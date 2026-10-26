@@ -35,6 +35,8 @@ describe('Rutas de torneos: datos de usuarios que nunca deben salir', () => {
 
   beforeEach(() => {
     prismaMock.reset();
+    // El jugador del club puede ver el torneo: es la condición para llegar a la respuesta.
+    prismaMock.client.user.findUnique.mockResolvedValue({ clubStatus: 'Aprobado' });
   });
 
   it('GET /api/tournaments/:id no devuelve credenciales ni tokens de los participantes', async () => {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../../db';
-import { registerParticipantSchema } from '../../schemas/tournament';
+import { registerBulkSchema, registerParticipantSchema } from '../../schemas/tournament';
 import { registerParticipant } from '../../utils/tournament-inscriptions';
 import { resolveCurrentSeason } from '../../utils/season';
 import { hasClubPermission, resolveResourceAccess } from '../../utils/auth';
@@ -85,7 +85,16 @@ router.post('/:id/register', asyncHandler(async (req, res) => {
 
 router.post('/:id/register-bulk', requireAdminClub, asyncHandler(async (req, res) => {
   const tournamentId = req.params.id as string;
-  const { playerIds } = req.body;
+
+  const bulkValidation = registerBulkSchema.safeParse(req.body);
+  if (!bulkValidation.success) {
+    return res.status(400).json({
+      success: false,
+      error: 'Datos inválidos',
+      details: bulkValidation.error.issues[0]?.message,
+    });
+  }
+  const { playerIds } = bulkValidation.data;
 
   const access = resolveResourceAccess(
     await prisma.tournament.findUnique({

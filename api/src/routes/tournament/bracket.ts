@@ -14,8 +14,20 @@ const router = Router();
 
 router.post(
   '/:id/generate-groups',
+  requireAdminClub,
   asyncHandler(async (req, res) => {
     const tournamentId = req.params.id as string;
+
+    const access = resolveResourceAccess(
+      await prisma.tournament.findUnique({ where: { id: tournamentId } }),
+      req.user,
+    );
+    if (!access.ok) {
+      if (access.reason === 'notFound') {
+        return res.status(404).json({ success: false, error: 'Torneo no encontrado' });
+      }
+      return res.status(403).json({ success: false, error: 'No tienes permisos sobre este torneo' });
+    }
 
     const result = await generateTournamentGroups(prisma, tournamentId);
 

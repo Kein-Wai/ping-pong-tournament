@@ -14,6 +14,7 @@ export const identities = {
   superAdmin: { id: 'super-1', role: 'SuperAdmin', clubId: null },
   adminClub1: { id: 'admin-1', role: 'AdminClub', clubId: CLUB_1 },
   adminClub2: { id: 'admin-2', role: 'AdminClub', clubId: CLUB_2 },
+  adminWithoutClub: { id: 'admin-3', role: 'AdminClub', clubId: null },
   playerClub1: { id: 'player-1', role: 'Player', clubId: CLUB_1 },
   playerClub2: { id: 'player-2', role: 'Player', clubId: CLUB_2 },
   freePlayer: { id: 'free-1', role: 'Player', clubId: null },

@@ -11,6 +11,50 @@ import { toSafeUser } from '../../utils/safe-user';
 const router = Router();
 
 /**
+ * Un torneo es visible para el SuperAdmin, para el AdminClub del club
+ * organizador, para los jugadores aprobados en ese club y, si es abierto, para
+ * cualquier jugador. Es la misma regla que aplica el listado (buildTournamentScope).
+ */
+const isTournamentVisible = (
+  user: UserPayload | undefined,
+  clubStatus: string,
+  tournament: { clubId: string | null; typeTournament: string | null },
+): boolean => {
+  if (user?.role === 'SuperAdmin') return true;
+  if (user?.role === 'AdminClub') return !!user.clubId && tournament.clubId === user.clubId;
+  if (tournament.typeTournament === 'Abierto') return true;
+
+  return !!user?.clubId && clubStatus === 'Aprobado' && tournament.clubId === user.clubId;
+};
+
+/**
+ * Todas las rutas con :id (detalle, participantes, cuadro, grupos, clasificación)
+ * comprueban primero que el usuario puede ver ese torneo. Si no existe, se deja
+ * pasar para que cada ruta conserve su respuesta habitual.
+ */
+router.param('id', async (req, res, next, id) => {
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: { id },
+      select: { clubId: true, typeTournament: true },
+    });
+    if (!tournament) return next();
+
+    const userDb = req.user?.id
+      ? await prisma.user.findUnique({ where: { id: req.user.id }, select: { clubStatus: true } })
+      : null;
+
+    if (!isTournamentVisible(req.user, userDb?.clubStatus ?? 'Registrado', tournament)) {
+      res.status(403).json({ success: false, error: 'No tienes permiso para ver este torneo' });
+      return;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * Visibilidad de los torneos para el usuario autenticado.
  *
  * El alcance por club lo decide el seam de utils/auth. La regla de "torneos
@@ -25,7 +69,8 @@ const buildTournamentScope = (
   const clubScope = buildClubScope(user);
 
   if (role === 'SuperAdmin') return {};
-  if (role === 'AdminClub') return clubScope;
+  // Sin club el alcance es `{}` (sin filtro): un AdminClub sin club no debe verlo todo.
+  if (role === 'AdminClub') return clubScope.clubId ? clubScope : { id: { in: [] } };
 
   if (clubId && clubStatus === 'Aprobado') {
     return { OR: [clubScope, { typeTournament: 'Abierto' }] };

@@ -73,6 +73,14 @@ export const registerParticipantSchema = z.object({
   registeredAt: z.iso.datetime('Formato de fecha inválido').optional(),
   status: z.enum(PlayerTournamentStatus).optional(),
 });
+
+/** Inscripción masiva: al menos un jugador, todos con UUID válido. */
+export const registerBulkSchema = z.object({
+  playerIds: z
+    .array(z.uuid('Cada ID de jugador debe ser un UUID válido'))
+    .min(1, 'Indica al menos un jugador'),
+});
+
 export const swapPlayersSchema = z.object({
   playerAId: z.uuid('El ID del Jugador A debe ser un UUID válido'),
   playerBId: z.uuid('El ID del Jugador B debe ser un UUID válido'),
