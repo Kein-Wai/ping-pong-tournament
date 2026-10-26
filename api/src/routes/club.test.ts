@@ -37,6 +37,10 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
     req.user = { id: 'admin-id', role: 'AdminClub', clubId: '1' };
     next();
   },
+  requireAdminClubAnyStatus: (req: any, res: any, next: any) => {
+    req.user = { id: 'admin-id', role: 'AdminClub', clubId: '1' };
+    next();
+  },
   requireSuperAdmin: (req: any, res: any, next: any) => next(),
 }));
 

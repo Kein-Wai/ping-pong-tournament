@@ -66,11 +66,12 @@ describe('Auth Middleware (verifyToken)', () => {
       active: true,
       clubId: 'club-9',
       userType: { name: 'AdminClub' },
+      club: { status: 'Aprobado' },
     });
 
     await verifyToken(mockReq as Request, mockRes as Response, nextFunction);
 
-    expect(mockReq.user).toEqual({ id: '123', role: 'AdminClub', clubId: 'club-9' });
+    expect(mockReq.user).toEqual({ id: '123', role: 'AdminClub', clubId: 'club-9', clubStatus: 'Aprobado' });
     expect(nextFunction).toHaveBeenCalledOnce();
     expect(mockRes.status).not.toHaveBeenCalled();
   });

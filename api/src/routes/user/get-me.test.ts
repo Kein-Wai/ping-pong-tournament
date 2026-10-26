@@ -25,6 +25,7 @@ vi.mock('../../../src/middleware/auth.middleware', () => {
     verifyToken: injectUser,
     requireSuperAdmin: injectUser,
     requireAdminClub: injectUser,
+    requireAdminClubAnyStatus: injectUser,
   };
 });
 

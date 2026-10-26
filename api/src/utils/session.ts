@@ -36,10 +36,21 @@ export const loadSessionIdentity = async (id: string): Promise<UserPayload | nul
   try {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id },
-      select: { id: true, active: true, clubId: true, userType: { select: { name: true } } },
+      select: {
+        id: true,
+        active: true,
+        clubId: true,
+        userType: { select: { name: true } },
+        club: { select: { status: true } },
+      },
     });
     if (!user.active) return null;
-    return { id: user.id, role: user.userType.name, clubId: user.clubId };
+    return {
+      id: user.id,
+      role: user.userType.name,
+      clubId: user.clubId,
+      clubStatus: user.club?.status ?? null,
+    };
   } catch (error) {
     if (isRecordNotFound(error)) return null;
     throw error;

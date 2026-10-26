@@ -2,7 +2,12 @@ import { Router } from 'express';
 import prisma from '../db';
 import { createClubSchema, updateMemberStatusSchema, updateClubSchema } from '../schemas/club';
 import { z } from 'zod';
-import { verifyToken, requireAdminClub, requireSuperAdmin } from '../middleware/auth.middleware';
+import {
+  verifyToken,
+  requireAdminClub,
+  requireAdminClubAnyStatus,
+  requireSuperAdmin,
+} from '../middleware/auth.middleware';
 import { resolveCurrentSeason } from '../utils/season';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateAceptacionClub } from '../utils/emailtemplate';
@@ -118,7 +123,7 @@ router.get(
   }, 'Error al obtener el club'),
 );
 
-router.put('/:id', verifyToken, requireAdminClub, asyncHandler(async (req, res) => {
+router.put('/:id', verifyToken, requireAdminClubAnyStatus, asyncHandler(async (req, res) => {
   const clubId = req.params.id as string;
 
   // Seguridad Multi-tenant
@@ -129,6 +134,11 @@ router.put('/:id', verifyToken, requireAdminClub, asyncHandler(async (req, res) 
   const validation = updateClubSchema.safeParse(req.body);
   if (!validation.success) {
     return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
+  }
+
+  // Aprobar o desactivar un club es del SuperAdmin: si no, un club pendiente se aprobaría solo.
+  if (validation.data.status !== undefined && req.user?.role !== 'SuperAdmin') {
+    return sendError(res, 403, 'Solo el SuperAdmin puede cambiar el estado del club');
   }
 
   const updatedClub = await prisma.club.update({
@@ -176,7 +186,7 @@ router.post('/:id/join', verifyToken, asyncHandler(async (req, res) => {
 }, 'Error al procesar la solicitud', 500));
 
 // GET: El AdminClub ve a los miembros de SU club
-router.get('/:id/members', verifyToken, requireAdminClub, asyncHandler(async (req, res) => {
+router.get('/:id/members', verifyToken, requireAdminClubAnyStatus, asyncHandler(async (req, res) => {
   const clubId = req.params.id as string; // <-- Forzado a string aquí
 
   if (!hasClubPermission(req.user, clubId)) {
@@ -284,7 +294,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, asyncHa
 }, 'Error al actualizar el estado del miembro', 500));
 
 // GET: Alertas y notificaciones del club (AdminClub)
-router.get('/:id/notifications', verifyToken, requireAdminClub, asyncHandler(async (req, res) => {
+router.get('/:id/notifications', verifyToken, requireAdminClubAnyStatus, asyncHandler(async (req, res) => {
   const clubId = req.params.id as string;
 
   if (!hasClubPermission(req.user, clubId)) {

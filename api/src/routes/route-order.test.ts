@@ -28,6 +28,7 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
   },
   requireSuperAdmin: (req: any, res: any, next: any) => next(),
   requireAdminClub: (req: any, res: any, next: any) => next(),
+  requireAdminClubAnyStatus: (req: any, res: any, next: any) => next(),
 }));
 
 describe('Orden de montaje de rutas (/api/users, /api/trainings)', () => {

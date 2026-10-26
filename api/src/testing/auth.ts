@@ -41,5 +41,11 @@ export const useTestJwtSecret = (): void => {
 export const sessionRowFor = (id: string) => {
   const identity = Object.values(identities).find((candidate) => candidate.id === id);
   if (!identity) throw Object.assign(new Error('No User found'), { code: 'P2025' });
-  return { id, active: true, clubId: identity.clubId, userType: { name: identity.role } };
+  return {
+    id,
+    active: true,
+    clubId: identity.clubId,
+    userType: { name: identity.role },
+    club: identity.clubId ? { status: 'Aprobado' } : null,
+  };
 };

@@ -72,6 +72,10 @@ vi.mock('../../../src/middleware/auth.middleware', () => ({
     req.user = { id: 'user-id-123', email: 'test@test.com', name: 'Test', role: 'SuperAdmin' };
     next();
   }),
+  requireAdminClubAnyStatus: vi.fn((req: any, res: any, next: any) => {
+    req.user = { id: 'user-id-123', email: 'test@test.com', name: 'Test', role: 'SuperAdmin' };
+    next();
+  }),
 }));
 
 const MOCK_UUID = '123e4567-e89b-12d3-a456-426614174000';

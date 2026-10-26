@@ -50,6 +50,10 @@ vi.mock('../../../src/middleware/auth.middleware', () => ({
     req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin', clubId: 'club-1' }; // 👈 AÑADIDO clubId
     next();
   },
+  requireAdminClubAnyStatus: (req: any, res: any, next: any) => {
+    req.user = { id: 'user-id-123', email: 'test@test.com', role: 'SuperAdmin', clubId: 'club-1' }; // 👈 AÑADIDO clubId
+    next();
+  },
 }));
 
 describe('CRUD de Rutas de Usuario (/api/users)', () => {

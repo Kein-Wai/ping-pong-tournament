@@ -19,6 +19,7 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
     next();
   },
   requireAdminClub: (req: any, res: any, next: any) => next(),
+  requireAdminClubAnyStatus: (req: any, res: any, next: any) => next(),
 }));
 
 describe('GET /api/user-types', () => {

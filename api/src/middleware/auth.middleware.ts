@@ -8,6 +8,8 @@ export interface UserPayload {
   id: string;
   role: string;
   clubId?: string | null;
+  /** Estado del club del usuario, leído de la base de datos en cada petición. */
+  clubStatus?: string | null;
 }
 
 declare global {
@@ -31,8 +33,12 @@ export const requireSuperAdmin = (req: Request, res: Response, next: NextFunctio
   next();
 };
 
-// Nivel 2: Presidentes de Club (Tú también puedes pasar por aquí)
-export const requireAdminClub = (req: Request, res: Response, next: NextFunction): void => {
+// Nivel 2 (base): Presidentes de Club, sea cual sea el estado de su club.
+export const requireAdminClubAnyStatus = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
   if (!req.user) {
     sendError(res, 401, 'Usuario no autenticado');
     return;
@@ -42,6 +48,24 @@ export const requireAdminClub = (req: Request, res: Response, next: NextFunction
     return;
   }
   next();
+};
+
+/**
+ * Nivel 2: Presidentes de Club (Tú también puedes pasar por aquí).
+ *
+ * Un club recién solicitado está Pendiente hasta que el SuperAdmin lo aprueba:
+ * mientras tanto su AdminClub solo puede gestionar los datos del club (rutas con
+ * `requireAdminClubAnyStatus`), no operar con torneos, partidos, equipos ni miembros.
+ */
+export const requireAdminClub = (req: Request, res: Response, next: NextFunction): void => {
+  requireAdminClubAnyStatus(req, res, () => {
+    const { role, clubId, clubStatus } = req.user ?? {};
+    if (role === 'AdminClub' && clubId && clubStatus !== 'Aprobado') {
+      sendError(res, 403, 'Tu club está pendiente de aprobación por el SuperAdmin.');
+      return;
+    }
+    next();
+  });
 };
 
 export const verifyToken = async (
