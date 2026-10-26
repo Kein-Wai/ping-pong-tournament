@@ -79,6 +79,7 @@ describe('Rutas de Eventos (/api/events)', () => {
 
     vi.mocked(prisma.clubEvent.findUnique).mockResolvedValue({
       id: 'ev-1',
+      clubId: 'club-1',
       date: futureDate,
     } as any);
     vi.mocked(prisma.eventReminder.createMany).mockResolvedValue({ count: 2 } as any);
