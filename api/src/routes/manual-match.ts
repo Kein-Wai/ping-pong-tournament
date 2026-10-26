@@ -15,6 +15,21 @@ import { asyncHandler } from '../http/response';
 
 const router = Router();
 
+/**
+ * Los partidos manuales son personales: solo su propietario los modifica. Si el
+ * partido no existe o es de otro responde igual (404), para no revelar que existe.
+ */
+const isOwnMatch = async (matchId: string, userId: string | undefined): Promise<boolean> => {
+  if (!userId) return false;
+  const match = await prisma.manualMatch.findUnique({
+    where: { id: matchId },
+    select: { userId: true },
+  });
+  return match?.userId === userId;
+};
+
+const NOT_FOUND = { success: false, error: 'Partido no encontrado o sin acceso' };
+
 // 1. Obtener todos los partidos manuales del usuario logueado
 router.get('/', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
@@ -76,6 +91,10 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }, 'Error al obtener el partido', 500));
 
 router.put('/:id', asyncHandler(async (req, res) => {
+  if (!(await isOwnMatch(req.params.id as string, req.user?.id))) {
+    return res.status(404).json(NOT_FOUND);
+  }
+
   // 1. Zod filtra y valida. Si intentan colar "status: Completado", Zod lo elimina automáticamente.
   const validation = updateManualMatchSchema.safeParse(req.body);
 
@@ -97,6 +116,10 @@ router.put('/:id', asyncHandler(async (req, res) => {
 
 // 4. Añadir un punto al partido (Se llama cada vez que el árbitro toca un botón)
 router.post('/:id/points', asyncHandler(async (req, res) => {
+  if (!(await isOwnMatch(req.params.id as string, req.user?.id))) {
+    return res.status(404).json(NOT_FOUND);
+  }
+
   const validation = addPointSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ success: false, error: 'Datos de punto inválidos' });
@@ -115,6 +138,19 @@ router.post('/:id/points', asyncHandler(async (req, res) => {
 
 // 5. Botón de Pánico: Deshacer el último punto
 router.delete('/:id/points/:pointId', asyncHandler(async (req, res) => {
+  // El punto debe ser del partido indicado y ese partido, del usuario.
+  const point = await prisma.pointAnalysis.findUnique({
+    where: { id: req.params.pointId as string },
+    select: { manualMatchId: true, match: { select: { userId: true } } },
+  });
+  if (
+    !point ||
+    point.manualMatchId !== req.params.id ||
+    point.match.userId !== req.user?.id
+  ) {
+    return res.status(404).json(NOT_FOUND);
+  }
+
   await prisma.pointAnalysis.delete({
     where: { id: req.params.pointId as string },
   });
@@ -130,6 +166,11 @@ router.put('/:id/complete', asyncHandler(async (req, res) => {
 
   const validation = completeMatchSchema.safeParse(req.body);
   if (!validation.success) return res.status(400).json({ success: false, error: 'Datos inválidos' });
+
+  // Las estadísticas se suman al usuario: el partido tiene que ser suyo.
+  if (!(await isOwnMatch(req.params.id as string, userId))) {
+    return res.status(404).json(NOT_FOUND);
+  }
 
   // Envolvemos en transacción para asegurar la base de datos
   const updatedMatch = await prisma.$transaction(async (tx) => {

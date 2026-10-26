@@ -65,6 +65,8 @@ describe('Rutas de Análisis Pro (/api/manual-matches)', () => {
   });
 
   it('POST /:id/points - Debería registrar un punto correctamente (201)', async () => {
+    // El partido es del usuario autenticado (admin-123).
+    vi.mocked(prisma.manualMatch.findUnique).mockResolvedValue({ userId: 'admin-123' } as any);
     vi.mocked(prisma.pointAnalysis.create).mockResolvedValue({ id: 'pt-1' } as any);
 
     const payload = {
@@ -82,6 +84,7 @@ describe('Rutas de Análisis Pro (/api/manual-matches)', () => {
   });
 
   it('PUT /:id/complete - Debería finalizar partido e inyectar experiencia (200)', async () => {
+    vi.mocked(prisma.manualMatch.findUnique).mockResolvedValue({ userId: 'admin-123' } as any);
     vi.mocked(prisma.manualMatch.update).mockResolvedValue({
       id: 'mm-1',
       status: 'Completado',
