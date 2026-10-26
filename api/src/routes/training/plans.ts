@@ -35,7 +35,7 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
 
   // 2. Seguridad: Verificar que el jugador pertenece al club del entrenador
   const player = await prisma.user.findUnique({ where: { id: data.playerId } });
-  if (!player || (req.user?.role === 'AdminClub' && player.clubId !== userClubId)) {
+  if (!player || !hasClubPermission(req.user, player.clubId)) {
     return res.status(403).json({ success: false, error: 'El jugador no pertenece a tu club' });
   }
 

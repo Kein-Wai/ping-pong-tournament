@@ -152,7 +152,7 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
   }
 
   // 2. Filtro de Club: El presidente solo puede editar a los suyos
-  if (role === 'AdminClub' && userToEdit.clubId !== adminClubId) {
+  if (!hasClubPermission(req.user, userToEdit.clubId)) {
     return res
       .status(403)
       .json({ success: false, error: 'No tienes permiso para editar jugadores de otros clubes' });
@@ -235,7 +235,7 @@ router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
   }
 
   // 2. Filtro de Club: El presidente solo puede borrar a los suyos
-  if (role === 'AdminClub' && userToDelete.clubId !== adminClubId) {
+  if (!hasClubPermission(req.user, userToDelete.clubId)) {
     return res
       .status(403)
       .json({ success: false, error: 'No tienes permiso para borrar jugadores de otros clubes' });

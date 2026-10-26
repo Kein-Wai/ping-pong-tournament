@@ -3,6 +3,7 @@ import prisma from '../db';
 import { updateSkillsSchema } from '../schemas/user'; // O desde '../schemas/club' donde lo hayas definido
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
+import { hasClubPermission } from '../utils/auth';
 import { resolveCurrentSeason } from '../utils/season';
 import { asyncHandler } from '../http/response';
 
@@ -30,7 +31,7 @@ router.put('/:playerId', requireAdminClub, asyncHandler(async (req, res) => {
   }
 
   // El AdminClub solo puede editar a los jugadores que estén en su propio club
-  if (role === 'AdminClub' && player.clubId !== adminClubId) {
+  if (!hasClubPermission(req.user, player.clubId)) {
     return res.status(403).json({ success: false, error: 'No tienes permiso para editar las habilidades de un jugador de otro club',
     });
   }
@@ -68,7 +69,7 @@ router.put('/:playerId/consolidate', requireAdminClub, asyncHandler(async (req, 
   }
 
   const player = await prisma.user.findUnique({ where: { id: playerId } });
-  if (!player || player.clubId !== adminClubId) {
+  if (!player || !hasClubPermission(req.user, player.clubId)) {
     return res.status(403).json({ success: false, error: 'No tienes permiso.' });
   }
 
