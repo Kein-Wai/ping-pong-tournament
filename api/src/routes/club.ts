@@ -8,7 +8,7 @@ import {
   requireAdminClubAnyStatus,
   requireSuperAdmin,
 } from '../middleware/auth.middleware';
-import { resolveCurrentSeason } from '../utils/season';
+import { createClub, requestMembership, resolveMembership } from '../utils/club-membership';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateAceptacionClub } from '../utils/emailtemplate';
 import { hasClubPermission } from '../utils/auth';
@@ -63,21 +63,7 @@ router.post('/', verifyToken, asyncHandler(async (req, res) => {
     return;
   }
 
-  const newClub = await prisma.club.create({
-    data: {
-      name,
-      city,
-      status: 'Pendiente',
-    },
-  });
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      clubId: newClub.id,
-      clubStatus: 'Aprobado', // Él es el admin, entra automáticamente
-    },
-  });
+  const newClub = await createClub(prisma, userId, { name, city });
 
   sendMessage(res, 'Club solicitado con éxito. Esperando aprobación.', 201, newClub);
 
@@ -158,28 +144,7 @@ router.post('/:id/join', verifyToken, asyncHandler(async (req, res) => {
 
   if (!userId) return sendError(res, 401, 'No autenticado');
 
-  // 1. Verificar que el club exista y esté Aprobado
-  const club = await prisma.club.findUnique({ where: { id: clubId } });
-  if (!club || club.status !== 'Aprobado') {
-    sendError(res, 404, 'Club no encontrado o no está disponible para unirse');
-    return;
-  }
-
-  // 2. Verificar si el usuario ya pertenece a un club
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (user?.clubId) {
-    sendError(res, 400, 'Ya perteneces o has solicitado unirte a un club. Debes salir primero.');
-    return;
-  }
-
-  // 3. Actualizar al usuario (Usamos 'as any' o el valor limpio para el enum)
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      clubId,
-      clubStatus: 'Pendiente' as any,
-    },
-  });
+  await requestMembership(prisma, userId, clubId);
 
   sendMessage(res, 'Solicitud enviada al administrador del club');
 
@@ -238,50 +203,10 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, asyncHa
     return;
   }
 
-  // Tu lógica original: si es Rechazado, se limpia el clubId y vuelve a Registrado (Jugador Libre)
-  const updateData =
-    status === 'Rechazado'
-      ? { clubId: null, clubStatus: 'Registrado' as any, teams: { set: [] } }
-      : { clubStatus: status, level: level };
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: updateData,
-  });
-  const currentSeason = await resolveCurrentSeason(prisma);
+  await resolveMembership(prisma, userId, { status, level, elo, skills });
 
   if (status === 'Aprobado' && skills) {
     const club = await prisma.club.findUnique({ where: { id: clubId } });
-    if (elo !== undefined) {
-      await prisma.stats.upsert({
-        // 👇 Usamos la clave compuesta
-        where: {
-          userId_seasonId: {
-            userId: userId,
-            seasonId: currentSeason.id,
-          },
-        },
-        update: { elo: elo },
-        // 👇 Inyectamos el seasonId al crear
-        create: { userId: userId, seasonId: currentSeason.id, elo: elo },
-      });
-    }
-
-    await prisma.playerSkills.upsert({
-      // 👇 Usamos la clave compuesta
-      where: {
-        userId_seasonId: {
-          userId: userId,
-          seasonId: currentSeason.id,
-        },
-      },
-      update: skills, // Si por algún error ya existía, lo actualizamos
-      create: {
-        userId: userId,
-        seasonId: currentSeason.id, // 👇 Inyectamos el seasonId al crear
-        ...skills, // Si es nuevo, lo creamos
-      },
-    });
     enviarCorreoGenerico(
       userToUpdate.email,
       '🏓 ¡Has sido aceptado en un club!',
