@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getRequiredEnv } from '../config';
+import { loadSessionIdentity } from '../utils/session';
 
 export interface UserPayload {
   id: string;
@@ -46,7 +47,11 @@ export const requireAdminClub = (req: Request, res: Response, next: NextFunction
   next();
 };
 
-export const verifyToken = (req: Request, res: Response, next: NextFunction): void => {
+export const verifyToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -58,12 +63,24 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction): vo
 
   const token = authHeader.split(' ')[1];
 
+  let claims: UserPayload;
   try {
-    const secret = getRequiredEnv('JWT_SECRET');
-    const decoded = jwt.verify(token, secret) as UserPayload;
-    req.user = decoded;
-    next();
+    claims = jwt.verify(token, getRequiredEnv('JWT_SECRET')) as UserPayload;
   } catch (error) {
     res.status(401).json({ error: 'Token inválido o expirado.' });
+    return;
+  }
+
+  try {
+    // El rol y el club del JWT pueden llevar semanas de retraso: la fuente de verdad es la base de datos.
+    const identity = await loadSessionIdentity(claims.id);
+    if (!identity) {
+      res.status(401).json({ error: 'Token inválido o expirado.' });
+      return;
+    }
+    req.user = identity;
+    next();
+  } catch (error) {
+    next(error);
   }
 };

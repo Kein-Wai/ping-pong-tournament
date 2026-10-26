@@ -31,3 +31,15 @@ export const bearer = (name: IdentityName): { Authorization: string } => ({
 export const useTestJwtSecret = (): void => {
   process.env.JWT_SECRET = TEST_JWT_SECRET;
 };
+
+/**
+ * Fila que `loadSessionIdentity` leería para el token de `bearer(name)`: por
+ * defecto la base de datos coincide con los claims, y un test que quiera un
+ * usuario degradado, borrado o desactivado lo sustituye en
+ * `user.findUniqueOrThrow`.
+ */
+export const sessionRowFor = (id: string) => {
+  const identity = Object.values(identities).find((candidate) => candidate.id === id);
+  if (!identity) throw Object.assign(new Error('No User found'), { code: 'P2025' });
+  return { id, active: true, clubId: identity.clubId, userType: { name: identity.role } };
+};

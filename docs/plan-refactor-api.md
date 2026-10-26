@@ -14,7 +14,7 @@ Análisis hecho el 2026-10-26 con el grafo de `codebase-memory` y lectura direct
 | Fase | Objetivo | Estado |
 |---|---|---|
 | **A** | Cerrar agujeros de autorización y fugas de datos | **Hecha** (ver abajo) |
-| **B** | Seam de identidad: `verifyToken` lee rol y club vigentes de la base de datos (hoy los claims del JWT duran 30 días); un único `issueToken` | Pendiente |
+| **B** | Seam de identidad: `verifyToken` lee rol y club vigentes de la base de datos (hoy los claims del JWT duran 30 días); un único `issueToken` | **B1 hecha** (sin commit): `utils/session.ts` con `issueToken` + `loadSessionIdentity`, `verifyToken` lee de la BD. **B2 pendiente**: JWT 1 h + refresh token |
 | **C** | Perímetro: `helmet`, `express-rate-limit` (login, register, forgot, reset), Swagger fuera de producción, `GET /clubs` público, `npm audit` de `api/` | Pendiente |
 | **D** | Contrato de respuesta único (todas las rutas por `sendData/sendMessage/sendError`, regla de lint, las 4 respuestas fuera del sobre) y adaptar el cliente | Pendiente |
 | **E** | Módulos de dominio con `$transaction` (membresía de club, aplicación de resultado de partido); rutas finas | Pendiente |

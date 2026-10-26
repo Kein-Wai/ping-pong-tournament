@@ -1,4 +1,5 @@
 import { vi, type Mock } from 'vitest';
+import { sessionRowFor } from './auth';
 
 /**
  * Prisma de pruebas para los tests de seguridad de las rutas.
@@ -40,6 +41,12 @@ export const createPrismaMock = (): PrismaMock => {
         const existing = methods.get(method);
         if (existing) return existing;
         const created = vi.fn();
+        // verifyToken relee al usuario en cada peticion: por defecto devuelve la identidad del token.
+        if (model === 'user' && method === 'findUniqueOrThrow') {
+          created.mockImplementation(async ({ where }: { where: { id: string } }) =>
+            sessionRowFor(where.id),
+          );
+        }
         methods.set(method, created);
         return created;
       },

@@ -1,7 +1,5 @@
 import { Router } from 'express';
-import { getRequiredEnv } from '../config';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import prisma from '../db';
 import {
@@ -17,6 +15,7 @@ import { templateRegistro, templateResetPassword } from '../utils/emailtemplate'
 import crypto from 'crypto';
 import { resolveCurrentSeason } from '../utils/season';
 import { asyncHandler } from '../http/response';
+import { issueToken } from '../utils/session';
 
 const router = Router();
 
@@ -128,16 +127,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
   }
 
-  // Token Minimalista (Solo lo esencial para seguridad y middleware)
-  const token = jwt.sign(
-    {
-      id: user.id,
-      role: user.userType.name,
-      clubId: user.clubId,
-    },
-    getRequiredEnv('JWT_SECRET'),
-    { expiresIn: '30d' }, // Le he puesto 30 días para que sea más cómodo en desarrollo/móvil
-  );
+  const token = issueToken(user);
 
   res.status(200).json({ message: 'Login local exitoso', token });
 
@@ -211,16 +201,7 @@ router.post('/google', asyncHandler(async (req, res) => {
     });
   }
 
-  // Token Minimalista (Solo lo esencial para seguridad y middleware)
-  const token = jwt.sign(
-    {
-      id: user.id,
-      role: user.userType.name,
-      clubId: user.clubId,
-    },
-    getRequiredEnv('JWT_SECRET'),
-    { expiresIn: '30d' }, // Le he puesto 30 días para que sea más cómodo en desarrollo/móvil
-  );
+  const token = issueToken(user);
 
   res.status(200).json({ message: 'Login con Google exitoso', token });
 
