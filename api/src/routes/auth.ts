@@ -165,6 +165,14 @@ router.post('/google', asyncHandler(async (req, res) => {
     return res.status(401).json({ success: false, error: 'Token de Google inválido' });
   }
 
+  // Un correo sin verificar no prueba que la cuenta de Google sea de su dueño: aceptarlo
+  // permitiría tomar la cuenta existente con ese email (se vincula por correo).
+  if (!payload.email_verified) {
+    return res
+      .status(401)
+      .json({ success: false, error: 'El correo de la cuenta de Google no está verificado' });
+  }
+
   const { email, given_name, family_name, sub: googleId, picture } = payload;
 
   let user = await prisma.user.findUnique({
