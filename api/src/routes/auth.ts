@@ -16,6 +16,12 @@ import { templateRegistro, templateResetPassword } from '../utils/emailtemplate'
 import crypto from 'crypto';
 import { resolveCurrentSeason } from '../utils/season';
 import { asyncHandler } from '../http/response';
+import {
+  loginLimiter,
+  passwordResetLimiter,
+  refreshLimiter,
+  registerLimiter,
+} from '../middleware/rate-limit';
 import { revokeAllUserSessions, revokeRefreshToken, rotateRefreshToken, startSession } from '../utils/refresh-token';
 
 const router = Router();
@@ -46,7 +52,7 @@ router.get('/verify/:token', asyncHandler(async (req, res) => {
 
 }, 'Error al verificar el jugador', 500));
 
-router.post('/register', asyncHandler(async (req, res) => {
+router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
   const validation = registerSchema.safeParse(req.body);
   if (!validation.success) {
     res.status(400).json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
@@ -101,7 +107,7 @@ router.post('/register', asyncHandler(async (req, res) => {
 
 }, 'Error al registrar el jugador', 500));
 
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
   const validation = loginLocalSchema.safeParse(req.body);
   if (!validation.success) return res.status(400).json({ success: false, error: 'Datos invalidos' });
   const { email, password } = validation.data;
@@ -134,7 +140,7 @@ router.post('/login', asyncHandler(async (req, res) => {
 
 }, 'Error en el servidor', 500));
 
-router.post('/google', asyncHandler(async (req, res) => {
+router.post('/google', loginLimiter, asyncHandler(async (req, res) => {
   const validation = loginGoogleSchema.safeParse(req.body);
   if (!validation.success) return res.status(400).json({ success: false, error: 'Token requerido' });
 
@@ -208,7 +214,7 @@ router.post('/google', asyncHandler(async (req, res) => {
 
 }, 'Fallo al autenticar con Google', 401));
 
-router.post('/refresh', asyncHandler(async (req, res) => {
+router.post('/refresh', refreshLimiter, asyncHandler(async (req, res) => {
   const validation = refreshTokenSchema.safeParse(req.body);
   if (!validation.success) return res.status(400).json({ success: false, error: 'Refresh token requerido' });
 
@@ -228,7 +234,7 @@ router.post('/logout', asyncHandler(async (req, res) => {
 }, 'Error al cerrar la sesión', 500));
 
 // POST: Solicitar recuperación de contraseña
-router.post('/forgot-password', asyncHandler(async (req, res) => {
+router.post('/forgot-password', passwordResetLimiter, asyncHandler(async (req, res) => {
   const validation = forgotPasswordSchema.safeParse(req.body);
   if (!validation.success) return res.status(400).json({ success: false, error: 'Email inválido' });
 
@@ -267,7 +273,7 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
 }, 'Error al procesar la solicitud', 500));
 
 // POST: Establecer nueva contraseña con el token
-router.post('/reset-password', asyncHandler(async (req, res) => {
+router.post('/reset-password', passwordResetLimiter, asyncHandler(async (req, res) => {
   const validation = resetPasswordSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ success: false, error: validation.error.issues[0].message });

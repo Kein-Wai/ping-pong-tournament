@@ -94,6 +94,9 @@ const options = {
 };
 
 export const setupSwagger = (app: Express): void => {
+  // La documentación lista todas las rutas y su forma: no hace falta exponerla en producción.
+  if (process.env.NODE_ENV === 'production') return;
+
   const swaggerDocument = swaggerJSDoc(options);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 };
