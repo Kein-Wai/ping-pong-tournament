@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../db';
 import { verifyToken, requireSuperAdmin } from '../middleware/auth.middleware';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError } from '../http/response';
 
 const router = Router();
 
@@ -24,7 +24,7 @@ router.get('/', verifyToken, asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  res.status(200).json({ success: true, data: feedbacks });
+  sendData(res, feedbacks);
 
 }, 'Error al obtener los reportes', 500));
 
@@ -32,9 +32,7 @@ router.get('/', verifyToken, asyncHandler(async (req, res) => {
 router.post('/', verifyToken, asyncHandler(async (req, res) => {
   const validation = feedbackSchema.safeParse(req.body);
   if (!validation.success)
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
 
   const newFeedback = await prisma.appFeedback.create({
     data: {
@@ -44,7 +42,7 @@ router.post('/', verifyToken, asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({ success: true, data: newFeedback });
+  sendData(res, newFeedback, 201);
 
 }, 'Error al enviar el reporte', 500));
 
@@ -55,7 +53,7 @@ router.put('/:id/status', verifyToken, requireSuperAdmin, asyncHandler(async (re
     where: { id: req.params.id as string },
     data: { status },
   });
-  res.status(200).json({ success: true, data: updated });
+  sendData(res, updated);
 
 }, 'Error al actualizar estado', 500));
 

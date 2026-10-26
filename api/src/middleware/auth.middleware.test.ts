@@ -39,9 +39,7 @@ describe('Auth Middleware (verifyToken)', () => {
     await verifyToken(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(401);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Acceso denegado. Token no proporcionado o formato incorrecto.',
-    });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Acceso denegado. Token no proporcionado o formato incorrecto.' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
@@ -55,7 +53,7 @@ describe('Auth Middleware (verifyToken)', () => {
     await verifyToken(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(401);
-    expect(mockRes.json).toHaveBeenCalledWith({ error: 'Token inválido o expirado.' });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Token inválido o expirado.' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
@@ -97,7 +95,7 @@ describe('Auth Middleware (requireSuperAdmin)', () => {
     requireSuperAdmin(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(401);
-    expect(mockRes.json).toHaveBeenCalledWith({ error: 'Usuario no autenticado' });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Usuario no autenticado' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
@@ -108,9 +106,7 @@ describe('Auth Middleware (requireSuperAdmin)', () => {
     requireSuperAdmin(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(403);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Acceso denegado. Solo el SuperAdmin puede realizar esta acción.',
-    });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Acceso denegado. Solo el SuperAdmin puede realizar esta acción.' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
@@ -152,9 +148,7 @@ describe('Auth Middleware (requireAdminClub)', () => {
     requireAdminClub(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(403);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Acceso denegado. Se requieren permisos de Administrador de Club.',
-    });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Acceso denegado. Se requieren permisos de Administrador de Club.' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 

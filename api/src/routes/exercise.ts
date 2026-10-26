@@ -3,7 +3,7 @@ import prisma from '../db';
 import { getExercisesQuerySchema, createExerciseSchema } from '../schemas/exercise';
 import { z } from 'zod';
 import { requireAdminClub, verifyToken } from '../middleware/auth.middleware';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError } from '../http/response';
 
 const router = Router();
 
@@ -12,9 +12,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const validation = getExercisesQuerySchema.safeParse(req.query);
 
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Categoría inválida', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Categoría inválida', z.treeifyError(validation.error));
   }
 
   const { category } = validation.data;
@@ -39,7 +37,7 @@ router.get('/', asyncHandler(async (req, res) => {
   });
 
   // 3. Devolvemos el resultado
-  res.status(200).json({ success: true, data: exercises });
+  sendData(res, exercises);
 
 }, 'Error al obtener los ejercicios', 500));
 
@@ -51,9 +49,7 @@ router.post('/', verifyToken, requireAdminClub, asyncHandler(async (req, res) =>
   const validation = createExerciseSchema.safeParse(req.body);
 
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const { name, description, objective, category, code } = validation.data;
@@ -66,7 +62,7 @@ router.post('/', verifyToken, requireAdminClub, asyncHandler(async (req, res) =>
     finalClubId = null;
   } else if (!userClubId) {
     // Prevención de errores: Un AdminClub sin club asignado no debería poder crear nada
-    return res.status(403).json({ success: false, error: 'No tienes un club asignado para crear ejercicios' });
+    return sendError(res, 403, 'No tienes un club asignado para crear ejercicios');
   }
 
   // 3. Guardar en Base de Datos
@@ -81,7 +77,7 @@ router.post('/', verifyToken, requireAdminClub, asyncHandler(async (req, res) =>
     },
   });
 
-  res.status(201).json({ success: true, data: newExercise });
+  sendData(res, newExercise, 201);
 
 }, 'Error al crear el ejercicio', 500));
 

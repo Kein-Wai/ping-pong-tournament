@@ -2,7 +2,7 @@ import { Router } from 'express';
 import prisma from '../../db';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendData, sendError } from '../../http/response';
 import { createGuestSchema } from '../../schemas/user';
 import { requireAdminClub } from '../../middleware/auth.middleware';
 import { resolveCurrentSeason } from '../../utils/season';
@@ -23,9 +23,7 @@ router.post('/guest', requireAdminClub, asyncHandler(async (req, res) => {
   const validation = createGuestSchema.safeParse(req.body);
 
   if (!validation.success) {
-    return res.status(400).json({ success: false, error: 'Datos de entrada inválidos',
-      details: z.treeifyError(validation.error),
-    });
+    return sendError(res, 400, 'Datos de entrada inválidos', z.treeifyError(validation.error));
   }
 
   // 👇 2. EXTRAER DATOS LIMPIOS Y SEGUROS
@@ -42,7 +40,7 @@ router.post('/guest', requireAdminClub, asyncHandler(async (req, res) => {
   } = validation.data;
   const clubId = req.user?.clubId;
 
-  if (!clubId) return res.status(403).json({ success: false, error: 'No tienes club asignado' });
+  if (!clubId) return sendError(res, 403, 'No tienes club asignado');
 
   const currentSeason = await resolveCurrentSeason(prisma);
 
@@ -107,7 +105,7 @@ router.post('/guest', requireAdminClub, asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({ success: true, data: toSafeUser(newGuest) });
+  sendData(res, toSafeUser(newGuest), 201);
 
 }, 'Error creando la cuenta de invitado', 500));
 

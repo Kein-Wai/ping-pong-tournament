@@ -11,7 +11,7 @@ import { MatchStatus } from '@prisma/client';
 import { resolveCurrentSeason } from '../utils/season';
 import { calculateSkillGrowth } from '../utils/skills';
 import { getPlayerCurrentSkills } from '../utils/stats';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 
 const router = Router();
 
@@ -28,12 +28,12 @@ const isOwnMatch = async (matchId: string, userId: string | undefined): Promise<
   return match?.userId === userId;
 };
 
-const NOT_FOUND = { success: false, error: 'Partido no encontrado o sin acceso' };
+const NOT_FOUND_MESSAGE = 'Partido no encontrado o sin acceso';
 
 // 1. Obtener todos los partidos manuales del usuario logueado
 router.get('/', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!userId) return sendError(res, 401, 'No autorizado');
 
   const matches = await prisma.manualMatch.findMany({
     where: { userId },
@@ -43,20 +43,18 @@ router.get('/', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(200).json({ success: true, data: matches });
+  sendData(res, matches);
 
 }, 'Error al obtener los partidos manuales', 500));
 
 // 2. Crear un nuevo partido manual (Pre-partido)
 router.post('/', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!userId) return sendError(res, 401, 'No autorizado');
 
   const validation = createManualMatchSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
   const currentSeason = await resolveCurrentSeason(prisma);
   const newMatch = await prisma.manualMatch.create({
@@ -69,7 +67,7 @@ router.post('/', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({ success: true, data: newMatch });
+  sendData(res, newMatch, 201);
 
 }, 'Error al crear el partido manual', 500));
 
@@ -83,25 +81,23 @@ router.get('/:id', asyncHandler(async (req, res) => {
   });
 
   if (!match || match.userId !== req.user?.id) {
-    return res.status(404).json({ success: false, error: 'Partido no encontrado o sin acceso' });
+    return sendError(res, 404, 'Partido no encontrado o sin acceso');
   }
 
-  res.status(200).json({ success: true, data: match });
+  sendData(res, match);
 
 }, 'Error al obtener el partido', 500));
 
 router.put('/:id', asyncHandler(async (req, res) => {
   if (!(await isOwnMatch(req.params.id as string, req.user?.id))) {
-    return res.status(404).json(NOT_FOUND);
+    return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 
   // 1. Zod filtra y valida. Si intentan colar "status: Completado", Zod lo elimina automáticamente.
   const validation = updateManualMatchSchema.safeParse(req.body);
 
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   // 2. Solo guardamos lo que Zod nos ha devuelto limpio y seguro (validation.data)
@@ -110,19 +106,19 @@ router.put('/:id', asyncHandler(async (req, res) => {
     data: validation.data,
   });
 
-  res.status(200).json({ success: true, data: updatedMatch });
+  sendData(res, updatedMatch);
 
 }, 'Error al actualizar el partido', 500));
 
 // 4. Añadir un punto al partido (Se llama cada vez que el árbitro toca un botón)
 router.post('/:id/points', asyncHandler(async (req, res) => {
   if (!(await isOwnMatch(req.params.id as string, req.user?.id))) {
-    return res.status(404).json(NOT_FOUND);
+    return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 
   const validation = addPointSchema.safeParse(req.body);
   if (!validation.success) {
-    return res.status(400).json({ success: false, error: 'Datos de punto inválidos' });
+    return sendError(res, 400, 'Datos de punto inválidos');
   }
 
   const point = await prisma.pointAnalysis.create({
@@ -132,7 +128,7 @@ router.post('/:id/points', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({ success: true, data: point });
+  sendData(res, point, 201);
 
 }, 'Error al registrar el punto', 500));
 
@@ -148,13 +144,13 @@ router.delete('/:id/points/:pointId', asyncHandler(async (req, res) => {
     point.manualMatchId !== req.params.id ||
     point.match.userId !== req.user?.id
   ) {
-    return res.status(404).json(NOT_FOUND);
+    return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 
   await prisma.pointAnalysis.delete({
     where: { id: req.params.pointId as string },
   });
-  res.status(200).json({ success: true, message: 'Punto deshecho' });
+  sendMessage(res, 'Punto deshecho');
 
 }, 'Error al deshacer el punto', 500));
 
@@ -162,14 +158,14 @@ router.delete('/:id/points/:pointId', asyncHandler(async (req, res) => {
 // 6. Finalizar el partido (Se llama al terminar el último set)
 router.put('/:id/complete', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!userId) return sendError(res, 401, 'No autorizado');
 
   const validation = completeMatchSchema.safeParse(req.body);
-  if (!validation.success) return res.status(400).json({ success: false, error: 'Datos inválidos' });
+  if (!validation.success) return sendError(res, 400, 'Datos inválidos');
 
   // Las estadísticas se suman al usuario: el partido tiene que ser suyo.
   if (!(await isOwnMatch(req.params.id as string, userId))) {
-    return res.status(404).json(NOT_FOUND);
+    return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 
   // Envolvemos en transacción para asegurar la base de datos
@@ -236,7 +232,7 @@ router.put('/:id/complete', asyncHandler(async (req, res) => {
     return match;
   });
 
-  res.status(200).json({ success: true, data: updatedMatch });
+  sendData(res, updatedMatch);
 
 }, 'Error al finalizar el partido', 500));
 

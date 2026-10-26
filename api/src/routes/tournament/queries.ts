@@ -5,7 +5,7 @@ import { fetchTournamentBracket } from '../../utils/knockout';
 import { fetchGroupMatches, fetchGroupClassifications } from '../../utils/standings';
 import { buildClubScope } from '../../utils/auth';
 import { UserPayload } from '../../middleware/auth.middleware';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../../http/response';
 import { toSafeUser } from '../../utils/safe-user';
 
 const router = Router();
@@ -45,7 +45,7 @@ router.param('id', async (req, res, next, id) => {
       : null;
 
     if (!isTournamentVisible(req.user, userDb?.clubStatus ?? 'Registrado', tournament)) {
-      res.status(403).json({ success: false, error: 'No tienes permiso para ver este torneo' });
+      sendError(res, 403, 'No tienes permiso para ver este torneo');
       return;
     }
     next();
@@ -100,7 +100,7 @@ router.get('/', asyncHandler(async (req, res) => {
     orderBy: { dateStart: 'asc' },
   });
 
-  return res.status(200).json({ success: true, data: tournaments });
+  return sendData(res, tournaments);
 
 }, 'Error al obtener torneos', 500));
 
@@ -133,12 +133,10 @@ router.get(
           player: toSafeUser(participant.player),
         })),
       };
-      return res.status(200).json({ success: true, data: safeTournament });
+      return sendData(res, safeTournament);
     }
     else
-      return res
-        .status(200)
-        .json({ success: true, data: tournament, message: 'Torneo no encontrado' });
+      return sendMessage(res, 'Torneo no encontrado', 200, tournament);
   }, 'Error al obtener torneo'),
 );
 
@@ -155,10 +153,7 @@ router.get('/:id/participants', asyncHandler(async (req, res) => {
     orderBy: { registeredAt: 'asc' },
   });
 
-  return res.status(200).json({
-    success: true,
-    data: participants,
-  });
+  return sendData(res, participants);
 
 }, 'Error interno del servidor al cargar los participantes.', 500));
 
@@ -170,16 +165,10 @@ router.get('/:id/bracket', asyncHandler(async (req, res) => {
   const knockouts = await fetchTournamentBracket(prisma, tournamentId, type);
 
   if (!knockouts || knockouts.length === 0) {
-    return res.status(404).json({
-      success: false,
-      message: 'No se ha generado el cuadro para este torneo todavía.',
-    });
+    return sendError(res, 404, 'No se ha generado el cuadro para este torneo todavía.');
   }
 
-  return res.status(200).json({
-    success: true,
-    data: knockouts,
-  });
+  return sendData(res, knockouts);
 
 }, 'Error interno del servidor al cargar el cuadro.', 500));
 
@@ -189,7 +178,7 @@ router.get('/:id/groups/matches', asyncHandler(async (req, res) => {
 
   const matches = await fetchGroupMatches(prisma, tournamentId, groupId as string);
 
-  return res.status(200).json({ success: true, data: matches });
+  return sendData(res, matches);
 
 }, 'Error al obtener los partidos del grupo.', 500));
 
@@ -199,7 +188,7 @@ router.get('/:id/groups/classifications', asyncHandler(async (req, res) => {
 
   const clasifications = await fetchGroupClassifications(prisma, tournamentId, groupId as string);
 
-  return res.status(200).json({ success: true, data: clasifications });
+  return sendData(res, clasifications);
 
 }, 'Error al obtener la clasificación.', 500));
 
@@ -215,7 +204,7 @@ router.get('/:id/classifications', asyncHandler(async (req, res) => {
     },
   });
 
-  return res.status(200).json({ success: true, data: clasifications });
+  return sendData(res, clasifications);
 
 }, 'Error al obtener la clasificación.', 500));
 
@@ -223,7 +212,7 @@ router.get('/player/:playerId/enrolled', asyncHandler(async (req, res) => {
   const { playerId } = req.params as { [key: string]: string };
 
   // Solo el jugador puede ver sus propias inscripciones en el dashboard
-  if (req.user?.id !== playerId) return res.status(403).json({ success: false, error: 'No autorizado' });
+  if (req.user?.id !== playerId) return sendError(res, 403, 'No autorizado');
 
   const inscriptions = await prisma.tournamentParticipant.findMany({
     where: {
@@ -239,7 +228,7 @@ router.get('/player/:playerId/enrolled', asyncHandler(async (req, res) => {
   });
 
   const tournaments = inscriptions.map((i) => i.tournament);
-  res.status(200).json({ success: true, data: tournaments });
+  sendData(res, tournaments);
 
 }, 'Error al obtener torneos inscritos', 500));
 

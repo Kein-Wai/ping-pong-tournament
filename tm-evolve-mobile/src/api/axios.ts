@@ -39,9 +39,10 @@ const renew = async (): Promise<string | null> => {
   try {
     // axios a pelo: pasar por `api` dispararía de nuevo este interceptor.
     const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-    await AsyncStorage.setItem("pingpong_token", response.data.token);
-    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, response.data.refreshToken);
-    return response.data.token;
+    const { token, refreshToken: rotated } = response.data.data;
+    await AsyncStorage.setItem("pingpong_token", token);
+    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, rotated);
+    return token;
   } catch (error) {
     // Solo una respuesta del servidor invalida la sesión: sin red se conserva para reintentar luego.
     if (axios.isAxiosError(error) && error.response) {

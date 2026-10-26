@@ -111,9 +111,9 @@ describe('tournamentsService', () => {
   });
 
   describe('create', () => {
-    it('envía el torneo y devuelve la respuesta tal cual la manda la API, sin sobre', async () => {
+    it('envía el torneo y devuelve el torneo creado que viene en data', async () => {
       mockedApi.post.mockResolvedValue({
-        data: { message: 'Torneo creado con éxito', tournament: { id: 't9', name: 'Open' } },
+        data: { success: true, message: 'Torneo creado con éxito', data: { id: 't9', name: 'Open' } },
       });
       const payload = {
         name: 'Open',
@@ -136,8 +136,7 @@ describe('tournamentsService', () => {
       const result = await tournamentsService.create(payload);
 
       expect(mockedApi.post).toHaveBeenCalledWith(ENDPOINTS.TOURNAMENTS.BASE, payload, undefined);
-      expect(result.message).toBe('Torneo creado con éxito');
-      expect(result.tournament.id).toBe('t9');
+      expect(result.id).toBe('t9');
     });
   });
 
@@ -165,9 +164,9 @@ describe('tournamentsService', () => {
   });
 
   describe('inscripciones', () => {
-    it('register envía jugador, fecha y estado, y devuelve el participante sin sobre', async () => {
+    it('register envía jugador, fecha y estado, y devuelve el participante que viene en data', async () => {
       mockedApi.post.mockResolvedValue({
-        data: { message: 'Jugador inscrito con éxito', participant: { id: 'pp1' } },
+        data: { success: true, message: 'Jugador inscrito con éxito', data: { id: 'pp1' } },
       });
       const payload = {
         playerId: 'p1',
@@ -178,7 +177,7 @@ describe('tournamentsService', () => {
       const result = await tournamentsService.register('t1', payload);
 
       expect(mockedApi.post).toHaveBeenCalledWith(ENDPOINTS.TOURNAMENTS.REGISTER('t1'), payload, undefined);
-      expect(result.participant.id).toBe('pp1');
+      expect(result.id).toBe('pp1');
     });
 
     it('registerBulk envía los jugadores y no devuelve datos', async () => {

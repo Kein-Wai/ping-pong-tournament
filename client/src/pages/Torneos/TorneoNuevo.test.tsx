@@ -40,7 +40,7 @@ const submit = () =>
 
 const sentPayload = () => vi.mocked(api.post).mock.calls[0][1];
 
-const RESPONSE = { data: { message: 'Torneo creado', tournament: { id: 't99' } } };
+const RESPONSE = { data: { success: true, message: 'Torneo creado', data: { id: 't99' } } };
 
 describe('TorneoNuevo', () => {
   beforeEach(() => {
@@ -229,7 +229,7 @@ describe('TorneoNuevo', () => {
     });
 
     it('si la respuesta no trae el torneo se queda en el formulario', async () => {
-      vi.mocked(api.post).mockResolvedValue({ data: { message: 'ok' } } as never);
+      vi.mocked(api.post).mockResolvedValue({ data: { success: true, message: 'ok' } } as never);
       renderPage();
       fillName();
 

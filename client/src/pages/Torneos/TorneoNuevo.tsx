@@ -101,9 +101,9 @@ export const TorneoNuevo = () => {
       // 3. Enviamos al backend
       const created = await tournamentsService.create(payload);
 
-      if (created.tournament) {
+      if (created) {
         // Redirigimos directamente a la vista de detalles del nuevo torneo
-        navigate(APP_ROUTES.TORNEOS.DETAILS(created.tournament.id));
+        navigate(APP_ROUTES.TORNEOS.DETAILS(created.id));
       }
     } catch (error) {
       console.error('Error al crear el torneo', error);

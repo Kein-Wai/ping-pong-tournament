@@ -23,9 +23,8 @@ import type {
  * Servicios de torneos: consulta, inscripcion, grupos y cuadro.
  *
  * Los payloads reflejan los esquemas Zod de la API (api/src/schemas/tournament.ts).
- * Dos rutas responden FUERA del sobre { success, data }: crear un torneo devuelve
- * { message, tournament } e inscribir a un jugador { message, participant }.
- * Borrar, inscripcion masiva, cambio de estado, generacion y cambio de jugadores
+ * Crear un torneo devuelve el torneo en `data` e inscribir a un jugador, el
+ * participante. Borrar, inscripcion masiva, cambio de estado, generacion y cambio de jugadores
  * responden solo { success, message }: no devuelven datos.
  */
 
@@ -49,23 +48,11 @@ export interface CreateTournamentPayload {
   setsToWinKnockout?: number | null;
 }
 
-/** Respuesta de crear un torneo: la API la manda sin sobre. */
-export interface CreateTournamentResult {
-  message: string;
-  tournament: Tournament;
-}
-
 /** Datos de una inscripcion individual (registerParticipantSchema). */
 export interface RegisterPayload {
   playerId: string;
   registeredAt?: string;
   status?: PlayerTournamentStatus;
-}
-
-/** Respuesta de inscribir a un jugador: la API la manda sin sobre. */
-export interface RegisterResult {
-  message: string;
-  participant: TournamentParticipant;
 }
 
 /** Datos de una inscripcion multiple. */
@@ -86,7 +73,7 @@ export const tournamentsService = {
   byId: (id: string) => http.get<Tournament>(ENDPOINTS.TOURNAMENTS.BY_ID(id)),
 
   create: (payload: CreateTournamentPayload) =>
-    http.post<CreateTournamentResult>(ENDPOINTS.TOURNAMENTS.BASE, payload),
+    http.post<Tournament>(ENDPOINTS.TOURNAMENTS.BASE, payload),
 
   update: (id: string, payload: Partial<CreateTournamentPayload>) =>
     http.put<Tournament>(ENDPOINTS.TOURNAMENTS.UPDATE(id), payload),
@@ -97,7 +84,7 @@ export const tournamentsService = {
     http.get<TournamentParticipant[]>(ENDPOINTS.TOURNAMENTS.PARTICIPANTES(id)),
 
   register: (id: string, payload: RegisterPayload) =>
-    http.post<RegisterResult>(ENDPOINTS.TOURNAMENTS.REGISTER(id), payload),
+    http.post<TournamentParticipant>(ENDPOINTS.TOURNAMENTS.REGISTER(id), payload),
 
   registerBulk: (id: string, payload: RegisterBulkPayload) =>
     http.post<void>(ENDPOINTS.TOURNAMENTS.REGISTER_BULK(id), payload),

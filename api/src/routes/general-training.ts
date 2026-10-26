@@ -12,7 +12,7 @@ import {
 } from '../schemas/generalTraining';
 import { resolveCurrentSeason } from '../utils/season';
 import { calculateConditionalGrowth } from '../utils/skills';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 
 const router = Router();
 
@@ -22,32 +22,30 @@ const router = Router();
 router.get('/schedules', asyncHandler(async (req, res) => {
   // Sin club asignado no puede ver los horarios de ningún club.
   if (isOutOfClubScope(req.user)) {
-    return res.status(200).json({ success: true, data: [] });
+    return sendData(res, []);
   }
 
   const schedules = await prisma.generalTrainingSchedule.findMany({
     where: buildClubScope(req.user),
     orderBy: { startTime: 'asc' },
   });
-  res.status(200).json({ success: true, data: schedules });
+  sendData(res, schedules);
 
 }, 'Error al obtener horarios', 500));
 
 router.post('/schedules', requireAdminClub, asyncHandler(async (req, res) => {
   const clubId = req.user?.clubId!;
   if (!clubId)
-    return res.status(403).json({ success: false, error: 'No tienes un club asignado para crear horarios.' });
+    return sendError(res, 403, 'No tienes un club asignado para crear horarios.');
 
   const validation = createScheduleSchema.safeParse(req.body);
   if (!validation.success)
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
 
   const newSchedule = await prisma.generalTrainingSchedule.create({
     data: { ...validation.data, clubId },
   });
-  res.status(201).json({ success: true, data: newSchedule });
+  sendData(res, newSchedule, 201);
 
 }, 'Error al crear el horario', 500));
 
@@ -57,13 +55,11 @@ router.put('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) => 
 
   const validation = updateScheduleSchema.safeParse(req.body);
   if (!validation.success)
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
 
   const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
   if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
-    return res.status(404).json({ success: false, error: 'Horario no encontrado' });
+    return sendError(res, 404, 'Horario no encontrado');
   }
 
   const updatedSchedule = await prisma.generalTrainingSchedule.update({
@@ -71,7 +67,7 @@ router.put('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) => 
     data: validation.data,
   });
 
-  res.status(200).json({ success: true, data: updatedSchedule });
+  sendData(res, updatedSchedule);
 
 }, 'Error al actualizar el horario', 500));
 
@@ -81,11 +77,11 @@ router.delete('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) 
 
   const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
   if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
-    return res.status(404).json({ success: false, error: 'Horario no encontrado' });
+    return sendError(res, 404, 'Horario no encontrado');
   }
 
   await prisma.generalTrainingSchedule.delete({ where: { id: scheduleId } });
-  res.status(200).json({ success: true, message: 'Horario eliminado' });
+  sendMessage(res, 'Horario eliminado');
 
 }, 'Error al eliminar el horario. Puede que esté en uso por algún entrenamiento.', 500));
 
@@ -95,7 +91,7 @@ router.delete('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) 
 router.get('/', asyncHandler(async (req, res) => {
   // Sin club no hay entrenamientos que ver: sin esto el filtro quedaba vacío y devolvía los de todos los clubes.
   if (isOutOfClubScope(req.user)) {
-    return res.status(200).json({ success: true, data: [] });
+    return sendData(res, []);
   }
 
   const trainings = await prisma.generalTraining.findMany({
@@ -108,25 +104,23 @@ router.get('/', asyncHandler(async (req, res) => {
     },
     orderBy: { date: 'desc' },
   });
-  res.status(200).json({ success: true, data: trainings });
+  sendData(res, trainings);
 
 }, 'Error al obtener los entrenamientos', 500));
 
 router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
   const clubId = req.user?.clubId!;
-  if (!clubId) return res.status(403).json({ success: false, error: 'No tienes un club asignado.' });
+  if (!clubId) return sendError(res, 403, 'No tienes un club asignado.');
 
   const validation = createGeneralTrainingSchema.safeParse(req.body);
   if (!validation.success)
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
 
   const { description, startDate, endDate, scheduleId, skillsToTrain } = validation.data;
 
   const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
   if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
-    return res.status(404).json({ success: false, error: 'Horario no encontrado' });
+    return sendError(res, 404, 'Horario no encontrado');
   }
 
   // Rango de fechas exacto
@@ -144,8 +138,7 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
   }
 
   if (datesToCreate.length === 0) {
-    return res.status(400).json({ success: false, error: 'El rango de fechas no contiene ninguno de los días asignados a este horario',
-    });
+    return sendError(res, 400, 'El rango de fechas no contiene ninguno de los días asignados a este horario');
   }
 
   const currentSeason = await resolveCurrentSeason(prisma);
@@ -170,9 +163,7 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
     await tx.generalTraining.createMany({ data: trainingsData });
   });
 
-  res
-    .status(201)
-    .json({ success: true, message: `Se han programado ${datesToCreate.length} sesiones.` });
+  sendMessage(res, `Se han programado ${datesToCreate.length} sesiones.`, 201);
 
 }, 'Error al programar el entrenamiento', 500));
 
@@ -182,13 +173,11 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 
   const validation = updateGeneralTrainingSchema.safeParse(req.body);
   if (!validation.success)
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
 
   const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
   if (!training || !hasClubPermission(req.user, training.clubId)) {
-    return res.status(404).json({ success: false, error: 'Entrenamiento no encontrado' });
+    return sendError(res, 404, 'Entrenamiento no encontrado');
   }
 
   const { description, scheduleId, skillsToTrain } = validation.data;
@@ -208,7 +197,7 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
     });
   });
 
-  res.status(200).json({ success: true, data: updatedTraining });
+  sendData(res, updatedTraining);
 
 }, 'Error al actualizar el entrenamiento', 500));
 
@@ -218,7 +207,7 @@ router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 
   const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
   if (!training || !hasClubPermission(req.user, training.clubId)) {
-    return res.status(404).json({ success: false, error: 'Entrenamiento no encontrado' });
+    return sendError(res, 404, 'Entrenamiento no encontrado');
   }
 
   await prisma.$transaction(async (tx) => {
@@ -226,7 +215,7 @@ router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
     await tx.skillUpdateTemplate.delete({ where: { id: training.templateId } });
   });
 
-  res.status(200).json({ success: true, message: 'Entrenamiento eliminado con éxito' });
+  sendMessage(res, 'Entrenamiento eliminado con éxito');
 
 }, 'Error al eliminar el entrenamiento', 500));
 
@@ -238,7 +227,7 @@ router.put('/:id/attendance/bulk', requireAdminClub, asyncHandler(async (req, re
   const clubId = req.user?.clubId!;
 
   const validation = bulkAttendanceSchema.safeParse(req.body);
-  if (!validation.success) return res.status(400).json({ success: false, error: 'Datos inválidos' });
+  if (!validation.success) return sendError(res, 400, 'Datos inválidos');
 
   const { playerIds } = validation.data;
 
@@ -248,7 +237,7 @@ router.put('/:id/attendance/bulk', requireAdminClub, asyncHandler(async (req, re
   });
 
   if (!training || !hasClubPermission(req.user, training.clubId)) {
-    return res.status(404).json({ success: false, error: 'Entrenamiento no encontrado' });
+    return sendError(res, 404, 'Entrenamiento no encontrado');
   }
 
   const tpl = training.template;
@@ -334,7 +323,7 @@ router.put('/:id/attendance/bulk', requireAdminClub, asyncHandler(async (req, re
     }
   });
 
-  res.status(200).json({ success: true, message: 'Asistencia sincronizada correctamente' });
+  sendMessage(res, 'Asistencia sincronizada correctamente');
 
 }, 'Error procesando sincronización en bloque', 500));
 

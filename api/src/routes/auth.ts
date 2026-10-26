@@ -15,7 +15,7 @@ import { enviarCorreoGenerico } from '../services/email';
 import { templateRegistro, templateResetPassword } from '../utils/emailtemplate';
 import crypto from 'crypto';
 import { resolveCurrentSeason } from '../utils/season';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 import {
   loginLimiter,
   passwordResetLimiter,
@@ -31,7 +31,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 router.get('/verify/:token', asyncHandler(async (req, res) => {
   const { token } = req.params as { [key: string]: string };
   if (!token || token === '') {
-    return res.status(400).json({ success: false, error: 'Token inválidos', details: 'Token invalido' });
+    return sendError(res, 400, 'Token inválidos', 'Token invalido');
   }
   const user = await prisma.user.findFirst({
     where: { verificationToken: token },
@@ -39,7 +39,7 @@ router.get('/verify/:token', asyncHandler(async (req, res) => {
   });
 
   if (!user || !user.password) {
-    return res.status(401).json({ success: false, error: 'Token incorrecto o el usuario no existe' });
+    return sendError(res, 401, 'Token incorrecto o el usuario no existe');
   }
 
   await prisma.user.update({
@@ -55,7 +55,7 @@ router.get('/verify/:token', asyncHandler(async (req, res) => {
 router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
   const validation = registerSchema.safeParse(req.body);
   if (!validation.success) {
-    res.status(400).json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
     return;
   }
 
@@ -65,12 +65,12 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
   const userRole = await prisma.userType.findUnique({ where: { name: role } });
 
   if (existingUser) {
-    res.status(400).json({ success: false, error: 'El email ya está registrado' });
+    sendError(res, 400, 'El email ya está registrado');
     return;
   }
 
   if (!userRole) {
-    res.status(500).json({ success: false, error: 'Error interno: Rol de jugador no configurado' });
+    sendError(res, 500, 'Error interno: Rol de jugador no configurado');
     return;
   }
 
@@ -101,15 +101,13 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
       templateRegistro(name, verificationToken),
     ).catch((err) => console.error('Fallo silencioso al enviar correo de registro:', err));
 
-  res.status(201).json({
-    message: 'Jugador registrado con éxito',
-  });
+  sendMessage(res, 'Jugador registrado con éxito', 201);
 
 }, 'Error al registrar el jugador', 500));
 
 router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
   const validation = loginLocalSchema.safeParse(req.body);
-  if (!validation.success) return res.status(400).json({ success: false, error: 'Datos invalidos' });
+  if (!validation.success) return sendError(res, 400, 'Datos invalidos');
   const { email, password } = validation.data;
 
   const user = await prisma.user.findUnique({
@@ -118,31 +116,27 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
   });
 
   if (!user || !user.password) {
-    return res
-      .status(401)
-      .json({ success: false, error: 'Credenciales incorrectas o el usuario usa otro método de acceso' });
+    return sendError(res, 401, 'Credenciales incorrectas o el usuario usa otro método de acceso');
   }
 
   if (!user.active) {
-    return res
-      .status(401)
-      .json({ success: false, error: 'Email no ha sido verificado aun, por favor revisa tu bandeja.' });
+    return sendError(res, 401, 'Email no ha sido verificado aun, por favor revisa tu bandeja.');
   }
 
   const isValidPassword = await bcrypt.compare(password, user.password);
   if (!isValidPassword) {
-    return res.status(401).json({ success: false, error: 'Credenciales incorrectas' });
+    return sendError(res, 401, 'Credenciales incorrectas');
   }
 
   const tokens = await startSession(user);
 
-  res.status(200).json({ message: 'Login local exitoso', ...tokens });
+  sendMessage(res, 'Login local exitoso', 200, tokens);
 
 }, 'Error en el servidor', 500));
 
 router.post('/google', loginLimiter, asyncHandler(async (req, res) => {
   const validation = loginGoogleSchema.safeParse(req.body);
-  if (!validation.success) return res.status(400).json({ success: false, error: 'Token requerido' });
+  if (!validation.success) return sendError(res, 400, 'Token requerido');
 
   const { credential, role } = validation.data;
   const userRole = await prisma.userType.findUnique({ where: { name: role } });
@@ -159,15 +153,13 @@ router.post('/google', loginLimiter, asyncHandler(async (req, res) => {
 
   const payload = ticket.getPayload();
   if (!payload || !payload.email) {
-    return res.status(401).json({ success: false, error: 'Token de Google inválido' });
+    return sendError(res, 401, 'Token de Google inválido');
   }
 
   // Un correo sin verificar no prueba que la cuenta de Google sea de su dueño: aceptarlo
   // permitiría tomar la cuenta existente con ese email (se vincula por correo).
   if (!payload.email_verified) {
-    return res
-      .status(401)
-      .json({ success: false, error: 'El correo de la cuenta de Google no está verificado' });
+    return sendError(res, 401, 'El correo de la cuenta de Google no está verificado');
   }
 
   const { email, given_name, family_name, sub: googleId, picture } = payload;
@@ -179,9 +171,7 @@ router.post('/google', loginLimiter, asyncHandler(async (req, res) => {
 
   if (!user) {
     if (!userRole) {
-      return res
-        .status(500)
-        .json({ success: false, error: 'Configuración de base de datos incompleta (Falta rol Player)' });
+      return sendError(res, 500, 'Configuración de base de datos incompleta (Falta rol Player)');
     }
     const currentSeason = await resolveCurrentSeason(prisma);
     user = await prisma.user.create({
@@ -210,47 +200,44 @@ router.post('/google', loginLimiter, asyncHandler(async (req, res) => {
 
   const tokens = await startSession(user);
 
-  res.status(200).json({ message: 'Login con Google exitoso', ...tokens });
+  sendMessage(res, 'Login con Google exitoso', 200, tokens);
 
 }, 'Fallo al autenticar con Google', 401));
 
 router.post('/refresh', refreshLimiter, asyncHandler(async (req, res) => {
   const validation = refreshTokenSchema.safeParse(req.body);
-  if (!validation.success) return res.status(400).json({ success: false, error: 'Refresh token requerido' });
+  if (!validation.success) return sendError(res, 400, 'Refresh token requerido');
 
   const tokens = await rotateRefreshToken(validation.data.refreshToken);
-  if (!tokens) return res.status(401).json({ success: false, error: 'Sesión caducada' });
+  if (!tokens) return sendError(res, 401, 'Sesión caducada');
 
-  res.status(200).json(tokens);
+  sendData(res, tokens);
 }, 'Error al renovar la sesión', 500));
 
 router.post('/logout', asyncHandler(async (req, res) => {
   const validation = refreshTokenSchema.safeParse(req.body);
-  if (!validation.success) return res.status(400).json({ success: false, error: 'Refresh token requerido' });
+  if (!validation.success) return sendError(res, 400, 'Refresh token requerido');
 
   await revokeRefreshToken(validation.data.refreshToken);
 
-  res.status(200).json({ message: 'Sesión cerrada' });
+  sendMessage(res, 'Sesión cerrada');
 }, 'Error al cerrar la sesión', 500));
 
 // POST: Solicitar recuperación de contraseña
 router.post('/forgot-password', passwordResetLimiter, asyncHandler(async (req, res) => {
   const validation = forgotPasswordSchema.safeParse(req.body);
-  if (!validation.success) return res.status(400).json({ success: false, error: 'Email inválido' });
+  if (!validation.success) return sendError(res, 400, 'Email inválido');
 
   const { email } = validation.data;
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
   // Por seguridad, si no existe no damos detalles, simplemente devolvemos un 200
   if (!user) {
-    return res
-      .status(200)
-      .json({ message: 'Si el correo existe, se han enviado las instrucciones.' });
+    return sendMessage(res, 'Si el correo existe, se han enviado las instrucciones.');
   }
 
   if (user.authProvider === 'GOOGLE') {
-    return res.status(400).json({ success: false, error: 'Esta cuenta utiliza el inicio de sesión de Google. Por favor, inicia sesión con Google.',
-    });
+    return sendError(res, 400, 'Esta cuenta utiliza el inicio de sesión de Google. Por favor, inicia sesión con Google.');
   }
 
   // Generamos un token seguro y caducidad de 1 hora
@@ -268,7 +255,7 @@ router.post('/forgot-password', passwordResetLimiter, asyncHandler(async (req, r
     templateResetPassword(user.name, resetToken),
   ).catch((err) => console.error('Error enviando correo de reset:', err));
 
-  res.status(200).json({ message: 'Si el correo existe, se han enviado las instrucciones.' });
+  sendMessage(res, 'Si el correo existe, se han enviado las instrucciones.');
 
 }, 'Error al procesar la solicitud', 500));
 
@@ -276,7 +263,7 @@ router.post('/forgot-password', passwordResetLimiter, asyncHandler(async (req, r
 router.post('/reset-password', passwordResetLimiter, asyncHandler(async (req, res) => {
   const validation = resetPasswordSchema.safeParse(req.body);
   if (!validation.success) {
-    return res.status(400).json({ success: false, error: validation.error.issues[0].message });
+    return sendError(res, 400, validation.error.issues[0].message);
   }
 
   const { token, newPassword } = validation.data;
@@ -290,9 +277,7 @@ router.post('/reset-password', passwordResetLimiter, asyncHandler(async (req, re
   });
 
   if (!user) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'El enlace de recuperación es inválido o ha expirado.' });
+    return sendError(res, 400, 'El enlace de recuperación es inválido o ha expirado.');
   }
 
   // Actualizamos la contraseña y limpiamos los tokens para que no se puedan reusar
@@ -311,9 +296,7 @@ router.post('/reset-password', passwordResetLimiter, asyncHandler(async (req, re
   // Quien tuviera la contraseña vieja (o una sesión robada) no debe seguir dentro.
   await revokeAllUserSessions(user.id);
 
-  res
-    .status(200)
-    .json({ message: 'Contraseña actualizada con éxito. Ya puedes iniciar sesión.' });
+  sendMessage(res, 'Contraseña actualizada con éxito. Ya puedes iniciar sesión.');
 
 }, 'Error al restablecer la contraseña', 500));
 

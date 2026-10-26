@@ -7,7 +7,7 @@ import { hasClubPermission, resolveResourceAccess } from '../../utils/auth';
 import { requireAdminClub } from '../../middleware/auth.middleware';
 import { enviarCorreoGenerico } from '../../services/email';
 import { templateInscripcionTorneo } from '../../utils/emailtemplate';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendError, sendMessage } from '../../http/response';
 
 const router = Router();
 
@@ -16,7 +16,7 @@ router.post('/:id/register', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
 
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
+    return sendError(res, 401, 'Usuario no autenticado');
   }
 
   // Traemos los datos frescos del usuario desde la BD
@@ -25,12 +25,12 @@ router.post('/:id/register', asyncHandler(async (req, res) => {
   });
 
   if (!currentUser || !currentUser.email || !currentUser.name) {
-    return res.status(401).json({ success: false, error: 'Faltan datos del usuario en la base de datos' });
+    return sendError(res, 401, 'Faltan datos del usuario en la base de datos');
   }
 
   const validation = registerParticipantSchema.safeParse(req.body);
   if (!validation.success) {
-    res.status(400).json({ success: false, error: 'Datos inválidos', details: validation.error.format() });
+    sendError(res, 400, 'Datos inválidos', validation.error.format());
     return;
   }
   const { playerId } = validation.data;
@@ -45,7 +45,7 @@ router.post('/:id/register', asyncHandler(async (req, res) => {
   });
 
   if (!tournament) {
-    res.status(404).json({ success: false, error: 'Torneo no encontrado' });
+    sendError(res, 404, 'Torneo no encontrado');
     return;
   }
 
@@ -66,7 +66,7 @@ router.post('/:id/register', asyncHandler(async (req, res) => {
   );
 
   if (!result.ok) {
-    res.status(result.error.status).json({ success: false, error: result.error.message });
+    sendError(res, result.error.status, result.error.message);
     return;
   }
 
@@ -76,10 +76,7 @@ router.post('/:id/register', asyncHandler(async (req, res) => {
     templateInscripcionTorneo(currentUser.name, tournament),
   ).catch(console.error);
 
-  res.status(201).json({
-    message: 'Jugador inscrito con éxito',
-    participant: result.participant,
-  });
+  sendMessage(res, 'Jugador inscrito con éxito', 201, result.participant);
 
 }, 'Error interno al inscribir jugador', 500));
 
@@ -88,11 +85,7 @@ router.post('/:id/register-bulk', requireAdminClub, asyncHandler(async (req, res
 
   const bulkValidation = registerBulkSchema.safeParse(req.body);
   if (!bulkValidation.success) {
-    return res.status(400).json({
-      success: false,
-      error: 'Datos inválidos',
-      details: bulkValidation.error.issues[0]?.message,
-    });
+    return sendError(res, 400, 'Datos inválidos', bulkValidation.error.issues[0]?.message);
   }
   const { playerIds } = bulkValidation.data;
 
@@ -106,18 +99,18 @@ router.post('/:id/register-bulk', requireAdminClub, asyncHandler(async (req, res
 
   if (!access.ok) {
     if (access.reason === 'notFound') {
-      return res.status(404).json({ success: false, error: 'Torneo no encontrado' });
+      return sendError(res, 404, 'Torneo no encontrado');
     }
-    return res.status(403).json({ success: false, error: 'No tienes permiso sobre este torneo' });
+    return sendError(res, 403, 'No tienes permiso sobre este torneo');
   }
   const { resource: tournament } = access;
   if (tournament.groupsCreated) {
-    return res.status(400).json({ success: false, error: 'Las inscripciones están cerradas.' });
+    return sendError(res, 400, 'Las inscripciones están cerradas.');
   }
 
   const availableSpots = tournament.numPlayers - tournament._count.participants;
   if (playerIds.length > availableSpots) {
-    return res.status(400).json({ success: false, error: `Solo quedan ${availableSpots} plazas disponibles.` });
+    return sendError(res, 400, `Solo quedan ${availableSpots} plazas disponibles.`);
   }
 
   // Filtrar los que ya están inscritos por si acaso
@@ -163,7 +156,7 @@ router.post('/:id/register-bulk', requireAdminClub, asyncHandler(async (req, res
     });
   }
 
-  res.status(201).json({ success: true, message: 'Jugadores inscritos con éxito' });
+  sendMessage(res, 'Jugadores inscritos con éxito', 201);
 
 }, 'Error al inscribir jugadores masivamente', 500));
 
@@ -176,7 +169,7 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, asyncHandler(
 
   const tournament = await prisma.tournament.findUnique({ where: { id } });
   if (!tournament || !hasClubPermission(req.user, tournament.clubId)) {
-    return res.status(403).json({ success: false, error: 'No tienes permisos sobre este torneo' });
+    return sendError(res, 403, 'No tienes permisos sobre este torneo');
   }
 
   const currentParticipant = await prisma.tournamentParticipant.findUnique({
@@ -184,7 +177,7 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, asyncHandler(
   });
 
   if (!currentParticipant) {
-    return res.status(404).json({ success: false, error: 'Participante no encontrado' });
+    return sendError(res, 404, 'Participante no encontrado');
   }
 
   await prisma.tournamentParticipant.update({
@@ -217,7 +210,7 @@ router.put('/:id/participants/:playerId/status', requireAdminClub, asyncHandler(
     });
   }
 
-  res.status(200).json({ success: true, message: `Jugador marcado como ${status}` });
+  sendMessage(res, `Jugador marcado como ${status}`);
 
 }, 'Error al actualizar el estado del participante', 500));
 

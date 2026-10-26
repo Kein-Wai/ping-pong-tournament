@@ -32,7 +32,7 @@ export default function LoginScreen() {
         password,
       });
 
-      await login(response.data.token, response.data.refreshToken);
+      await login(response.data.data.token, response.data.data.refreshToken);
     } catch (error: any) {
       const msg =
         error.response?.data?.error || "Error al conectar con el servidor";

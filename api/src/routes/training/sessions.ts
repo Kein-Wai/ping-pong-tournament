@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../db';
 import { z } from 'zod';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../../http/response';
 import { createSingleSessionSchema, completeSessionSchema } from '../../schemas/training';
 import { calculateSkillGrowth } from '../../utils/skills';
 import { canManageTraining, canViewTraining } from '../../utils/training-access';
@@ -10,13 +10,11 @@ const router = Router();
 
 router.post('/sessions', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!userId) return sendError(res, 401, 'No autorizado');
 
   const validation = createSingleSessionSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const newSession = await prisma.trainingSession.create({
@@ -28,7 +26,7 @@ router.post('/sessions', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({ success: true, data: newSession });
+  sendData(res, newSession, 201);
 
 }, 'Error al crear la sesión libre', 500));
 
@@ -44,26 +42,24 @@ router.get('/sessions/:sessionId', asyncHandler(async (req, res) => {
     },
   });
 
-  if (!session) return res.status(404).json({ success: false, error: 'Sesión no encontrada' });
+  if (!session) return sendError(res, 404, 'Sesión no encontrada');
   if (!canViewTraining(req.user, session.player)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso para ver esta sesión' });
+    return sendError(res, 403, 'No tienes permiso para ver esta sesión');
   }
 
   // El jugador solo se carga para autorizar: no forma parte de la respuesta.
   const { player: _owner, ...sessionData } = session;
-  res.status(200).json({ success: true, data: sessionData });
+  sendData(res, sessionData);
 
 }, 'Error al obtener la sesión', 500));
 
 router.post('/sessions/:id/complete', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!userId) return sendError(res, 401, 'No autorizado');
 
   const validation = completeSessionSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   // 1. Verificamos que la sesión existe y pertenece al usuario
@@ -73,7 +69,7 @@ router.post('/sessions/:id/complete', asyncHandler(async (req, res) => {
   });
 
   if (!session || session.playerId !== userId) {
-    return res.status(404).json({ success: false, error: 'Sesión no encontrada' });
+    return sendError(res, 404, 'Sesión no encontrada');
   }
 
   // Función auxiliar para calcular la curva de aprendizaje (la misma que usamos en los partidos)
@@ -99,9 +95,7 @@ router.post('/sessions/:id/complete', asyncHandler(async (req, res) => {
     },
   });
 
-  res
-    .status(200)
-    .json({ success: true, data: skillUpdate, message: '¡Entrenamiento finalizado con éxito!' });
+  sendMessage(res, '¡Entrenamiento finalizado con éxito!', 200, skillUpdate);
 
 }, 'Error al finalizar el entrenamiento', 500));
 

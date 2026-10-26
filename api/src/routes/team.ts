@@ -11,7 +11,7 @@ import {
 } from '../schemas/team';
 import { resolveCurrentSeason } from '../utils/season';
 import { canAccessClub, hasClubPermission } from '../utils/auth';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 import { toSafeUser } from '../utils/safe-user';
 
 const router = Router();
@@ -48,9 +48,7 @@ router.get('/club/:clubId', verifyToken, asyncHandler(async (req, res) => {
 
   // Seguridad Multi-tenant: Si eres AdminClub, solo puedes ver tus equipos (o los de tu club si eres player)
   if (!canAccessClub(req.user, clubId)) {
-    return res
-      .status(403)
-      .json({ success: false, error: 'No tienes permisos para ver los equipos de otro club' });
+    return sendError(res, 403, 'No tienes permisos para ver los equipos de otro club');
   }
 
   const teams = await prisma.team.findMany({
@@ -72,7 +70,7 @@ router.get('/club/:clubId', verifyToken, asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'asc' },
   });
 
-  res.status(200).json({ success: true, data: teams });
+  sendData(res, teams);
 
 }, 'Error al obtener los equipos del club', 500));
 
@@ -80,13 +78,11 @@ router.get('/club/:clubId', verifyToken, asyncHandler(async (req, res) => {
 router.post('/', verifyToken, requireAdminClub, asyncHandler(async (req, res) => {
   const clubId = req.user?.clubId;
   const currentSeason = await resolveCurrentSeason(prisma);
-  if (!clubId) return res.status(403).json({ success: false, error: 'No tienes un club asignado' });
+  if (!clubId) return sendError(res, 403, 'No tienes un club asignado');
 
   const validation = createTeamSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const { name, category, level } = validation.data;
@@ -101,7 +97,7 @@ router.post('/', verifyToken, requireAdminClub, asyncHandler(async (req, res) =>
     },
   });
 
-  res.status(201).json({ success: true, data: newTeam });
+  sendData(res, newTeam, 201);
 
 }, 'Error al crear el equipo', 500));
 
@@ -112,14 +108,12 @@ router.put('/:id/players', verifyToken, requireAdminClub, asyncHandler(async (re
 
   const validation = updateTeamPlayersSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team || !hasClubPermission(req.user, team.clubId)) {
-    return res.status(404).json({ success: false, error: 'Equipo no encontrado o sin permisos' });
+    return sendError(res, 404, 'Equipo no encontrado o sin permisos');
   }
 
   const { playerIds } = validation.data;
@@ -131,9 +125,7 @@ router.put('/:id/players', verifyToken, requireAdminClub, asyncHandler(async (re
     select: { level: true },
   });
   if (selectedPlayers.length !== new Set(playerIds).size) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Algún jugador no existe o no pertenece al club del equipo' });
+    return sendError(res, 400, 'Algún jugador no existe o no pertenece al club del equipo');
   }
 
   const newTeamLevel = getLowestLevel(selectedPlayers);
@@ -150,10 +142,7 @@ router.put('/:id/players', verifyToken, requireAdminClub, asyncHandler(async (re
   });
 
   // `include: { players: true }` trae todos los escalares de cada jugador (hash, tokens).
-  res.status(200).json({
-    success: true,
-    data: { ...updatedTeam, players: updatedTeam.players.map(toSafeUser) },
-  });
+  sendData(res, { ...updatedTeam, players: updatedTeam.players.map(toSafeUser) });
 
 }, 'Error al actualizar la plantilla del equipo', 500));
 
@@ -164,14 +153,12 @@ router.post('/:id/matches', verifyToken, requireAdminClub, asyncHandler(async (r
 
   const validation = createTeamMatchSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team || !hasClubPermission(req.user, team.clubId)) {
-    return res.status(404).json({ success: false, error: 'Equipo no encontrado o sin permisos' });
+    return sendError(res, 404, 'Equipo no encontrado o sin permisos');
   }
 
   const { rivalName, date, isHome, location } = validation.data;
@@ -186,7 +173,7 @@ router.post('/:id/matches', verifyToken, requireAdminClub, asyncHandler(async (r
     },
   });
 
-  res.status(201).json({ success: true, data: newMatch });
+  sendData(res, newMatch, 201);
 
 }, 'Error al programar el partido del equipo', 500));
 
@@ -199,9 +186,7 @@ router.put('/matches/:matchId', verifyToken, asyncHandler(async (req, res) => {
 
   const validation = updateTeamMatchSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   // Buscamos el partido incluyendo la plantilla del equipo para validar si el usuario juega en él
@@ -210,15 +195,14 @@ router.put('/matches/:matchId', verifyToken, asyncHandler(async (req, res) => {
     include: { team: { include: { players: true } } },
   });
 
-  if (!match) return res.status(404).json({ success: false, error: 'Partido no encontrado' });
+  if (!match) return sendError(res, 404, 'Partido no encontrado');
 
   // Lógica de Permisos: Es AdminClub de SU club, o es un Player que está en el array de jugadores del equipo
   const isClubAdmin = role === 'AdminClub' && match.team.clubId === clubId;
   const isTeamMember = match.team.players.some((p: any) => p.id === userId);
 
   if (!isClubAdmin && !isTeamMember && role !== 'SuperAdmin') {
-    return res.status(403).json({ success: false, error: 'No tienes permiso. Solo el entrenador o los miembros de este equipo pueden actualizar el resultado.',
-    });
+    return sendError(res, 403, 'No tienes permiso. Solo el entrenador o los miembros de este equipo pueden actualizar el resultado.');
   }
 
   const updatedMatch = await prisma.teamMatch.update({
@@ -226,7 +210,7 @@ router.put('/matches/:matchId', verifyToken, asyncHandler(async (req, res) => {
     data: validation.data,
   });
 
-  res.status(200).json({ success: true, data: updatedMatch });
+  sendData(res, updatedMatch);
 
 }, 'Error al actualizar el partido', 500));
 
@@ -239,14 +223,14 @@ router.delete('/matches/:matchId', verifyToken, requireAdminClub, asyncHandler(a
     include: { team: true },
   });
 
-  if (!match) return res.status(404).json({ success: false, error: 'Partido no encontrado' });
+  if (!match) return sendError(res, 404, 'Partido no encontrado');
 
   if (!hasClubPermission(req.user, match.team.clubId)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso para eliminar este partido' });
+    return sendError(res, 403, 'No tienes permiso para eliminar este partido');
   }
 
   await prisma.teamMatch.delete({ where: { id: matchId } });
-  res.status(200).json({ success: true, message: 'Partido eliminado del calendario' });
+  sendMessage(res, 'Partido eliminado del calendario');
 
 }, 'Error al eliminar el partido', 500));
 
@@ -257,14 +241,12 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 
   const validation = updateTeamSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team || !hasClubPermission(req.user, team.clubId)) {
-    return res.status(404).json({ success: false, error: 'Equipo no encontrado o sin permisos' });
+    return sendError(res, 404, 'Equipo no encontrado o sin permisos');
   }
 
   const updatedTeam = await prisma.team.update({
@@ -272,7 +254,7 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
     data: validation.data,
   });
 
-  res.status(200).json({ success: true, message: 'Equipo actualizado', data: updatedTeam });
+  sendMessage(res, 'Equipo actualizado', 200, updatedTeam);
 
 }, 'Error al actualizar el equipo', 500));
 
@@ -283,14 +265,14 @@ router.delete('/:id', verifyToken, requireAdminClub, asyncHandler(async (req, re
 
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team || !hasClubPermission(req.user, team.clubId)) {
-    return res.status(404).json({ success: false, error: 'Equipo no encontrado o sin permisos' });
+    return sendError(res, 404, 'Equipo no encontrado o sin permisos');
   }
 
   await prisma.team.delete({
     where: { id: teamId },
   });
 
-  res.status(200).json({ success: true, message: 'Equipo eliminado con éxito' });
+  sendMessage(res, 'Equipo eliminado con éxito');
 
 }, 'Error al eliminar el equipo', 500));
 
@@ -298,16 +280,16 @@ router.delete('/:id', verifyToken, requireAdminClub, asyncHandler(async (req, re
 router.post('/matches/:matchId/availability', asyncHandler(async (req, res) => {
   const matchId = req.params.matchId as string;
   const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!userId) return sendError(res, 401, 'No autorizado');
 
   // Solo los jugadores del equipo confirman su asistencia a sus partidos.
   const teamMatch = await prisma.teamMatch.findUnique({
     where: { id: matchId },
     select: { team: { select: { players: { select: { id: true } } } } },
   });
-  if (!teamMatch) return res.status(404).json({ success: false, error: 'Partido no encontrado' });
+  if (!teamMatch) return sendError(res, 404, 'Partido no encontrado');
   if (!teamMatch.team.players.some((player) => player.id === userId)) {
-    return res.status(403).json({ success: false, error: 'No formas parte de este equipo' });
+    return sendError(res, 403, 'No formas parte de este equipo');
   }
 
   // Comprobar si ya existe
@@ -317,10 +299,10 @@ router.post('/matches/:matchId/availability', asyncHandler(async (req, res) => {
 
   if (existing) {
     await prisma.teamMatchAvailability.delete({ where: { id: existing.id } });
-    return res.status(200).json({ success: true, message: 'Asistencia cancelada' });
+    return sendMessage(res, 'Asistencia cancelada');
   } else {
     await prisma.teamMatchAvailability.create({ data: { matchId, playerId: userId } });
-    return res.status(200).json({ success: true, message: 'Asistencia confirmada' });
+    return sendMessage(res, 'Asistencia confirmada');
   }
 
 }, 'Error al actualizar asistencia', 500));

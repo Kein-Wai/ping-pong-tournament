@@ -91,7 +91,7 @@ describe('CRUD de Rutas de Usuario (/api/users)', () => {
         .send({ name: 'Nuevo', surname: 'Nombre' });
 
       expect(response.status).toBe(200);
-      expect(response.body.user.name).toBe('Nuevo');
+      expect(response.body.data.name).toBe('Nuevo');
     });
 
     it('Debería fallar (400) si intenta cambiar contraseña sin proveer la actual', async () => {

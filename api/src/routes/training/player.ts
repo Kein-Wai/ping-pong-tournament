@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../../db';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendData, sendError } from '../../http/response';
 import { canManageTraining, canViewTraining } from '../../utils/training-access';
 
 const router = Router();
@@ -13,12 +13,10 @@ router.get('/player/:playerId', asyncHandler(async (req, res) => {
     select: { id: true, clubId: true },
   });
   if (!owner) {
-    return res.status(404).json({ success: false, error: 'Jugador no encontrado' });
+    return sendError(res, 404, 'Jugador no encontrado');
   }
   if (!canViewTraining(req.user, owner)) {
-    return res
-      .status(403)
-      .json({ success: false, error: 'No tienes permiso para ver los entrenamientos de este jugador' });
+    return sendError(res, 403, 'No tienes permiso para ver los entrenamientos de este jugador');
   }
 
   // 2. Consulta a Prisma
@@ -30,7 +28,7 @@ router.get('/player/:playerId', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(200).json({ success: true, data: plans });
+  sendData(res, plans);
 
 }, 'Error al obtener los planes del jugador', 500));
 
@@ -39,7 +37,7 @@ router.get('/player/:playerId/upcoming', asyncHandler(async (req, res) => {
 
   // Seguridad: Solo el propio jugador puede ver sus avisos del dashboard
   if (req.user?.id !== playerId) {
-    return res.status(403).json({ success: false, error: 'No autorizado' });
+    return sendError(res, 403, 'No autorizado');
   }
 
   const today = new Date();
@@ -58,7 +56,7 @@ router.get('/player/:playerId/upcoming', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(200).json({ success: true, data: upcomingSessions });
+  sendData(res, upcomingSessions);
 
 }, 'Error al obtener próximas sesiones', 500));
 

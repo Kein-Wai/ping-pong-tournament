@@ -108,7 +108,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
         .send({ email: 'carlos@pingpong.com', password: 'password123' });
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('token');
+      expect(response.body.data).toHaveProperty('token');
       expect(response.body.message).toBe('Login local exitoso');
     });
 
@@ -126,7 +126,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error', 'Credenciales incorrectas');
 
-      expect(response.body).not.toHaveProperty('token');
+      expect(response.body.data).toBeUndefined();
     });
   });
 
@@ -149,7 +149,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
         .send({ credential: 'fake-google-token-from-frontend' });
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('token');
+      expect(response.body.data).toHaveProperty('token');
       expect(response.body.message).toBe('Login con Google exitoso');
     });
 
@@ -169,7 +169,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
         .send({ credential: 'token-con-correo-sin-verificar' });
 
       expect(response.status).toBe(401);
-      expect(response.body).not.toHaveProperty('token');
+      expect(response.body.data).toBeUndefined();
       // No debe vincular ni crear ninguna cuenta con un correo que Google no ha verificado.
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(prisma.user.create).not.toHaveBeenCalled();

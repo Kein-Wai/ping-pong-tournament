@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../db';
 import { z } from 'zod';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../../http/response';
 import { addExerciseToSessionSchema } from '../../schemas/training';
 import { requireAdminClub } from '../../middleware/auth.middleware';
 import { canManageTraining, canViewTraining } from '../../utils/training-access';
@@ -17,9 +17,7 @@ router.post('/sessions/:sessionId/exercises', requireAdminClub, asyncHandler(asy
   // 1. Validación de formato (Body)
   const validation = addExerciseToSessionSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const { exerciseId, sets, reps, durationMinutes } = validation.data;
@@ -30,15 +28,15 @@ router.post('/sessions/:sessionId/exercises', requireAdminClub, asyncHandler(asy
     include: OWNER_SELECT,
   });
   if (!sessionExists) {
-    return res.status(404).json({ success: false, error: 'La sesión de entrenamiento no existe' });
+    return sendError(res, 404, 'La sesión de entrenamiento no existe');
   }
   if (!canManageTraining(req.user, sessionExists.player)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso sobre esta sesión' });
+    return sendError(res, 403, 'No tienes permiso sobre esta sesión');
   }
 
   const exerciseExists = await prisma.exercise.findUnique({ where: { id: exerciseId } });
   if (!exerciseExists) {
-    return res.status(404).json({ success: false, error: 'El ejercicio indicado no existe en el catálogo' });
+    return sendError(res, 404, 'El ejercicio indicado no existe en el catálogo');
   }
 
   // 3. Regla de negocio (Opcional pero recomendada): Un mismo ejercicio no debería estar dos veces en la misma sesión
@@ -47,7 +45,7 @@ router.post('/sessions/:sessionId/exercises', requireAdminClub, asyncHandler(asy
   });
 
   if (alreadyAdded) {
-    return res.status(400).json({ success: false, error: 'Este ejercicio ya está asignado a esta sesión' });
+    return sendError(res, 400, 'Este ejercicio ya está asignado a esta sesión');
   }
 
   const currentExercisesCount = await prisma.sessionExercise.count({
@@ -55,9 +53,7 @@ router.post('/sessions/:sessionId/exercises', requireAdminClub, asyncHandler(asy
   });
 
   if (currentExercisesCount >= 6) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Se ha alcanzado el límite máximo de 6 ejercicios por sesión' });
+    return sendError(res, 400, 'Se ha alcanzado el límite máximo de 6 ejercicios por sesión');
   }
 
   // 4. Guardar en la tabla pivote
@@ -71,7 +67,7 @@ router.post('/sessions/:sessionId/exercises', requireAdminClub, asyncHandler(asy
     },
   });
 
-  res.status(201).json({ success: true, data: sessionExercise });
+  sendData(res, sessionExercise, 201);
 
 }, 'Error al añadir el ejercicio a la sesión', 500));
 
@@ -87,13 +83,13 @@ router.post(
       prisma.trainingSession.findUnique({ where: { id: sourceSessionId }, include: OWNER_SELECT }),
     ]);
     if (!targetSession || !sourceSession) {
-      return res.status(404).json({ success: false, error: 'La sesión de entrenamiento no existe' });
+      return sendError(res, 404, 'La sesión de entrenamiento no existe');
     }
     if (
       !canManageTraining(req.user, targetSession.player) ||
       !canManageTraining(req.user, sourceSession.player)
     ) {
-      return res.status(403).json({ success: false, error: 'No tienes permiso sobre estas sesiones' });
+      return sendError(res, 403, 'No tienes permiso sobre estas sesiones');
     }
 
     // 1. Obtener los ejercicios de la sesión origen
@@ -102,7 +98,7 @@ router.post(
     });
 
     if (sourceExercises.length === 0) {
-      return res.status(400).json({ success: false, error: 'La sesión origen no tiene ejercicios para copiar' });
+      return sendError(res, 400, 'La sesión origen no tiene ejercicios para copiar');
     }
 
     // 2. Limpiar la sesión destino (opcional, para evitar duplicados) o insertar los nuevos
@@ -118,7 +114,7 @@ router.post(
       data: newExercises,
     });
 
-    res.status(201).json({ success: true, message: 'Ejercicios clonados con éxito' });
+    sendMessage(res, 'Ejercicios clonados con éxito', 201);
   
 }, 'Error al clonar los ejercicios de la sesión', 500),
 );
@@ -131,10 +127,10 @@ router.delete('/sessions/exercises/:sessionExerciseId', requireAdminClub, asyncH
     include: { session: { include: OWNER_SELECT } },
   });
   if (!target) {
-    return res.status(404).json({ success: false, error: 'Ejercicio de la sesión no encontrado' });
+    return sendError(res, 404, 'Ejercicio de la sesión no encontrado');
   }
   if (!canManageTraining(req.user, target.session.player)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso sobre esta sesión' });
+    return sendError(res, 403, 'No tienes permiso sobre esta sesión');
   }
 
   // Eliminamos directamente por el ID único de la relación en SessionExercise
@@ -142,7 +138,7 @@ router.delete('/sessions/exercises/:sessionExerciseId', requireAdminClub, asyncH
     where: { id: sessionExerciseId },
   });
 
-  res.status(200).json({ success: true, message: 'Ejercicio eliminado de la sesión' });
+  sendMessage(res, 'Ejercicio eliminado de la sesión');
 
 }, 'Error al eliminar el ejercicio de la sesión', 500));
 
@@ -156,10 +152,10 @@ router.put('/sessions/exercises/:sessionExerciseId', asyncHandler(async (req, re
     include: { session: { include: OWNER_SELECT } },
   });
   if (!existing) {
-    return res.status(404).json({ success: false, error: 'Ejercicio de la sesión no encontrado' });
+    return sendError(res, 404, 'Ejercicio de la sesión no encontrado');
   }
   if (!canViewTraining(req.user, existing.session.player)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso sobre esta sesión' });
+    return sendError(res, 403, 'No tienes permiso sobre esta sesión');
   }
 
   const updatedExercise = await prisma.sessionExercise.update({
@@ -198,7 +194,7 @@ router.put('/sessions/exercises/:sessionExerciseId', asyncHandler(async (req, re
     });
   }
 
-  res.status(200).json({ success: true, data: updatedExercise });
+  sendData(res, updatedExercise);
 
 }, 'Error al actualizar el ejercicio', 500));
 

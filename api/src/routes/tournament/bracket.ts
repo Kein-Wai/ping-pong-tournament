@@ -8,7 +8,7 @@ import { resolveResourceAccess } from '../../utils/auth';
 import { requireAdminClub } from '../../middleware/auth.middleware';
 import { BYE_USER_ID } from '../../constants';
 import { generateTournamentExcel } from '../../services/excel';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendError, sendMessage } from '../../http/response';
 
 const router = Router();
 
@@ -24,14 +24,14 @@ router.post(
     );
     if (!access.ok) {
       if (access.reason === 'notFound') {
-        return res.status(404).json({ success: false, error: 'Torneo no encontrado' });
+        return sendError(res, 404, 'Torneo no encontrado');
       }
-      return res.status(403).json({ success: false, error: 'No tienes permisos sobre este torneo' });
+      return sendError(res, 403, 'No tienes permisos sobre este torneo');
     }
 
     const result = await generateTournamentGroups(prisma, tournamentId);
 
-    res.status(200).json(result);
+    sendMessage(res, result.message);
   }, 'Error al generar los grupos', 400),
 );
 
@@ -45,22 +45,20 @@ router.put('/:id/swap-players', requireAdminClub, asyncHandler(async (req, res) 
 
   if (!access.ok) {
     if (access.reason === 'notFound') {
-      return res.status(404).json({ success: false, error: 'Torneo no encontrado' });
+      return sendError(res, 404, 'Torneo no encontrado');
     }
-    return res.status(403).json({ success: false, error: 'No tienes permisos sobre este torneo' });
+    return sendError(res, 403, 'No tienes permisos sobre este torneo');
   }
   const { resource: tournament } = access;
 
   const targetRejection = validateSwapTarget(tournament);
   if (targetRejection) {
-    return res.status(targetRejection.status).json({ success: false, error: targetRejection.message });
+    return sendError(res, targetRejection.status, targetRejection.message);
   }
 
   const validation = swapPlayersSchema.safeParse(req.body);
   if (!validation.success)
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
 
   const { playerAId, playerBId } = validation.data;
 
@@ -103,12 +101,12 @@ router.put('/:id/swap-players', requireAdminClub, asyncHandler(async (req, res) 
     startedKnockoutMatches,
   );
   if (rejection) {
-    return res.status(rejection.status).json({ success: false, error: rejection.message });
+    return sendError(res, rejection.status, rejection.message);
   }
 
   await swapPlayers(prisma, { tournamentId, playerAId, playerBId }, tournament);
 
-  res.status(200).json({ success: true, message: 'Jugadores intercambiados con éxito' });
+  sendMessage(res, 'Jugadores intercambiados con éxito');
 
 }, 'Error interno al intercambiar jugadores', 500));
 

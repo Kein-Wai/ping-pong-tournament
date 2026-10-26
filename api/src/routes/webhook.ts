@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendError, sendMessage } from '../http/response';
 import prisma from '../db';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateRecordatorioTorneo, templateRecordatorioEvento } from '../utils/emailtemplate';
@@ -17,7 +17,7 @@ router.post(
   // 1. Seguridad: Verificar que quien llama tiene la llave secreta
   const authHeader = req.headers['x-cron-secret'];
   if (authHeader !== getRequiredEnv('CRON_SECRET')) {
-    return res.status(401).json({ success: false, error: 'Acceso denegado. Secreto inválido.' });
+    return sendError(res, 401, 'Acceso denegado. Secreto inválido.');
   }
 
     // 2. Calcular los límites exactos de "Mañana"
@@ -98,10 +98,7 @@ router.post(
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: `Procesados ${torneosManana.length} torneos y ${pendingReminders.length} eventos de calendario.`,
-    });
+    return sendMessage(res, `Procesados ${torneosManana.length} torneos y ${pendingReminders.length} eventos de calendario.`);
   }, 'Error interno del servidor'),
 );
 
@@ -114,7 +111,7 @@ router.get(
   // 1. Seguridad estricta (igual que los recordatorios)
   const authHeader = req.headers['x-cron-secret'];
   if (authHeader !== getRequiredEnv('CRON_SECRET')) {
-    return res.status(401).json({ success: false, error: 'Acceso denegado. Secreto inválido.' });
+    return sendError(res, 401, 'Acceso denegado. Secreto inválido.');
   }
 
     // 2. Test de Base de Datos: Intentamos hacer una consulta sencilla
@@ -143,9 +140,7 @@ router.get(
 
     await enviarCorreoGenerico(adminEmail, 'Monitorización: Todo OK - TT Tournament App', htmlTest);
 
-    return res.status(200).json({
-      success: true,
-      message: 'Base de datos y servicio de correos funcionando correctamente.',
+    return sendMessage(res, 'Base de datos y servicio de correos funcionando correctamente.', 200, {
       timestamp: new Date(),
       users: userCount,
     });

@@ -10,7 +10,7 @@ import {
 import { resolveCurrentSeason } from '../../utils/season';
 import { resolveResourceAccess } from '../../utils/auth';
 import { requireAdminClub } from '../../middleware/auth.middleware';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendError, sendMessage } from '../../http/response';
 
 const router = Router();
 
@@ -19,14 +19,12 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
   const userClubId = req.user?.clubId;
 
   if (role === 'AdminClub' && !userClubId) {
-    return res.status(403).json({ success: false, error: 'No perteneces a ningún club para crear torneos' });
+    return sendError(res, 403, 'No perteneces a ningún club para crear torneos');
   }
   const validation = createTournamentSchema.safeParse(req.body);
 
   if (!validation.success) {
-    res.status(400).json({ success: false, error: 'Datos inválidos',
-      details: z.treeifyError(validation.error),
-    });
+    sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
     return;
   }
 
@@ -59,10 +57,7 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({
-    message: 'Torneo creado con éxito',
-    tournament: newTournament,
-  });
+  sendMessage(res, 'Torneo creado con éxito', 201, newTournament);
 
 }, 'Error interno al crear el torneo', 500));
 
@@ -76,17 +71,15 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 
   if (!access.ok) {
     if (access.reason === 'notFound') {
-      return res.status(404).json({ success: false, error: 'Torneo no encontrado' });
+      return sendError(res, 404, 'Torneo no encontrado');
     }
-    return res.status(403).json({ success: false, error: 'No tienes permiso para editar este torneo' });
+    return sendError(res, 403, 'No tienes permiso para editar este torneo');
   }
   const { resource: tournament } = access;
 
   const validation = baseTournamentObject.partial().safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const mergedData = {
@@ -103,9 +96,7 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
     .safeParse(mergedData);
 
   if (!businessValidation.success) {
-    return res.status(400).json({ success: false, error: 'La nueva configuración rompe las reglas del torneo',
-      details: z.treeifyError(businessValidation.error),
-    });
+    return sendError(res, 400, 'La nueva configuración rompe las reglas del torneo', z.treeifyError(businessValidation.error));
   }
 
   const updatedTournament = await prisma.tournament.update({
@@ -113,7 +104,7 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
     data: validation.data,
   });
 
-  res.status(200).json({ success: true, message: 'Torneo actualizado', data: updatedTournament });
+  sendMessage(res, 'Torneo actualizado', 200, updatedTournament);
 
 }, 'Error interno al actualizar el torneo', 500));
 
@@ -128,16 +119,15 @@ router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
 
   if (!access.ok) {
     if (access.reason === 'notFound') {
-      return res.status(404).json({ success: false, error: 'Torneo no encontrado' });
+      return sendError(res, 404, 'Torneo no encontrado');
     }
-    return res.status(403).json({ success: false, error: 'No tienes permiso para borrar este torneo' });
+    return sendError(res, 403, 'No tienes permiso para borrar este torneo');
   }
   const { resource: tournament } = access;
 
   // Regla de negocio: Solo se puede borrar si no se ha iniciado
   if (tournament.status !== 'Programado') {
-    return res.status(400).json({ success: false, error: 'No se puede eliminar un torneo que ya ha sido iniciado o finalizado.',
-    });
+    return sendError(res, 400, 'No se puede eliminar un torneo que ya ha sido iniciado o finalizado.');
   }
 
   // Eliminación en cascada (Prisma borrará las inscripciones asociadas si las hay)
@@ -145,7 +135,7 @@ router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
     where: { id: tournamentId },
   });
 
-  res.status(200).json({ success: true, message: 'Torneo eliminado con éxito' });
+  sendMessage(res, 'Torneo eliminado con éxito');
 
 }, 'Error interno del servidor al eliminar el torneo', 500));
 

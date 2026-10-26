@@ -65,9 +65,13 @@ const FULL_PAYLOAD = {
   forcePasswordChange: false,
 };
 
-// La API responde FUERA del sobre { success, data }: { message, token, refreshToken }.
+// La API responde con el sobre { success, message, data: { token, refreshToken } }.
 const tokenResponse = (payload: Record<string, unknown> = FULL_PAYLOAD) => ({
-  data: { message: 'ok', token: makeToken(payload), refreshToken: 'refresh-1' },
+  data: {
+    success: true,
+    message: 'ok',
+    data: { token: makeToken(payload), refreshToken: 'refresh-1' },
+  },
 });
 
 const backendError = (message: string) =>

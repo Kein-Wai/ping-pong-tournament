@@ -24,8 +24,10 @@ describe('authService', () => {
   });
 
   describe('login', () => {
-    it('envía las credenciales por POST y devuelve el token, que la API manda sin sobre', async () => {
-      mockedApi.post.mockResolvedValue({ data: { message: 'Login local exitoso', token: 'jwt-1' } });
+    it('envía las credenciales por POST y devuelve la sesión que viene en data', async () => {
+      mockedApi.post.mockResolvedValue({
+        data: { success: true, message: 'Login local exitoso', data: { token: 'jwt-1', refreshToken: 'r-1' } },
+      });
 
       const result = await authService.login({ email: 'ana@test.com', password: 'Abcdef1@' });
 
@@ -34,7 +36,7 @@ describe('authService', () => {
         { email: 'ana@test.com', password: 'Abcdef1@' },
         undefined,
       );
-      expect(result.token).toBe('jwt-1');
+      expect(result).toEqual({ token: 'jwt-1', refreshToken: 'r-1' });
     });
 
     it('propaga el error de credenciales incorrectas', async () => {
@@ -46,7 +48,7 @@ describe('authService', () => {
 
   describe('logout', () => {
     it('envía el refresh token a revocar por POST', async () => {
-      mockedApi.post.mockResolvedValue({ data: { message: 'Sesión cerrada' } });
+      mockedApi.post.mockResolvedValue({ data: { success: true, message: 'Sesión cerrada' } });
 
       const result = await authService.logout('refresh-1');
 
@@ -55,13 +57,13 @@ describe('authService', () => {
         { refreshToken: 'refresh-1' },
         undefined,
       );
-      expect(result).toEqual({ message: 'Sesión cerrada' });
+      expect(result).toBeUndefined();
     });
   });
 
   describe('register', () => {
-    it('envía el registro tal cual lo manda la pantalla y devuelve solo el mensaje', async () => {
-      mockedApi.post.mockResolvedValue({ data: { message: 'Jugador registrado con éxito' } });
+    it('envía el registro tal cual lo manda la pantalla y no devuelve datos', async () => {
+      mockedApi.post.mockResolvedValue({ data: { success: true, message: 'Jugador registrado con éxito' } });
       const payload = {
         email: 'ana@test.com',
         password: 'Abcdef1@',
@@ -75,13 +77,15 @@ describe('authService', () => {
       const result = await authService.register(payload);
 
       expect(mockedApi.post).toHaveBeenCalledWith(ENDPOINTS.AUTH.REGISTER, payload, undefined);
-      expect(result).toEqual({ message: 'Jugador registrado con éxito' });
+      expect(result).toBeUndefined();
     });
   });
 
   describe('loginWithGoogle', () => {
     it('envía la credencial y el rol elegido', async () => {
-      mockedApi.post.mockResolvedValue({ data: { message: 'Login con Google exitoso', token: 'jwt-2' } });
+      mockedApi.post.mockResolvedValue({
+        data: { success: true, data: { token: 'jwt-2', refreshToken: 'r-2' } },
+      });
 
       const result = await authService.loginWithGoogle('google-token', 'AdminClub');
 
@@ -94,7 +98,7 @@ describe('authService', () => {
     });
 
     it('usa el rol Player cuando no se indica', async () => {
-      mockedApi.post.mockResolvedValue({ data: { token: 'jwt-3' } });
+      mockedApi.post.mockResolvedValue({ data: { success: true, data: { token: 'jwt-3' } } });
 
       await authService.loginWithGoogle('google-token');
 
@@ -109,7 +113,7 @@ describe('authService', () => {
   describe('forgotPassword', () => {
     it('solicita la recuperación con el email y devuelve el mensaje genérico', async () => {
       mockedApi.post.mockResolvedValue({
-        data: { message: 'Si el correo existe, se han enviado las instrucciones.' },
+        data: { success: true, message: 'Si el correo existe, se han enviado las instrucciones.' },
       });
 
       const result = await authService.forgotPassword('ana@test.com');
@@ -119,13 +123,15 @@ describe('authService', () => {
         { email: 'ana@test.com' },
         undefined,
       );
-      expect(result.message).toContain('instrucciones');
+      expect(result).toBeUndefined();
     });
   });
 
   describe('resetPassword', () => {
     it('envía el token, la contraseña nueva y su confirmación', async () => {
-      mockedApi.post.mockResolvedValue({ data: { message: 'Contraseña actualizada con éxito.' } });
+      mockedApi.post.mockResolvedValue({
+        data: { success: true, message: 'Contraseña actualizada con éxito.' },
+      });
 
       const result = await authService.resetPassword('tok-1', 'Abcdef1@', 'Abcdef1@');
 
@@ -134,7 +140,7 @@ describe('authService', () => {
         { token: 'tok-1', newPassword: 'Abcdef1@', confirmPassword: 'Abcdef1@' },
         undefined,
       );
-      expect(result.message).toContain('actualizada');
+      expect(result).toBeUndefined();
     });
   });
 });

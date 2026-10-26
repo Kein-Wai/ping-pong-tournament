@@ -7,7 +7,7 @@ import { resolveCurrentSeason } from '../utils/season';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateAceptacionClub } from '../utils/emailtemplate';
 import { hasClubPermission } from '../utils/auth';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 
 const router = Router();
 
@@ -36,17 +36,17 @@ router.get('/', asyncHandler(async (req, res) => {
     createdAt: club.createdAt,
     memberCount: club._count.users, // <-- Se lo enviamos como un número limpio
   }));
-  res.status(200).json({ success: true, data: formattedClubs });
+  sendData(res, formattedClubs);
 
 }, 'Error al obtener los clubes', 500));
 
 router.post('/', verifyToken, asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ success: false, error: 'No autenticado' });
+  if (!userId) return sendError(res, 401, 'No autenticado');
 
   const validation = createClubSchema.safeParse(req.body);
   if (!validation.success) {
-    res.status(400).json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
     return;
   }
 
@@ -54,7 +54,7 @@ router.post('/', verifyToken, asyncHandler(async (req, res) => {
 
   const existingClub = await prisma.club.findUnique({ where: { name } });
   if (existingClub) {
-    res.status(400).json({ success: false, error: 'Ya existe un club con este nombre' });
+    sendError(res, 400, 'Ya existe un club con este nombre');
     return;
   }
 
@@ -74,11 +74,7 @@ router.post('/', verifyToken, asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(201).json({
-    success: true,
-    message: 'Club solicitado con éxito. Esperando aprobación.',
-    data: newClub,
-  });
+  sendMessage(res, 'Club solicitado con éxito. Esperando aprobación.', 201, newClub);
 
 }, 'Error al crear el club', 500));
 
@@ -96,7 +92,7 @@ router.get('/admin/all', verifyToken, requireSuperAdmin, asyncHandler(async (req
     },
   });
 
-  res.status(200).json({ success: true, data: clubs });
+  sendData(res, clubs);
 
 }, 'Error al obtener la lista global de clubes', 500));
 
@@ -116,9 +112,9 @@ router.get(
         },
       },
     });
-    if (!club) return res.status(404).json({ success: false, error: 'Club no encontrado' });
+    if (!club) return sendError(res, 404, 'Club no encontrado');
 
-    res.status(200).json({ success: true, data: club });
+    sendData(res, club);
   }, 'Error al obtener el club'),
 );
 
@@ -127,14 +123,12 @@ router.put('/:id', verifyToken, requireAdminClub, asyncHandler(async (req, res) 
 
   // Seguridad Multi-tenant
   if (!hasClubPermission(req.user, clubId)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso para editar este club' });
+    return sendError(res, 403, 'No tienes permiso para editar este club');
   }
 
   const validation = updateClubSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
 
   const updatedClub = await prisma.club.update({
@@ -142,9 +136,7 @@ router.put('/:id', verifyToken, requireAdminClub, asyncHandler(async (req, res) 
     data: validation.data,
   });
 
-  res
-    .status(200)
-    .json({ success: true, message: 'Sede actualizada correctamente', data: updatedClub });
+  sendMessage(res, 'Sede actualizada correctamente', 200, updatedClub);
 
 }, 'Error al actualizar el club', 500));
 
@@ -154,21 +146,19 @@ router.post('/:id/join', verifyToken, asyncHandler(async (req, res) => {
   const clubId = req.params.id as string;
   const userId = req.user?.id as string;
 
-  if (!userId) return res.status(401).json({ success: false, error: 'No autenticado' });
+  if (!userId) return sendError(res, 401, 'No autenticado');
 
   // 1. Verificar que el club exista y esté Aprobado
   const club = await prisma.club.findUnique({ where: { id: clubId } });
   if (!club || club.status !== 'Aprobado') {
-    res.status(404).json({ success: false, error: 'Club no encontrado o no está disponible para unirse' });
+    sendError(res, 404, 'Club no encontrado o no está disponible para unirse');
     return;
   }
 
   // 2. Verificar si el usuario ya pertenece a un club
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (user?.clubId) {
-    res
-      .status(400)
-      .json({ success: false, error: 'Ya perteneces o has solicitado unirte a un club. Debes salir primero.' });
+    sendError(res, 400, 'Ya perteneces o has solicitado unirte a un club. Debes salir primero.');
     return;
   }
 
@@ -181,7 +171,7 @@ router.post('/:id/join', verifyToken, asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(200).json({ success: true, message: 'Solicitud enviada al administrador del club' });
+  sendMessage(res, 'Solicitud enviada al administrador del club');
 
 }, 'Error al procesar la solicitud', 500));
 
@@ -190,9 +180,7 @@ router.get('/:id/members', verifyToken, requireAdminClub, asyncHandler(async (re
   const clubId = req.params.id as string; // <-- Forzado a string aquí
 
   if (!hasClubPermission(req.user, clubId)) {
-    res
-      .status(403)
-      .json({ success: false, error: 'No tienes permiso para ver los miembros de un club que no administras' });
+    sendError(res, 403, 'No tienes permiso para ver los miembros de un club que no administras');
     return;
   }
 
@@ -209,7 +197,7 @@ router.get('/:id/members', verifyToken, requireAdminClub, asyncHandler(async (re
     orderBy: { clubStatus: 'asc' },
   });
 
-  res.status(200).json({ success: true, data: members });
+  sendData(res, members);
 
 }, 'Error al cargar los miembros', 500));
 
@@ -220,14 +208,14 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, asyncHa
 
   // Verificación de seguridad multi-tenant: El AdminClub solo opera en SU club asignado
   if (!hasClubPermission(req.user, clubId)) {
-    res.status(403).json({ success: false, error: 'No tienes permiso para administrar este club' });
+    sendError(res, 403, 'No tienes permiso para administrar este club');
     return;
   }
 
   // Validamos usando tu esquema nativo (UserClubStatus.Aprobado | UserClubStatus.Rechazado)
   const validation = updateMemberStatusSchema.safeParse(req.body);
   if (!validation.success) {
-    res.status(400).json({ success: false, error: 'Estado inválido. Debe ser Aprobado o Rechazado.' });
+    sendError(res, 400, 'Estado inválido. Debe ser Aprobado o Rechazado.');
     return;
   }
 
@@ -236,7 +224,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, asyncHa
   // Verificar si el usuario realmente mandó la solicitud a este club específico
   const userToUpdate = await prisma.user.findUnique({ where: { id: userId } });
   if (!userToUpdate || userToUpdate.clubId !== clubId) {
-    res.status(404).json({ success: false, error: 'El usuario no ha solicitado unirse a este club' });
+    sendError(res, 404, 'El usuario no ha solicitado unirse a este club');
     return;
   }
 
@@ -291,10 +279,7 @@ router.put('/:id/members/:userId/status', verifyToken, requireAdminClub, asyncHa
     ).catch(console.error);
   }
 
-  res.status(200).json({
-    success: true,
-    message: `Usuario ${status.toLowerCase() === 'aprobado' ? 'aprobado' : 'rechazado'} con éxito`,
-  });
+  sendMessage(res, `Usuario ${status.toLowerCase() === 'aprobado' ? 'aprobado' : 'rechazado'} con éxito`);
 
 }, 'Error al actualizar el estado del miembro', 500));
 
@@ -303,7 +288,7 @@ router.get('/:id/notifications', verifyToken, requireAdminClub, asyncHandler(asy
   const clubId = req.params.id as string;
 
   if (!hasClubPermission(req.user, clubId)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso para ver estas notificaciones' });
+    return sendError(res, 403, 'No tienes permiso para ver estas notificaciones');
   }
 
   // 1. Contar solicitudes de unión al club pendientes
@@ -319,14 +304,11 @@ router.get('/:id/notifications', verifyToken, requireAdminClub, asyncHandler(asy
     },
   });
 
-  res.status(200).json({
-    success: true,
-    data: {
+  sendData(res, {
       pendingMembers,
       pendingTournaments,
       total: pendingMembers + pendingTournaments,
-    },
-  });
+    });
 
 }, 'Error al obtener las notificaciones', 500));
 

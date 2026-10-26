@@ -26,7 +26,9 @@ describe('refreshSession', () => {
 
   it('canjea el refresh token guardado, guarda el par nuevo y avisa del token de acceso', async () => {
     localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-viejo');
-    mockedPost.mockResolvedValue({ data: { token: 'acceso-nuevo', refreshToken: 'refresh-nuevo' } });
+    mockedPost.mockResolvedValue({
+      data: { success: true, data: { token: 'acceso-nuevo', refreshToken: 'refresh-nuevo' } },
+    });
 
     const token = await refreshSession();
 
@@ -68,7 +70,9 @@ describe('refreshSession', () => {
 
   it('dos renovaciones simultáneas comparten una sola petición', async () => {
     localStorage.setItem(REFRESH_TOKEN_KEY, 'refresh-viejo');
-    mockedPost.mockResolvedValue({ data: { token: 'acceso-nuevo', refreshToken: 'refresh-nuevo' } });
+    mockedPost.mockResolvedValue({
+      data: { success: true, data: { token: 'acceso-nuevo', refreshToken: 'refresh-nuevo' } },
+    });
 
     const [first, second] = await Promise.all([refreshSession(), refreshSession()]);
 

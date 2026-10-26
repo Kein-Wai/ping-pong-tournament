@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import prisma from '../../db';
-import { asyncHandler, sendData } from '../../http/response';
+import { asyncHandler, sendData, sendError } from '../../http/response';
 import { buildNullableClubScope, canAccessClub } from '../../utils/auth';
 import { toSafeUser } from '../../utils/safe-user';
 
@@ -14,9 +14,7 @@ router.get('/', asyncHandler(async (req, res) => {
   });
 
   if (!playerType) {
-    return res
-      .status(500)
-      .json({ success: false, error: 'El rol Player no está configurado en la base de datos' });
+    return sendError(res, 500, 'El rol Player no está configurado en la base de datos');
   }
 
   // Filtro base: Solo queremos que devuelva jugadores (no otros admins).
@@ -46,7 +44,7 @@ router.get('/', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(200).json({ success: true, data: users });
+  sendData(res, users);
 
 }, 'Error al obtener los usuarios', 500));
 
@@ -72,16 +70,14 @@ router.get('/:id', asyncHandler(async (req, res) => {
     },
   });
   if (!user) {
-    return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    return sendError(res, 404, 'Usuario no encontrado');
   }
 
   // La autorización va ANTES de cualquier otra consulta: solo se puede ver el
   // perfil propio o el de jugadores del propio club (el SuperAdmin ve todos).
   const isOwnProfile = req.user?.id === user.id;
   if (!isOwnProfile && !canAccessClub(req.user, user.clubId)) {
-    return res
-      .status(403)
-      .json({ success: false, error: 'No tienes permiso para ver este jugador' });
+    return sendError(res, 403, 'No tienes permiso para ver este jugador');
   }
 
   // 2. Sumamos todas las micromejoras que están en estado EXPECTED

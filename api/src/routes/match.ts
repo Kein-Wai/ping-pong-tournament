@@ -9,7 +9,7 @@ import { resolveCurrentSeason } from '../utils/season';
 import { getScopeClubId, hasClubPermission } from '../utils/auth';
 import { getMatchOwnerClubId } from '../utils/match-access';
 import { requireAdminClub } from '../middleware/auth.middleware';
-import { asyncHandler, sendData, sendMessage } from '../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 
 const router = Router();
 
@@ -17,7 +17,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     if (!req.user) {
-      return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
+      return sendError(res, 401, 'Usuario no autenticado');
     }
 
     const userId = req.user.id;
@@ -37,7 +37,7 @@ router.get(
       };
     } else if (!scopeClubId) {
       // 🚨 BLOQUEO DE SEGURIDAD: Si es Admin pero su token no tiene clubId, le devolvemos vacío para evitar la fuga de nulos
-      return res.status(200).json({ success: true, data: [] });
+      return sendData(res, []);
     } else {
       // Ve los partidos de su club (Torneos internos, ligas, etc)
       whereCondition = {
@@ -97,13 +97,7 @@ router.post(
     const validation = createMatchSchema.safeParse(req.body);
 
     if (!validation.success) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: 'Datos inválidos',
-          details: z.treeifyError(validation.error),
-        });
+      sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
       return;
     }
 
@@ -133,7 +127,7 @@ router.post(
     } = validation.data;
 
     if (playerOneId === playerTwoId) {
-      res.status(400).json({ success: false, error: 'Un jugador no puede enfrentarse a sí mismo' });
+      sendError(res, 400, 'Un jugador no puede enfrentarse a sí mismo');
       return;
     }
 
@@ -152,9 +146,7 @@ router.post(
           }),
         };
     if (!hasClubPermission(req.user, getMatchOwnerClubId(ownership))) {
-      res
-        .status(403)
-        .json({ success: false, error: 'No tienes permiso para crear partidos en este club' });
+      sendError(res, 403, 'No tienes permiso para crear partidos en este club');
       return;
     }
     const currentSeason = await resolveCurrentSeason(prisma);
@@ -204,13 +196,7 @@ router.put(
     const validation = baseMatchObject.partial().safeParse(req.body);
 
     if (!validation.success) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: 'Datos inválidos',
-          details: z.treeifyError(validation.error),
-        });
+      sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
       return;
     }
 
@@ -223,12 +209,12 @@ router.put(
     });
 
     if (!existingMatch) {
-      res.status(404).json({ success: false, error: 'Partido no encontrado' });
+      sendError(res, 404, 'Partido no encontrado');
       return;
     }
 
     if (!hasClubPermission(req.user, getMatchOwnerClubId(existingMatch))) {
-      res.status(403).json({ success: false, error: 'No tienes permiso para editar este partido' });
+      sendError(res, 403, 'No tienes permiso para editar este partido');
       return;
     }
 
@@ -246,13 +232,7 @@ router.put(
       .safeParse(mergedData);
 
     if (!businessValidation.success) {
-      res
-        .status(400)
-        .json({
-          success: false,
-          error: 'El marcador no cumple las reglas del partido',
-          details: z.treeifyError(businessValidation.error),
-        });
+      sendError(res, 400, 'El marcador no cumple las reglas del partido', z.treeifyError(businessValidation.error));
       return;
     }
 

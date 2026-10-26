@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../db';
 import bcrypt from 'bcryptjs';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../../http/response';
 import { updateProfileSchema } from '../../schemas/user';
 import { toSafeUser } from '../../utils/safe-user';
 
@@ -9,7 +9,7 @@ const router = Router();
 
 router.get('/me', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!userId) return sendError(res, 401, 'No autorizado');
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -20,7 +20,7 @@ router.get('/me', asyncHandler(async (req, res) => {
     },
   });
 
-  if (!user) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+  if (!user) return sendError(res, 404, 'Usuario no encontrado');
 
   // Sumamos las mejoras pendientes igual que hacíamos en el GET /:id
   const pendingUpdates = await prisma.playerSkillUpdate.aggregate({
@@ -41,13 +41,10 @@ router.get('/me', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(200).json({
-    success: true,
-    data: {
+  sendData(res, {
       ...toSafeUser(user),
       pendingSkills: pendingUpdates._sum,
-    },
-  });
+    });
 
 }, 'Error al obtener el perfil', 500));
 
@@ -55,13 +52,13 @@ router.put('/me', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
 
   if (!userId) {
-    res.status(401).json({ success: false, error: 'Usuario no autenticado' });
+    sendError(res, 401, 'Usuario no autenticado');
     return;
   }
 
   const validation = updateProfileSchema.safeParse(req.body);
   if (!validation.success) {
-    res.status(400).json({ success: false, error: 'Datos inválidos', details: validation.error.format() });
+    sendError(res, 400, 'Datos inválidos', validation.error.format());
     return;
   }
 
@@ -69,7 +66,7 @@ router.put('/me', asyncHandler(async (req, res) => {
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
-    res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    sendError(res, 404, 'Usuario no encontrado');
     return;
   }
 
@@ -88,13 +85,13 @@ router.put('/me', asyncHandler(async (req, res) => {
   if (data.newPassword) {
     if (user.password) {
       if (!data.currentPassword) {
-        res.status(400).json({ success: false, error: 'Debes proporcionar tu contraseña actual para cambiarla' });
+        sendError(res, 400, 'Debes proporcionar tu contraseña actual para cambiarla');
         return;
       }
 
       const isMatch = await bcrypt.compare(data.currentPassword, user.password);
       if (!isMatch) {
-        res.status(401).json({ success: false, error: 'La contraseña actual es incorrecta' });
+        sendError(res, 401, 'La contraseña actual es incorrecta');
         return;
       }
     }
@@ -119,10 +116,7 @@ router.put('/me', asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(200).json({
-    message: 'Perfil actualizado con éxito',
-    user: updatedProfile,
-  });
+  sendMessage(res, 'Perfil actualizado con éxito', 200, updatedProfile);
 
 }, 'Error interno del servidor', 500));
 

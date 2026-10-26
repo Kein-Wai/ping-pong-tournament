@@ -7,7 +7,7 @@ import { createEventSchema, updateEventSchema } from '../schemas/event';
 import { resolveCurrentSeason } from '../utils/season';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateCambioFechaEvento } from '../utils/emailtemplate';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 
 const router = Router();
 
@@ -20,9 +20,7 @@ router.get(
       const userId = req.user?.id;
 
       if (!canAccessClub(req.user, clubId)) {
-        return res
-          .status(403)
-          .json({ success: false, error: 'No tienes permiso para ver los eventos de este club' });
+        return sendError(res, 403, 'No tienes permiso para ver los eventos de este club');
       }
 
       const currentSeason = await resolveCurrentSeason(prisma);
@@ -38,7 +36,7 @@ router.get(
         },
       });
 
-      res.status(200).json({ success: true, data: events });
+      sendData(res, events);
     },
     'Error obteniendo eventos',
     500,
@@ -53,16 +51,10 @@ router.post(
     async (req, res) => {
       const validation = createEventSchema.safeParse(req.body);
       if (!validation.success)
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: 'Datos inválidos',
-            details: z.treeifyError(validation.error),
-          });
+        return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
 
       const clubId = req.user?.clubId;
-      if (!clubId) return res.status(403).json({ success: false, error: 'No tienes club' });
+      if (!clubId) return sendError(res, 403, 'No tienes club');
 
       const currentSeason = await resolveCurrentSeason(prisma);
 
@@ -74,7 +66,7 @@ router.post(
         },
       });
 
-      res.status(201).json({ success: true, data: newEvent });
+      sendData(res, newEvent, 201);
     },
     'Error creando el evento',
     500,
@@ -90,7 +82,7 @@ router.put(
       const eventId = req.params.id as string;
       const validation = updateEventSchema.safeParse(req.body);
       if (!validation.success)
-        return res.status(400).json({ success: false, error: 'Datos inválidos' });
+        return sendError(res, 400, 'Datos inválidos');
 
       const access = resolveResourceAccess(
         await prisma.clubEvent.findUnique({
@@ -101,10 +93,8 @@ router.put(
       );
       if (!access.ok) {
         return access.reason === 'notFound'
-          ? res.status(404).json({ success: false, error: 'Evento no encontrado' })
-          : res
-              .status(403)
-              .json({ success: false, error: 'No tienes permiso para editar este evento' });
+          ? sendError(res, 404, 'Evento no encontrado')
+          : sendError(res, 403, 'No tienes permiso para editar este evento');
       }
       const { resource: oldEvent } = access;
 
@@ -161,7 +151,7 @@ router.put(
         }
       }
 
-      res.status(200).json({ success: true, data: updatedEvent });
+      sendData(res, updatedEvent);
     },
     'Error actualizando el evento',
     500,
@@ -181,14 +171,12 @@ router.delete(
       );
       if (!access.ok) {
         return access.reason === 'notFound'
-          ? res.status(404).json({ success: false, error: 'Evento no encontrado' })
-          : res
-              .status(403)
-              .json({ success: false, error: 'No tienes permiso para borrar este evento' });
+          ? sendError(res, 404, 'Evento no encontrado')
+          : sendError(res, 403, 'No tienes permiso para borrar este evento');
       }
 
       await prisma.clubEvent.delete({ where: { id: eventId } });
-      res.status(200).json({ success: true, message: 'Evento eliminado' });
+      sendMessage(res, 'Evento eliminado');
     },
     'Error eliminando el evento',
     500,
@@ -202,14 +190,12 @@ router.post(
     async (req, res) => {
       const eventId = req.params.id as string;
       const userId = req.user?.id;
-      if (!userId) return res.status(401).json({ success: false, error: 'No autorizado' });
+      if (!userId) return sendError(res, 401, 'No autorizado');
 
       const event = await prisma.clubEvent.findUnique({ where: { id: eventId } });
-      if (!event) return res.status(404).json({ success: false, error: 'Evento no encontrado' });
+      if (!event) return sendError(res, 404, 'Evento no encontrado');
       if (!canAccessClub(req.user, event.clubId)) {
-        return res
-          .status(403)
-          .json({ success: false, error: 'No tienes permiso sobre este evento' });
+        return sendError(res, 403, 'No tienes permiso sobre este evento');
       }
 
       const eventDate = new Date(event.date);
@@ -231,7 +217,7 @@ router.post(
         await prisma.eventReminder.createMany({ data: remindersToCreate });
       }
 
-      res.status(201).json({ success: true, message: 'Recordatorios activados' });
+      sendMessage(res, 'Recordatorios activados', 201);
     },
     'Error activando recordatorios',
     500,
@@ -245,7 +231,7 @@ router.delete(
       const eventId = req.params.id as string;
       const userId = req.user?.id;
       await prisma.eventReminder.deleteMany({ where: { eventId, userId } });
-      res.status(200).json({ success: true, message: 'Recordatorios cancelados' });
+      sendMessage(res, 'Recordatorios cancelados');
     },
     'Error cancelando recordatorios',
     500,

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import prisma from '../../db';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { asyncHandler } from '../../http/response';
+import { asyncHandler, sendData, sendError } from '../../http/response';
 import { createUserSchema, updateUserSchema } from '../../schemas/user';
 import { requireAdminClub } from '../../middleware/auth.middleware';
 import { resolveCurrentSeason } from '../../utils/season';
@@ -28,9 +28,7 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
   const validation = createUserSchema.safeParse(req.body);
 
   if (!validation.success) {
-    return res.status(400).json({ success: false, error: 'Datos de entrada inválidos',
-      details: z.treeifyError(validation.error),
-    });
+    return sendError(res, 400, 'Datos de entrada inválidos', z.treeifyError(validation.error));
   }
 
   const {
@@ -61,7 +59,7 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
 
   if (role === 'AdminClub') {
     if (!adminClubId) {
-      return res.status(403).json({ success: false, error: 'No tienes un club asignado para añadir jugadores' });
+      return sendError(res, 403, 'No tienes un club asignado para añadir jugadores');
     }
     finalClubId = adminClubId;
     finalClubStatus = 'Aprobado';
@@ -135,7 +133,7 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
     ).catch(console.error);
   }
 
-  res.status(201).json({ success: true, data: newUser });
+  sendData(res, newUser, 201);
 
 }, 'Error al crear el usuario', 500));
 
@@ -148,22 +146,18 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
   const userToEdit = await prisma.user.findUnique({ where: { id } });
 
   if (!userToEdit) {
-    return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    return sendError(res, 404, 'Usuario no encontrado');
   }
 
   // 2. Filtro de Club: El presidente solo puede editar a los suyos
   if (!hasClubPermission(req.user, userToEdit.clubId)) {
-    return res
-      .status(403)
-      .json({ success: false, error: 'No tienes permiso para editar jugadores de otros clubes' });
+    return sendError(res, 403, 'No tienes permiso para editar jugadores de otros clubes');
   }
 
   const validation = updateUserSchema.safeParse(req.body);
 
   if (!validation.success) {
-    res.status(400).json({ success: false, error: 'Datos de entrada inválidos',
-      details: z.treeifyError(validation.error),
-    });
+    sendError(res, 400, 'Datos de entrada inválidos', z.treeifyError(validation.error));
     return;
   }
 
@@ -218,7 +212,7 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
     include: { stats: true, skills: true },
   });
 
-  res.status(200).json({ success: true, data: toSafeUser(updatedUser) });
+  sendData(res, toSafeUser(updatedUser));
 
 }, 'Error al actualizar el usuario', 500));
 
@@ -231,14 +225,12 @@ router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
   const userToDelete = await prisma.user.findUnique({ where: { id } });
 
   if (!userToDelete) {
-    return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    return sendError(res, 404, 'Usuario no encontrado');
   }
 
   // 2. Filtro de Club: El presidente solo puede borrar a los suyos
   if (!hasClubPermission(req.user, userToDelete.clubId)) {
-    return res
-      .status(403)
-      .json({ success: false, error: 'No tienes permiso para borrar jugadores de otros clubes' });
+    return sendError(res, 403, 'No tienes permiso para borrar jugadores de otros clubes');
   }
 
   await prisma.user.delete({

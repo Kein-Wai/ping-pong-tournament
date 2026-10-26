@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
 import { hasClubPermission } from '../utils/auth';
 import { resolveCurrentSeason } from '../utils/season';
-import { asyncHandler } from '../http/response';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 
 const router = Router();
 
@@ -18,22 +18,19 @@ router.put('/:playerId', requireAdminClub, asyncHandler(async (req, res) => {
   // 1. Validar que los stats están entre 0 y 100
   const validation = updateSkillsSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Stats inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Stats inválidos', z.treeifyError(validation.error));
   }
 
   // 2. Buscar al jugador y comprobar seguridad Multi-tenant
   const player = await prisma.user.findUnique({ where: { id: playerId } });
 
   if (!player) {
-    return res.status(404).json({ success: false, error: 'Jugador no encontrado' });
+    return sendError(res, 404, 'Jugador no encontrado');
   }
 
   // El AdminClub solo puede editar a los jugadores que estén en su propio club
   if (!hasClubPermission(req.user, player.clubId)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso para editar las habilidades de un jugador de otro club',
-    });
+    return sendError(res, 403, 'No tienes permiso para editar las habilidades de un jugador de otro club');
   }
 
   const currentSeason = await resolveCurrentSeason(prisma);
@@ -54,7 +51,7 @@ router.put('/:playerId', requireAdminClub, asyncHandler(async (req, res) => {
     },
   });
 
-  res.status(200).json({ success: true, data: updatedSkills });
+  sendData(res, updatedSkills);
 
 }, 'Error al actualizar las habilidades del jugador', 500));
 router.put('/:playerId/consolidate', requireAdminClub, asyncHandler(async (req, res) => {
@@ -63,14 +60,12 @@ router.put('/:playerId/consolidate', requireAdminClub, asyncHandler(async (req, 
 
   const validation = updateSkillsSchema.safeParse(req.body);
   if (!validation.success) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Stats inválidos', details: z.treeifyError(validation.error) });
+    return sendError(res, 400, 'Stats inválidos', z.treeifyError(validation.error));
   }
 
   const player = await prisma.user.findUnique({ where: { id: playerId } });
   if (!player || !hasClubPermission(req.user, player.clubId)) {
-    return res.status(403).json({ success: false, error: 'No tienes permiso.' });
+    return sendError(res, 403, 'No tienes permiso.');
   }
 
   const currentSeason = await resolveCurrentSeason(prisma);
@@ -98,7 +93,7 @@ router.put('/:playerId/consolidate', requireAdminClub, asyncHandler(async (req, 
     });
   });
 
-  res.status(200).json({ success: true, message: 'Progresión consolidada con éxito' });
+  sendMessage(res, 'Progresión consolidada con éxito');
 
 }, 'Error al consolidar el progreso', 500));
 export default router;

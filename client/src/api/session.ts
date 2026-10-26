@@ -27,11 +27,11 @@ const renew = async (): Promise<string | null> => {
 
   try {
     // axios a pelo: pasar por `api` dispararía de nuevo el interceptor de 401.
-    const response = await axios.post<RefreshedSession>(
+    const response = await axios.post<{ data: RefreshedSession }>(
       `${import.meta.env.VITE_API_URL}${ENDPOINTS.AUTH.REFRESH}`,
       { refreshToken },
     );
-    const { token, refreshToken: rotated } = response.data;
+    const { token, refreshToken: rotated } = response.data.data;
     localStorage.setItem(ACCESS_TOKEN_KEY, token);
     localStorage.setItem(REFRESH_TOKEN_KEY, rotated);
     onTokenRefreshed?.(token);

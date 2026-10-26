@@ -129,7 +129,7 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
 
     const response = await request(app).post('/api/tournaments').send(requestPayload);
     expect(response.status).toBe(201);
-    expect(response.body.tournament).toEqual(mockTournamentDB);
+    expect(response.body.data).toEqual(mockTournamentDB);
     expect(prisma.tournament.create).toHaveBeenCalledOnce();
   });
 
@@ -333,7 +333,7 @@ describe('CRUD de Rutas de Torneos (/api/tournaments)', () => {
       const response = await request(app).get(`/api/tournaments/${MOCK_UUID}/bracket`);
 
       expect(response.status).toBe(404);
-      expect(response.body.message).toBe('No se ha generado el cuadro para este torneo todavía.');
+      expect(response.body.error).toBe('No se ha generado el cuadro para este torneo todavía.');
     });
 
     it('Debería permitir solicitar la llave de consolación (Type B)', async () => {

@@ -58,11 +58,11 @@ describe('Renovación de sesión (/api/auth)', () => {
         .send({ email: 'a@a.com', password: 'Secreta123' });
 
       expect(response.status).toBe(200);
-      expect(typeof response.body.refreshToken).toBe('string');
+      expect(typeof response.body.data.refreshToken).toBe('string');
       const created = prismaMock.client.refreshToken.create.mock.calls[0][0].data;
-      expect(created.tokenHash).toBe(sha256(response.body.refreshToken));
+      expect(created.tokenHash).toBe(sha256(response.body.data.refreshToken));
       expect(created.userId).toBe('player-1');
-      expect(JSON.stringify(created)).not.toContain(response.body.refreshToken);
+      expect(JSON.stringify(created)).not.toContain(response.body.data.refreshToken);
     });
 
     it('el token de acceso caduca en una hora', async () => {
@@ -75,7 +75,7 @@ describe('Renovación de sesión (/api/auth)', () => {
         .post('/api/auth/login')
         .send({ email: 'a@a.com', password: 'Secreta123' });
 
-      const claims = jwt.verify(response.body.token, TEST_JWT_SECRET) as jwt.JwtPayload;
+      const claims = jwt.verify(response.body.data.token, TEST_JWT_SECRET) as jwt.JwtPayload;
       expect((claims.exp as number) - (claims.iat as number)).toBe(3600);
     });
   });
@@ -90,8 +90,8 @@ describe('Renovación de sesión (/api/auth)', () => {
       expect(prismaMock.client.refreshToken.findUnique.mock.calls[0][0].where).toEqual({
         tokenHash: sha256('raw-1'),
       });
-      expect(response.body.refreshToken).not.toBe('raw-1');
-      const claims = jwt.verify(response.body.token, TEST_JWT_SECRET) as jwt.JwtPayload;
+      expect(response.body.data.refreshToken).not.toBe('raw-1');
+      const claims = jwt.verify(response.body.data.token, TEST_JWT_SECRET) as jwt.JwtPayload;
       expect(claims).toMatchObject({ id: 'player-1', role: 'Player', clubId: 'club-1' });
       expect(prismaMock.client.refreshToken.updateMany.mock.calls[0][0]).toMatchObject({
         where: { id: 'rt-1', revokedAt: null },
@@ -100,7 +100,7 @@ describe('Renovación de sesión (/api/auth)', () => {
       expect(created).toMatchObject({
         userId: 'player-1',
         familyId: 'family-1',
-        tokenHash: sha256(response.body.refreshToken),
+        tokenHash: sha256(response.body.data.refreshToken),
       });
     });
 
@@ -167,7 +167,7 @@ describe('Renovación de sesión (/api/auth)', () => {
 
       const response = await request(app).post('/api/auth/refresh').send({ refreshToken: 'raw-1' });
 
-      const claims = jwt.verify(response.body.token, TEST_JWT_SECRET) as jwt.JwtPayload;
+      const claims = jwt.verify(response.body.data.token, TEST_JWT_SECRET) as jwt.JwtPayload;
       expect(claims).toMatchObject({ role: 'AdminClub', clubId: null });
     });
 

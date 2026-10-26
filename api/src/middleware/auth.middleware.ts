@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getRequiredEnv } from '../config';
 import { loadSessionIdentity } from '../utils/session';
+import { sendError } from '../http/response';
 
 export interface UserPayload {
   id: string;
@@ -20,13 +21,11 @@ declare global {
 // Nivel 1: Dios (Solo para ti)
 export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
   if (!req.user) {
-    res.status(401).json({ error: 'Usuario no autenticado' });
+    sendError(res, 401, 'Usuario no autenticado');
     return;
   }
   if (req.user.role !== 'SuperAdmin') {
-    res
-      .status(403)
-      .json({ error: 'Acceso denegado. Solo el SuperAdmin puede realizar esta acción.' });
+    sendError(res, 403, 'Acceso denegado. Solo el SuperAdmin puede realizar esta acción.');
     return;
   }
   next();
@@ -35,13 +34,11 @@ export const requireSuperAdmin = (req: Request, res: Response, next: NextFunctio
 // Nivel 2: Presidentes de Club (Tú también puedes pasar por aquí)
 export const requireAdminClub = (req: Request, res: Response, next: NextFunction): void => {
   if (!req.user) {
-    res.status(401).json({ error: 'Usuario no autenticado' });
+    sendError(res, 401, 'Usuario no autenticado');
     return;
   }
   if (req.user.role !== 'SuperAdmin' && req.user.role !== 'AdminClub') {
-    res
-      .status(403)
-      .json({ error: 'Acceso denegado. Se requieren permisos de Administrador de Club.' });
+    sendError(res, 403, 'Acceso denegado. Se requieren permisos de Administrador de Club.');
     return;
   }
   next();
@@ -55,9 +52,7 @@ export const verifyToken = async (
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res
-      .status(401)
-      .json({ error: 'Acceso denegado. Token no proporcionado o formato incorrecto.' });
+    sendError(res, 401, 'Acceso denegado. Token no proporcionado o formato incorrecto.');
     return;
   }
 
@@ -67,7 +62,7 @@ export const verifyToken = async (
   try {
     claims = jwt.verify(token, getRequiredEnv('JWT_SECRET')) as UserPayload;
   } catch (error) {
-    res.status(401).json({ error: 'Token inválido o expirado.' });
+    sendError(res, 401, 'Token inválido o expirado.');
     return;
   }
 
@@ -75,7 +70,7 @@ export const verifyToken = async (
     // El rol y el club del JWT pueden llevar semanas de retraso: la fuente de verdad es la base de datos.
     const identity = await loadSessionIdentity(claims.id);
     if (!identity) {
-      res.status(401).json({ error: 'Token inválido o expirado.' });
+      sendError(res, 401, 'Token inválido o expirado.');
       return;
     }
     req.user = identity;
