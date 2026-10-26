@@ -22,9 +22,13 @@ import {
   refreshLimiter,
   registerLimiter,
 } from '../middleware/rate-limit';
+import { getRequiredEnv } from '../config';
 import { revokeAllUserSessions, revokeRefreshToken, rotateRefreshToken, startSession } from '../utils/refresh-token';
 
 const router = Router();
+
+// Hash bcrypt (coste 10) de una contraseña inventada: sirve para igualar el tiempo de login de emails inexistentes.
+const ABSENT_USER_HASH = '$2b$10$PcvkMowwtSjZyrbo6kQVv.e/NcM4ZtS8x9q.WnmEF8d1gzJ4Z7/9S';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -47,8 +51,7 @@ router.get('/verify/:token', asyncHandler(async (req, res) => {
     data: { active: true, verificationToken: null },
   });
 
-  const baseUrl = process.env.CLIENT_URL || 'https://tt-app-5mdc.onrender.com';
-  res.redirect(`${baseUrl}/login?verified=true`);
+  res.redirect(`${getRequiredEnv('CLIENT_URL')}/login?verified=true`);
 
 }, 'Error al verificar el jugador', 500));
 
@@ -59,7 +62,8 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
     return;
   }
 
-  const { email, password, name, surname, role } = validation.data;
+  const { password, name, surname, role } = validation.data;
+  const email = validation.data.email.toLowerCase();
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   const userRole = await prisma.userType.findUnique({ where: { name: role } });
@@ -80,7 +84,7 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
 
   const newUser = await prisma.user.create({
     data: {
-      email: email.toLowerCase(),
+      email,
       password: hashedPassword,
       name,
       surname,
@@ -96,7 +100,7 @@ router.post('/register', registerLimiter, asyncHandler(async (req, res) => {
 
   if (newUser)
     enviarCorreoGenerico(
-      email.toLowerCase(),
+      email,
       'Nuevo registro en TT Tournament App',
       templateRegistro(name, verificationToken),
     ).catch((err) => console.error('Fallo silencioso al enviar correo de registro:', err));
@@ -115,17 +119,15 @@ router.post('/login', loginLimiter, asyncHandler(async (req, res) => {
     include: { userType: true },
   });
 
-  if (!user || !user.password) {
-    return sendError(res, 401, 'Credenciales incorrectas o el usuario usa otro método de acceso');
+  // Con o sin usuario se compara un hash: la respuesta tarda lo mismo y no delata qué emails existen.
+  const isValidPassword = await bcrypt.compare(password, user?.password ?? ABSENT_USER_HASH);
+  if (!user || !user.password || !isValidPassword) {
+    return sendError(res, 401, 'Credenciales incorrectas');
   }
 
+  // Solo quien demuestra conocer la contraseña sabe que su cuenta está sin verificar.
   if (!user.active) {
     return sendError(res, 401, 'Email no ha sido verificado aun, por favor revisa tu bandeja.');
-  }
-
-  const isValidPassword = await bcrypt.compare(password, user.password);
-  if (!isValidPassword) {
-    return sendError(res, 401, 'Credenciales incorrectas');
   }
 
   const tokens = await startSession(user);
@@ -162,7 +164,9 @@ router.post('/google', loginLimiter, asyncHandler(async (req, res) => {
     return sendError(res, 401, 'El correo de la cuenta de Google no está verificado');
   }
 
-  const { email, given_name, family_name, sub: googleId, picture } = payload;
+  const { given_name, family_name, sub: googleId, picture } = payload;
+  // Las cuentas se guardan con el email en minúsculas: así Google enlaza con la cuenta local existente.
+  const email = payload.email.toLowerCase();
 
   let user = await prisma.user.findUnique({
     where: { email },

@@ -54,8 +54,9 @@ describe('Configuracion de variables de entorno (api/src/config.ts)', () => {
     expect(() => assertRequiredEnv({ A: '  ' }, ['A'])).toThrow(/A/);
   });
 
-  it('exige JWT_SECRET y CRON_SECRET', () => {
+  it('exige JWT_SECRET, CRON_SECRET y CLIENT_URL', () => {
     expect(REQUIRED_ENV_VARS).toContain('JWT_SECRET');
     expect(REQUIRED_ENV_VARS).toContain('CRON_SECRET');
+    expect(REQUIRED_ENV_VARS).toContain('CLIENT_URL');
   });
 });

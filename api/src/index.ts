@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import dns from 'dns';
 import prisma from './db';
 import { ensureCurrentSeason } from './utils/season';
-import { assertRequiredEnv, REQUIRED_ENV_VARS } from './config';
+import { assertRequiredEnv, getAllowedOrigins, REQUIRED_ENV_VARS } from './config';
 import { errorHandler } from './http/error-handler';
 import { apiLimiter } from './middleware/rate-limit';
 
@@ -30,12 +30,7 @@ app.use(
 
 app.use(
   cors({
-    origin: [
-      'http://localhost:5173',
-      'https://tt-app-5mdc.onrender.com',
-      'http://localhost',
-      'capacitor://localhost',
-    ], // La URL de tu Frontend Vite
+    origin: getAllowedOrigins(process.env),
     credentials: true,
   }),
 );
