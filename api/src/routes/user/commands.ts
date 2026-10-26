@@ -70,7 +70,8 @@ router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
   const currentSeason = await resolveCurrentSeason(prisma);
 
   // Si no pasan rol, asumimos Player por defecto
-  let finalUserTypeId = userTypeId;
+  // Solo el SuperAdmin asigna roles: un AdminClub siempre crea jugadores (Player).
+  let finalUserTypeId = role === 'SuperAdmin' ? userTypeId : undefined;
   if (!finalUserTypeId) {
     const playerRole = await prisma.userType.findFirst({ where: { name: 'Player' } });
     finalUserTypeId = playerRole?.id;
@@ -172,6 +173,7 @@ router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
   if (role === 'AdminClub') {
     delete dataToUpdate.clubId;
     delete dataToUpdate.clubStatus;
+    delete dataToUpdate.userTypeId; // el rol solo lo cambia el SuperAdmin
   }
 
   // Si viene contraseña nueva, la procesamos
