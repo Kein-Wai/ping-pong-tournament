@@ -2,9 +2,7 @@ import { Router } from 'express';
 import prisma from '../db';
 import { createMatchSchema, baseMatchObject, validateMatchBusinessRules } from '../schemas/match';
 import { z } from 'zod';
-import { handleMatchStatsUpdate } from '../utils/stats';
-import { processMatchResult } from '../utils/match-processor';
-import { updateGroupStandings } from '../utils/standings';
+import { createMatch, updateMatch } from '../utils/match-result';
 import { resolveCurrentSeason } from '../utils/season';
 import { getScopeClubId, hasClubPermission } from '../utils/auth';
 import { getMatchOwnerClubId } from '../utils/match-access';
@@ -150,38 +148,32 @@ router.post(
       return;
     }
     const currentSeason = await resolveCurrentSeason(prisma);
-    const newMatch = await prisma.match.create({
-      data: {
-        playerOneId,
-        playerTwoId,
-        seasonId: currentSeason.id,
-        dateStart: dateStart ? new Date(dateStart) : new Date(),
-        status: status,
-        tournamentId,
-        groupId,
-        knockoutId,
-        leagueId,
+    const newMatch = await createMatch(prisma, {
+      playerOneId,
+      playerTwoId,
+      seasonId: currentSeason.id,
+      dateStart: dateStart ? new Date(dateStart) : new Date(),
+      status: status,
+      tournamentId,
+      groupId,
+      knockoutId,
+      leagueId,
 
-        setOnePlayerOne,
-        setOnePlayerTwo,
-        setTwoPlayerOne,
-        setTwoPlayerTwo,
-        setThreePlayerOne,
-        setThreePlayerTwo,
-        setFourPlayerOne,
-        setFourPlayerTwo,
-        setFivePlayerOne,
-        setFivePlayerTwo,
-        setSixPlayerOne,
-        setSixPlayerTwo,
-        setSevenPlayerOne,
-        setSevenPlayerTwo,
-      },
+      setOnePlayerOne,
+      setOnePlayerTwo,
+      setTwoPlayerOne,
+      setTwoPlayerTwo,
+      setThreePlayerOne,
+      setThreePlayerTwo,
+      setFourPlayerOne,
+      setFourPlayerTwo,
+      setFivePlayerOne,
+      setFivePlayerTwo,
+      setSixPlayerOne,
+      setSixPlayerTwo,
+      setSevenPlayerOne,
+      setSevenPlayerTwo,
     });
-
-    await handleMatchStatsUpdate(prisma, null, newMatch);
-
-    await processMatchResult(prisma, newMatch);
 
     sendMessage(res, 'Partido programado con éxito', 201, { match: newMatch });
   }, 'Error interno al crear el partido'),
@@ -241,21 +233,10 @@ router.put(
 
     const matchStatus = data.status ? data.status : existingMatch.status;
 
-    const updatedMatch = await prisma.match.update({
-      where: { id },
-      data: {
-        ...data,
-        status: matchStatus,
-      },
+    const updatedMatch = await updateMatch(prisma, existingMatch, {
+      ...data,
+      status: matchStatus,
     });
-
-    await handleMatchStatsUpdate(prisma, existingMatch, updatedMatch);
-
-    if (updatedMatch.groupId) {
-      await updateGroupStandings(prisma, updatedMatch.groupId);
-    }
-
-    await processMatchResult(prisma, updatedMatch);
 
     sendMessage(res, 'Partido actualizado con éxito', 200, { match: updatedMatch });
   }, 'Error interno al actualizar el partido'),

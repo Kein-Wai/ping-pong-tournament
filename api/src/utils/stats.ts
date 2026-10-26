@@ -1,4 +1,4 @@
-import { PrismaClient, MatchStatus, UpdateSourceType } from '@prisma/client';
+import { Prisma, PrismaClient, MatchStatus, UpdateSourceType } from '@prisma/client';
 import { POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
 import { calculateMatchResults, CompletedMatch } from './match';
 import { resolveCurrentSeason } from './season';
@@ -56,7 +56,7 @@ interface PlayerStatsDelta {
 
 /** Aplica la variacion a la fila de stats del jugador, creandola si no existe. */
 const saveOrUpdateStats = async (
-  prisma: PrismaClient,
+  prisma: Prisma.TransactionClient,
   seasonId: string | null,
   delta: PlayerStatsDelta,
 ) => {
@@ -110,7 +110,7 @@ const saveOrUpdateStats = async (
  * Revierte el marcador de un partido que estaba completado: deshace los stats
  * del partido anterior y borra las mejoras de skill que habia generado.
  */
-const revertCompletedMatch = async (prisma: PrismaClient, previousMatch: CompletedMatch) => {
+const revertCompletedMatch = async (prisma: Prisma.TransactionClient, previousMatch: CompletedMatch) => {
   const prevRes = calculateMatchResults(previousMatch);
 
   const p1Stats = await prisma.stats.findFirst({
@@ -165,7 +165,7 @@ const revertCompletedMatch = async (prisma: PrismaClient, previousMatch: Complet
  * Aplica el marcador de un partido que pasa a completado: suma los stats de
  * los dos jugadores y genera las mejoras de skill pendientes.
  */
-const applyCompletedMatch = async (prisma: PrismaClient, newMatch: CompletedMatch) => {
+const applyCompletedMatch = async (prisma: Prisma.TransactionClient, newMatch: CompletedMatch) => {
   const newRes = calculateMatchResults(newMatch);
 
   const p1Stats = await prisma.stats.findFirst({
@@ -243,7 +243,7 @@ const applyCompletedMatch = async (prisma: PrismaClient, newMatch: CompletedMatc
  * primero deshace el marcador anterior y despues aplica el nuevo.
  */
 export const handleMatchStatsUpdate = async (
-  prisma: PrismaClient,
+  prisma: Prisma.TransactionClient,
   previousMatch: CompletedMatch | null,
   newMatch: CompletedMatch,
 ) => {

@@ -1,4 +1,5 @@
-import { PrismaClient, MatchStatus, Prisma } from '@prisma/client';
+import { MatchStatus, Prisma } from '@prisma/client';
+import { inTransaction } from './transaction';
 import { computeGroupStandings } from './group-standings';
 
 /**
@@ -8,7 +9,7 @@ import { computeGroupStandings } from './group-standings';
  * desempate) vive en el modulo puro `group-standings`; aqui solo se lee y se
  * escribe. Este es el seam externo que usan el resto de la app.
  */
-export const updateGroupStandings = async (prisma: PrismaClient, groupId: string) => {
+export const updateGroupStandings = async (prisma: Prisma.TransactionClient, groupId: string) => {
   const groupClasifications = await prisma.tournamentGroupClas.findMany({
     where: { tournamentGroupId: groupId },
   });
@@ -25,9 +26,9 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
   const standings = computeGroupStandings(groupClasifications, completedMatches);
 
   // Guardamos las metricas recalculadas en la base de datos
-  await prisma.$transaction(
-    standings.map((standing) =>
-      prisma.tournamentGroupClas.update({
+  await inTransaction(prisma, async (tx) => {
+    for (const standing of standings) {
+      await tx.tournamentGroupClas.update({
         where: { id: standing.id },
         data: {
           played: standing.played,
@@ -40,9 +41,9 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
           pointsClas: standing.pointsClas,
           position: standing.position,
         },
-      }),
-    ),
-  );
+      });
+    }
+  });
 
   const groupInfo = await prisma.tournamentGroup.findUnique({
     where: { id: groupId },
@@ -70,7 +71,7 @@ export const updateGroupStandings = async (prisma: PrismaClient, groupId: string
 
 /** Partidos de un grupo (o de todos los grupos de un torneo). */
 export const fetchGroupMatches = async (
-  prisma: PrismaClient,
+  prisma: Prisma.TransactionClient,
   tournamentId: string,
   groupId?: string,
 ) => {
@@ -96,7 +97,7 @@ export const fetchGroupMatches = async (
 
 /** Clasificaciones de un grupo (o de todos los grupos de un torneo). */
 export const fetchGroupClassifications = async (
-  prisma: PrismaClient,
+  prisma: Prisma.TransactionClient,
   tournamentId: string,
   groupId?: string,
 ) => {

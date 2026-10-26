@@ -5,6 +5,7 @@ import prisma from '../db';
 
 vi.mock('../db', () => ({
   default: {
+    $transaction: vi.fn(),
     season: { findFirst: vi.fn().mockResolvedValue({ id: 'season-1', isCurrent: true }) },
     match: {
       findMany: vi.fn(),
@@ -131,6 +132,9 @@ describe('PUT /api/matches/:id (Actualizar Marcador)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Las transacciones interactivas reciben el propio cliente simulado.
+    vi.mocked(prisma.$transaction).mockImplementation((async (work: (tx: unknown) => unknown) =>
+      work(prisma)) as never);
   });
 
   it('Debería actualizar un partido y devolver 200', async () => {
