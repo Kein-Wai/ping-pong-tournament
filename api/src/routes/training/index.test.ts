@@ -104,7 +104,10 @@ describe('CRUD Rutas de Entrenamientos (/api/trainings)', () => {
 
   describe('POST /api/trainings/sessions/:sessionId/exercises', () => {
     it('Debería fallar (400) si se supera el límite de 6 ejercicios', async () => {
-      vi.mocked(prisma.trainingSession.findUnique).mockResolvedValue({ id: 'sesion-1' } as any);
+      vi.mocked(prisma.trainingSession.findUnique).mockResolvedValue({
+        id: 'sesion-1',
+        player: { id: 'player-1', clubId: 'club-1' },
+      } as any);
       vi.mocked(prisma.exercise.findUnique).mockResolvedValue({ id: 'ejercicio-1' } as any);
       vi.mocked(prisma.sessionExercise.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.sessionExercise.count).mockResolvedValue(6); // Ya hay 6
@@ -128,6 +131,7 @@ describe('CRUD Rutas de Entrenamientos (/api/trainings)', () => {
       vi.mocked(prisma.playerTraining.findUnique).mockResolvedValue({
         id: 'plan-1',
         playerId: 'otro-jugador',
+        player: { id: 'otro-jugador', clubId: 'club-1' },
       } as any);
 
       const response = await request(app).get('/api/trainings/plan-1');
@@ -139,6 +143,10 @@ describe('CRUD Rutas de Entrenamientos (/api/trainings)', () => {
 
   describe('Clonación de Sesiones', () => {
     it('POST /sessions/:targetId/clone-from/:sourceId - Debería copiar ejercicios entre sesiones (201)', async () => {
+      vi.mocked(prisma.trainingSession.findUnique).mockResolvedValue({
+        id: 'sesion',
+        player: { id: 'player-1', clubId: 'club-1' },
+      } as any);
       vi.mocked(prisma.sessionExercise.findMany).mockResolvedValue([
         { exerciseId: 'ex-1', sets: 3, reps: 10, durationMinutes: null },
       ] as any);

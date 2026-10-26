@@ -1,15 +1,21 @@
 import { Router } from 'express';
 import prisma from '../../db';
 import { asyncHandler } from '../../http/response';
+import { canManageTraining, canViewTraining } from '../../utils/training-access';
 
 const router = Router();
 
 router.get('/player/:playerId', asyncHandler(async (req, res) => {
   const { playerId } = req.params as { [key: string]: string };
-  const isOwnProfile = req.user?.id === playerId;
-  const isAdmin = req.user?.role === 'AdminClub' || req.user?.role === 'SuperAdmin';
-  // 1. Regla de seguridad
-  if (!isOwnProfile && !isAdmin) {
+  // 1. Regla de seguridad: el propio jugador, el AdminClub de su club o el SuperAdmin
+  const owner = await prisma.user.findUnique({
+    where: { id: playerId },
+    select: { id: true, clubId: true },
+  });
+  if (!owner) {
+    return res.status(404).json({ success: false, error: 'Jugador no encontrado' });
+  }
+  if (!canViewTraining(req.user, owner)) {
     return res
       .status(403)
       .json({ success: false, error: 'No tienes permiso para ver los entrenamientos de este jugador' });

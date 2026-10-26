@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../http/response';
 import { createSingleSessionSchema, completeSessionSchema } from '../../schemas/training';
 import { calculateSkillGrowth } from '../../utils/skills';
+import { canManageTraining, canViewTraining } from '../../utils/training-access';
 
 const router = Router();
 
@@ -39,11 +40,18 @@ router.get('/sessions/:sessionId', asyncHandler(async (req, res) => {
       exercises: {
         include: { exercise: true }, // Traemos la descripción del catálogo
       },
+      player: { select: { id: true, clubId: true } },
     },
   });
 
   if (!session) return res.status(404).json({ success: false, error: 'Sesión no encontrada' });
-  res.status(200).json({ success: true, data: session });
+  if (!canViewTraining(req.user, session.player)) {
+    return res.status(403).json({ success: false, error: 'No tienes permiso para ver esta sesión' });
+  }
+
+  // El jugador solo se carga para autorizar: no forma parte de la respuesta.
+  const { player: _owner, ...sessionData } = session;
+  res.status(200).json({ success: true, data: sessionData });
 
 }, 'Error al obtener la sesión', 500));
 

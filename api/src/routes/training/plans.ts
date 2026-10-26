@@ -6,6 +6,7 @@ import { createTrainingSchema } from '../../schemas/training';
 import { requireAdminClub } from '../../middleware/auth.middleware';
 import { resolveCurrentSeason } from '../../utils/season';
 import { hasClubPermission } from '../../utils/auth';
+import { canManageTraining, canViewTraining } from '../../utils/training-access';
 
 const router = Router();
 
@@ -87,7 +88,7 @@ router.get('/:planId', asyncHandler(async (req, res) => {
     where: { id: planId },
     include: {
       player: {
-        select: { id: true, name: true, surname: true },
+        select: { id: true, name: true, surname: true, clubId: true },
       },
       sessions: {
         orderBy: { date: 'asc' },
@@ -106,11 +107,8 @@ router.get('/:planId', asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, error: 'Plan de entrenamiento no encontrado' });
   }
 
-  // CAMBIO 2: Lógica de Seguridad (Solo el dueño o los Admins pueden verlo)
-  const isOwnProfile = req.user?.id === plan.playerId;
-  const isAdmin = req.user?.role === 'AdminClub' || req.user?.role === 'SuperAdmin';
-
-  if (!isOwnProfile && !isAdmin) {
+  // Solo el propio jugador, el AdminClub de su club o el SuperAdmin pueden verlo
+  if (!canViewTraining(req.user, { id: plan.playerId, clubId: plan.player.clubId })) {
     return res
       .status(403)
       .json({ success: false, error: 'No tienes permiso para ver los detalles de este plan' });
@@ -122,6 +120,17 @@ router.get('/:planId', asyncHandler(async (req, res) => {
 
 router.delete('/:planId', requireAdminClub, asyncHandler(async (req, res) => {
   const planId = req.params.planId as string;
+
+  const plan = await prisma.playerTraining.findUnique({
+    where: { id: planId },
+    select: { player: { select: { id: true, clubId: true } } },
+  });
+  if (!plan) {
+    return res.status(404).json({ success: false, error: 'Plan de entrenamiento no encontrado' });
+  }
+  if (!canManageTraining(req.user, plan.player)) {
+    return res.status(403).json({ success: false, error: 'No tienes permiso sobre este plan' });
+  }
 
   await prisma.playerTraining.delete({
     where: { id: planId },
