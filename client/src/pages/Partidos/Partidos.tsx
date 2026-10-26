@@ -127,7 +127,7 @@ export const Partidos = () => {
     };
 
     fetchMatches();
-  }, []);
+  }, [isAdminClub, user?.clubId]);
 
   const filteredMatches = matches.filter((match) => {
     const fullMatch =

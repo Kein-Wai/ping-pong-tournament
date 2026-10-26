@@ -42,7 +42,7 @@ import {
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes';
 import { getPlayerAvatar } from '../../utils/avatar';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { clubsService } from '../../api/services/clubs';
 import { usersService } from '../../api/services/users';
 import type { DominantHand, Playstyle, RubberType } from '../../types/enums';
@@ -75,22 +75,23 @@ export const MainLayout = () => {
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
   const [savingPassword, setSavingPassword] = useState(false);
 
-  const fetchNotifications = () => {
-    if (isAdminClub && user?.clubId) {
+  const clubId = user?.clubId;
+  const fetchNotifications = useCallback(() => {
+    if (isAdminClub && clubId) {
       clubsService
-        .notifications(user.clubId)
+        .notifications(clubId)
         .then((badge) => setNotificationsBadge(badge))
         .catch(() => {
           // El interceptor de api/axios ya notifica el error.
         });
     }
-  };
+  }, [isAdminClub, clubId]);
 
   useEffect(() => {
     fetchNotifications();
     window.addEventListener('refresh-notifications', fetchNotifications);
     return () => window.removeEventListener('refresh-notifications', fetchNotifications);
-  }, [user]);
+  }, [user, fetchNotifications]);
 
   // --- LÓGICA ONBOARDING BLINDADA ---
   useEffect(() => {

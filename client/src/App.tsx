@@ -101,7 +101,7 @@ const CustomSplashScreen = () => {
 // Componente interno que ya vive dentro de BrowserRouter
 function AppContent() {
   const navigate = useNavigate();
-  const { logout, token, user, fetchProfile } = useAuthStore();
+  const { logout, token, fetchProfile } = useAuthStore();
   const [isInitializing, setIsInitializing] = useState(true); // 👈 Añadido estado de carga
 
   useEffect(() => {
@@ -116,7 +116,7 @@ function AppContent() {
             console.warn('Token caducado, cerrando sesión...');
             logout();
             navigate(APP_ROUTES.LOGIN);
-          } else if (!user) {
+          } else if (!useAuthStore.getState().user) {
             // Si el token es válido pero aún no tenemos los datos del usuario, los traemos
             await fetchProfile();
           }
