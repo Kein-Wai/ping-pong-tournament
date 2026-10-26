@@ -1,57 +1,51 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../db';
 import { createMatchSchema, baseMatchObject, validateMatchBusinessRules } from '../schemas/match';
 import { z } from 'zod';
-import { handleMatchStatsUpdate } from '../utils/stats';
-import { processMatchResult } from '../utils/match-processor';
-import { updateGroupStandings } from '../utils/standings';
-import { getCurrentSeason } from '../utils/season';
+import { createMatch, updateMatch } from '../utils/match-result';
+import { resolveCurrentSeason } from '../utils/season';
+import { getScopeClubId, hasClubPermission } from '../utils/auth';
+import { getMatchOwnerClubId } from '../utils/match-access';
+import { requireAdminClub } from '../middleware/auth.middleware';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 
 const router = Router();
 
-router.get('/', async (req, res) => {
-  try {
+router.get(
+  '/',
+  asyncHandler(async (req, res) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Usuario no autenticado' });
+      return sendError(res, 401, 'Usuario no autenticado');
     }
 
-    const clubId = req.user.clubId;
     const userId = req.user.id;
     const role = req.user.role;
+    // El club al que queda acotado el alcance lo decide el seam de utils/auth.
+    const scopeClubId = getScopeClubId(req.user);
 
-    let whereCondition: any = {};
+    let whereCondition: Prisma.MatchWhereInput;
 
     if (role === 'SuperAdmin') {
       // El SuperAdmin puede ver absolutamente todos los partidos del sistema
       whereCondition = {};
-    } else if (role === 'AdminClub') {
+    } else if (role === 'Player' && !scopeClubId) {
+      // 🚨 BLOQUEO DE SEGURIDAD: Jugador libre SOLO ve sus propios partidos, jamás los de otros libres
+      whereCondition = {
+        OR: [{ playerOneId: userId }, { playerTwoId: userId }],
+      };
+    } else if (!scopeClubId) {
       // 🚨 BLOQUEO DE SEGURIDAD: Si es Admin pero su token no tiene clubId, le devolvemos vacío para evitar la fuga de nulos
-      if (!clubId) {
-        return res.status(200).json([]);
-      }
+      return sendData(res, []);
+    } else {
+      // Ve los partidos de su club (Torneos internos, ligas, etc)
       whereCondition = {
         OR: [
-          { tournament: { clubId: clubId } },
-          { playerOne: { clubId: clubId } },
-          { playerTwo: { clubId: clubId } },
+          { tournament: { clubId: scopeClubId } },
+          { playerOne: { clubId: scopeClubId } },
+          { playerTwo: { clubId: scopeClubId } },
         ],
       };
-    } else if (role === 'Player') {
-      if (clubId) {
-        // Jugador con club ve los partidos de su club (Torneos internos, ligas, etc)
-        whereCondition = {
-          OR: [
-            { tournament: { clubId: clubId } },
-            { playerOne: { clubId: clubId } },
-            { playerTwo: { clubId: clubId } },
-          ],
-        };
-      } else {
-        // 🚨 BLOQUEO DE SEGURIDAD: Jugador libre SOLO ve sus propios partidos, jamás los de otros libres
-        whereCondition = {
-          OR: [{ playerOneId: userId }, { playerTwoId: userId }],
-        };
-      }
     }
 
     const matches = await prisma.match.findMany({
@@ -91,22 +85,18 @@ router.get('/', async (req, res) => {
       },
     });
 
-    res.status(200).json(matches);
-  } catch (error) {
-    console.error('Error al obtener los partidos:', error);
-    res.status(500).json({ error: 'Error interno al obtener los partidos' });
-  }
-});
+    sendData(res, matches);
+  }, 'Error interno al obtener los partidos'),
+);
 
-router.post('/', async (req, res) => {
-  try {
+router.post(
+  '/',
+  requireAdminClub,
+  asyncHandler(async (req, res) => {
     const validation = createMatchSchema.safeParse(req.body);
 
     if (!validation.success) {
-      res.status(400).json({
-        error: 'Datos inválidos',
-        details: z.treeifyError(validation.error),
-      });
+      sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
       return;
     }
 
@@ -136,73 +126,88 @@ router.post('/', async (req, res) => {
     } = validation.data;
 
     if (playerOneId === playerTwoId) {
-      res.status(400).json({ error: 'Un jugador no puede enfrentarse a sí mismo' });
+      sendError(res, 400, 'Un jugador no puede enfrentarse a sí mismo');
       return;
     }
-    const currentSeason = await getCurrentSeason(prisma);
-    const newMatch = await prisma.match.create({
-      data: {
-        playerOneId,
-        playerTwoId,
-        seasonId: currentSeason.id,
-        dateStart: dateStart ? new Date(dateStart) : new Date(),
-        status: status,
-        tournamentId,
-        groupId,
-        knockoutId,
-        leagueId,
 
-        setOnePlayerOne,
-        setOnePlayerTwo,
-        setTwoPlayerOne,
-        setTwoPlayerTwo,
-        setThreePlayerOne,
-        setThreePlayerTwo,
-        setFourPlayerOne,
-        setFourPlayerTwo,
-        setFivePlayerOne,
-        setFivePlayerTwo,
-        setSixPlayerOne,
-        setSixPlayerTwo,
-        setSevenPlayerOne,
-        setSevenPlayerTwo,
-      },
+    // Autorización ANTES de escribir: el partido es del club del torneo o, sin torneo, del de los jugadores.
+    const ownership = tournamentId
+      ? {
+          tournament: await prisma.tournament.findUnique({
+            where: { id: tournamentId },
+            select: { clubId: true },
+          }),
+        }
+      : {
+          playerOne: await prisma.user.findUnique({
+            where: { id: playerOneId },
+            select: { clubId: true },
+          }),
+        };
+    if (!hasClubPermission(req.user, getMatchOwnerClubId(ownership))) {
+      sendError(res, 403, 'No tienes permiso para crear partidos en este club');
+      return;
+    }
+    const currentSeason = await resolveCurrentSeason(prisma);
+    const newMatch = await createMatch(prisma, {
+      playerOneId,
+      playerTwoId,
+      seasonId: currentSeason.id,
+      dateStart: dateStart ? new Date(dateStart) : new Date(),
+      status: status,
+      tournamentId,
+      groupId,
+      knockoutId,
+      leagueId,
+
+      setOnePlayerOne,
+      setOnePlayerTwo,
+      setTwoPlayerOne,
+      setTwoPlayerTwo,
+      setThreePlayerOne,
+      setThreePlayerTwo,
+      setFourPlayerOne,
+      setFourPlayerTwo,
+      setFivePlayerOne,
+      setFivePlayerTwo,
+      setSixPlayerOne,
+      setSixPlayerTwo,
+      setSevenPlayerOne,
+      setSevenPlayerTwo,
     });
 
-    await handleMatchStatsUpdate(prisma, null, newMatch);
+    sendMessage(res, 'Partido programado con éxito', 201, { match: newMatch });
+  }, 'Error interno al crear el partido'),
+);
 
-    await processMatchResult(prisma, newMatch);
-
-    res.status(201).json({
-      message: 'Partido programado con éxito',
-      match: newMatch,
-    });
-  } catch (error) {
-    console.error('Error al crear el partido:', error);
-    res.status(500).json({ error: 'Error interno al crear el partido' });
-  }
-});
-
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
+router.put(
+  '/:id',
+  requireAdminClub,
+  asyncHandler(async (req, res) => {
+    const id = req.params.id as string;
 
     const validation = baseMatchObject.partial().safeParse(req.body);
 
     if (!validation.success) {
-      res.status(400).json({
-        error: 'Datos inválidos',
-        details: z.treeifyError(validation.error),
-      });
+      sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
       return;
     }
 
     const existingMatch = await prisma.match.findUnique({
       where: { id },
+      include: {
+        tournament: { select: { clubId: true } },
+        playerOne: { select: { clubId: true } },
+      },
     });
 
     if (!existingMatch) {
-      res.status(404).json({ error: 'Partido no encontrado' });
+      sendError(res, 404, 'Partido no encontrado');
+      return;
+    }
+
+    if (!hasClubPermission(req.user, getMatchOwnerClubId(existingMatch))) {
+      sendError(res, 403, 'No tienes permiso para editar este partido');
       return;
     }
 
@@ -220,42 +225,22 @@ router.put('/:id', async (req, res) => {
       .safeParse(mergedData);
 
     if (!businessValidation.success) {
-      res.status(400).json({
-        error: 'El marcador no cumple las reglas del partido',
-        details: z.treeifyError(businessValidation.error),
-      });
+      sendError(res, 400, 'El marcador no cumple las reglas del partido', z.treeifyError(businessValidation.error));
       return;
     }
 
-    const data = validation.data;
-    delete (data as any).setsToWin;
+    // setsToWin solo sirve para validar las reglas del marcador: no es una columna del partido.
+    const { setsToWin: _setsToWin, ...data } = validation.data;
 
     const matchStatus = data.status ? data.status : existingMatch.status;
 
-    const updatedMatch = await prisma.match.update({
-      where: { id },
-      data: {
-        ...data,
-        status: matchStatus,
-      },
+    const updatedMatch = await updateMatch(prisma, existingMatch, {
+      ...data,
+      status: matchStatus,
     });
 
-    await handleMatchStatsUpdate(prisma, existingMatch, updatedMatch);
-
-    if (updatedMatch.groupId) {
-      await updateGroupStandings(prisma, updatedMatch.groupId);
-    }
-
-    await processMatchResult(prisma, updatedMatch);
-
-    res.status(200).json({
-      message: 'Partido actualizado con éxito',
-      match: updatedMatch,
-    });
-  } catch (error) {
-    console.error('Error al actualizar el partido:', error);
-    res.status(500).json({ error: 'Error interno al actualizar el partido' });
-  }
-});
+    sendMessage(res, 'Partido actualizado con éxito', 200, { match: updatedMatch });
+  }, 'Error interno al actualizar el partido'),
+);
 
 export default router;

@@ -41,7 +41,7 @@ export const enviarCorreoGenerico = async (
     if (Buffer.isBuffer(mailInfo.message)) {
       rawBuffer = mailInfo.message;
     } else {
-      const stream = mailInfo.message as any;
+      const stream = mailInfo.message as NodeJS.ReadableStream;
       rawBuffer = await new Promise<Buffer>((resolve, reject) => {
         const chunks: Buffer[] = [];
         stream.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -66,7 +66,7 @@ export const enviarCorreoGenerico = async (
       },
     });
 
-    console.log('Correo entregado con éxito saltando el firewall de Render. ID:', response.data.id);
+    console.info('Correo entregado con éxito saltando el firewall de Render. ID:', response.data.id);
     return true;
   } catch (error) {
     console.error('Error enviando correo:', error);

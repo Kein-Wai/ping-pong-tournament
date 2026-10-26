@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { handleMatchStatsUpdate } from '../../src/utils/stats';
-import { MatchStatus } from '@prisma/client';
+import { MatchStatus, PrismaClient } from '@prisma/client';
 
 describe('Utility: handleMatchStatsUpdate', () => {
   const mockPrisma = {
@@ -21,7 +21,7 @@ describe('Utility: handleMatchStatsUpdate', () => {
       deleteMany: vi.fn(),
       create: vi.fn(),
     },
-  } as any;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -29,13 +29,15 @@ describe('Utility: handleMatchStatsUpdate', () => {
 
   it('Debería ignorar el partido y salir rápido si el estado NO es "Completado"', async () => {
     const openMatch = {
+      id: 'match-open',
       status: MatchStatus.Abierto,
+      seasonId: 'season-1',
       playerOneId: 'player-1',
       playerTwoId: 'player-2',
     };
 
     // Pasamos null como partido previo y el nuevo partido
-    await handleMatchStatsUpdate(mockPrisma, null, openMatch);
+    await handleMatchStatsUpdate(mockPrisma as unknown as PrismaClient, null, openMatch);
 
     expect(mockPrisma.stats.findFirst).not.toHaveBeenCalled();
     expect(mockPrisma.stats.create).not.toHaveBeenCalled();
@@ -46,7 +48,9 @@ describe('Utility: handleMatchStatsUpdate', () => {
     mockPrisma.stats.findFirst.mockResolvedValue(null);
 
     const matchPayload = {
+      id: 'match-1',
       status: MatchStatus.Completado,
+      seasonId: 'season-1',
       playerOneId: 'uuid-player-1',
       playerTwoId: 'uuid-player-2',
       setOnePlayerOne: 11,
@@ -55,7 +59,7 @@ describe('Utility: handleMatchStatsUpdate', () => {
       setTwoPlayerTwo: 9,
     };
 
-    await handleMatchStatsUpdate(mockPrisma, null, matchPayload);
+    await handleMatchStatsUpdate(mockPrisma as unknown as PrismaClient, null, matchPayload);
 
     expect(mockPrisma.stats.findFirst).toHaveBeenCalledTimes(2);
     expect(mockPrisma.stats.create).toHaveBeenCalledTimes(2);
@@ -63,6 +67,7 @@ describe('Utility: handleMatchStatsUpdate', () => {
     expect(mockPrisma.stats.create).toHaveBeenCalledWith({
       data: {
         userId: 'uuid-player-1',
+        seasonId: 'season-1',
         elo: 509,
         matchWon: 1,
         matchLost: 0,
@@ -81,9 +86,17 @@ describe('Utility: handleMatchStatsUpdate', () => {
       .mockResolvedValueOnce({ id: 'stats-id-p1', userId: 'uuid-p1', elo: 500 })
       .mockResolvedValueOnce({ id: 'stats-id-p2', userId: 'uuid-p2', elo: 500 });
 
-    const previousMatch = { status: MatchStatus.Programado };
+    const previousMatch = {
+      id: 'match-1',
+      status: MatchStatus.Programado,
+      seasonId: 'season-1',
+      playerOneId: 'uuid-p1',
+      playerTwoId: 'uuid-p2',
+    };
     const matchPayload = {
+      id: 'match-1',
       status: MatchStatus.Completado,
+      seasonId: 'season-1',
       playerOneId: 'uuid-p1',
       playerTwoId: 'uuid-p2',
       setOnePlayerOne: 11,
@@ -95,7 +108,11 @@ describe('Utility: handleMatchStatsUpdate', () => {
     };
 
     // Simulamos un partido que pasa de Programado a Completado
-    await handleMatchStatsUpdate(mockPrisma, previousMatch, matchPayload);
+    await handleMatchStatsUpdate(
+      mockPrisma as unknown as PrismaClient,
+      previousMatch,
+      matchPayload,
+    );
 
     expect(mockPrisma.stats.create).not.toHaveBeenCalled();
     expect(mockPrisma.stats.update).toHaveBeenCalledTimes(2);

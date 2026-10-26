@@ -30,24 +30,12 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { usePermissions } from '../../hooks/usePermissions';
+import { clubsService } from '../../api/services/clubs';
 import { LOCALIZACIONES_ESPANA } from '../../constants/localizaciones';
+import type { ClubDetails } from '../../types/api';
 import '@mantine/dates/styles.css';
-
-interface ClubDetails {
-  id: string;
-  name: string;
-  city: string;
-  address: string | null;
-  foundedAt: string | null;
-  logoUrl: string | null;
-  status: string;
-  _count: {
-    users: number;
-  };
-  users: { birthDate: string | null }[];
-}
+import { APP_ROUTES } from '../../constants/routes';
 
 export const MiClub = () => {
   const { user } = useAuthStore();
@@ -64,19 +52,22 @@ export const MiClub = () => {
   const [address, setAddress] = useState('');
   const [foundedAt, setFoundedAt] = useState<Date | null>(null);
   const [logoUrl, setLogoUrl] = useState('');
-  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin } = usePermissions();
 
   const fetchClubDetails = async () => {
-    if (!user?.clubId) return;
+    if (!user?.clubId) {
+      // Sin club no hay nada que pedir: sin esto el spinner no terminaba nunca.
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const res = await api.get(ENDPOINTS.CLUBS.BY_ID(user.clubId));
-      const data = res.data.data;
+      const data = await clubsService.byId(user.clubId);
       setClub(data);
 
       // Sincronizar formulario
       setName(data.name);
-      setCity(data.city);
+      setCity(data.city ?? '');
       setAddress(data.address || '');
       setFoundedAt(data.foundedAt ? new Date(data.foundedAt) : null);
       setLogoUrl(data.logoUrl || '');
@@ -104,7 +95,7 @@ export const MiClub = () => {
         logoUrl: logoUrl || null,
       };
 
-      await api.put(ENDPOINTS.CLUBS.UPDATE(user.clubId), payload);
+      await clubsService.update(user.clubId, payload);
       setIsEditing(false);
       await fetchClubDetails();
     } catch (error) {
@@ -330,7 +321,7 @@ export const MiClub = () => {
               color="blue"
               fullWidth
               mt="md"
-              onClick={() => navigate('/jugadores')}
+              onClick={() => navigate(APP_ROUTES.JUGADORES.LIST)}
             >
               Gestionar Solicitudes y Plantilla
             </Button>

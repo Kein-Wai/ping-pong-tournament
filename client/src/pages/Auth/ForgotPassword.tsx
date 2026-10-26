@@ -12,8 +12,7 @@ import {
 } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import { IconArrowLeft, IconMail } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { authService } from '../../api/services/auth';
 import { APP_ROUTES } from '../../constants/routes';
 
 export const ForgotPassword = () => {
@@ -28,10 +27,10 @@ export const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      await api.post(ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
+      await authService.forgotPassword(email);
       setSubmitted(true);
-    } catch (error: any) {
-      console.log(error);
+    } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }

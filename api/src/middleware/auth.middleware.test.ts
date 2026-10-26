@@ -6,9 +6,13 @@ import {
   requireSuperAdmin,
   requireAdminClub,
 } from '../../src/middleware/auth.middleware';
+import { prismaMock } from '../testing/prisma-mock';
 
-// Mockeamos jsonwebtoken
+// Mockeamos jsonwebtoken y la base de datos (frontera del sistema)
 vi.mock('jsonwebtoken');
+vi.mock('../db', async () => ({
+  default: (await import('../testing/prisma-mock')).prismaMock.client,
+}));
 
 describe('Auth Middleware (verifyToken)', () => {
   let mockReq: Partial<Request>;
@@ -31,39 +35,43 @@ describe('Auth Middleware (verifyToken)', () => {
     process.env.JWT_SECRET = 'secreto-test';
   });
 
-  it('FALLO: Debería bloquear si no hay cabecera de autorización (401)', () => {
-    verifyToken(mockReq as Request, mockRes as Response, nextFunction);
+  it('FALLO: Debería bloquear si no hay cabecera de autorización (401)', async () => {
+    await verifyToken(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(401);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Acceso denegado. Token no proporcionado o formato incorrecto.',
-    });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Acceso denegado. Token no proporcionado o formato incorrecto.' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
-  it('FALLO: Debería bloquear si el token es inválido o caducado (401)', () => {
+  it('FALLO: Debería bloquear si el token es inválido o caducado (401)', async () => {
     mockReq.headers = { authorization: 'Bearer token-falso' };
 
     vi.mocked(jwt.verify).mockImplementation(() => {
       throw new Error('Token expired');
     });
 
-    verifyToken(mockReq as Request, mockRes as Response, nextFunction);
+    await verifyToken(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(401);
-    expect(mockRes.json).toHaveBeenCalledWith({ error: 'Token inválido o expirado.' });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Token inválido o expirado.' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
-  it('ÉXITO: Debería dejar pasar (next) y guardar el usuario en req si el token es válido', () => {
-    const mockUserPayload = { id: '123', email: 'test@test.com', role: 'SuperAdmin' };
+  it('ÉXITO: Debería dejar pasar (next) y guardar en req el rol y club vigentes de la base de datos', async () => {
     mockReq.headers = { authorization: 'Bearer token-bueno' };
 
-    vi.mocked(jwt.verify).mockReturnValue(mockUserPayload as any);
+    vi.mocked(jwt.verify).mockReturnValue({ id: '123', role: 'SuperAdmin', clubId: null } as any);
+    prismaMock.client.user.findUniqueOrThrow.mockResolvedValue({
+      id: '123',
+      active: true,
+      clubId: 'club-9',
+      userType: { name: 'AdminClub' },
+      club: { status: 'Aprobado' },
+    });
 
-    verifyToken(mockReq as Request, mockRes as Response, nextFunction);
+    await verifyToken(mockReq as Request, mockRes as Response, nextFunction);
 
-    expect(mockReq.user).toEqual(mockUserPayload);
+    expect(mockReq.user).toEqual({ id: '123', role: 'AdminClub', clubId: 'club-9', clubStatus: 'Aprobado' });
     expect(nextFunction).toHaveBeenCalledOnce();
     expect(mockRes.status).not.toHaveBeenCalled();
   });
@@ -88,7 +96,7 @@ describe('Auth Middleware (requireSuperAdmin)', () => {
     requireSuperAdmin(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(401);
-    expect(mockRes.json).toHaveBeenCalledWith({ error: 'Usuario no autenticado' });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Usuario no autenticado' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
@@ -99,9 +107,7 @@ describe('Auth Middleware (requireSuperAdmin)', () => {
     requireSuperAdmin(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(403);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Acceso denegado. Solo el SuperAdmin puede realizar esta acción.',
-    });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Acceso denegado. Solo el SuperAdmin puede realizar esta acción.' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 
@@ -143,9 +149,7 @@ describe('Auth Middleware (requireAdminClub)', () => {
     requireAdminClub(mockReq as Request, mockRes as Response, nextFunction);
 
     expect(mockRes.status).toHaveBeenCalledWith(403);
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Acceso denegado. Se requieren permisos de Administrador de Club.',
-    });
+    expect(mockRes.json).toHaveBeenCalledWith({ success: false, error: 'Acceso denegado. Se requieren permisos de Administrador de Club.' });
     expect(nextFunction).not.toHaveBeenCalled();
   });
 

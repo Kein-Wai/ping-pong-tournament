@@ -19,13 +19,12 @@ import {
   Paper,
 } from '@mantine/core';
 import { IconBug, IconMessageCircle, IconCheck, IconEye } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
-import { useAuthStore } from '../../store/authStore';
+import { feedbackService } from '../../api/services/feedback';
+import { usePermissions } from '../../hooks/usePermissions';
+import type { AppFeedback } from '../../types/api';
 
 export const FeedbackPage = () => {
-  const { user } = useAuthStore();
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<AppFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -34,16 +33,17 @@ export const FeedbackPage = () => {
   const [content, setContent] = useState('');
 
   // Modal Admin
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<AppFeedback | null>(null);
 
-  const isAdmin = user?.role === 'SuperAdmin';
+  // Solo el SuperAdmin gestiona la bandeja (el backend restringe igual el GET y el PUT).
+  const { isSuperAdmin: isAdmin } = usePermissions();
 
   const fetchData = async () => {
     try {
-      const res = await api.get(ENDPOINTS.FEEDBACK.BASE);
-      setFeedbacks(res.data.data);
-    } catch (error) {
-      console.error(error);
+      const feedbackList = await feedbackService.list();
+      setFeedbacks(feedbackList);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setLoading(false);
     }
@@ -57,11 +57,11 @@ export const FeedbackPage = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.post(ENDPOINTS.FEEDBACK.BASE, { type, content });
+      await feedbackService.create({ type, content });
       setContent('');
       fetchData(); // Recargamos para que aparezca abajo en su historial
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setSaving(false);
     }
@@ -70,11 +70,11 @@ export const FeedbackPage = () => {
   const handleUpdateStatus = async (status: string) => {
     if (!selectedItem) return;
     try {
-      await api.put(ENDPOINTS.FEEDBACK.UPDATE_STATUS(selectedItem.id), { status });
+      await feedbackService.updateStatus(selectedItem.id, status);
       setSelectedItem(null);
       fetchData();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 

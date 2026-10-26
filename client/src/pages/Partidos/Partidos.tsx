@@ -27,27 +27,14 @@ import {
   IconUsersGroup,
   IconEye,
 } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { matchesService } from '../../api/services/matches';
 import { getPlayerAvatar } from '../../utils/avatar';
+import { formatDate } from '../../utils/dates';
+import type { Club } from '../../types/api';
+import type { Tournament } from '../../types/tournament';
 import { useAuthStore } from '../../store/authStore';
-interface Tournament {
-  id: string;
-  name: string;
-  dateStart: string;
-  numPlayers: number;
-  typeTournament: string | null;
-  levelTournament: string | null;
-  rounds: string | null;
-  status: string | null;
-  typeKnockout: string | null;
-}
-
-interface Club {
-  id: string;
-  name: string;
-  city: string;
-}
+import { usePermissions } from '../../hooks/usePermissions';
+type MatchClub = Pick<Club, 'id' | 'name' | 'city'>;
 
 export interface Match {
   id: string;
@@ -84,7 +71,7 @@ export interface Match {
     name: string;
     surname: string | null;
     avatarUrl?: string | null; // Añadimos soporte para el avatar
-    club: Club | null;
+    club: MatchClub | null;
   } | null;
 
   playerTwo?: {
@@ -92,7 +79,7 @@ export interface Match {
     name: string;
     surname: string | null;
     avatarUrl?: string | null; // Añadimos soporte para el avatar
-    club: Club | null;
+    club: MatchClub | null;
   } | null;
 
   group?: {
@@ -107,6 +94,7 @@ const ITEMS_PER_PAGE = 10;
 
 export const Partidos = () => {
   const { user } = useAuthStore();
+  const { isAdminClub } = usePermissions();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -118,13 +106,13 @@ export const Partidos = () => {
 
   useEffect(() => {
     const fetchMatches = async () => {
-      if (user?.role === 'AdminClub' && !user?.clubId) {
+      if (isAdminClub && !user?.clubId) {
         setLoading(false);
         return;
       }
       try {
-        const response = await api.get(ENDPOINTS.MATCHES.BASE);
-        const data = response.data.sort(
+        const matchesData = await matchesService.list<Match>();
+        const data = matchesData.sort(
           (a: Match, b: Match) => (a.dateStart > b.dateStart ? -1 : 1), // Cambiado para mostrar los más recientes primero
         );
 
@@ -139,7 +127,7 @@ export const Partidos = () => {
     };
 
     fetchMatches();
-  }, []);
+  }, [isAdminClub, user?.clubId]);
 
   const filteredMatches = matches.filter((match) => {
     const fullMatch =
@@ -185,7 +173,7 @@ export const Partidos = () => {
             <IconCalendar size={16} stroke={1.5} color="blue" />
             <div>
               <Text fz="sm" fw={500}>
-                {new Date(match?.dateStart).toLocaleDateString('es-ES', {
+                {formatDate(match?.dateStart, {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',

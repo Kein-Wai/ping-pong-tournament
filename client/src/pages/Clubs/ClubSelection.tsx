@@ -14,40 +14,29 @@ import {
   Badge,
 } from '@mantine/core';
 import { IconBuildingCommunity, IconCheck, IconClock, IconUsers } from '@tabler/icons-react';
-import { api } from '../../api/axios';
+import { clubsService } from '../../api/services/clubs';
 import { useAuthStore } from '../../store/authStore';
 import { openAppConfirmModal } from '../../utils/modals';
-import { ENDPOINTS } from '../../api/endpoints';
-
-interface Club {
-  id: string;
-  name: string;
-  city: string;
-  address?: string;
-  memberCount: number;
-  createdAt: string;
-  foundedAt?: string;
-}
+import { formatDate } from '../../utils/dates';
+import type { ClubListItem } from '../../types/api';
 
 export const ClubSelection = () => {
   const { user, updateUserFields, logout } = useAuthStore();
-  const [clubs, setClubs] = useState<Club[]>([]);
+  const [clubs, setClubs] = useState<ClubListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClubs = async () => {
       try {
-        const response = await api.get(ENDPOINTS.CLUBS.BASE);
+        const allClubs = await clubsService.list();
 
-        if (response.data.success) {
-          const visibleClubs = response.data.data.filter(
-            (club: Club) => !club.name.toUpperCase().startsWith('(DEMO)'),
-          );
-          setClubs(visibleClubs);
-        }
-      } catch (error: any) {
-        console.log(error);
+        const visibleClubs = allClubs.filter(
+          (club) => !club.name.toUpperCase().startsWith('(DEMO)'),
+        );
+        setClubs(visibleClubs);
+      } catch (error) {
+        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -69,12 +58,10 @@ export const ClubSelection = () => {
       onConfirm: async () => {
         setSubmittingId(clubId);
         try {
-          const response = await api.post(ENDPOINTS.CLUBS.JOIN(clubId));
-          if (response.data.success) {
-            updateUserFields({ clubId, clubStatus: 'Pendiente' });
-          }
-        } catch (error) {
-          console.error(error);
+          await clubsService.join(clubId);
+          updateUserFields({ clubId, clubStatus: 'Pendiente' });
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         } finally {
           setSubmittingId(null);
         }
@@ -184,9 +171,7 @@ export const ClubSelection = () => {
 
                     <Text size="xs" c="dimmed" mt="auto">
                       Fundado el:{' '}
-                      {club.foundedAt
-                        ? new Date(club.foundedAt).toLocaleDateString()
-                        : new Date(club.createdAt).toLocaleDateString()}
+                      {club.foundedAt ? formatDate(club.foundedAt) : formatDate(club.createdAt)}
                     </Text>
                   </Stack>
 

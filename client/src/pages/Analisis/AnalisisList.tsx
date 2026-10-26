@@ -27,9 +27,19 @@ import {
   IconClipboardList,
   IconPingPong,
 } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { manualMatchesService } from '../../api/services/manualMatches';
+import { seasonsService } from '../../api/services/seasons';
+import type {
+  AnalysisType,
+  DominantHand,
+  ManualMatchType,
+  MatchFormat,
+  OpponentLevel,
+  Playstyle,
+  RubberType,
+} from '../../types/enums';
 import { APP_ROUTES } from '../../constants/routes';
+import type { ManualMatch } from '../../types/api';
 import { DateInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
 
@@ -37,7 +47,7 @@ const ITEMS_PER_PAGE = 8;
 
 export const AnalisisList = () => {
   const navigate = useNavigate();
-  const [matches, setMatches] = useState<any[]>([]);
+  const [matches, setMatches] = useState<ManualMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -61,10 +71,9 @@ export const AnalisisList = () => {
   const [matchDate, setMatchDate] = useState<Date | null>(new Date());
 
   useEffect(() => {
-    Promise.all([api.get(ENDPOINTS.MANUAL_MATCHES.BASE), api.get(ENDPOINTS.SEASONS.BASE)])
-      .then(([matchesRes, seasonsRes]) => {
-        setMatches(matchesRes.data.data);
-        const activeS = seasonsRes.data.data.find((s: any) => s.isCurrent);
+    Promise.all([manualMatchesService.list(), seasonsService.current()])
+      .then(([matchesData, activeS]) => {
+        setMatches(matchesData);
         if (activeS) setCurrentSeason(activeS.name);
       })
       .catch(console.error)
@@ -76,22 +85,22 @@ export const AnalisisList = () => {
     const finalOpponent = opponentName.trim() === '' ? 'Rival por determinar' : opponentName;
 
     try {
-      const res = await api.post(ENDPOINTS.MANUAL_MATCHES.BASE, {
+      const created = await manualMatchesService.create({
         opponentName: finalOpponent,
-        matchType,
+        matchType: matchType as ManualMatchType,
         location: 'Casa',
-        format: matchFormat,
-        analysisType: initialStatus === 'Programado' ? 'Rapido' : analysisType,
-        opponentHand,
-        opponentStyle,
-        opponentLevel,
-        opponentRubberForehand,
-        opponentRubberBackhand,
-        status: initialStatus,
+        format: matchFormat as MatchFormat,
+        analysisType: (initialStatus === 'Programado' ? 'Rapido' : analysisType) as AnalysisType,
+        opponentHand: opponentHand as DominantHand | null,
+        opponentStyle: opponentStyle as Playstyle | null,
+        opponentLevel: opponentLevel as OpponentLevel | null,
+        opponentRubberForehand: opponentRubberForehand as RubberType | null,
+        opponentRubberBackhand: opponentRubberBackhand as RubberType | null,
+        status: initialStatus as 'Programado' | 'Iniciado',
         setsToWin: Number(setsToWin),
         date: matchDate ? matchDate.toISOString() : new Date().toISOString(),
       });
-      navigate(APP_ROUTES.ANALISIS.TRACKER(res.data.data.id));
+      navigate(APP_ROUTES.ANALISIS.TRACKER(created.id));
     } catch (error) {
       console.error(error);
     } finally {

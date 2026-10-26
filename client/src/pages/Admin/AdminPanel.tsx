@@ -15,25 +15,9 @@ import {
   ScrollArea,
 } from '@mantine/core';
 import { IconCheck, IconX, IconShieldCheck, IconBuildingCommunity } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { clubsService } from '../../api/services/clubs';
 import { openAppConfirmModal } from '../../utils/modals';
-
-interface AdminClubUser {
-  name: string;
-  surname: string | null;
-  email: string;
-}
-
-interface ClubAdminData {
-  id: string;
-  name: string;
-  city: string;
-  status: 'Pendiente' | 'Aprobado' | 'Inactivo';
-  createdAt: string;
-  _count: { users: number };
-  users: AdminClubUser[];
-}
+import type { ClubAdminData } from '../../types/api';
 
 export const AdminPanel = () => {
   const [clubs, setClubs] = useState<ClubAdminData[]>([]);
@@ -42,8 +26,8 @@ export const AdminPanel = () => {
   const fetchAllClubs = async () => {
     try {
       setLoading(true);
-      const response = await api.get(ENDPOINTS.CLUBS.ADMIN_ALL);
-      setClubs(response.data.data);
+      const allClubs = await clubsService.adminList();
+      setClubs(allClubs);
     } catch (error) {
       console.error('Error al cargar la lista de clubes:', error);
     } finally {
@@ -73,7 +57,7 @@ export const AdminPanel = () => {
       confirmLabel: isApprove ? 'Sí, Aprobar Club' : 'Suspender Club',
       onConfirm: async () => {
         try {
-          await api.put(ENDPOINTS.CLUBS.UPDATE(clubId), { status: newStatus });
+          await clubsService.update(clubId, { status: newStatus });
           await fetchAllClubs();
         } catch (error) {
           console.error('Error cambiando el estado del club', error);

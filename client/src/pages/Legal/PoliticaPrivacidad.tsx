@@ -1,6 +1,7 @@
 import { Container, Title, Text, Stack, Paper, Button } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
+import { formatDate } from '../../utils/dates';
 
 export const PoliticaPrivacidad = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export const PoliticaPrivacidad = () => {
         <Stack gap="md">
           <Title order={1}>Política de Privacidad y Protección de Datos</Title>
           <Text size="sm" c="dimmed">
-            Última actualización: {new Date().toLocaleDateString('es-ES')}
+            Última actualización: {formatDate(new Date())}
           </Text>
 
           <Title order={3} mt="md">

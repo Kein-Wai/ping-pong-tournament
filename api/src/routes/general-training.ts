@@ -1,7 +1,9 @@
 import { Router } from 'express';
+import { UpdateSourceType, SkillUpdateStatus } from '@prisma/client';
 import prisma from '../db';
 import { z } from 'zod';
 import { requireAdminClub } from '../middleware/auth.middleware';
+import { buildClubScope, hasClubPermission, isOutOfClubScope } from '../utils/auth';
 import {
   createScheduleSchema,
   createGeneralTrainingSchema,
@@ -9,364 +11,315 @@ import {
   updateScheduleSchema,
   updateGeneralTrainingSchema,
 } from '../schemas/generalTraining';
-import { getCurrentSeason } from '../utils/season';
+import { resolveCurrentSeason } from '../utils/season';
 import { calculateConditionalGrowth } from '../utils/skills';
+import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 
 const router = Router();
-
-// Helper para evitar crasheos si entra un SuperAdmin (clubId = null)
-const getClubWhere = (req: any) => {
-  if (req.user?.role === 'SuperAdmin') return {}; // El SuperAdmin lo ve todo
-  return { clubId: req.user?.clubId };
-};
 
 // ==========================================
 // 1. HORARIOS FIJOS (Schedules)
 // ==========================================
-router.get('/schedules', async (req, res) => {
-  try {
-    const schedules = await prisma.generalTrainingSchedule.findMany({
-      where: getClubWhere(req),
-      orderBy: { startTime: 'asc' },
-    });
-    res.status(200).json({ success: true, data: schedules });
-  } catch (error) {
-    console.error('[GET /schedules]', error);
-    res.status(500).json({ error: 'Error al obtener horarios' });
+router.get('/schedules', asyncHandler(async (req, res) => {
+  // Sin club asignado no puede ver los horarios de ningún club.
+  if (isOutOfClubScope(req.user)) {
+    return sendData(res, []);
   }
-});
 
-router.post('/schedules', requireAdminClub, async (req, res) => {
-  try {
-    const clubId = req.user?.clubId!;
-    if (!clubId)
-      return res.status(403).json({ error: 'No tienes un club asignado para crear horarios.' });
+  const schedules = await prisma.generalTrainingSchedule.findMany({
+    where: buildClubScope(req.user),
+    orderBy: { startTime: 'asc' },
+  });
+  sendData(res, schedules);
 
-    const validation = createScheduleSchema.safeParse(req.body);
-    if (!validation.success)
-      return res
-        .status(400)
-        .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+}, 'Error al obtener horarios', 500));
 
-    const newSchedule = await prisma.generalTrainingSchedule.create({
-      data: { ...validation.data, clubId },
-    });
-    res.status(201).json({ success: true, data: newSchedule });
-  } catch (error) {
-    console.error('[POST /schedules]', error);
-    res.status(500).json({ error: 'Error al crear el horario' });
+router.post('/schedules', requireAdminClub, asyncHandler(async (req, res) => {
+  const clubId = req.user?.clubId;
+  if (!clubId)
+    return sendError(res, 403, 'No tienes un club asignado para crear horarios.');
+
+  const validation = createScheduleSchema.safeParse(req.body);
+  if (!validation.success)
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
+
+  const newSchedule = await prisma.generalTrainingSchedule.create({
+    data: { ...validation.data, clubId },
+  });
+  sendData(res, newSchedule, 201);
+
+}, 'Error al crear el horario', 500));
+
+router.put('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) => {
+  const scheduleId = req.params.id as string;
+
+  const validation = updateScheduleSchema.safeParse(req.body);
+  if (!validation.success)
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
+
+  const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
+  if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
+    return sendError(res, 404, 'Horario no encontrado');
   }
-});
 
-router.put('/schedules/:id', requireAdminClub, async (req, res) => {
-  try {
-    const clubId = req.user?.clubId!;
-    const scheduleId = req.params.id as string;
+  const updatedSchedule = await prisma.generalTrainingSchedule.update({
+    where: { id: scheduleId },
+    data: validation.data,
+  });
 
-    const validation = updateScheduleSchema.safeParse(req.body);
-    if (!validation.success)
-      return res
-        .status(400)
-        .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+  sendData(res, updatedSchedule);
 
-    const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
-    if (!schedule || (req.user?.role !== 'SuperAdmin' && schedule.clubId !== clubId)) {
-      return res.status(404).json({ error: 'Horario no encontrado' });
-    }
+}, 'Error al actualizar el horario', 500));
 
-    const updatedSchedule = await prisma.generalTrainingSchedule.update({
-      where: { id: scheduleId },
-      data: validation.data,
-    });
+router.delete('/schedules/:id', requireAdminClub, asyncHandler(async (req, res) => {
+  const scheduleId = req.params.id as string;
 
-    res.status(200).json({ success: true, data: updatedSchedule });
-  } catch (error) {
-    console.error('[PUT /schedules/:id]', error);
-    res.status(500).json({ error: 'Error al actualizar el horario' });
+  const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
+  if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
+    return sendError(res, 404, 'Horario no encontrado');
   }
-});
 
-router.delete('/schedules/:id', requireAdminClub, async (req, res) => {
-  try {
-    const clubId = req.user?.clubId!;
-    const scheduleId = req.params.id as string;
+  await prisma.generalTrainingSchedule.delete({ where: { id: scheduleId } });
+  sendMessage(res, 'Horario eliminado');
 
-    const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
-    if (!schedule || (req.user?.role !== 'SuperAdmin' && schedule.clubId !== clubId)) {
-      return res.status(404).json({ error: 'Horario no encontrado' });
-    }
-
-    await prisma.generalTrainingSchedule.delete({ where: { id: scheduleId } });
-    res.status(200).json({ success: true, message: 'Horario eliminado' });
-  } catch (error) {
-    console.error('[DELETE /schedules/:id]', error);
-    res.status(500).json({
-      error: 'Error al eliminar el horario. Puede que esté en uso por algún entrenamiento.',
-    });
-  }
-});
+}, 'Error al eliminar el horario. Puede que esté en uso por algún entrenamiento.', 500));
 
 // ==========================================
 // 2. CALENDARIO DE ENTRENAMIENTOS GENERALES
 // ==========================================
-router.get('/', async (req, res) => {
-  try {
-    const trainings = await prisma.generalTraining.findMany({
-      where: getClubWhere(req),
-      include: {
-        schedule: true,
-        template: true,
-        attendances: true,
-        _count: { select: { attendances: true } },
+router.get('/', asyncHandler(async (req, res) => {
+  // Sin club no hay entrenamientos que ver: sin esto el filtro quedaba vacío y devolvía los de todos los clubes.
+  if (isOutOfClubScope(req.user)) {
+    return sendData(res, []);
+  }
+
+  const trainings = await prisma.generalTraining.findMany({
+    where: buildClubScope(req.user),
+    include: {
+      schedule: true,
+      template: true,
+      attendances: true,
+      _count: { select: { attendances: true } },
+    },
+    orderBy: { date: 'desc' },
+  });
+  sendData(res, trainings);
+
+}, 'Error al obtener los entrenamientos', 500));
+
+router.post('/', requireAdminClub, asyncHandler(async (req, res) => {
+  const clubId = req.user?.clubId;
+  if (!clubId) return sendError(res, 403, 'No tienes un club asignado.');
+
+  const validation = createGeneralTrainingSchema.safeParse(req.body);
+  if (!validation.success)
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
+
+  const { description, startDate, endDate, scheduleId, skillsToTrain } = validation.data;
+
+  const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
+  if (!schedule || !hasClubPermission(req.user, schedule.clubId)) {
+    return sendError(res, 404, 'Horario no encontrado');
+  }
+
+  // Rango de fechas exacto
+  const datesToCreate: Date[] = [];
+  const currentDate = new Date(startDate);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  while (currentDate <= end) {
+    // getDay(): 0 = Domingo, 1 = Lunes...
+    if (schedule.daysOfWeek.includes(currentDate.getDay())) {
+      datesToCreate.push(new Date(currentDate));
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  if (datesToCreate.length === 0) {
+    return sendError(res, 400, 'El rango de fechas no contiene ninguno de los días asignados a este horario');
+  }
+
+  const currentSeason = await resolveCurrentSeason(prisma);
+  await prisma.$transaction(async (tx) => {
+    const template = await tx.skillUpdateTemplate.create({
+      data: {
+        name: `Template General - ${new Date(startDate).toLocaleDateString()}`,
+        sourceType: 'EntrenamientoGeneral',
+        ...skillsToTrain,
       },
-      orderBy: { date: 'desc' },
     });
-    res.status(200).json({ success: true, data: trainings });
-  } catch (error) {
-    console.error('[GET /trainings]', error);
-    res.status(500).json({ error: 'Error al obtener los entrenamientos' });
+
+    const trainingsData = datesToCreate.map((date) => ({
+      clubId,
+      seasonId: currentSeason.id,
+      description,
+      date: date,
+      scheduleId,
+      templateId: template.id,
+    }));
+
+    await tx.generalTraining.createMany({ data: trainingsData });
+  });
+
+  sendMessage(res, `Se han programado ${datesToCreate.length} sesiones.`, 201);
+
+}, 'Error al programar el entrenamiento', 500));
+
+router.put('/:id', requireAdminClub, asyncHandler(async (req, res) => {
+  const trainingId = req.params.id as string;
+
+  const validation = updateGeneralTrainingSchema.safeParse(req.body);
+  if (!validation.success)
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
+
+  const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
+  if (!training || !hasClubPermission(req.user, training.clubId)) {
+    return sendError(res, 404, 'Entrenamiento no encontrado');
   }
-});
 
-router.post('/', requireAdminClub, async (req, res) => {
-  try {
-    const clubId = req.user?.clubId!;
-    if (!clubId) return res.status(403).json({ error: 'No tienes un club asignado.' });
+  const { description, scheduleId, skillsToTrain } = validation.data;
 
-    const validation = createGeneralTrainingSchema.safeParse(req.body);
-    if (!validation.success)
-      return res
-        .status(400)
-        .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
-
-    const { description, startDate, endDate, scheduleId, skillsToTrain } = validation.data;
-
-    const schedule = await prisma.generalTrainingSchedule.findUnique({ where: { id: scheduleId } });
-    if (!schedule) return res.status(404).json({ error: 'Horario no encontrado' });
-
-    // Rango de fechas exacto
-    const datesToCreate: Date[] = [];
-    let currentDate = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-
-    while (currentDate <= end) {
-      // getDay(): 0 = Domingo, 1 = Lunes...
-      if (schedule.daysOfWeek.includes(currentDate.getDay())) {
-        datesToCreate.push(new Date(currentDate));
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    if (datesToCreate.length === 0) {
-      return res.status(400).json({
-        error: 'El rango de fechas no contiene ninguno de los días asignados a este horario',
+  const updatedTraining = await prisma.$transaction(async (tx) => {
+    if (skillsToTrain) {
+      await tx.skillUpdateTemplate.update({
+        where: { id: training.templateId },
+        data: skillsToTrain,
       });
     }
 
-    const currentSeason = await getCurrentSeason(prisma);
-    await prisma.$transaction(async (tx) => {
-      const template = await tx.skillUpdateTemplate.create({
-        data: {
-          name: `Template General - ${new Date(startDate).toLocaleDateString()}`,
-          sourceType: 'EntrenamientoGeneral',
-          ...skillsToTrain,
-        },
-      });
-
-      const trainingsData = datesToCreate.map((date) => ({
-        clubId,
-        seasonId: currentSeason.id,
-        description,
-        date: date,
-        scheduleId,
-        templateId: template.id,
-      }));
-
-      await tx.generalTraining.createMany({ data: trainingsData });
+    return await tx.generalTraining.update({
+      where: { id: trainingId },
+      data: { description, scheduleId },
+      include: { schedule: true, template: true },
     });
+  });
 
-    res
-      .status(201)
-      .json({ success: true, message: `Se han programado ${datesToCreate.length} sesiones.` });
-  } catch (error) {
-    console.error('[POST /trainings]', error);
-    res.status(500).json({ error: 'Error al programar el entrenamiento' });
+  sendData(res, updatedTraining);
+
+}, 'Error al actualizar el entrenamiento', 500));
+
+router.delete('/:id', requireAdminClub, asyncHandler(async (req, res) => {
+  const trainingId = req.params.id as string;
+
+  const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
+  if (!training || !hasClubPermission(req.user, training.clubId)) {
+    return sendError(res, 404, 'Entrenamiento no encontrado');
   }
-});
 
-router.put('/:id', requireAdminClub, async (req, res) => {
-  try {
-    const clubId = req.user?.clubId!;
-    const trainingId = req.params.id as string;
+  await prisma.$transaction(async (tx) => {
+    await tx.generalTraining.delete({ where: { id: trainingId } });
+    await tx.skillUpdateTemplate.delete({ where: { id: training.templateId } });
+  });
 
-    const validation = updateGeneralTrainingSchema.safeParse(req.body);
-    if (!validation.success)
-      return res
-        .status(400)
-        .json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+  sendMessage(res, 'Entrenamiento eliminado con éxito');
 
-    const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
-    if (!training || (req.user?.role !== 'SuperAdmin' && training.clubId !== clubId)) {
-      return res.status(404).json({ error: 'Entrenamiento no encontrado' });
-    }
-
-    const { description, scheduleId, skillsToTrain } = validation.data;
-
-    const updatedTraining = await prisma.$transaction(async (tx) => {
-      if (skillsToTrain) {
-        await tx.skillUpdateTemplate.update({
-          where: { id: training.templateId },
-          data: skillsToTrain,
-        });
-      }
-
-      return await tx.generalTraining.update({
-        where: { id: trainingId },
-        data: { description, scheduleId },
-        include: { schedule: true, template: true },
-      });
-    });
-
-    res.status(200).json({ success: true, data: updatedTraining });
-  } catch (error) {
-    console.error('[PUT /trainings/:id]', error);
-    res.status(500).json({ error: 'Error al actualizar el entrenamiento' });
-  }
-});
-
-router.delete('/:id', requireAdminClub, async (req, res) => {
-  try {
-    const clubId = req.user?.clubId!;
-    const trainingId = req.params.id as string;
-
-    const training = await prisma.generalTraining.findUnique({ where: { id: trainingId } });
-    if (!training || (req.user?.role !== 'SuperAdmin' && training.clubId !== clubId)) {
-      return res.status(404).json({ error: 'Entrenamiento no encontrado' });
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.generalTraining.delete({ where: { id: trainingId } });
-      await tx.skillUpdateTemplate.delete({ where: { id: training.templateId } });
-    });
-
-    res.status(200).json({ success: true, message: 'Entrenamiento eliminado con éxito' });
-  } catch (error) {
-    console.error('[DELETE /trainings/:id]', error);
-    res.status(500).json({ error: 'Error al eliminar el entrenamiento' });
-  }
-});
+}, 'Error al eliminar el entrenamiento', 500));
 
 // ==========================================
 // 3. ASISTENCIA EN BLOQUE (BULK SYNC)
 // ==========================================
-router.put('/:id/attendance/bulk', requireAdminClub, async (req, res) => {
-  try {
-    const trainingId = req.params.id as string;
-    const clubId = req.user?.clubId!;
+router.put('/:id/attendance/bulk', requireAdminClub, asyncHandler(async (req, res) => {
+  const trainingId = req.params.id as string;
 
-    const validation = bulkAttendanceSchema.safeParse(req.body);
-    if (!validation.success) return res.status(400).json({ error: 'Datos inválidos' });
+  const validation = bulkAttendanceSchema.safeParse(req.body);
+  if (!validation.success) return sendError(res, 400, 'Datos inválidos');
 
-    const { playerIds } = validation.data;
+  const { playerIds } = validation.data;
 
-    const training = await prisma.generalTraining.findUnique({
-      where: { id: trainingId },
-      include: { template: true },
-    });
+  const training = await prisma.generalTraining.findUnique({
+    where: { id: trainingId },
+    include: { template: true },
+  });
 
-    if (!training || (req.user?.role !== 'SuperAdmin' && training.clubId !== clubId)) {
-      return res.status(404).json({ error: 'Entrenamiento no encontrado' });
+  if (!training || !hasClubPermission(req.user, training.clubId)) {
+    return sendError(res, 404, 'Entrenamiento no encontrado');
+  }
+
+  const tpl = training.template;
+
+  const existingAttendances = await prisma.generalTrainingAttendance.findMany({
+    where: { generalTrainingId: trainingId },
+  });
+  const existingIds = existingAttendances.map((a) => a.playerId);
+
+  const playersToAdd = playerIds.filter((id) => !existingIds.includes(id));
+  const playersToRemove = existingIds.filter((id) => !playerIds.includes(id));
+
+  const playersSkillsDB = await prisma.playerSkills.findMany({
+    where: { userId: { in: playersToAdd } },
+  });
+
+  const getSkillLevel = (pId: string, skill: string) => {
+    const pSkill: Record<string, unknown> | undefined = playersSkillsDB.find((p) => p.userId === pId);
+    return pSkill && pSkill[skill] ? Number(pSkill[skill]) : 0;
+  };
+
+  await prisma.$transaction(async (tx) => {
+    if (playersToRemove.length > 0) {
+      await tx.generalTrainingAttendance.deleteMany({
+        where: { generalTrainingId: trainingId, playerId: { in: playersToRemove } },
+      });
+      await tx.playerSkillUpdate.deleteMany({
+        where: { generalTrainingId: trainingId, playerId: { in: playersToRemove } },
+      });
     }
 
-    const tpl = training.template;
+    if (playersToAdd.length > 0) {
+      const attendanceData = playersToAdd.map((pId) => ({
+        generalTrainingId: trainingId,
+        clubId: training.clubId, // Usamos el del training por si es SuperAdmin
+        playerId: pId,
+        attended: true,
+      }));
+      await tx.generalTrainingAttendance.createMany({ data: attendanceData });
 
-    const existingAttendances = await prisma.generalTrainingAttendance.findMany({
-      where: { generalTrainingId: trainingId },
-    });
-    const existingIds = existingAttendances.map((a) => a.playerId);
+      const updatesData = playersToAdd.map((pId) => ({
+        playerId: pId,
+        sourceType: UpdateSourceType.EntrenamientoGeneral,
+        generalTrainingId: trainingId,
+        status: SkillUpdateStatus.EXPECTED,
+        derechaPlano: calculateConditionalGrowth(
+          tpl.derechaPlano,
+          getSkillLevel(pId, 'derechaPlano'),
+        ),
+        revesPlano: calculateConditionalGrowth(tpl.revesPlano, getSkillLevel(pId, 'revesPlano')),
+        topspinDerecha: calculateConditionalGrowth(
+          tpl.topspinDerecha,
+          getSkillLevel(pId, 'topspinDerecha'),
+        ),
+        topspinReves: calculateConditionalGrowth(
+          tpl.topspinReves,
+          getSkillLevel(pId, 'topspinReves'),
+        ),
+        corte: calculateConditionalGrowth(tpl.corte, getSkillLevel(pId, 'corte')),
+        bloqueoDerecha: calculateConditionalGrowth(
+          tpl.bloqueoDerecha,
+          getSkillLevel(pId, 'bloqueoDerecha'),
+        ),
+        bloqueoReves: calculateConditionalGrowth(
+          tpl.bloqueoReves,
+          getSkillLevel(pId, 'bloqueoReves'),
+        ),
+        servicio: calculateConditionalGrowth(tpl.servicio, getSkillLevel(pId, 'servicio')),
+        recepcion: calculateConditionalGrowth(tpl.recepcion, getSkillLevel(pId, 'recepcion')),
+        movilidad: calculateConditionalGrowth(tpl.movilidad, getSkillLevel(pId, 'movilidad')),
+        fortalezaMental: calculateConditionalGrowth(
+          tpl.fortalezaMental,
+          getSkillLevel(pId, 'fortalezaMental'),
+        ),
+        experiencia: calculateConditionalGrowth(
+          tpl.experiencia,
+          getSkillLevel(pId, 'experiencia'),
+        ),
+      }));
 
-    const playersToAdd = playerIds.filter((id) => !existingIds.includes(id));
-    const playersToRemove = existingIds.filter((id) => !playerIds.includes(id));
+      await tx.playerSkillUpdate.createMany({ data: updatesData });
+    }
+  });
 
-    const playersSkillsDB = await prisma.playerSkills.findMany({
-      where: { userId: { in: playersToAdd } },
-    });
+  sendMessage(res, 'Asistencia sincronizada correctamente');
 
-    // Casteo a any seguro
-    const getSkillLevel = (pId: string, skill: string) => {
-      const pSkill = playersSkillsDB.find((p) => p.userId === pId) as any;
-      return pSkill && pSkill[skill] ? Number(pSkill[skill]) : 0;
-    };
-
-    await prisma.$transaction(async (tx) => {
-      if (playersToRemove.length > 0) {
-        await tx.generalTrainingAttendance.deleteMany({
-          where: { generalTrainingId: trainingId, playerId: { in: playersToRemove } },
-        });
-        await tx.playerSkillUpdate.deleteMany({
-          where: { generalTrainingId: trainingId, playerId: { in: playersToRemove } },
-        });
-      }
-
-      if (playersToAdd.length > 0) {
-        const attendanceData = playersToAdd.map((pId) => ({
-          generalTrainingId: trainingId,
-          clubId: training.clubId, // Usamos el del training por si es SuperAdmin
-          playerId: pId,
-          attended: true,
-        }));
-        await tx.generalTrainingAttendance.createMany({ data: attendanceData });
-
-        const updatesData = playersToAdd.map((pId) => ({
-          playerId: pId,
-          sourceType: 'EntrenamientoGeneral' as any,
-          generalTrainingId: trainingId,
-          status: 'EXPECTED' as any,
-          derechaPlano: calculateConditionalGrowth(
-            tpl.derechaPlano,
-            getSkillLevel(pId, 'derechaPlano'),
-          ),
-          revesPlano: calculateConditionalGrowth(tpl.revesPlano, getSkillLevel(pId, 'revesPlano')),
-          topspinDerecha: calculateConditionalGrowth(
-            tpl.topspinDerecha,
-            getSkillLevel(pId, 'topspinDerecha'),
-          ),
-          topspinReves: calculateConditionalGrowth(
-            tpl.topspinReves,
-            getSkillLevel(pId, 'topspinReves'),
-          ),
-          corte: calculateConditionalGrowth(tpl.corte, getSkillLevel(pId, 'corte')),
-          bloqueoDerecha: calculateConditionalGrowth(
-            tpl.bloqueoDerecha,
-            getSkillLevel(pId, 'bloqueoDerecha'),
-          ),
-          bloqueoReves: calculateConditionalGrowth(
-            tpl.bloqueoReves,
-            getSkillLevel(pId, 'bloqueoReves'),
-          ),
-          servicio: calculateConditionalGrowth(tpl.servicio, getSkillLevel(pId, 'servicio')),
-          recepcion: calculateConditionalGrowth(tpl.recepcion, getSkillLevel(pId, 'recepcion')),
-          movilidad: calculateConditionalGrowth(tpl.movilidad, getSkillLevel(pId, 'movilidad')),
-          fortalezaMental: calculateConditionalGrowth(
-            tpl.fortalezaMental,
-            getSkillLevel(pId, 'fortalezaMental'),
-          ),
-          experiencia: calculateConditionalGrowth(
-            tpl.experiencia,
-            getSkillLevel(pId, 'experiencia'),
-          ),
-        }));
-
-        await tx.playerSkillUpdate.createMany({ data: updatesData });
-      }
-    });
-
-    res.status(200).json({ success: true, message: 'Asistencia sincronizada correctamente' });
-  } catch (error) {
-    console.error('[PUT /attendance/bulk]', error);
-    res.status(500).json({ error: 'Error procesando sincronización en bloque' });
-  }
-});
+}, 'Error procesando sincronización en bloque', 500));
 
 export default router;

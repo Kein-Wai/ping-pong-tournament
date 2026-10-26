@@ -1,11 +1,11 @@
 import { PrismaClient, TypeUser } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import {
-  createKnockoutDraw,
   saveKnockoutBracket,
   harvestKnockoutPlayers,
   processKnockoutAdvancement,
 } from '../src/utils/knockout';
+import { createKnockoutDraw } from '../src/utils/knockout-engine';
 
 const prisma = new PrismaClient();
 
@@ -713,11 +713,11 @@ async function main() {
   console.log(`Fase 2: Generando árboles de Eliminatorias A y B (Todas las posiciones)...`);
   const harvest = await harvestKnockoutPlayers(prisma, t1.id);
   if (harvest.bracketA.length > 0) {
-    const matchesA = createKnockoutDraw(harvest.bracketA, 'Siembra', true);
+    const matchesA = createKnockoutDraw(harvest.bracketA, 'Siembra');
     await saveKnockoutBracket(prisma, t1.id, 'A', matchesA, new Date(), true);
   }
   if (harvest.bracketB.length > 0) {
-    const matchesB = createKnockoutDraw(harvest.bracketB, 'Siembra', true);
+    const matchesB = createKnockoutDraw(harvest.bracketB, 'Siembra');
     await saveKnockoutBracket(prisma, t1.id, 'B', matchesB, new Date(), true);
   }
   await prisma.tournament.update({ where: { id: t1.id }, data: { knockoutCreated: true } });

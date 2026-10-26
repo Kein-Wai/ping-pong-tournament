@@ -17,9 +17,15 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { IconTrophy, IconDeviceFloppy, IconArrowLeft } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { tournamentsService, type CreateTournamentPayload } from '../../api/services/tournaments';
 import { APP_ROUTES } from '../../constants/routes';
+import type {
+  LevelTournament,
+  Rounds,
+  SortKnockout,
+  TypeKnockout,
+  TypeTournament,
+} from '../../types/enums';
 import '@mantine/dates/styles.css';
 
 export const TorneoNuevo = () => {
@@ -52,20 +58,20 @@ export const TorneoNuevo = () => {
 
     try {
       // 1. Preparamos el payload base
-      const payload: any = {
+      const payload: CreateTournamentPayload = {
         name,
         dateStart: dateStart ? dateStart.toISOString() : new Date().toISOString(),
         numPlayers: Number(numPlayers),
-        typeTournament,
-        levelTournament,
-        rounds,
+        typeTournament: typeTournament as TypeTournament,
+        levelTournament: levelTournament as LevelTournament,
+        rounds: rounds as Rounds,
       };
 
       // 2. Inyectamos variables según el formato elegido para cumplir con tu Zod Schema
       if (rounds === 'TodosvsTodos') {
         payload.numGroup = 1;
         payload.numGroupPlayers = Number(numPlayers);
-        payload.setsToWinGroup = setsToWinGroup;
+        payload.setsToWinGroup = setsToWinGroup as number;
         payload.playersKnockout = null;
         payload.typeKnockout = null;
         payload.sortKnockout = null;
@@ -76,28 +82,28 @@ export const TorneoNuevo = () => {
         payload.numGroup = Number(numGroup);
         payload.numGroupPlayers = Number(numGroupPlayers);
         payload.playersKnockout = Number(playersKnockout);
-        payload.typeKnockout = typeKnockout;
-        payload.sortKnockout = sortKnockout;
+        payload.typeKnockout = typeKnockout as TypeKnockout;
+        payload.sortKnockout = sortKnockout as SortKnockout;
         payload.allPos = allPos;
         payload.sortGroups = 'Snake'; // Algoritmo por defecto para grupos
-        payload.setsToWinGroup = setsToWinGroup;
-        payload.setsToWinKnockout = setsToWinKnockout;
+        payload.setsToWinGroup = setsToWinGroup as number;
+        payload.setsToWinKnockout = setsToWinKnockout as number;
       } else if (rounds === 'Knockout') {
         payload.numGroup = null;
         payload.numGroupPlayers = null;
         payload.playersKnockout = null;
-        payload.typeKnockout = typeKnockout;
-        payload.sortKnockout = sortKnockout;
+        payload.typeKnockout = typeKnockout as TypeKnockout;
+        payload.sortKnockout = sortKnockout as SortKnockout;
         payload.allPos = allPos;
-        payload.setsToWinKnockout = setsToWinKnockout;
+        payload.setsToWinKnockout = setsToWinKnockout as number;
       }
 
       // 3. Enviamos al backend
-      const response = await api.post(ENDPOINTS.TOURNAMENTS.BASE, payload);
+      const created = await tournamentsService.create(payload);
 
-      if (response.data.tournament) {
+      if (created) {
         // Redirigimos directamente a la vista de detalles del nuevo torneo
-        navigate(APP_ROUTES.TORNEOS.DETAILS(response.data.tournament.id));
+        navigate(APP_ROUTES.TORNEOS.DETAILS(created.id));
       }
     } catch (error) {
       console.error('Error al crear el torneo', error);
@@ -129,7 +135,7 @@ export const TorneoNuevo = () => {
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => navigate('/torneos')}
+          onClick={() => navigate(APP_ROUTES.TORNEOS.LIST)}
         >
           Volver a Torneos
         </Button>

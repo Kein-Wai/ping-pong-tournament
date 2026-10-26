@@ -21,6 +21,10 @@ vi.mock('../../src/db', () => ({
     },
     user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
     userType: { findUnique: vi.fn() },
+    refreshToken: {
+      create: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
   },
 }));
 
@@ -104,7 +108,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
         .send({ email: 'carlos@pingpong.com', password: 'password123' });
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('token');
+      expect(response.body.data).toHaveProperty('token');
       expect(response.body.message).toBe('Login local exitoso');
     });
 
@@ -122,7 +126,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error', 'Credenciales incorrectas');
 
-      expect(response.body).not.toHaveProperty('token');
+      expect(response.body.data).toBeUndefined();
     });
   });
 
@@ -131,6 +135,7 @@ describe('Rutas de Autenticación (/api/auth)', () => {
       mockVerifyIdToken.mockResolvedValue({
         getPayload: () => ({
           email: 'google@pingpong.com',
+          email_verified: true,
           given_name: 'Google User',
           sub: 'google-id-123',
         }),
@@ -144,8 +149,30 @@ describe('Rutas de Autenticación (/api/auth)', () => {
         .send({ credential: 'fake-google-token-from-frontend' });
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('token');
+      expect(response.body.data).toHaveProperty('token');
       expect(response.body.message).toBe('Login con Google exitoso');
+    });
+
+    it('FALLO: Debería rechazar una cuenta de Google con el correo sin verificar (401)', async () => {
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          email: 'victima@pingpong.com',
+          email_verified: false,
+          given_name: 'Atacante',
+          sub: 'google-id-atacante',
+        }),
+      });
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
+
+      const response = await request(app)
+        .post('/api/auth/google')
+        .send({ credential: 'token-con-correo-sin-verificar' });
+
+      expect(response.status).toBe(401);
+      expect(response.body.data).toBeUndefined();
+      // No debe vincular ni crear ninguna cuenta con un correo que Google no ha verificado.
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
     it('FALLO: Debería rechazar un token de Google falso o caducado (401)', async () => {

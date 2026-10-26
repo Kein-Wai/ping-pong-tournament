@@ -1,189 +1,133 @@
 import XlsxPopulate from 'xlsx-populate';
 import path from 'path';
-import { buildGroupsEngine, TournamentSeed } from '../utils/group-generator';
-import { createKnockoutDraw, KnockoutSeed } from '../utils/knockout';
-import { randomUUID } from 'crypto';
+import {
+  buildTournamentExportData,
+  PlayerExportInput,
+  TournamentExportData,
+  TournamentExportInfo,
+} from './excel-data';
 
-const letrasMayusculas = [
-  'A',
-  'B',
-  'C',
-  'D',
-  'E',
-  'F',
-  'G',
-  'H',
-  'I',
-  'J',
-  'K',
-  'L',
-  'M',
-  'N',
-  'Ñ',
-  'O',
-  'P',
-  'Q',
-  'R',
-  'S',
-  'T',
-  'U',
-  'V',
-  'W',
-  'X',
-  'Y',
-  'Z',
-];
+const TEMPLATE_PATH = path.join(__dirname, '../../public/assets/Planillas Maestra.xlsx');
 
-export const generateTournamentExcel = async (tournamentInfo: any, playersInput: any[]) => {
-  const templatePath = path.join(__dirname, '../../public/assets/Planillas Maestra.xlsx');
+/**
+ * Rellena la hoja 1 con los datos del torneo y la lista de jugadores.
+ *
+ * ADAPTER: solo escribe celdas. Los datos llegan ya calculados.
+ */
+/**
+ * Tipos estructurales minimos de xlsx-populate (la libreria no los publica).
+ * Solo se declara lo que la exportacion usa de verdad.
+ */
+interface ExcelCell {
+  value(value?: unknown): ExcelCell | unknown;
+}
 
-  // Normalizamos a los jugadores
-  const players = playersInput.map((p, index) => ({
-    id: p.id || randomUUID(),
-    name: p.name || 'Sin Nombre',
-    clubName: p.clubName || '',
-    seedValue: p.seedValue !== undefined ? p.seedValue : 10000 - index,
-  }));
+interface ExcelSheet {
+  cell(address: string): ExcelCell;
+  name(): string;
+  delete(): void;
+}
 
-  const workbook = await XlsxPopulate.fromFileAsync(templatePath);
+interface ExcelWorkbook {
+  sheet(name: string): ExcelSheet;
+  cloneSheet(sheet: ExcelSheet, name: string): ExcelSheet;
+  sheets(): ExcelSheet[];
+  outputAsync(): Promise<Buffer>;
+}
 
-  // ==========================================
-  // 1. RELLENAR HOJA 1
-  // ==========================================
-  const hoja1 = workbook.sheet('Hoja1');
-  hoja1.cell('B1').value(tournamentInfo.name);
-  hoja1
-    .cell('B2')
-    .value(new Date(tournamentInfo.dateStart || new Date()).toLocaleDateString('es-ES'));
-  hoja1.cell('B3').value(tournamentInfo.levelTournament || 'General');
-  hoja1.cell('B4').value(players.length);
+const fillMainSheet = (workbook: ExcelWorkbook, data: TournamentExportData): void => {
+  const sheet = workbook.sheet('Hoja1');
 
-  let currentRow = 7;
-  players.forEach((player, index) => {
-    hoja1.cell(`A${currentRow}`).value(index + 1);
-    hoja1.cell(`B${currentRow}`).value(player.name);
-    hoja1.cell(`C${currentRow}`).value(player.clubName);
-    currentRow++;
+  sheet.cell('B1').value(data.tournament.name);
+  sheet.cell('B2').value(data.tournament.date);
+  sheet.cell('B3').value(data.tournament.level);
+  sheet.cell('B4').value(data.tournament.playerCount);
+
+  data.playerRows.forEach((row) => {
+    sheet.cell(`A${row.row}`).value(row.position);
+    sheet.cell(`B${row.row}`).value(row.name);
+    sheet.cell(`C${row.row}`).value(row.clubName);
   });
+};
 
-  // ==========================================
-  // 2. CALCULAR GRUPOS Y CLONAR PESTAÑAS
-  // ==========================================
-  const seeds: TournamentSeed[] = players.map((p) => ({ id: p.id, seedValue: p.seedValue }));
-  // Lógica inteligente: Si nos pasan los jugadores por grupo, calculamos cuántos grupos hacen falta
-  let numGroups = tournamentInfo.numGroup;
+/**
+ * Clona la hoja-plantilla de cada grupo y la rellena con sus jugadores.
+ *
+ * ADAPTER: solo escribe celdas. Los datos llegan ya calculados.
+ */
+const fillGroupSheets = (workbook: ExcelWorkbook, data: TournamentExportData): void => {
+  data.groups.forEach((group) => {
+    const templateSheet = workbook.sheet(group.templateName);
+    const sheet = workbook.cloneSheet(templateSheet, group.sheetName);
 
-  if (!numGroups && tournamentInfo.numGroupPlayers) {
-    numGroups = Math.ceil(players.length / Number(tournamentInfo.numGroupPlayers));
-  } else if (!numGroups) {
-    numGroups = 2; // Fallback por seguridad
-  }
+    sheet.cell('C8').value(`${data.tournament.name} - ${group.letter}`);
+    sheet.cell('C9').value(data.tournament.date);
+    sheet.cell('C12').value(data.tournament.level);
+    sheet.cell('P2').value(group.groupNumber);
+    sheet.cell('A13').value(`Grupo ${group.letter}`);
 
-  const groupsData = buildGroupsEngine(seeds, numGroups);
-
-  const templateGroupNames: Record<number, string> = {
-    3: 'Zona de 3 (01)',
-    4: 'Zona de 4(01)',
-    5: 'Zona de 5(01)',
-  };
-
-  const sheetsToKeep = ['Hoja1', 'Llave Final']; // Aquí iremos guardando las pestañas que NO queremos borrar
-
-  groupsData.forEach((group, index) => {
-    const numPlayers = group.players.length;
-    const templateName = templateGroupNames[numPlayers];
-    if (!templateName) throw new Error(`No hay plantilla para un grupo de ${numPlayers} jugadores`);
-
-    const templateSheet = workbook.sheet(templateName);
-    const newSheetName = `Grupo ${letrasMayusculas[index]}`;
-    sheetsToKeep.push(newSheetName); // La protegemos del borrado
-
-    const newSheet = workbook.cloneSheet(templateSheet, newSheetName);
-
-    newSheet.cell('C8').value(`${tournamentInfo.name} - ${letrasMayusculas[index]}`);
-    newSheet
-      .cell('C9')
-      .value(new Date(tournamentInfo.dateStart || new Date()).toLocaleDateString('es-ES'));
-    newSheet.cell('C12').value(tournamentInfo.levelTournament || 'General');
-    newSheet.cell('P2').value(index + 1);
-    newSheet.cell('A13').value(`Grupo ${letrasMayusculas[index]}`);
-
-    // Rellenar lista de jugadores y clubes
-    const startRowTop = 18;
-    group.players.forEach((playerId, pIndex) => {
-      const playerObj = players.find((p) => p.id === playerId);
-      const row = startRowTop + pIndex * 2;
-      newSheet.cell(`G${row}`).value(playerObj?.name || 'Desconocido');
-      newSheet.cell(`N${row}`).value(playerObj?.clubName || '');
+    group.playerRows.forEach((player) => {
+      sheet.cell(`G${player.row}`).value(player.name);
+      sheet.cell(`N${player.row}`).value(player.clubName);
     });
 
-    // Rellenar los cruces de abajo
-    for (let r = 29; r <= 80; r++) {
-      const cellValue = newSheet.cell(`A${r}`).value();
-      if (typeof cellValue === 'number' && cellValue >= 1 && cellValue <= numPlayers) {
-        const playerId = group.players[cellValue - 1];
-        const playerObj = players.find((p) => p.id === playerId);
-        newSheet.cell(`B${r}`).value(playerObj?.name || '');
-      }
-    }
+    group.bracketRows.forEach((bracketRow) => {
+      sheet.cell(`B${bracketRow.row}`).value(bracketRow.name);
+    });
   });
+};
 
-  // ==========================================
-  // 3. GENERAR EL CUADRO DE ELIMINATORIAS (LLAVES)
-  // ==========================================
-  const playersKnockout = tournamentInfo.playersKnockout || 2; // Cuántos pasan por grupo
-  const classifiedPlayers: KnockoutSeed[] = [];
+/**
+ * Clona la hoja-plantilla del cuadro y la rellena con las semillas.
+ *
+ * ADAPTER: solo escribe celdas. Los datos llegan ya calculados.
+ */
+const fillBracketSheet = (workbook: ExcelWorkbook, data: TournamentExportData): void => {
+  const templateSheet = workbook.sheet(data.bracket.templateName);
+  if (!templateSheet) return;
 
-  // 3.1 Fabricamos a los clasificados "virtuales"
-  groupsData.forEach((group, index) => {
-    for (let pos = 1; pos <= playersKnockout; pos++) {
-      classifiedPlayers.push({
-        id: `${pos}º Grupo ${letrasMayusculas[index]}`, // Lo usamos de nombre visual
-        position: pos,
-        groupNumber: index + 1,
-      });
-    }
-  });
+  const sheet = workbook.cloneSheet(templateSheet, 'Llave Final');
 
-  // 3.2 Calculamos los cruces usando nuestro motor puro
-  const firstRoundMatches = createKnockoutDraw(classifiedPlayers, 'Siembra', false);
-
-  // 3.3 Aplanamos el array (P1, P2, P3, P4...) poniendo EXENTO donde no hay jugador
-  const drawSlots: string[] = [];
-  firstRoundMatches.forEach((match) => {
-    drawSlots.push(match.playerOne ? match.playerOne.id : 'EXENTO');
-    drawSlots.push(match.playerTwo ? match.playerTwo.id : 'EXENTO');
-  });
-
-  const bracketSize = drawSlots.length; // 8, 16, 32 o 64
-  let bracketTemplateName = `LlaveSEx${bracketSize}`;
-  if (bracketSize === 32) bracketTemplateName = 'LlaveSEx32 C'; // Excepción por el nombre en la plantilla
-
-  const bracketSheet = workbook.sheet(bracketTemplateName);
-
-  if (bracketSheet) {
-    const finalBracketSheet = workbook.cloneSheet(bracketSheet, 'Llave Final');
-
-    // Escaneamos la columna B en busca de las semillas (1.0, 2.0...) e inyectamos al lado (Columna C)
-    for (let r = 5; r <= 150; r++) {
-      const val = finalBracketSheet.cell(`B${r}`).value();
-      if (typeof val === 'number' && val >= 1 && val <= bracketSize) {
-        const playerName = drawSlots[val - 1];
-        finalBracketSheet.cell(`C${r}`).value(playerName);
-      }
+  // Las semillas estan numeradas en la columna B; la C lleva su nombre.
+  for (let row = 5; row <= 150; row++) {
+    const seed = sheet.cell(`B${row}`).value();
+    if (typeof seed === 'number' && seed >= 1 && seed <= data.bracket.bracketSize) {
+      sheet.cell(`C${row}`).value(data.bracket.drawSlots[seed - 1]);
     }
   }
+};
 
-  // ==========================================
-  // 4. LIMPIEZA EXTREMA Y REORDENAMIENTO
-  // ==========================================
-  // Borramos todas las pestañas de la plantilla maestra que no estén en "sheetsToKeep"
-  workbook.sheets().forEach((sheet: any) => {
+/**
+ * Elimina de la plantilla las pestanas que no forman parte de la exportacion.
+ *
+ * ADAPTER: solo manipula el libro.
+ */
+const removeUnusedSheets = (workbook: ExcelWorkbook, sheetsToKeep: string[]): void => {
+  workbook.sheets().forEach((sheet: ExcelSheet) => {
     if (!sheetsToKeep.includes(sheet.name())) {
       sheet.delete();
     }
   });
+};
 
-  const buffer = await workbook.outputAsync();
-  return buffer;
+/**
+ * Genera el Excel de un torneo a partir de la plantilla maestra.
+ *
+ * El calculo del reparto, los grupos y el cuadro vive en `excel-data` (puro y
+ * testeable); aqui solo se vuelcan los datos en las celdas de la plantilla.
+ */
+export const generateTournamentExcel = async (
+  tournamentInfo: TournamentExportInfo,
+  playersInput: PlayerExportInput[],
+) => {
+  const data = buildTournamentExportData(tournamentInfo, playersInput);
+
+  const workbook = (await XlsxPopulate.fromFileAsync(TEMPLATE_PATH)) as unknown as ExcelWorkbook;
+
+  fillMainSheet(workbook, data);
+  fillGroupSheets(workbook, data);
+  fillBracketSheet(workbook, data);
+  removeUnusedSheets(workbook, data.sheetsToKeep);
+
+  return workbook.outputAsync();
 };

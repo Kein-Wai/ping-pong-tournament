@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card,
   Title,
   Text,
   Button,
@@ -11,162 +10,54 @@ import {
   ThemeIcon,
   Center,
   Loader,
-  Modal,
-  Select,
-  NumberInput,
-  Badge,
-  ActionIcon,
   Paper,
   Alert,
 } from '@mantine/core';
 import {
   IconCalendar,
-  IconPlus,
   IconArrowLeft,
-  IconBarbell,
   IconTrash,
-  IconCopy,
   IconInfoCircle,
-  IconCheck,
   IconTarget,
   IconTrendingUp,
   IconTrendingDown,
 } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
 import { openAppConfirmModal } from '../../utils/modals';
-import { EXERCISE_CATEGORIES } from '../../constants/constants'; // Asegúrate de que la ruta es correcta
-import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
+import { useTrainingPlan } from '../../hooks/useTrainingPlan';
+import { AddExerciseModal } from '../../components/training/AddExerciseModal';
+import { CloneSessionModal } from '../../components/training/CloneSessionModal';
+import { PlanSessionCard } from '../../components/training/PlanSessionCard';
 import { APP_ROUTES } from '../../constants/routes';
 
 export const PlanDetalles = () => {
   const { planId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
 
-  // Estados del Plan
-  const [loading, setLoading] = useState(true);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [planData, setPlanData] = useState<any>(null);
-  // Catálogo Raw para filtrado dinámico
-  const [rawCatalog, setRawCatalog] = useState<any[]>([]);
+  const {
+    plan: planData,
+    sessions,
+    catalog,
+    isLoading: loading,
+    isSubmitting,
+    availableSourceSessions,
+    addExercise,
+    cloneSession,
+    removeExercise,
+  } = useTrainingPlan(planId);
 
-  // Estados del Modal Añadir
-  const [modalOpened, setModalOpened] = useState(false);
-  const [modalCategoryFilter, setModalCategoryFilter] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [exerciseId, setExerciseId] = useState<string | null>(null);
-  const [sets, setSets] = useState<number | string>('');
-  const [reps, setReps] = useState<number | string>('');
-  const [duration, setDuration] = useState<number | string>('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Sesion sobre la que esta abierto el modal de añadir (null = cerrado).
+  const [addTargetId, setAddTargetId] = useState<string | null>(null);
 
-  // Estados del Modal Clonar
+  // El destino se conserva al cerrar para que el titulo no cambie durante la animacion.
   const [cloneModalOpened, setCloneModalOpened] = useState(false);
   const [targetSession, setTargetSession] = useState<{ id: string; number: number } | null>(null);
-  const [sourceSessionId, setSourceSessionId] = useState<string | null>(null);
 
-  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
-
-  // 1. Cargar Plan
-  const fetchPlanDetails = async () => {
-    if (!planId) return;
-    try {
-      const response = await api.get(`${ENDPOINTS.TRAININGS.BASE}/${planId}`);
-      const data = response.data.data;
-      setPlanData(data);
-      setSessions(data.sessions || []);
-    } catch (error) {
-      console.error('Error al cargar el plan:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPlanDetails();
-  }, [planId]);
-
-  // 2. Cargar Catálogo (Una sola vez)
-  useEffect(() => {
-    api
-      .get(ENDPOINTS.EXERCISES.BASE)
-      .then((res) => {
-        setRawCatalog(res.data.data);
-      })
-      .catch((err) => console.error('Error cargando catálogo', err));
-  }, []);
-
-  // Filtramos los ejercicios según la categoría elegida en el Modal
-  const filteredCatalogOptions = rawCatalog
-    .filter((ex) => !modalCategoryFilter || ex.category === modalCategoryFilter)
-    .map((ex) => ({
-      value: ex.id,
-      label: `${ex.code ? `[${ex.code}] ` : ''}${ex.name}`,
-    }));
-
-  // Filtramos las sesiones que tienen ejercicios para el modal de clonación
-  const availableSourceSessions = sessions
-    .map((s, idx) => ({
-      id: s.id,
-      number: idx + 1,
-      count: s.exercises?.length || 0,
-    }))
-    .filter((s) => s.count > 0 && s.id !== targetSession?.id)
-    .map((s) => ({
-      value: s.id,
-      label: `Sesión ${s.number} (${s.count} ejercicios)`,
-    }));
-
-  // Manejadores de Modales
-  const openAddModal = (sessionId: string) => {
-    setSelectedSessionId(sessionId);
-    setExerciseId(null);
-    setSets('');
-    setReps('');
-    setDuration('');
-    setModalOpened(true);
-  };
+  const { isAdmin } = usePermissions();
 
   const openCloneModal = (targetId: string, targetNumber: number) => {
     setTargetSession({ id: targetId, number: targetNumber });
-    setSourceSessionId(null);
     setCloneModalOpened(true);
-  };
-
-  // Acciones (API)
-  const handleAddExercise = async () => {
-    if (!selectedSessionId || !exerciseId) return;
-    setIsSubmitting(true);
-
-    try {
-      const payload = {
-        exerciseId,
-        sets: sets ? Number(sets) : undefined,
-        reps: reps ? Number(reps) : undefined,
-        durationMinutes: duration ? Number(duration) : undefined,
-      };
-
-      await api.post(ENDPOINTS.TRAININGS.SESSIONS(selectedSessionId), payload);
-
-      await fetchPlanDetails();
-      setModalOpened(false);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleExecuteClone = async () => {
-    if (!targetSession || !sourceSessionId) return;
-    try {
-      await api.post(ENDPOINTS.TRAININGS.CLONE_SESSION(targetSession.id, sourceSessionId));
-      setCloneModalOpened(false);
-      await fetchPlanDetails();
-    } catch (error) {
-      console.error('Error al clonar sesión:', error);
-    }
   };
 
   const handleDeleteExercise = (sessionExerciseId: string) => {
@@ -178,12 +69,7 @@ export const PlanDetalles = () => {
       highlightText: 'Esta acción no se puede deshacer',
       confirmLabel: 'Sí, quitar',
       onConfirm: async () => {
-        try {
-          await api.delete(ENDPOINTS.TRAININGS.DELETE_EXERCISE(sessionExerciseId));
-          await fetchPlanDetails();
-        } catch (error) {
-          console.error('Error al quitar ejercicio:', error);
-        }
+        await removeExercise(sessionExerciseId);
       },
     });
   };
@@ -205,7 +91,7 @@ export const PlanDetalles = () => {
           onClick={() => {
             if (planData?.playerId) {
               // Te lleva directamente al perfil del jugador
-              navigate(`/jugadores/${planData.playerId}`);
+              navigate(APP_ROUTES.JUGADORES.PROFILE(planData.playerId));
             } else {
               navigate(-1); // Respaldo por si aún no ha cargado
             }
@@ -299,259 +185,38 @@ export const PlanDetalles = () => {
 
       {/* GRID DE SESIONES */}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-        {sessions.map((session, index) => {
-          const isSessionEmpty = session.exercises.length === 0;
-          const completedExercises = session.exercises.filter((ex: any) => ex.completed).length;
-          const isSessionCompleted =
-            !isSessionEmpty && completedExercises === session.exercises.length;
-
-          return (
-            <Card key={session.id} shadow="sm" radius="md" withBorder>
-              <Group justify="space-between" mb="md">
-                <Text fw={700}>Sesión {index + 1}</Text>
-
-                {isSessionEmpty ? (
-                  <Badge color="gray" variant="light">
-                    Vacía
-                  </Badge>
-                ) : isSessionCompleted ? (
-                  <Badge color="green" variant="filled" leftSection={<IconCheck size={14} />}>
-                    Completada
-                  </Badge>
-                ) : (
-                  <Badge color="blue" variant="light" tt="none">
-                    Progreso: {completedExercises} / {session.exercises.length}
-                  </Badge>
-                )}
-              </Group>
-              <Button
-                fullWidth
-                variant="light"
-                color="blue"
-                mb="md"
-                leftSection={<IconBarbell size={16} />}
-                onClick={() => navigate(APP_ROUTES.ENTRENAMIENTOS.SESSION(session.id))}
-              >
-                Entrar a la Sesión
-              </Button>
-              <Stack gap="xs" mb="md" style={{ minHeight: 80 }}>
-                {session.exercises.length === 0 ? (
-                  <Center h="100%">
-                    <Text size="sm" c="dimmed" fs="italic">
-                      Sin ejercicios asignados
-                    </Text>
-                  </Center>
-                ) : (
-                  session.exercises.map((item: any) => (
-                    <Paper
-                      key={item.id}
-                      withBorder
-                      p="xs"
-                      radius="sm"
-                      bg={
-                        item.completed
-                          ? 'var(--mantine-color-green-light)'
-                          : 'var(--mantine-color-gray-0)'
-                      }
-                      style={{ darkHidden: true, transition: 'background-color 0.3s' }}
-                    >
-                      <Group justify="space-between" wrap="nowrap">
-                        {/* CHECKBOX INTERACTIVO */}
-                        <Group gap="xs" style={{ flex: 1 }}>
-                          <Text
-                            size="sm"
-                            fw={600}
-                            truncate
-                            td={item.completed ? 'line-through' : 'none'}
-                            c={item.completed ? 'dimmed' : 'inherit'}
-                          >
-                            {item.exercise?.code ? `[${item.exercise.code}] ` : ''}
-                            {item.exercise?.name}
-                          </Text>
-                        </Group>
-
-                        <Group gap="xs">
-                          {(item.sets || item.reps) && (
-                            <Badge
-                              size="sm"
-                              variant="light"
-                              color={item.completed ? 'green' : 'blue'}
-                            >
-                              {item.sets || '-'}x{item.reps || '-'}
-                            </Badge>
-                          )}
-                          {item.durationMinutes && (
-                            <Badge
-                              size="sm"
-                              variant="light"
-                              color={item.completed ? 'green' : 'teal'}
-                            >
-                              {item.durationMinutes} min
-                            </Badge>
-                          )}
-
-                          {/* BOTÓN DE BORRAR (SOLO ADMIN) */}
-                          {isAdmin && (
-                            <ActionIcon
-                              color="red"
-                              variant="subtle"
-                              size="sm"
-                              onClick={() => handleDeleteExercise(item.id)}
-                            >
-                              <IconTrash size={14} />
-                            </ActionIcon>
-                          )}
-                        </Group>
-                      </Group>
-                    </Paper>
-                  ))
-                )}
-              </Stack>
-
-              {/* BOTONES DE LA TARJETA */}
-              {isAdmin && (
-                <Group grow mt="xs">
-                  <Button
-                    variant="light"
-                    color="orange"
-                    leftSection={<IconPlus size={16} />}
-                    disabled={session.exercises.length >= 6}
-                    onClick={() => openAddModal(session.id)}
-                  >
-                    {session.exercises.length >= 6 ? 'Límite (6)' : 'Añadir'}
-                  </Button>
-
-                  <Button
-                    variant="subtle"
-                    color="gray"
-                    leftSection={<IconCopy size={16} />}
-                    disabled={session.exercises.length >= 6 || availableSourceSessions.length === 0}
-                    onClick={() => openCloneModal(session.id, index + 1)}
-                  >
-                    Clonar
-                  </Button>
-                </Group>
-              )}
-            </Card>
-          );
-        })}
+        {sessions.map((session, index) => (
+          <PlanSessionCard
+            key={session.id}
+            session={session}
+            index={index}
+            isAdmin={isAdmin}
+            canClone={availableSourceSessions.length > 0}
+            onAddExercise={setAddTargetId}
+            onCloneSession={openCloneModal}
+            onRemoveExercise={handleDeleteExercise}
+          />
+        ))}
       </SimpleGrid>
 
-      {/* MODAL PARA AÑADIR EJERCICIO */}
-      <Modal
-        opened={modalOpened}
-        onClose={() => setModalOpened(false)}
-        title={
-          <Group gap="xs">
-            <IconBarbell color="orange" />
-            <Text fw={700} size="lg">
-              Asignar Ejercicio
-            </Text>
-          </Group>
-        }
-        centered
-      >
-        <Stack gap="md">
-          <Select
-            label="Filtrar por Categoría"
-            placeholder="Todas las categorías"
-            data={EXERCISE_CATEGORIES}
-            value={modalCategoryFilter}
-            onChange={(val) => {
-              setModalCategoryFilter(val);
-              setExerciseId(null);
-            }}
-            clearable
-          />
+      <AddExerciseModal
+        opened={addTargetId !== null}
+        onClose={() => setAddTargetId(null)}
+        catalog={catalog}
+        isSubmitting={isSubmitting}
+        onSubmit={(payload) => addExercise(addTargetId as string, payload)}
+      />
 
-          <Select
-            label="Selecciona un ejercicio"
-            placeholder="Busca por nombre o código..."
-            data={filteredCatalogOptions}
-            value={exerciseId}
-            onChange={setExerciseId}
-            searchable
-            required
-            nothingFoundMessage="No hay ejercicios en esta categoría"
-          />
-
-          <Group grow>
-            <NumberInput
-              label="Series"
-              placeholder="Opcional"
-              min={1}
-              value={sets}
-              onChange={setSets}
-            />
-            <NumberInput
-              label="Repeticiones"
-              placeholder="Opcional"
-              min={1}
-              value={reps}
-              onChange={setReps}
-            />
-          </Group>
-
-          <NumberInput
-            label="Duración (Minutos)"
-            placeholder="Opcional (Ej. para calentamiento/físico)"
-            min={1}
-            value={duration}
-            onChange={setDuration}
-          />
-
-          <Button
-            color="orange"
-            fullWidth
-            mt="md"
-            onClick={handleAddExercise}
-            loading={isSubmitting}
-            disabled={!exerciseId}
-          >
-            Añadir a la Sesión
-          </Button>
-        </Stack>
-      </Modal>
-
-      {/* MODAL PARA CLONAR SESIÓN */}
-      <Modal
+      <CloneSessionModal
         opened={cloneModalOpened}
         onClose={() => setCloneModalOpened(false)}
-        title={
-          <Group gap="xs">
-            <IconCopy color="blue" />
-            <Text fw={700} size="lg">
-              Clonar Ejercicios a Sesión {targetSession?.number}
-            </Text>{' '}
-          </Group>
+        targetSession={targetSession}
+        sourceSessions={availableSourceSessions}
+        isSubmitting={isSubmitting}
+        onSubmit={(sourceSessionId) =>
+          cloneSession((targetSession as { id: string }).id, sourceSessionId)
         }
-        centered
-      >
-        <Stack gap="md">
-          <Text size="sm" c="dimmed">
-            Selecciona la sesión de la cual deseas copiar todos los ejercicios:
-          </Text>
-
-          <Select
-            label="Sesión Origen"
-            placeholder="Selecciona una sesión con ejercicios..."
-            data={availableSourceSessions}
-            value={sourceSessionId}
-            onChange={setSourceSessionId}
-            required
-          />
-
-          <Button
-            color="blue"
-            fullWidth
-            mt="md"
-            disabled={!sourceSessionId}
-            onClick={handleExecuteClone}
-          >
-            Copiar Ejercicios
-          </Button>
-        </Stack>
-      </Modal>
+      />
     </Stack>
   );
 };

@@ -27,31 +27,16 @@ import {
   IconFileExcel,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../api/axios';
-import { useAuthStore } from '../../store/authStore';
-import { ENDPOINTS } from '../../api/endpoints';
+import { tournamentsService } from '../../api/services/tournaments';
+import { usePermissions } from '../../hooks/usePermissions';
 import { APP_ROUTES } from '../../constants/routes';
-// Interfaz actualizada con soporte Multi-tenant
-interface Tournament {
-  id: string;
-  name: string;
-  dateStart: string;
-  numPlayers: number;
-  typeTournament: string | null;
-  levelTournament: string | null;
-  rounds: string | null;
-  status: string | null;
-  clubId: string | null;
-  club?: {
-    name: string;
-  } | null;
-}
+import { formatDate } from '../../utils/dates';
+import type { TournamentWithClub } from '../../types/tournament';
 
 const ITEMS_PER_PAGE = 10;
 
 export const Torneos = () => {
-  const { user } = useAuthStore();
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [tournaments, setTournaments] = useState<TournamentWithClub[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -60,13 +45,12 @@ export const Torneos = () => {
   const [page, setPage] = useState(1);
 
   // Comprobación de rol para permisos de creación
-  const canCreateTournament = user?.role === 'SuperAdmin' || user?.role === 'AdminClub';
+  const { isAdmin: canCreateTournament } = usePermissions();
 
   useEffect(() => {
     const fetchTournaments = async () => {
       try {
-        const response = await api.get(ENDPOINTS.TOURNAMENTS.BASE);
-        const data = response.data.data || response.data;
+        const data = await tournamentsService.list<TournamentWithClub>();
         if (Array.isArray(data)) {
           setTournaments(data);
         }
@@ -117,7 +101,7 @@ export const Torneos = () => {
     );
   }
 
-  const getStatusColor = (status: string | null) => {
+  const getStatusColor = (status?: string | null) => {
     if (!status) return 'gray';
     if (status === 'Programado') return 'blue';
     if (status === 'Completado') return 'green';
@@ -221,7 +205,7 @@ export const Torneos = () => {
                 <Group gap="xs">
                   <IconCalendar size={16} stroke={1.5} color="var(--mantine-color-dimmed)" />
                   <Text size="sm" c="dimmed">
-                    {new Date(t.dateStart).toLocaleDateString('es-ES', {
+                    {formatDate(t.dateStart, {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric',

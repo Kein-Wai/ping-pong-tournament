@@ -19,6 +19,7 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
     next();
   },
   requireAdminClub: (req: any, res: any, next: any) => next(),
+  requireAdminClubAnyStatus: (req: any, res: any, next: any) => next(),
 }));
 
 describe('GET /api/user-types', () => {
@@ -33,7 +34,7 @@ describe('GET /api/user-types', () => {
     const response = await request(app).get('/api/user-types');
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual(mockUserTypes);
+    expect(response.body).toEqual({ success: true, data: mockUserTypes });
     expect(prisma.userType.findMany).toHaveBeenCalledOnce();
   });
 

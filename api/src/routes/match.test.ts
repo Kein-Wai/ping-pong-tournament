@@ -5,6 +5,7 @@ import prisma from '../db';
 
 vi.mock('../db', () => ({
   default: {
+    $transaction: vi.fn(),
     season: { findFirst: vi.fn().mockResolvedValue({ id: 'season-1', isCurrent: true }) },
     match: {
       findMany: vi.fn(),
@@ -37,11 +38,13 @@ vi.mock('../db', () => ({
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   verifyToken: (req: any, res: any, next: any) => {
-    req.user = { id: 'test-user-id', role: 'Player' };
+    // SuperAdmin: la autorización de escritura se prueba aparte, con guardas reales (match.authorization.test.ts).
+    req.user = { id: 'test-user-id', role: 'SuperAdmin' };
     next();
   },
   requireSuperAdmin: (req: any, res: any, next: any) => next(),
   requireAdminClub: (req: any, res: any, next: any) => next(),
+  requireAdminClubAnyStatus: (req: any, res: any, next: any) => next(),
 }));
 
 describe('GET /api/matches', () => {
@@ -102,7 +105,7 @@ describe('GET /api/matches', () => {
     const response = await request(app).get('/api/matches');
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual(mockMatches);
+    expect(response.body).toEqual({ success: true, data: mockMatches });
     expect(prisma.match.findMany).toHaveBeenCalledOnce();
   });
 
@@ -129,6 +132,9 @@ describe('PUT /api/matches/:id (Actualizar Marcador)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Las transacciones interactivas reciben el propio cliente simulado.
+    vi.mocked(prisma.$transaction).mockImplementation((async (work: (tx: unknown) => unknown) =>
+      work(prisma)) as never);
   });
 
   it('Debería actualizar un partido y devolver 200', async () => {

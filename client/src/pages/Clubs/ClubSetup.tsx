@@ -12,11 +12,11 @@ import {
   Container,
 } from '@mantine/core';
 import { IconBuildingCommunity, IconRocket } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { clubsService } from '../../api/services/clubs';
 import { useAuthStore } from '../../store/authStore';
 import { Autocomplete } from '@mantine/core';
 import { LOCALIZACIONES_ESPANA } from '../../constants/localizaciones';
+import { APP_ROUTES } from '../../constants/routes';
 
 export const ClubSetup = () => {
   const navigate = useNavigate();
@@ -31,16 +31,14 @@ export const ClubSetup = () => {
     setLoading(true);
 
     try {
-      const response = await api.post(ENDPOINTS.CLUBS.BASE, { name, city });
+      const club = await clubsService.create({ name, city });
 
-      if (response.data.success) {
-        updateUserFields({
-          clubId: response.data.data.id,
-          clubStatus: 'Aprobado',
-        });
+      updateUserFields({
+        clubId: club.id,
+        clubStatus: 'Aprobado',
+      });
 
-        navigate('/');
-      }
+      navigate(APP_ROUTES.HOME);
     } catch (error) {
       console.error('Error al registrar la sede:', error);
     } finally {

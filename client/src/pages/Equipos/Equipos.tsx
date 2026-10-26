@@ -14,34 +14,35 @@ import {
   ThemeIcon,
 } from '@mantine/core';
 import { IconShield, IconPlus, IconUsers, IconTrophy } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { seasonsService } from '../../api/services/seasons';
+import { teamsService } from '../../api/services/teams';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
+import type { ClubTeam } from '../../types/api';
 
 export const Equipos = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const [teams, setTeams] = useState<any[]>([]);
+  const [teams, setTeams] = useState<ClubTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSeason, setCurrentSeason] = useState<string>('');
 
-  const canCreate = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin: canCreate } = usePermissions();
 
   useEffect(() => {
-    api
-      .get(ENDPOINTS.SEASONS.BASE)
-      .then((res) => {
-        const activeS = res.data.data.find((s: any) => s.isCurrent);
+    seasonsService
+      .current()
+      .then((activeS) => {
         if (activeS) setCurrentSeason(activeS.name);
       })
       .catch(console.error);
 
     // 2. Cargamos los equipos SOLO si ya tenemos el ID del club
     if (user?.clubId) {
-      api
-        .get(ENDPOINTS.TEAMS.BY_CLUB(user.clubId))
-        .then((res) => setTeams(res.data.data))
+      teamsService
+        .byClub(user.clubId)
+        .then(setTeams)
         .catch(console.error)
         .finally(() => setLoading(false));
     } else {

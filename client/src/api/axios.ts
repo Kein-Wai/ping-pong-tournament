@@ -1,6 +1,27 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { notifications } from '@mantine/notifications';
-import { useAuthStore } from '../store/authStore';
+import { extractErrorMessage, NETWORK_ERROR_MESSAGE } from './errors';
+import { errorNotifier } from './notify';
+import { ENDPOINTS } from './endpoints';
+import { ACCESS_TOKEN_KEY, refreshSession } from './session';
+
+// Estas rutas devuelven 401 por motivos propios (credenciales, sesión ya inválida): renovar no aplica.
+const AUTH_URLS = [
+  ENDPOINTS.AUTH.LOGIN,
+  ENDPOINTS.AUTH.GOOGLE,
+  ENDPOINTS.AUTH.REFRESH,
+  ENDPOINTS.AUTH.LOGOUT,
+];
+
+type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
+
+// Quien cierra la sesión lo registra main.tsx: importar el store aquí cerraba el ciclo
+// axios → authStore → servicios → client → axios.
+let onUnauthorized: (() => void) | null = null;
+
+export const setUnauthorizedHandler = (handler: (() => void) | null) => {
+  onUnauthorized = handler;
+};
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -9,7 +30,7 @@ export const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('pingpong_token');
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -32,39 +53,43 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     if (error.response) {
       const { status, data, config } = error.response;
 
       if (status === 401) {
-        if (config.url?.includes('/auth/login') || config.url?.includes('/auth/google')) {
+        if (AUTH_URLS.some((url) => config.url?.includes(url))) {
           return Promise.reject(error);
+        }
+
+        // El token de acceso dura una hora: antes de dar la sesión por caducada se intenta renovarla.
+        if (!(config as RetriableConfig)._retried) {
+          try {
+            const token = await refreshSession();
+            if (token) {
+              const retry: RetriableConfig = { ...config, _retried: true };
+              retry.headers = { ...config.headers, Authorization: `Bearer ${token}` } as never;
+              return api.request(retry);
+            }
+          } catch {
+            // Sin red no se sabe si la sesión sigue viva: se deja fallar la petición sin cerrarla.
+            return Promise.reject(error);
+          }
         }
 
         console.warn('Sesión caducada. Redirigiendo al Login...');
 
-        useAuthStore.getState().logout();
+        onUnauthorized?.();
 
         window.location.href = '/login';
         return Promise.reject(error);
       }
 
-      // Procesar errores solo para mutaciones (POST, PUT, DELETE) o errores Zod de validación
-      if (config.method && ['post', 'put', 'delete'].includes(config.method.toLowerCase())) {
-        let errorMessage = data?.error || 'Ocurrió un error inesperado.';
-        // Si el backend expone los detalles de validación de Zod
-        if (data?.details) {
-          const keyErrors = Object.keys(data.details.properties);
+      // Extraer el mensaje usando la funcion tolerante a ambos formatos de Zod
+      const errorMessage = extractErrorMessage(data, 'Ocurrió un error inesperado.');
+      const dedupeKey = `Error (${status}): ${errorMessage}`;
 
-          keyErrors.map((key: string) => {
-            errorMessage = data.details.properties[key].errors
-              .map((d: any) => `${key}: ${d}`)
-              .join(' | ');
-          });
-        } else if (typeof data?.error === 'object') {
-          errorMessage = JSON.stringify(data.error);
-        }
-
+      if (errorNotifier(dedupeKey)) {
         notifications.show({
           title: `Error (${status})`,
           message: errorMessage,
@@ -74,7 +99,7 @@ api.interceptors.response.use(
     } else {
       notifications.show({
         title: 'Error de red',
-        message: 'No se pudo conectar con el servidor.',
+        message: NETWORK_ERROR_MESSAGE,
         color: 'red',
       });
     }

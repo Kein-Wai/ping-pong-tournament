@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MatchStatus } from '@prisma/client';
-import { isValidTableTennisSet } from '../utils/match';
+import { validateMatchRules } from '../utils/match-rules';
 
 const scoreSchema = z
   .number()
@@ -39,75 +39,18 @@ export const baseMatchObject = z.object({
 });
 
 // 2. FUNCIÓN CON LAS REGLAS DE NEGOCIO DEL PARTIDO
-export const validateMatchBusinessRules = (data: any, ctx: z.RefinementCtx) => {
-  const setsToValidate = [
-    { p1: 'setOnePlayerOne', p2: 'setOnePlayerTwo', name: 'Set 1' },
-    { p1: 'setTwoPlayerOne', p2: 'setTwoPlayerTwo', name: 'Set 2' },
-    { p1: 'setThreePlayerOne', p2: 'setThreePlayerTwo', name: 'Set 3' },
-    { p1: 'setFourPlayerOne', p2: 'setFourPlayerTwo', name: 'Set 4' },
-    { p1: 'setFivePlayerOne', p2: 'setFivePlayerTwo', name: 'Set 5' },
-    { p1: 'setSixPlayerOne', p2: 'setSixPlayerTwo', name: 'Set 6' },
-    { p1: 'setSevenPlayerOne', p2: 'setSevenPlayerTwo', name: 'Set 7' },
-  ] as const;
-
-  let p1SetsWon = 0;
-  let p2SetsWon = 0;
-
-  for (const set of setsToValidate) {
-    const rawScore1 = data[set.p1];
-    const rawScore2 = data[set.p2];
-
-    // Ignorar si ambos están vacíos o a 0
-    if (
-      (rawScore1 === undefined || rawScore1 === null) &&
-      (rawScore2 === undefined || rawScore2 === null)
-    )
-      continue;
-    if (rawScore1 === 0 && rawScore2 === 0) continue;
-
-    // Falla si uno de los dos no se ha enviado
-    if (
-      rawScore1 === null ||
-      rawScore1 === undefined ||
-      rawScore2 === null ||
-      rawScore2 === undefined
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `Falta la puntuación del rival en el ${set.name}.`,
-        path: [rawScore1 === null || rawScore1 === undefined ? set.p1 : set.p2],
-      });
-      continue;
-    }
-
-    const score1 = Number(rawScore1);
-    const score2 = Number(rawScore2);
-
-    if (!isValidTableTennisSet(score1, score2)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `El marcador del ${set.name} (${score1}-${score2}) no es válido en tenis de mesa reglamentario.`,
-        path: [set.p1],
-      });
-      continue;
-    }
-
-    if (score1 > score2) p1SetsWon++;
-    else if (score2 > score1) p2SetsWon++;
-  }
-
-  if (data.status === 'Completado' && data.setsToWin) {
-    const targetSets = data.setsToWin; // 2, 3 o 4
-    const winnerReachedTarget = p1SetsWon === targetSets || p2SetsWon === targetSets;
-
-    if (!winnerReachedTarget) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `Para completar el partido, uno de los dos jugadores debe ganar exactamente ${targetSets} sets (Actual: ${p1SetsWon}-${p2SetsWon}).`,
-        path: ['status'],
-      });
-    }
-  }
+/**
+ * Adaptador de Zod: vuelca en el contexto los incumplimientos que detecta el
+ * modulo puro de reglas de partido.
+ */
+export const validateMatchBusinessRules = (data: z.infer<typeof baseMatchObject>, ctx: z.RefinementCtx) => {
+  validateMatchRules({
+    scores: data,
+    status: data.status,
+    setsToWin: data.setsToWin,
+  }).forEach((issue) => {
+    ctx.addIssue({ code: 'custom', message: issue.message, path: issue.path });
+  });
 };
 
 // 3. ESQUEMA COMPLETO PARA CREACIÓN

@@ -1,91 +1,22 @@
 import { PrismaClient, TournamentStatus } from '@prisma/client';
-import { MATCH_MATRIX } from '../constants';
+import { buildGroupsEngine, TournamentSeed } from './group-engine';
+import { ApiError } from '../http/response';
 
-// ==========================================
-// 1. INTERFAZ UNIVERSAL (Independiente de la DB)
-// ==========================================
-export interface TournamentSeed {
-  id: string; // Puede ser un UUID de base de datos o un ID temporal "excel-1"
-  seedValue: number; // El valor para ordenar (ELO, Ranking manual, etc.)
-}
-
-// ==========================================
-// 2. MOTOR MATEMÁTICO PURO (Sin Prisma)
-// ==========================================
-export const buildGroupsEngine = (players: TournamentSeed[], numGroups: number) => {
-  // 1. Ordenamos a los jugadores por su valor (de mayor a menor)
-  const sortedPlayers = [...players].sort((a, b) => b.seedValue - a.seedValue);
-
-  // 2. Algoritmo de la Serpiente
-  const snakeGroups: Array<Array<string>> = Array.from({ length: numGroups }, () => []);
-  let currentGroupIndex = 0;
-  let direction = 1;
-
-  if (numGroups === 1) {
-    for (const player of sortedPlayers) {
-      snakeGroups[0].push(player.id);
-    }
-  } else {
-    for (const player of sortedPlayers) {
-      snakeGroups[currentGroupIndex].push(player.id);
-
-      if (direction === 1) {
-        if (currentGroupIndex === numGroups - 1) {
-          direction = -1;
-        } else {
-          currentGroupIndex++;
-        }
-      } else {
-        if (currentGroupIndex === 0) {
-          direction = 1;
-        } else {
-          currentGroupIndex--;
-        }
-      }
-    }
-  }
-
-  // 3. Generar enfrentamientos usando la matriz matemática
-  const MATCH_MATRICES: Record<number, number[][]> = MATCH_MATRIX;
-
-  const groupsData = snakeGroups.map((groupPlayers, index) => {
-    const matches: Array<{ playerOneId: string; playerTwoId: string }> = [];
-    const numPlayersInThisGroup = groupPlayers.length;
-    const matrix = MATCH_MATRICES[numPlayersInThisGroup];
-
-    if (matrix) {
-      for (const [p1Index, p2Index] of matrix) {
-        const playerOneId = groupPlayers[p1Index - 1];
-        const playerTwoId = groupPlayers[p2Index - 1];
-
-        if (playerOneId && playerTwoId) {
-          matches.push({ playerOneId, playerTwoId });
-        }
-      }
-    }
-
-    return {
-      groupIndex: index + 1,
-      players: groupPlayers,
-      matches,
-    };
-  });
-
-  // Retornamos un JSON estructural puro, sin tocar bases de datos
-  return groupsData;
-};
-
-// ==========================================
-// 3. ADAPTADOR DE BASE DE DATOS (El flujo actual)
-// ==========================================
+/**
+ * Genera los grupos y los partidos de la fase de grupos de un torneo.
+ *
+ * El reparto lo calcula el modulo puro `group-engine`; aqui solo se lee de la
+ * base de datos y se escribe el resultado.
+ */
 export const generateTournamentGroups = async (prisma: PrismaClient, tournamentId: string) => {
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
   });
 
-  if (!tournament) throw new Error('El torneo no existe');
-  if (tournament.groupsCreated) throw new Error('Los grupos ya han sido generados');
-  if (!tournament.numGroup) throw new Error('El torneo no tiene definido el número de grupos');
+  if (!tournament) throw new ApiError(404, 'El torneo no existe');
+  if (tournament.groupsCreated) throw new ApiError(400, 'Los grupos ya han sido generados');
+  if (!tournament.numGroup)
+    throw new ApiError(400, 'El torneo no tiene definido el número de grupos');
 
   const participants = await prisma.tournamentParticipant.findMany({
     where: {
@@ -100,17 +31,19 @@ export const generateTournamentGroups = async (prisma: PrismaClient, tournamentI
   });
 
   if (participants.length < 2) {
-    throw new Error('No hay suficientes jugadores confirmados para generar los grupos');
+    throw new ApiError(400, 'No hay suficientes jugadores confirmados para generar los grupos');
   }
 
   // Transformar los datos de Prisma a la interfaz universal del motor
-  const playersWithElo: TournamentSeed[] = participants.map((p) => {
-    const currentStats = p.player.stats.find((s) => s.seasonId === tournament.seasonId);
+  const playersWithElo: TournamentSeed[] = participants.map((participant) => {
+    const currentStats = participant.player.stats.find(
+      (stat) => stat.seasonId === tournament.seasonId,
+    );
     const elo = currentStats?.elo ? currentStats.elo : 500;
-    return { id: p.playerId, seedValue: elo };
+
+    return { id: participant.playerId, seedValue: elo };
   });
 
-  // 🚀 LLAMADA AL MOTOR PURO
   const groupsData = buildGroupsEngine(playersWithElo, tournament.numGroup);
 
   // Guardar la estructura en Prisma

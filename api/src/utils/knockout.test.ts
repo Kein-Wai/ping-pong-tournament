@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SortKnockout } from '@prisma/client';
-import { createKnockoutDraw } from '../../src/utils/knockout';
+import { createKnockoutDraw } from '../../src/utils/knockout-engine';
 
 const generateMockPlayers = (numPlayers: number) => {
   const players = [];
@@ -50,7 +50,7 @@ describe('Algoritmo de Cruces y Siembra (Seeding ITTF)', () => {
     it(`Debería generar un cuadro correcto para ${numPlayers} jugadores`, () => {
       const players = generateMockPlayers(numPlayers);
 
-      const firstRoundMatches = createKnockoutDraw(players, SortKnockout.Siembra, false);
+      const firstRoundMatches = createKnockoutDraw(players, SortKnockout.Siembra);
 
       const expectedBracketSize = Math.pow(2, Math.ceil(Math.log2(numPlayers)));
       const expectedMatches = expectedBracketSize / 2;

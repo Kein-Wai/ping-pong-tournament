@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -19,8 +19,8 @@ import {
   Textarea,
 } from '@mantine/core';
 import { IconArrowLeft, IconBook, IconCheck } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { trainingsService } from '../../api/services/trainings';
+import type { TrainingSessionDetail } from '../../types/api';
 
 // Rellena esto con los datos exactos de tu foto
 const NOMENCLATURA = [
@@ -45,45 +45,44 @@ export const SessionDetalles = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<TrainingSessionDetail | null>(null);
 
   // const isOwnProfile = currentUser?.id === id;
 
-  const fetchSession = async () => {
+  const fetchSession = useCallback(async () => {
     try {
-      const res = await api.get(ENDPOINTS.TRAININGS.SESSION_DETAILS(sessionId!));
-      console.log(res.data.data);
-      setSession(res.data.data);
+      const sessionData = await trainingsService.sessionDetails(sessionId!);
+      setSession(sessionData);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId]);
 
   useEffect(() => {
     if (sessionId) fetchSession();
-  }, [sessionId]);
+  }, [sessionId, fetchSession]);
 
   const handleToggleCompleted = async (sessionExerciseId: string, currentStatus: boolean) => {
     try {
-      await api.put(ENDPOINTS.TRAININGS.UPDATE_EXERCISE(sessionExerciseId), {
+      await trainingsService.updateExercise(sessionExerciseId, {
         completed: !currentStatus,
       });
       await fetchSession(); // Recargamos para reflejar el check
-    } catch (error) {
-      console.error('Error al actualizar:', error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 
   const handleUpdateNotes = async (sessionExerciseId: string, notes: string) => {
     try {
-      await api.put(ENDPOINTS.TRAININGS.UPDATE_EXERCISE(sessionExerciseId), {
+      await trainingsService.updateExercise(sessionExerciseId, {
         notes, // Mandamos solo las notas al backend
       });
       // No recargamos la página aquí para no interrumpir al usuario mientras escribe
-    } catch (error) {
-      console.error('Error al guardar las notas:', error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 
@@ -179,7 +178,7 @@ export const SessionDetalles = () => {
         Ejercicios a Ejecutar
       </Title>
       {session.exercises.length > 0 &&
-        session.exercises.filter((ex: any) => ex.completed).length === session.exercises.length && (
+        session.exercises.filter((ex) => ex.completed).length === session.exercises.length && (
           <Alert variant="light" color="green" title="¡Gran trabajo!" icon={<IconCheck />} mb="md">
             Has completado todos los ejercicios de esta sesión. Puedes volver al Macrociclo cuando
             quieras.
@@ -189,7 +188,7 @@ export const SessionDetalles = () => {
       {session.exercises.length === 0 ? (
         <Text c="dimmed">No hay ejercicios asignados a esta sesión.</Text>
       ) : (
-        session.exercises.map((item: any, index: number) => (
+        session.exercises.map((item, index) => (
           <Card key={item.id} shadow="sm" radius="md" withBorder>
             <Group justify="space-between" align="flex-start" mb="xs">
               <Group gap="sm" style={{ flex: 1 }}>

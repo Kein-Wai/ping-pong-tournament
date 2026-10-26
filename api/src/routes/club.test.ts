@@ -5,6 +5,7 @@ import prisma from '../../src/db';
 
 vi.mock('../../src/db', () => ({
   default: {
+    $transaction: vi.fn(),
     season: {
       findFirst: vi
         .fn()
@@ -22,6 +23,7 @@ vi.mock('../../src/db', () => ({
     user: {
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     stats: { upsert: vi.fn() },
     playerSkills: { upsert: vi.fn() },
@@ -37,12 +39,19 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
     req.user = { id: 'admin-id', role: 'AdminClub', clubId: '1' };
     next();
   },
+  requireAdminClubAnyStatus: (req: any, res: any, next: any) => {
+    req.user = { id: 'admin-id', role: 'AdminClub', clubId: '1' };
+    next();
+  },
   requireSuperAdmin: (req: any, res: any, next: any) => next(),
 }));
 
 describe('CRUD de Rutas de Clubes (/api/clubs)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Las transacciones interactivas reciben el propio cliente simulado.
+    vi.mocked(prisma.$transaction).mockImplementation((async (work: (tx: unknown) => unknown) =>
+      work(prisma)) as never);
   });
 
   describe('GET /api/clubs (Listado Público)', () => {
@@ -126,6 +135,7 @@ describe('CRUD de Rutas de Clubes (/api/clubs)', () => {
         status: 'Pendiente',
       };
       vi.mocked(prisma.club.create).mockResolvedValue(createdClub as any);
+      vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 1 } as any);
 
       const response = await request(app).post('/api/clubs').send(payload);
 
@@ -142,6 +152,10 @@ describe('CRUD de Rutas de Clubes (/api/clubs)', () => {
           },
         }),
       );
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'test-user-id', clubId: null },
+        data: { clubId: '2', clubStatus: 'Aprobado' },
+      });
     });
 
     it('FALLO: Debería rechazar si el nombre tiene menos de 3 caracteres (Zod - 400)', async () => {
@@ -183,13 +197,16 @@ describe('CRUD de Rutas de Clubes (/api/clubs)', () => {
         id: 'test-user-id',
         clubId: null,
       } as any);
-      vi.mocked(prisma.user.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 1 } as any);
 
       const response = await request(app).post('/api/clubs/club-1/join');
 
       expect(response.status).toBe(200);
-      expect(prisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { clubId: 'club-1', clubStatus: 'Pendiente' } }),
+      expect(prisma.user.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'test-user-id', clubId: null },
+          data: { clubId: 'club-1', clubStatus: 'Pendiente' },
+        }),
       );
     });
 

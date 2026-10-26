@@ -17,8 +17,7 @@ import {
   SimpleGrid,
 } from '@mantine/core';
 import { IconFileExcel, IconCheck, IconArrowLeft, IconTrophy } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { tournamentsService } from '../../api/services/tournaments';
 import { APP_ROUTES } from '../../constants/routes';
 
 export const ExcelTournamentCreator = () => {
@@ -74,12 +73,10 @@ export const ExcelTournamentCreator = () => {
         players: formattedPlayers,
       };
 
-      const response = await api.post(ENDPOINTS.TOURNAMENTS.GENERATE_EXCEL, payload, {
-        responseType: 'blob', // 👈 Vital para procesar el Excel binario
-      });
+      const excelFile = await tournamentsService.generateExcel(payload);
 
       // Forzar la descarga del archivo en el navegador
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([excelFile]));
       const link = document.createElement('a');
       link.href = url;
       const fileName = tournamentInfo.name ? tournamentInfo.name.replace(/\s+/g, '_') : 'Torneo';

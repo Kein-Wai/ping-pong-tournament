@@ -27,17 +27,21 @@ import {
 } from '@tabler/icons-react';
 
 import { BarChart, DonutChart } from '@mantine/charts'; // 👈 Importamos los gráficos
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { generalTrainingsService } from '../../api/services/generalTrainings';
+import { matchesService } from '../../api/services/matches';
+import { usersService } from '../../api/services/users';
 import { getPlayerAvatar } from '../../utils/avatar';
 import { PodioHonor } from '../../components/common/PodioHonor';
 import { returnEloColor } from '../../utils/helpers';
+import type { Match } from '../../types/api';
+import type { TrainingSession } from '../../types/generalTraining';
 
 interface PlayerStats {
   id: string;
   name: string;
   surname: string | null;
   avatarUrl: string | null;
+  birthDate?: string | null;
   clubStatus: string;
   stats: {
     elo: number;
@@ -52,8 +56,8 @@ const ITEMS_PER_PAGE = 10;
 
 export const Estadisticas = () => {
   const [players, setPlayers] = useState<PlayerStats[]>([]);
-  const [matches, setMatches] = useState<any[]>([]);
-  const [trainings, setTrainings] = useState<any[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [trainings, setTrainings] = useState<TrainingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
 
@@ -61,13 +65,13 @@ export const Estadisticas = () => {
     const fetchDashboardData = async () => {
       try {
         // Traemos Jugadores y Partidos al mismo tiempo
-        const [resUsers, resMatches, resTrainings] = await Promise.all([
-          api.get(ENDPOINTS.USERS.BASE),
-          api.get(ENDPOINTS.MATCHES.BASE),
-          api.get(ENDPOINTS.GENERAL_TRAININGS.BASE),
+        const [usersData, matchesData, trainingsData] = await Promise.all([
+          usersService.list<PlayerStats>(),
+          matchesService.list(),
+          generalTrainingsService.list<TrainingSession>(),
         ]);
 
-        let data: PlayerStats[] = resUsers.data.data || resUsers.data;
+        let data: PlayerStats[] = usersData;
         data = data
           .filter((p) => p.stats !== null)
           .sort((a, b) => {
@@ -77,8 +81,8 @@ export const Estadisticas = () => {
           });
 
         setPlayers(data);
-        setMatches(resMatches.data);
-        setTrainings(resTrainings.data.data);
+        setMatches(matchesData);
+        setTrainings(trainingsData);
       } catch (error) {
         console.error('Error cargando estadísticas:', error);
       } finally {
@@ -138,7 +142,7 @@ export const Estadisticas = () => {
   const attendanceCount: Record<string, number> = {};
   const scheduleStats: Record<string, { total: number; count: number }> = {};
 
-  trainings.forEach((t: any) => {
+  trainings.forEach((t) => {
     // Media por horario
     if (t.schedule?.name) {
       const name = t.schedule.name;
@@ -148,7 +152,7 @@ export const Estadisticas = () => {
     }
 
     // Top asistencias
-    t.attendances?.forEach((a: any) => {
+    t.attendances?.forEach((a) => {
       if (a.attended) {
         attendanceCount[a.playerId] = (attendanceCount[a.playerId] || 0) + 1;
       }
@@ -208,7 +212,7 @@ export const Estadisticas = () => {
 
   const today = new Date();
 
-  players.forEach((u: any) => {
+  players.forEach((u) => {
     if (u.birthDate) {
       const birthDate = new Date(u.birthDate);
       let age = today.getFullYear() - birthDate.getFullYear();

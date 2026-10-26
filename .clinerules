@@ -1,0 +1,338 @@
+# Reglas Globales — Ping Pong App (monorepo React + Node/Express + Prisma + Zod)
+
+> Selección curada de `docs/everything/rules/*`, `docs/everything/skills/*` y
+> `docs/matt/skills/engineering/*`, filtrada al stack real de este repo.
+> Cada bloque indica su origen para trazabilidad.
+
+## 0. Contexto y convenciones del repo
+
+- `api/` — Node 24 + Express 5 + TypeScript + Prisma + PostgreSQL 16 + Zod + Vitest/Supertest + Swagger.
+- `client/` — React 19 + Vite 8 + Mantine 9 + Zustand + React Router 7 + Capacitor 8 (web + iOS/Android).
+- `tm-evolve-mobile/` — Expo 54 + React Native 0.81 + React Navigation.
+- Código, comentarios y textos de UI en **español**; identificadores en inglés.
+- Naming real del repo (respetar, no "corregir"):
+  - `api/` → `kebab-case` (`auth.middleware.ts`, `general-training.ts`, `match-processor.ts`, `group-generator.ts`).
+  - `api/src/schemas/` → `camelCase.ts` (`generalTraining.ts`, `manualMatch.ts`).
+  - `client/src/pages/` → `PascalCase` por dominio (`Torneos/TorneoDetalles.tsx`).
+  - Prisma → modelos `PascalCase`, tablas `snake_case` vía `@@map`.
+- Tests **colocados junto al código** como `*.test.ts`. No existe carpeta `tests/`.
+- `client/src/api/endpoints.ts` (`ENDPOINTS`) es el contrato de rutas: toda llamada HTTP nueva se declara ahí primero.
+- Rutas API bajo prefijo `/api`. Router central en `api/src/routes/index.ts`; cada módulo exporta un `Router` por defecto.
+- Comandos: `api` → `npm run dev` (`prisma generate && tsx watch src/index.ts`), `npm run build` (`prisma generate && prisma db push && tsc`), `npm test` (Vitest), `npm run lint`.
+  `client` → `npm run dev` (Vite), `npm run build` (`tsc -b && vite build`), `npm run lint`.
+
+## 1. Principios de código (KISS / DRY / YAGNI)
+
+> Fuente: `everything/skills/coding-standards/SKILL.md`
+
+- **KISS**: la solución más simple que funcione. Sin over-engineering, sin optimización prematura.
+- **DRY**: extrae la lógica común a funciones/componentes/utilidades compartidos. Nada de copy-paste.
+- **YAGNI**: no construyas lo que no se necesita todavía. Sin generalidad especulativa.
+- **Legibilidad primero**: el código se lee más de lo que se escribe. Nombres claros y auto-documentados.
+- Profundidad de módulo (de `matt/skills/engineering/codebase-design/SKILL.md`): muchos comportamientos detrás de una interfaz pequeña. *"The deletion test"*: si al borrar un módulo la complejidad simplemente desaparece, era un pass-through. *"One adapter means a hypothetical seam"* — no introduzcas una abstracción si solo tiene una implementación.
+
+## 2. Inmutabilidad (CRÍTICO)
+
+> Fuente: `everything/rules/coding-style.md` + `everything/skills/coding-standards/SKILL.md`
+
+Siempre crea objetos nuevos, nunca mutes:
+
+```typescript
+const updatedUser = { ...user, name: 'New Name' };
+const updatedArray = [...items, newItem];
+
+// NUNCA
+user.name = 'New Name';
+items.push(newItem);
+```
+
+En React, actualiza estado con la forma funcional (`setCount(prev => prev + 1)`), nunca con el valor capturado (`setCount(count + 1)` puede estar obsoleto en escenarios async).
+
+## 3. Organización de archivos
+
+> Fuente: `everything/rules/coding-style.md`
+
+- **Muchos archivos pequeños > pocos archivos grandes**: alta cohesión, baja acoplabilidad.
+- Tamaño típico **200–400 líneas**, máximo **800**.
+- Extrae utilidades de componentes grandes.
+- Organiza por **feature/dominio**, no por tipo. En este repo: `api/src/routes/<dominio>.ts`, `api/src/utils/<dominio>.ts`, `client/src/pages/<Dominio>/<Pagina>.tsx`.
+
+## 4. TypeScript
+
+> Fuente: `everything/skills/coding-standards/SKILL.md`
+
+- Nombres descriptivos; funciones en patrón verbo-noun: `fetchPlayerData()`, `isValidEmail()`.
+- **Nunca `any`** en el frontend (ESLint lo marca como `warn`); en el backend, tipa con `unknown` y valida.
+- Estado explícito en las props de los componentes: `interface ButtonProps { ... }`.
+- Comandos paralelos cuando sean independientes:
+
+```typescript
+const [users, tournaments, stats] = await Promise.all([
+  fetchUsers(),
+  fetchTournaments(),
+  fetchStats(),
+]);
+```
+
+- Comentarios que explican el **PORQUÉ**, nunca el QUÉ. Nada de `// Incrementa el contador`.
+- JSDoc en las APIs públicas de `api/src/utils/`.
+
+## 5. Manejo de errores
+
+> Fuente: `everything/rules/coding-style.md` + `everything/skills/backend-patterns/SKILL.md`
+
+```typescript
+try {
+  const result = await riskyOperation();
+  return result;
+} catch (error) {
+  console.error('Operation failed:', error);
+  throw new Error('Detailed user-friendly message');
+}
+```
+
+- En la API: captura el error en el handler, loguea el detalle server-side y devuelve un mensaje genérico al cliente (nunca filtres stack traces ni datos sensibles).
+- En el cliente, los errores ya se notifican globalmente en `client/src/api/axios.ts` (interceptor de respuesta). **No dupliques el `notifications.show`** en los componentes.
+- Con Zod: `z.treeifyError(error)` / `validation.error.issues[0].message` (patrón ya usado en `api/src/routes/auth.ts`).
+
+## 6. Validación de entrada — Zod (obligatoria en la API)
+
+> Fuente: `everything/rules/coding-style.md` + `everything/skills/security-review/SKILL.md` + `everything/rules/patterns.md`
+
+**Zod es el portero de la API**: valida SIEMPRE en la capa de rutas, antes de tocar Prisma.
+
+```typescript
+import { z } from 'zod';
+
+const CreatePlayerSchema = z.object({
+  email: z.string().email(),
+  age: z.number().int().min(0).max(150),
+});
+
+const validation = CreatePlayerSchema.safeParse(req.body);
+if (!validation.success) {
+  res.status(400).json({ error: 'Datos inválidos', details: z.treeifyError(validation.error) });
+  return;
+}
+```
+
+- Los esquemas viven en `api/src/schemas/<dominio>.ts`; las reglas de negocio que cruzan campos van en un `.superRefine` / `ctx.addIssue` (patrón ya presente en `api/src/schemas/tournament.ts`).
+- Los enums deben venir de `@prisma/client` (`z.enum(TypeTournament)`), nunca duplicados a mano.
+- Valida también en el cliente para UX, pero **la validación autoritativa es la del servidor**.
+
+## 7. Contrato de respuesta de la API
+
+> Fuente: `everything/rules/patterns.md` + `everything/skills/coding-standards/SKILL.md`
+
+```typescript
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  details?: unknown;   // errores de validación Zod
+  message?: string;    // texto para toast del usuario
+}
+```
+
+- Éxito → `res.status(200).json({ success: true, data })`.
+- Error de negocio → `res.status(4xx).json({ success: false, error })`.
+- El frontend consume `response.data.data` para lo exitoso y `data?.error` / `data?.details` para los errores (ya implementado en `client/src/api/axios.ts`).
+- Al crear endpoints nuevos, **usa siempre la misma forma**; no introduzcas un cuarto formato.
+
+## 8. REST y diseño de rutas
+
+> Fuente: `everything/skills/backend-patterns/SKILL.md`
+
+```
+GET    /api/recursos            # Listar
+GET    /api/recursos/:id        # Obtener uno
+POST   /api/recursos            # Crear
+PUT    /api/recursos/:id        # Actualizar
+DELETE /api/recursos/:id        # Borrar
+```
+
+- Recursos con nombres en plural; query params para filtrar/paginar (`?status=active&limit=10&offset=0`).
+- Monta el router en `api/src/routes/index.ts` y aplícale `verifyToken` (y `requireAdminClub` / `requireSuperAdmin` según el caso) **en ese punto**, no endpoint por endpoint.
+
+## 9. Prisma y base de datos
+
+> Fuente: `everything/skills/backend-patterns/SKILL.md` + `everything/skills/coding-standards/SKILL.md`
+
+- **Nunca concatenes SQL**. Prisma ya parametriza: usa `where`, `select`, `include` — no `$queryRaw` con strings.
+- **Selecciona solo las columnas necesarias** (`select: { id: true, name: true }`), no `select: '*'` implícito con `include` masivo.
+- **Evita N+1**: agrupa en lote en vez de bucles con query. Usa `include` anidado o una sola query con `where: { id: { in: ids } }` y un `Map` en memoria.
+- **Transacciones** (`prisma.$transaction`) cuando la operación sea atómica (p. ej. crear torneo + participantes + grupos).
+- IDs: **UUIDs** (`@default(uuid())`), nunca enteros autoincrementales.
+- Prisma es la única capa de acceso a datos desde las rutas. Importa el cliente desde `api/src/db.ts` (instancia única).
+- Antes de tocar `schema.prisma`: `npx prisma generate` y una migración con nombre descriptivo.
+
+## 10. Seguridad
+
+> Fuente: `everything/rules/security.md` + `everything/skills/security-review/SKILL.md`
+
+### Checklist obligatorio antes de cualquier commit
+- [ ] Sin secretos hardcodeados (API keys, contraseñas, tokens) — **todo va en variables de entorno**.
+- [ ] Todas las entradas de usuario validadas (Zod).
+- [ ] Sin inyección SQL (todo vía Prisma parametrizado).
+- [ ] Sin XSS: React escapa por defecto; si renderizas HTML de usuario, sánitiza con DOMPurify.
+- [ ] Autenticación y autorización verificadas.
+- [ ] Rate limiting en endpoints expuestos.
+- [ ] Los mensajes de error no filtran datos sensibles.
+
+### Gestión de secretos
+
+```typescript
+// NUNCA
+const apiKey = "sk-proj-xxxxx";
+
+// SIEMPRE
+const apiKey = process.env.GOOGLE_CLIENT_ID;
+if (!apiKey) {
+  throw new Error('GOOGLE_CLIENT_ID not configured');
+}
+```
+
+- **Prohibido el fallback silencioso de secretos.** `JWT_SECRET` y `CRON_SECRET` deben fallar rápido si no están definidos (ya aplicado: `api/src/config.ts` valida las variables obligatorias y `api/src/index.ts` detiene el arranque; no queda ningún `fallback-secret`).
+- `.env` y `.env.local` están en `.gitignore` — nunca los commitees.
+- Variables en uso: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CRON_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GMAIL_USER`, `CLIENT_URL`, `PORT`, `NODE_ENV` (API); `VITE_API_URL`, `VITE_GOOGLE_CLIENT_ID` (web); `EXPO_PUBLIC_API_URL` (móvil).
+- `npm audit` limpio; **commitea los lockfiles** y usa `npm ci` en CI.
+
+### Autenticación y autorización
+- **Verifica la autorización ANTES de toda operación sensible**, no después.
+- Tres niveles ya implementados en `api/src/middleware/auth.middleware.ts`: `verifyToken` (JWT Bearer) → `requireAdminClub` → `requireSuperAdmin`.
+- El payload del JWT contiene `{ id, role, clubId }`. **Toda query filtrada por club debe usar `req.user.clubId`** — no confíes en un `clubId` que venga del body.
+- Roles: `SuperAdmin`, `AdminClub`, `Player`.
+
+### JWT en el cliente — desviación conocida
+`client/src/store/authStore.ts` guarda el token en `localStorage`, lo que la guía marca como vulnerable a XSS. Para una app **Capacitor** (nativa) el token vive en el WebView, así que la mitigación completa es moverlo a **httpOnly cookies + `SameSite=Strict`**, lo que exige cambios CORS (`credentials: true` ya está puesto) y en el interceptor. Si mantienes `localStorage`, compensa con sanitización estricta de HTML y CSP.
+
+### Rate limiting
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests',
+});
+app.use('/api/', limiter);
+```
+
+Aplica límites más agresivos a operaciones caras (generación de grupos, knockout, Excel, login).
+
+### Protocolo ante un hallazgo de seguridad
+1. Detente de inmediato. 2. Arregla lo CRITICAL antes de continuar. 3. Rota cualquier secreto expuesto. 4. Revisa el resto del código en busca de patrones similares.
+
+## 11. Testing
+
+> Fuente: `everything/rules/testing.md` + `everything/skills/tdd-workflow/SKILL.md` + `matt/skills/engineering/tdd/*`
+
+### Ciclo obligatorio (RED → GREEN → REFACTOR)
+1. Escribe el test que falla (RED). 2. Ejecuta y confirma que falla por la razón correcta. 3. Implementa lo mínimo para que pase (GREEN). 4. Ejecuta y confirma que pasa. 5. Refactoriza manteniendo el verde. 6. Verifica cobertura.
+
+**Trabaja en rebanadas verticales**: un test → una implementación mínima → repetir. No escribas todos los tests primero y luego toda la implementación (slicing horizontal): los tests verifican comportamiento *imaginado* y se rompen al refactorizar.
+
+### Qué testear
+- **Unitarios**: funciones puras, utilidades, helpers de `api/src/utils/`.
+- **Integración**: endpoints con Supertest contra `app` + Prisma mockeado.
+- **E2E**: solo cuando exista la infraestructura (hoy no hay Playwright en el repo).
+
+### Anatomía de un test en este repo (patrón existente en `api/src/routes/season.test.ts`)
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import request from 'supertest';
+import { app } from '../../src/index';
+import prisma from '../../src/db';
+
+vi.mock('../../src/db', () => ({ default: { season: { findMany: vi.fn() } } }));
+vi.mock('../../src/middleware/auth.middleware', () => ({
+  verifyToken: (req, res, next) => { req.user = { id: 'admin-1', role: 'AdminClub', clubId: 'club-1' }; next(); },
+  requireAdminClub: (req, res, next) => { req.user = { id: 'admin-1', role: 'AdminClub', clubId: 'club-1' }; next(); },
+  requireSuperAdmin: (req, res, next) => { req.user = { id: 'admin-1', role: 'SuperAdmin', clubId: 'club-1' }; next(); },
+}));
+
+describe('Rutas de Temporadas (/api/seasons)', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('GET / - Debería devolver todas las temporadas ordenadas (200)', async () => {
+    vi.mocked(prisma.season.findMany).mockResolvedValue([...] as any);
+    const response = await request(app).get('/api/seasons');
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toHaveLength(2);
+  });
+});
+```
+
+- Nombra los describes con el prefijo de ruta (`Rutas de X (/api/x)`) e `it` con el verbo + resultado esperado.
+- Mockea **solo fronteras del sistema**: base de datos, email, APIs externas, tiempo/aleatoriedad. **No** mockees tus propios módulos internos ni colaboradores privados.
+- Cada test es **independiente**: prepara sus propios datos, sin depender del test anterior.
+- Formato **Arrange → Act → Assert**, un comportamiento lógico por test.
+- Prueba **comportamiento observable** a través de la interfaz pública, nunca detalles de implementación ni estado interno.
+- El valor esperado debe venir de una **fuente independiente** (literal conocido, ejemplo trabajado, la spec) — nunca recalcularlo igual que lo hace el código (test tautológico).
+- Casos límite: `null`, `undefined`, vacío, y los **caminos de error**, no solo el camino feliz.
+- Nombra los tests en descriptivo, no `test('works')`.
+
+### Cobertura
+Objetivo **80 % mínimo** (líneas, ramas, funciones, statements). Reporta total / pasados / fallados / cobertura.
+
+### Si un test falla
+1. Verifica el aislamiento. 2. Revisa que los mocks sean correctos. 3. **Arregla la implementación, no el test** (salvo que el test esté equivocado).
+
+## 12. React (client y móvil)
+
+> Fuente: `everything/skills/frontend-patterns/SKILL.md` + `everything/skills/coding-standards/SKILL.md`
+
+- **Composición sobre herencia**. Componentes funcionales tipados con `interface XProps`.
+- **Custom hooks** para lógica reutilizable: `export function useDebounce<T>(value: T, delay: number): T`. Prefijo `use` en el nombre y en el archivo (`hooks/useAuth.ts`).
+- **Renderizado condicional claro**: usa fragmentos `&&` para cada estado (`{isLoading && <Spinner />}`), no ternarios anidados.
+- **Rendimiento**: `useMemo` para cálculos caros, `useCallback` para handlers que pasan a hijos, `lazy` + `Suspense` para componentes pesados. En este repo la ruta ya está cargada por `React.lazy` cuando aplique.
+- **Zustand** es el store global (patrón ya en `client/src/store/authStore.ts`): acciones imperativas, no mutar el estado.
+- **Axios centralizado**: toda llamada pasa por `client/src/api/axios.ts` y las URLs por `ENDPOINTS`. No crees instancias de axios sueltas ni escribas URLs a mano.
+- **Rutas centralizadas** en `client/src/constants/routes.ts` (`APP_ROUTES`); nunca hardcodees paths de navegación.
+- **Accesibilidad**: roles ARIA en elementos interactivos, navegación por teclado, foco gestionado en modales, `alt` en imágenes.
+- **UI**: usa los componentes de **Mantine** (`@mantine/core`, `@mantine/hooks`, `@mantine/notifications`, `@mantine/modals`). No añadas otra librería de UI.
+
+## 13. Patrones backend
+
+> Fuente: `everything/skills/backend-patterns/SKILL.md`
+
+- **Middleware** para auth/autorización y concerns transversales; los handlers quedan centrados en la lógica.
+- **Servicio vs utils**: la lógica de negocio reutilizable va en `api/src/utils/<dominio>.ts` o `api/src/services/<dominio>.ts`; las rutas orquestan.
+- **Logging estructurado** con contexto (userId, method, path). En el backend `no-console` es `warn`: usa `console.error` solo en catch de handlers.
+- **Background jobs**: los correos y tareas diferidas (`api/src/services/cron.ts`, rutas `/daily-reminders`) no deben bloquear la request.
+
+## 14. Verificación antes de dar por terminado
+
+> Fuente: `everything/skills/verification-loop/SKILL.md` (adaptado a los comandos reales del repo)
+
+Ejecuta en orden y reporta:
+
+```
+VERIFICATION REPORT
+===================
+
+Build:     [PASS/FAIL]     api: npm run build      |  client: npm run build
+Types:     [PASS/FAIL]     (incluido en el build vía tsc)
+Lint:      [PASS/FAIL]     npm run lint
+Tests:     [PASS/FAIL]     npm test  (X/Y passed, Z% coverage)
+Security:  [PASS/FAIL]     sin secretos hardcodeados ni console.log
+Diff:      [X archivos cambiados]
+
+Overall:   [READY / NOT READY]
+```
+
+- Si el build falla, **para y arregla** antes de seguir.
+- Revisa el diff por cambios no intencionados, manejo de errores faltante y casos límite.
+- No declares una tarea terminada sin build + lint + tests en verde.
+
+## 15. Git
+
+> Fuente: `everything/rules/git-workflow.md`
+
+- Commits convencionales: `<type>: <descripción>`. Tipos: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
+- Commits atómicos: un cambio lógico por commit.
+- Antes de un PR: `git diff [base]...HEAD` y lista de commits, resumen, y **plan de pruebas**.
+- No commitees `.env`, `node_modules`, `dist`, ni artefactos de build.

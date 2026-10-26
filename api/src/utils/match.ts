@@ -15,7 +15,52 @@ export const isValidTableTennisSet = (score1: number, score2: number): boolean =
   return diff === 2;
 };
 
-export const calculateMatchResults = (match: any) => {
+import type { MatchStatus } from '@prisma/client';
+
+/**
+ * Marcador de un partido: los siete sets jugados y sus dos participantes.
+ * Los sets no jugados llegan como null (o directamente ausentes).
+ */
+export interface ScoredMatch {
+  playerOneId: string;
+  playerTwoId: string;
+  setOnePlayerOne?: number | null;
+  setOnePlayerTwo?: number | null;
+  setTwoPlayerOne?: number | null;
+  setTwoPlayerTwo?: number | null;
+  setThreePlayerOne?: number | null;
+  setThreePlayerTwo?: number | null;
+  setFourPlayerOne?: number | null;
+  setFourPlayerTwo?: number | null;
+  setFivePlayerOne?: number | null;
+  setFivePlayerTwo?: number | null;
+  setSixPlayerOne?: number | null;
+  setSixPlayerTwo?: number | null;
+  setSevenPlayerOne?: number | null;
+  setSevenPlayerTwo?: number | null;
+}
+
+/** Resultado agregado de un partido. */
+export interface MatchResults {
+  p1Sets: number;
+  p2Sets: number;
+  p1Points: number;
+  p2Points: number;
+  p1WinsMatch: boolean;
+  p2WinsMatch: boolean;
+}
+
+/**
+ * Partido completo: su marcador mas los metadatos que necesita el calculo de
+ * estadisticas (identificador, estado y temporada).
+ */
+export interface CompletedMatch extends ScoredMatch {
+  id: string;
+  status: MatchStatus | null;
+  seasonId: string | null;
+}
+
+export const calculateMatchResults = (match: ScoredMatch): MatchResults => {
   const sets = [
     [match.setOnePlayerOne, match.setOnePlayerTwo],
     [match.setTwoPlayerOne, match.setTwoPlayerTwo],

@@ -19,6 +19,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
   IconHome,
   IconTrophy,
@@ -41,9 +42,10 @@ import {
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes';
 import { getPlayerAvatar } from '../../utils/avatar';
-import { useState, useEffect } from 'react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { useState, useEffect, useCallback } from 'react';
+import { clubsService } from '../../api/services/clubs';
+import { usersService } from '../../api/services/users';
+import type { DominantHand, Playstyle, RubberType } from '../../types/enums';
 import { DateInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
 import { notifications } from '@mantine/notifications';
@@ -51,6 +53,7 @@ import { notifications } from '@mantine/notifications';
 export const MainLayout = () => {
   const [opened, { toggle }] = useDisclosure();
   const { user, logout, updateUserFields } = useAuthStore();
+  const { isSuperAdmin, isAdminClub, isPlayer } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
@@ -72,20 +75,23 @@ export const MainLayout = () => {
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
   const [savingPassword, setSavingPassword] = useState(false);
 
-  const fetchNotifications = () => {
-    if (user?.role === 'AdminClub' && user?.clubId) {
-      api
-        .get(ENDPOINTS.CLUBS.NOTIFICATIONS(user.clubId))
-        .then((res) => setNotificationsBadge(res.data.data))
-        .catch(console.error);
+  const clubId = user?.clubId;
+  const fetchNotifications = useCallback(() => {
+    if (isAdminClub && clubId) {
+      clubsService
+        .notifications(clubId)
+        .then((badge) => setNotificationsBadge(badge))
+        .catch(() => {
+          // El interceptor de api/axios ya notifica el error.
+        });
     }
-  };
+  }, [isAdminClub, clubId]);
 
   useEffect(() => {
     fetchNotifications();
     window.addEventListener('refresh-notifications', fetchNotifications);
     return () => window.removeEventListener('refresh-notifications', fetchNotifications);
-  }, [user]);
+  }, [user, fetchNotifications]);
 
   // --- LÓGICA ONBOARDING BLINDADA ---
   useEffect(() => {
@@ -100,19 +106,19 @@ export const MainLayout = () => {
     }
 
     if (
-      user.role === 'Player' &&
+      isPlayer &&
       !hasCompletedLocal &&
-      (!(user as any).dominantHand ||
-        !(user as any).playstyle ||
-        !(user as any).birthDate ||
-        !(user as any).rubberForehand ||
-        !(user as any).rubberBackhand)
+      (!user.dominantHand ||
+        !user.playstyle ||
+        !user.birthDate ||
+        !user.rubberForehand ||
+        !user.rubberBackhand)
     ) {
       setOnboardingOpen(true);
     } else {
       setOnboardingOpen(false);
     }
-  }, [user]);
+  }, [user, isPlayer]);
 
   const handleForcePasswordChange = async () => {
     if (passwords.new !== passwords.confirm) {
@@ -122,7 +128,7 @@ export const MainLayout = () => {
         color: 'red',
       });
     }
-    const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!\%*?&]).{8,32}$/.test(passwords.new);
+    const isStrong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,32}$/.test(passwords.new);
     if (!isStrong) {
       return notifications.show({
         title: 'Contraseña débil',
@@ -133,15 +139,15 @@ export const MainLayout = () => {
     }
     setSavingPassword(true);
     try {
-      await api.put(ENDPOINTS.USERS.ME, {
+      await usersService.updateProfile({
         currentPassword: passwords.current,
         newPassword: passwords.new,
         confirmPassword: passwords.confirm,
       });
       updateUserFields({ forcePasswordChange: false });
       setForcePasswordOpen(false);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setSavingPassword(false);
     }
@@ -156,20 +162,20 @@ export const MainLayout = () => {
     if (!hand || !style || !birthDate || !rubberForehand || !rubberBackhand) return;
     setSavingOnboarding(true);
     try {
-      await api.put(ENDPOINTS.USERS.ME, {
-        dominantHand: hand,
-        playstyle: style,
+      await usersService.updateProfile({
+        dominantHand: hand as DominantHand,
+        playstyle: style as Playstyle,
         birthDate: birthDate.toISOString(),
-        rubberForehand,
-        rubberBackhand,
+        rubberForehand: rubberForehand as RubberType,
+        rubberBackhand: rubberBackhand as RubberType,
       });
 
       updateUserFields({
-        dominantHand: hand as any,
-        playstyle: style as any,
-        birthDate: birthDate.toISOString() as any,
-        rubberForehand: rubberForehand as any,
-        rubberBackhand: rubberBackhand as any,
+        dominantHand: hand,
+        playstyle: style,
+        birthDate: birthDate.toISOString(),
+        rubberForehand: rubberForehand,
+        rubberBackhand: rubberBackhand,
       });
 
       // BLINDAJE: Marcamos en el navegador que ya lo hizo
@@ -185,9 +191,6 @@ export const MainLayout = () => {
   };
 
   // --- VARIABLES DE CONDICIÓN BLINDADAS ---
-  const isSuperAdmin = user?.role === 'SuperAdmin';
-  const isAdminClub = user?.role === 'AdminClub';
-  const isPlayer = user?.role === 'Player';
 
   // SOLUCIÓN: Condición amplia e insensible a mayúsculas
   const hasApprovedClub =

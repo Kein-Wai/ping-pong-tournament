@@ -1,30 +1,30 @@
 import { Router } from 'express';
+import { asyncHandler, sendError, sendMessage } from '../http/response';
 import prisma from '../db';
 import { enviarCorreoGenerico } from '../services/email';
 import { templateRecordatorioTorneo, templateRecordatorioEvento } from '../utils/emailtemplate';
+
+import { getRequiredEnv } from '../config';
+import { zonedDayBounds } from '../utils/timezone';
 
 const router = Router();
 
 // =======================================================
 // 1. CRONJOB: RECORDATORIOS DIARIOS (Torneos y Eventos)
 // =======================================================
-router.post('/daily-reminders', async (req, res) => {
+router.post(
+  '/daily-reminders',
+  asyncHandler(async (req, res) => {
   // 1. Seguridad: Verificar que quien llama tiene la llave secreta
   const authHeader = req.headers['x-cron-secret'];
-  if (authHeader !== process.env.CRON_SECRET) {
-    return res.status(401).json({ error: 'Acceso denegado. Secreto inválido.' });
+  if (authHeader !== getRequiredEnv('CRON_SECRET')) {
+    return sendError(res, 401, 'Acceso denegado. Secreto inválido.');
   }
 
-  try {
-    // 2. Calcular los límites exactos de "Mañana"
+    // 2. Calcular los límites exactos de "Mañana" y de "hoy" en la zona horaria de los clubes (el servidor corre en UTC)
     const hoy = new Date();
-
-    const mananaInicio = new Date(hoy);
-    mananaInicio.setDate(hoy.getDate() + 1);
-    mananaInicio.setHours(0, 0, 0, 0);
-
-    const mananaFin = new Date(mananaInicio);
-    mananaFin.setHours(23, 59, 59, 999);
+    const { start: mananaInicio, end: mananaFin } = zonedDayBounds(hoy, 1);
+    const { end: endOfToday } = zonedDayBounds(hoy, 0);
 
     // 3. Query a Prisma: Buscar torneos de mañana y sus jugadores confirmados
     const torneosManana = await prisma.tournament.findMany({
@@ -35,10 +35,11 @@ router.post('/daily-reminders', async (req, res) => {
         },
         status: 'Programado', // Solo recordamos torneos que sigan en pie
       },
-      include: {
+      select: {
+        name: true,
         participants: {
           where: { status: 'Confirmado' },
-          include: { player: true },
+          select: { player: { select: { name: true, email: true } } },
         },
       },
     });
@@ -60,17 +61,15 @@ router.post('/daily-reminders', async (req, res) => {
       });
     });
 
-    const endOfToday = new Date(hoy);
-    endOfToday.setHours(23, 59, 59, 999);
-
     const pendingReminders = await prisma.eventReminder.findMany({
       where: {
         isSent: false,
         notifyAt: { lte: endOfToday }, // Menor o igual a hoy
       },
-      include: {
-        user: true,
-        event: true,
+      select: {
+        id: true,
+        user: { select: { name: true, email: true } },
+        event: { select: { name: true, date: true, endDate: true, location: true } },
       },
     });
 
@@ -94,33 +93,28 @@ router.post('/daily-reminders', async (req, res) => {
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: `Procesados ${torneosManana.length} torneos y ${pendingReminders.length} eventos de calendario.`,
-    });
-  } catch (error) {
-    console.error('Error crítico en el webhook de recordatorios:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
+    return sendMessage(res, `Procesados ${torneosManana.length} torneos y ${pendingReminders.length} eventos de calendario.`);
+  }, 'Error interno del servidor'),
+);
 
 // =======================================================
 // 2. CRONJOB: MONITORIZACIÓN DEL SISTEMA (Health-Check)
 // =======================================================
-router.get('/health-check', async (req, res) => {
+router.get(
+  '/health-check',
+  asyncHandler(async (req, res) => {
   // 1. Seguridad estricta (igual que los recordatorios)
   const authHeader = req.headers['x-cron-secret'];
-  if (authHeader !== process.env.CRON_SECRET) {
-    return res.status(401).json({ error: 'Acceso denegado. Secreto inválido.' });
+  if (authHeader !== getRequiredEnv('CRON_SECRET')) {
+    return sendError(res, 401, 'Acceso denegado. Secreto inválido.');
   }
 
-  try {
     // 2. Test de Base de Datos: Intentamos hacer una consulta sencilla
     const userCount = await prisma.user.count();
 
     // 3. Test de Email: Formatear y enviar correo al Admin
-    // Toma el correo desde las variables de entorno, o usa tu correo por defecto si no está definida
-    const adminEmail = process.env.ADMIN_EMAIL || 'keinwaicheung@gmail.com';
+    // El destinatario del informe sale del entorno: sin ADMIN_EMAIL solo se comprueba la base de datos.
+    const adminEmail = process.env.ADMIN_EMAIL?.trim();
 
     const htmlTest = `
       <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8fafc; border-radius: 8px;">
@@ -139,21 +133,22 @@ router.get('/health-check', async (req, res) => {
       </div>
     `;
 
+    if (!adminEmail) {
+      return sendMessage(
+        res,
+        'Base de datos funcionando. No se envió el correo: falta la variable ADMIN_EMAIL.',
+        200,
+        { timestamp: new Date(), users: userCount },
+      );
+    }
+
     await enviarCorreoGenerico(adminEmail, 'Monitorización: Todo OK - TT Tournament App', htmlTest);
 
-    return res.status(200).json({
-      success: true,
-      message: 'Base de datos y servicio de correos funcionando correctamente.',
+    return sendMessage(res, 'Base de datos y servicio de correos funcionando correctamente.', 200, {
       timestamp: new Date(),
       users: userCount,
     });
-  } catch (error: any) {
-    console.error('Error crítico en el health-check:', error);
-    return res.status(500).json({
-      error: 'Fallo general del sistema',
-      details: error.message || 'Error desconocido',
-    });
-  }
-});
+  }, 'Fallo general del sistema'),
+);
 
 export default router;

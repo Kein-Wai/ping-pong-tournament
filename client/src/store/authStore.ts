@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { api } from '../api/axios'; // Ajusta el import según tu estructura
-import { ENDPOINTS } from '../api/endpoints'; // Ajusta el import
+import { usersService } from '../api/services/users';
+import { authService } from '../api/services/auth';
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../api/session';
 
 // Interfaz completa del usuario en el cliente
 export interface User {
@@ -19,32 +20,39 @@ export interface User {
   rubberBackhand?: string | null;
   birthDate?: string | null;
   forcePasswordChange?: boolean;
+  /** Cómo inicia sesión el usuario: solo las cuentas `LOCAL` pueden cambiar la contraseña. */
+  authProvider?: string;
 }
 
 interface AuthState {
   token: string | null;
   user: User | null;
   isAuthenticated: boolean;
-  login: (token: string, userData?: User) => void;
+  login: (token: string, userData?: User, refreshToken?: string) => void;
   logout: () => void;
   updateUserFields: (fields: Partial<User>) => void;
   fetchProfile: () => Promise<void>; // 👈 NUEVA FUNCIÓN
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  token: localStorage.getItem('pingpong_token') || null,
+  token: localStorage.getItem(ACCESS_TOKEN_KEY) || null,
   user: null, // Ya no leemos el usuario estático de localStorage
-  isAuthenticated: !!localStorage.getItem('pingpong_token'),
+  isAuthenticated: !!localStorage.getItem(ACCESS_TOKEN_KEY),
 
-  login: (token, userData) => {
-    localStorage.setItem('pingpong_token', token);
+  login: (token, userData, refreshToken) => {
+    localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     set({ token, isAuthenticated: true });
     // Si pasamos userData (ej: desde un registro), lo guardamos. Si no, confiaremos en fetchProfile
     if (userData) set({ user: userData });
   },
 
   logout: () => {
-    localStorage.removeItem('pingpong_token');
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    // Revocar en el servidor es best-effort: la sesión local se cierra aunque no haya red.
+    if (refreshToken) authService.logout(refreshToken).catch(() => undefined);
     set({ token: null, user: null, isAuthenticated: false });
   },
 
@@ -59,8 +67,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!token) return;
 
     try {
-      const response = await api.get(ENDPOINTS.USERS.ME);
-      const fullUser = response.data.data;
+      // El perfil llega con la relación userType, que el tipo de dominio no declara.
+      const fullUser = (await usersService.me()) as unknown as User & {
+        userType?: { name?: string };
+      };
 
       // Mapeamos el rol desde la relación para que el frontend no se rompa
       const userToStore: User = {

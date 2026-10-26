@@ -2,28 +2,30 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Title, Text, Group, Button, Stack, ThemeIcon } from '@mantine/core';
 import { IconBarbell, IconCalendarEvent } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { trainingsService } from '../../api/services/trainings';
+import type { UpcomingTrainingSession } from '../../types/api';
 import { APP_ROUTES } from '../../constants/routes';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export const WidgetEntrenamientos = () => {
   const { user } = useAuthStore();
+  const { isPlayer } = usePermissions();
   const navigate = useNavigate();
-  const [upcoming, setUpcoming] = useState<any[]>([]);
+  const [upcoming, setUpcoming] = useState<UpcomingTrainingSession[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.id && user?.role === 'Player') {
-      api
-        .get(ENDPOINTS.TRAININGS.UPCOMING(user.id))
-        .then((res) => setUpcoming(res.data.data))
+    if (user?.id && isPlayer) {
+      trainingsService
+        .upcoming(user.id)
+        .then((sessions) => setUpcoming(sessions))
         .catch((err) => console.error('Error cargando avisos de entrenamiento', err))
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, isPlayer]);
 
   if (loading || upcoming.length === 0) return null; // Si no hay entrenos, no mostramos nada y no estorbamos
 
@@ -46,7 +48,7 @@ export const WidgetEntrenamientos = () => {
       <Stack gap="sm">
         {upcoming.map((session, index) => {
           // Calculamos cuántos ha hecho
-          const completedCount = (session.exercises || []).filter((e: any) => e.completed).length;
+          const completedCount = (session.exercises || []).filter((e) => e.completed).length;
           const totalCount = session._count.exercises;
 
           return (

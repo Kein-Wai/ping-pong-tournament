@@ -27,7 +27,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (token: string) => Promise<void>;
+  login: (token: string, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
   fetchProfile: () => Promise<void>;
   initAuth: () => Promise<void>;
@@ -39,14 +39,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   isLoading: true,
 
-  login: async (token: string) => {
+  login: async (token: string, refreshToken: string) => {
     await AsyncStorage.setItem("pingpong_token", token);
+    await AsyncStorage.setItem("pingpong_refresh_token", refreshToken);
     set({ token, isAuthenticated: true });
     await get().fetchProfile();
   },
 
   logout: async () => {
+    const refreshToken = await AsyncStorage.getItem("pingpong_refresh_token");
     await AsyncStorage.removeItem("pingpong_token");
+    await AsyncStorage.removeItem("pingpong_refresh_token");
+    // Revocar en el servidor es best-effort: la sesión local se cierra aunque no haya red.
+    if (refreshToken) api.post("/auth/logout", { refreshToken }).catch(() => undefined);
     set({ token: null, user: null, isAuthenticated: false });
   },
 

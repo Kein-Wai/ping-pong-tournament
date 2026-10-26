@@ -25,7 +25,7 @@ vi.mock('../../src/db', () => ({
       findUnique: vi.fn(),
       delete: vi.fn(),
     },
-    teamMatch: { create: vi.fn() },
+    teamMatch: { create: vi.fn(), findUnique: vi.fn() },
     user: { findMany: vi.fn() },
     teamMatchAvailability: { findUnique: vi.fn(), create: vi.fn(), delete: vi.fn() },
   },
@@ -37,6 +37,10 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
     next();
   },
   requireAdminClub: (req: any, res: any, next: any) => {
+    req.user = { id: 'admin-123', role: 'AdminClub', clubId: 'club-1' };
+    next();
+  },
+  requireAdminClubAnyStatus: (req: any, res: any, next: any) => {
     req.user = { id: 'admin-123', role: 'AdminClub', clubId: 'club-1' };
     next();
   },
@@ -58,6 +62,15 @@ describe('CRUD Rutas de Equipos (/api/teams)', () => {
     expect(prisma.team.findMany).toHaveBeenCalledOnce();
   });
 
+  it('GET /club/:clubId - Debería pedir el avatar de los jugadores de la plantilla', async () => {
+    vi.mocked(prisma.team.findMany).mockResolvedValue([] as any);
+
+    await request(app).get('/api/teams/club/club-1');
+
+    const query = vi.mocked(prisma.team.findMany).mock.calls[0][0] as any;
+    expect(query.include.players.select).toMatchObject({ id: true, name: true, avatarUrl: true });
+  });
+
   it('POST / - Debería crear un equipo con validación (201)', async () => {
     vi.mocked(prisma.team.create).mockResolvedValue({ id: 'team-new', name: 'Alevines' } as any);
 
@@ -75,7 +88,11 @@ describe('CRUD Rutas de Equipos (/api/teams)', () => {
       { id: '11111111-1111-4111-a111-111111111111', level: 'Profesional' },
       { id: '22222222-2222-4222-a222-222222222222', level: 'Intermedio' },
     ] as any);
-    vi.mocked(prisma.team.update).mockResolvedValue({ id: 'team-1', level: 'Intermedio' } as any);
+    vi.mocked(prisma.team.update).mockResolvedValue({
+      id: 'team-1',
+      level: 'Intermedio',
+      players: [],
+    } as any);
 
     const response = await request(app)
       .put('/api/teams/team-1/players')
@@ -123,6 +140,10 @@ describe('CRUD Rutas de Equipos (/api/teams)', () => {
     });
 
     it('POST /matches/:matchId/availability - Debería crear asistencia si no existe (200)', async () => {
+      // El usuario autenticado (admin-123) forma parte del equipo del partido.
+      vi.mocked(prisma.teamMatch.findUnique).mockResolvedValue({
+        team: { players: [{ id: 'admin-123' }] },
+      } as any);
       vi.mocked(prisma.teamMatchAvailability.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.teamMatchAvailability.create).mockResolvedValue({} as any);
 

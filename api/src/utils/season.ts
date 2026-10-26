@@ -1,61 +1,79 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient, Season } from '@prisma/client';
 
-export const getCurrentSeason = async (prisma: PrismaClient) => {
-  // 1. Calculamos cómo debería llamarse la temporada HOY
-  const now = new Date();
+/**
+ * Periodo de la temporada vigente. La temporada va del 1 de agosto al 31 de julio.
+ */
+export interface SeasonPeriod {
+  name: string;
+  startYear: number;
+  endYear: number;
+}
+
+/**
+ * Calcula el periodo de temporada vigente según la fecha actual.
+ */
+export const getCurrentSeasonPeriod = (now: Date = new Date()): SeasonPeriod => {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0 = Enero, 7 = Agosto
-
-  // Si estamos en Agosto (7) o más, la temporada empieza este año. Si estamos antes, empezó el año pasado.
   const startYear = currentMonth >= 7 ? currentYear : currentYear - 1;
   const endYear = startYear + 1;
-  const seasonName = `Temporada ${startYear}/${endYear}`;
 
-  // 2. Buscamos la temporada que actualmente está marcada como activa en BD
-  let activeSeason = await prisma.season.findFirst({
-    where: { isCurrent: true },
-  });
+  return { name: `Temporada ${startYear}/${endYear}`, startYear, endYear };
+};
 
-  // 3. CASO NORMAL: La temporada activa es la correcta, la devolvemos inmediatamente
-  if (activeSeason && activeSeason.name === seasonName) {
+/**
+ * Resuelve la temporada vigente SIN escribir en la base de datos.
+ *
+ * Falla si la temporada no existe: su creacion es responsabilidad de
+ * ensureCurrentSeason(), que se ejecuta una unica vez al arrancar la app.
+ */
+export const resolveCurrentSeason = async (prisma: Prisma.TransactionClient): Promise<Season> => {
+  const { name } = getCurrentSeasonPeriod();
+
+  const activeSeason = await prisma.season.findFirst({ where: { isCurrent: true } });
+  if (activeSeason && activeSeason.name === name) {
     return activeSeason;
   }
 
-  // 4. CAMBIO DE TEMPORADA: Ha llegado el 1 de Agosto (o es la primera vez que arrancamos la app)
-  // Desactivamos cualquier temporada que estuviera como actual
-  await prisma.season.updateMany({
-    where: { isCurrent: true },
-    data: { isCurrent: false },
-  });
-
-  // Comprobamos si por algún casual la temporada ya existía pero estaba apagada
-  let targetSeason = await prisma.season.findUnique({
-    where: { name: seasonName },
-  });
-
-  if (targetSeason) {
-    targetSeason = await prisma.season.update({
-      where: { id: targetSeason.id },
-      data: { isCurrent: true },
-    });
-    return targetSeason;
+  const targetSeason = await prisma.season.findUnique({ where: { name } });
+  if (!targetSeason) {
+    throw new Error(
+      `La temporada ${name} no existe. La aplicacion no se ha inicializado correctamente.`,
+    );
   }
 
-  // 5. ¡CREACIÓN AUTOMÁTICA! Creamos la temporada desde cero
-  // Fecha UTC exacta: 1 de Agosto a las 00:00:00 hasta el 31 de Julio a las 23:59:59
+  return targetSeason;
+};
+
+/**
+ * Garantiza que exista y este marcada como actual la temporada vigente.
+ * ESCRIBE en la base de datos: debe llamarse una sola vez, al arrancar.
+ */
+export const ensureCurrentSeason = async (prisma: PrismaClient): Promise<Season> => {
+  const { name, startYear, endYear } = getCurrentSeasonPeriod();
+
+  const activeSeason = await prisma.season.findFirst({ where: { isCurrent: true } });
+  if (activeSeason && activeSeason.name === name) {
+    return activeSeason;
+  }
+
+  // Cambio de temporada: desactivamos la anterior.
+  await prisma.season.updateMany({ where: { isCurrent: true }, data: { isCurrent: false } });
+
+  const existingSeason = await prisma.season.findUnique({ where: { name } });
+  if (existingSeason) {
+    return prisma.season.update({ where: { id: existingSeason.id }, data: { isCurrent: true } });
+  }
+
+  // Primera vez: creamos la temporada desde cero.
   const startDate = new Date(Date.UTC(startYear, 7, 1, 0, 0, 0));
   const endDate = new Date(Date.UTC(endYear, 6, 31, 23, 59, 59, 999));
 
-  targetSeason = await prisma.season.create({
-    data: {
-      name: seasonName,
-      startDate,
-      endDate,
-      isCurrent: true,
-    },
+  const createdSeason = await prisma.season.create({
+    data: { name, startDate, endDate, isCurrent: true },
   });
 
-  console.log(`🎉 ¡Nueva temporada iniciada automáticamente: ${seasonName}!`);
+  console.info(`🎉 ¡Nueva temporada iniciada automaticamente: ${name}`);
 
-  return targetSeason;
+  return createdSeason;
 };

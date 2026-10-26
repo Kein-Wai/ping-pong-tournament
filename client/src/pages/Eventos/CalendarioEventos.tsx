@@ -32,10 +32,12 @@ import {
   IconChevronRight,
   IconEdit,
 } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { eventsService } from '../../api/services/events';
 import { useAuthStore } from '../../store/authStore';
+import { usePermissions } from '../../hooks/usePermissions';
 import { openAppConfirmModal } from '../../utils/modals';
+import type { ClubEvent } from '../../types/api';
+import type { EventRegion } from '../../types/enums';
 import '@mantine/dates/styles.css';
 
 const REGIONES = [
@@ -58,9 +60,9 @@ const COLORES_MANTINE = [
 
 export const CalendarioEventos = () => {
   const { user } = useAuthStore();
-  const isAdmin = user?.role === 'AdminClub' || user?.role === 'SuperAdmin';
+  const { isAdmin } = usePermissions();
 
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<ClubEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -82,11 +84,15 @@ export const CalendarioEventos = () => {
   });
 
   const fetchEvents = async () => {
-    if (!user?.clubId) return;
+    if (!user?.clubId) {
+      // Sin club no hay nada que pedir: sin esto el spinner no terminaba nunca.
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const res = await api.get(ENDPOINTS.EVENTS.BY_CLUB(user.clubId));
-      setEvents(res.data.data);
+      const clubEvents = await eventsService.byClub(user.clubId);
+      setEvents(clubEvents);
     } catch (error) {
       console.error(error);
     } finally {
@@ -99,14 +105,14 @@ export const CalendarioEventos = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const handleOpenModal = (ev?: any) => {
+  const handleOpenModal = (ev?: ClubEvent) => {
     if (ev) {
       setEditingId(ev.id);
       setNewEvent({
         name: ev.name,
         location: ev.location || '',
-        color: ev.color,
-        region: ev.region,
+        color: ev.color as string,
+        region: ev.region as string,
       });
       setEventDates([new Date(ev.date), ev.endDate ? new Date(ev.endDate) : null]);
     } else {
@@ -123,20 +129,21 @@ export const CalendarioEventos = () => {
     try {
       const payload = {
         ...newEvent,
+        region: newEvent.region as EventRegion,
         date: eventDates[0].toISOString(),
         endDate: eventDates[1] ? eventDates[1].toISOString() : null,
       };
 
       if (editingId) {
-        await api.put(ENDPOINTS.EVENTS.UPDATE(editingId), payload);
+        await eventsService.update(editingId, payload);
       } else {
-        await api.post(ENDPOINTS.EVENTS.BASE, payload);
+        await eventsService.create(payload);
       }
 
       setModalOpen(false);
       fetchEvents();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setSaving(false);
     }
@@ -152,30 +159,30 @@ export const CalendarioEventos = () => {
       confirmLabel: 'Sí, eliminar',
       onConfirm: async () => {
         try {
-          await api.delete(`${ENDPOINTS.EVENTS.BASE}/${id}`);
+          await eventsService.remove(id);
           fetchEvents();
-        } catch (error) {
-          console.error(error);
+        } catch {
+          // El interceptor de api/axios ya notifica el error.
         }
       },
     });
   };
 
-  const toggleReminder = async (eventId: string, hasReminder: boolean) => {
+  const toggleReminder = async (eventId: string, hasReminder: boolean | undefined) => {
     try {
       if (hasReminder) {
-        await api.delete(ENDPOINTS.EVENTS.REMINDERS(eventId));
+        await eventsService.removeReminder(eventId);
       } else {
-        await api.post(ENDPOINTS.EVENTS.REMINDERS(eventId));
+        await eventsService.addReminder(eventId);
       }
       fetchEvents();
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     }
   };
 
   // --- LÓGICA DE DETECCIÓN DE EVENTOS MULTIDÍA ---
-  const isDateInRange = (targetDate: Date, startStr: string, endStr: string | null) => {
+  const isDateInRange = (targetDate: Date, startStr: string, endStr?: string | null) => {
     const t = new Date(
       targetDate.getFullYear(),
       targetDate.getMonth(),
@@ -401,7 +408,7 @@ export const CalendarioEventos = () => {
                             )}
                           </Group>
                           <Group gap="xs" mt={4}>
-                            <Badge size="xs" variant="light" color={ev.color}>
+                            <Badge size="xs" variant="light" color={ev.color ?? undefined}>
                               {ev.region}
                             </Badge>
                             {isPast && (

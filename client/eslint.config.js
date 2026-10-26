@@ -26,11 +26,52 @@ export default defineConfig([
       // Apagamos la regla estricta que te daba error en los useEffects
       'react-hooks/set-state-in-effect': 'off',
 
-      // Convertimos el error de usar "any" en una simple advertencia (naranja en vez de rojo)
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // El cliente ya no tiene ningún "any" explícito: se mantiene como error para que no vuelva
+      '@typescript-eslint/no-explicit-any': 'error',
 
-      // Convertimos las dependencias faltantes del useEffect en advertencia
-      'react-hooks/exhaustive-deps': 'warn',
+      // Sin avisos pendientes: una dependencia olvidada en un efecto vuelve a ser un error
+      'react-hooks/exhaustive-deps': 'error',
+    },
+  },
+  // 3. El acceso a datos pasa por api/services (o por el adaptador http de api/client):
+  //    pantallas, hooks y componentes no deben importar api/axios directamente. Los tests
+  //    y api/client.ts quedan exentos porque mockean o envuelven esa frontera; main.tsx
+  //    también, porque registra en el interceptor el cierre de sesión (setUnauthorizedHandler).
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/api/client.ts', 'src/main.tsx', 'src/**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/api/axios'],
+              message:
+                'No importes api/axios: usa los servicios de api/services (o el adaptador http de api/client).',
+            },
+          ],
+        },
+      ],
+      // Las rutas de navegación salen de APP_ROUTES (constants/routes.ts), no de un path escrito a mano.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.name='navigate'] > Literal.arguments:first-child[value=/^\\//]",
+          message: 'No escribas la ruta a mano: usa APP_ROUTES (constants/routes.ts).',
+        },
+        {
+          selector:
+            "CallExpression[callee.name='navigate'] > TemplateLiteral.arguments:first-child[quasis.0.value.raw=/^\\//]",
+          message: 'No escribas la ruta a mano: usa APP_ROUTES (constants/routes.ts).',
+        },
+        {
+          selector:
+            "JSXOpeningElement[name.name='Navigate'] > JSXAttribute[name.name='to'] > Literal[value=/^\\//]",
+          message: 'No escribas la ruta a mano: usa APP_ROUTES (constants/routes.ts).',
+        },
+      ],
     },
   },
   eslintConfigPrettier,

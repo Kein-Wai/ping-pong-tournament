@@ -14,10 +14,10 @@ import {
   ThemeIcon,
 } from '@mantine/core';
 import { IconBook, IconDeviceFloppy, IconArrowLeft } from '@tabler/icons-react';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { exercisesService, type CreateExercisePayload } from '../../api/services/trainings';
 import { APP_ROUTES } from '../../constants/routes';
 import { EXERCISE_CATEGORIES } from '../../constants/constants';
+import type { ExerciseCategory } from '../../types/enums';
 
 export const EjercicioNuevo = () => {
   const navigate = useNavigate();
@@ -35,10 +35,10 @@ export const EjercicioNuevo = () => {
     setLoading(true);
 
     try {
-      const payload: any = {
+      const payload: CreateExercisePayload = {
         name,
         description,
-        category,
+        category: category as ExerciseCategory,
       };
 
       // Regla de negocio: Si el usuario escribió un código, lo enviamos como número
@@ -46,7 +46,7 @@ export const EjercicioNuevo = () => {
         payload.code = Number(code);
       }
 
-      await api.post(ENDPOINTS.EXERCISES.BASE, payload);
+      await exercisesService.create(payload);
 
       // Si va bien, volvemos al catálogo
       navigate(APP_ROUTES.EJERCICIOS.LIST);

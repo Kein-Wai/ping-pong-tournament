@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Container, Paper, Title, Text, PasswordInput, Button, Stack } from '@mantine/core';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '../../api/axios';
-import { ENDPOINTS } from '../../api/endpoints';
+import { authService } from '../../api/services/auth';
 import { APP_ROUTES } from '../../constants/routes';
 import { notifications } from '@mantine/notifications';
 
@@ -45,15 +44,11 @@ export const ResetPassword = () => {
 
     setLoading(true);
     try {
-      await api.post(ENDPOINTS.AUTH.RESET_PASSWORD, {
-        token,
-        newPassword,
-        confirmPassword,
-      });
+      await authService.resetPassword(token, newPassword, confirmPassword);
 
       navigate(APP_ROUTES.LOGIN);
-    } catch (error: any) {
-      console.error(error);
+    } catch {
+      // El interceptor de api/axios ya notifica el error.
     } finally {
       setLoading(false);
     }
