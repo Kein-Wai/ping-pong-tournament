@@ -71,7 +71,9 @@ const tokenResponse = (payload: Record<string, unknown> = FULL_PAYLOAD) => ({
 });
 
 const backendError = (message: string) =>
-  Object.assign(new Error('Request failed'), { response: { status: 400, data: { error: message } } });
+  Object.assign(new Error('Request failed'), {
+    response: { status: 400, data: { error: message } },
+  });
 
 const renderPage = (url: string = APP_ROUTES.LOGIN) =>
   renderWithProviders(
@@ -107,11 +109,15 @@ const fillRegister = (overrides: Record<string, string> = {}) => {
     ...overrides,
   };
   fireEvent.change(panel().getByLabelText(/^Nombre/), { target: { value: values.name } });
-  fireEvent.change(panel().getByLabelText(/^Primer Apellido/), { target: { value: values.surname } });
+  fireEvent.change(panel().getByLabelText(/^Primer Apellido/), {
+    target: { value: values.surname },
+  });
   fireEvent.change(panel().getByLabelText(/^Segundo Apellido/), {
     target: { value: values.secondSurname },
   });
-  fireEvent.change(panel().getByLabelText(/^Correo electrónico/), { target: { value: values.email } });
+  fireEvent.change(panel().getByLabelText(/^Correo electrónico/), {
+    target: { value: values.email },
+  });
   fireEvent.change(panel().getByLabelText(/^Contraseña/), { target: { value: values.password } });
   fireEvent.change(panel().getByLabelText(/^Confirmar Contraseña/), {
     target: { value: values.confirm },
@@ -135,12 +141,32 @@ describe('Login', () => {
     vi.useRealTimers();
   });
 
+  describe('configuración de Google', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('toma los client IDs de las variables de entorno y no del código', () => {
+      vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'web-id.apps.test');
+      vi.stubEnv('VITE_GOOGLE_IOS_CLIENT_ID', 'ios-id.apps.test');
+
+      renderPage();
+
+      expect(SocialLogin.initialize).toHaveBeenCalledWith({
+        google: { webClientId: 'web-id.apps.test', iOSClientId: 'ios-id.apps.test' },
+      });
+    });
+  });
+
   describe('iniciar sesion', () => {
     it('muestra el titulo, las pestañas y el formulario de acceso', () => {
       renderPage();
 
       expect(screen.getByText(DICTIONARY.app_title)).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Ingresar/ })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tab', { name: /Ingresar/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
       expect(screen.getByRole('button', { name: 'Iniciar Sesión' })).toBeInTheDocument();
       expect(SocialLogin.initialize).toHaveBeenCalledTimes(1);
     });
@@ -370,7 +396,10 @@ describe('Login', () => {
       submitRegister();
 
       await waitFor(() =>
-        expect(screen.getByRole('tab', { name: /Ingresar/ })).toHaveAttribute('aria-selected', 'true'),
+        expect(screen.getByRole('tab', { name: /Ingresar/ })).toHaveAttribute(
+          'aria-selected',
+          'true',
+        ),
       );
       expect(panel().getByLabelText(/^Correo electrónico/)).toHaveValue('');
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
@@ -385,7 +414,10 @@ describe('Login', () => {
       submitRegister();
 
       expect(await screen.findByText('El correo ya existe')).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Registrarse/ })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tab', { name: /Registrarse/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
     });
   });
 
@@ -450,7 +482,9 @@ describe('Login', () => {
     });
 
     it('envia el idToken que devuelve el plugin y abre la sesion', async () => {
-      vi.mocked(SocialLogin.login).mockResolvedValue({ result: { idToken: 'native-token' } } as never);
+      vi.mocked(SocialLogin.login).mockResolvedValue({
+        result: { idToken: 'native-token' },
+      } as never);
       renderPage();
 
       fireEvent.click(screen.getByRole('button', { name: 'Continuar con Google' }));
@@ -485,9 +519,25 @@ describe('Login', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Continuar con Google' }));
 
       expect(await screen.findByText('Error al iniciar sesión con Google')).toBeInTheDocument();
-      expect(alertSpy).toHaveBeenCalled();
+      expect(alertSpy).not.toHaveBeenCalled();
       expect(consoleError).toHaveBeenCalled();
       expect(api.post).not.toHaveBeenCalled();
+    });
+
+    it('si el backend rechaza el token no usa alert y muestra el error en línea', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+      vi.mocked(SocialLogin.login).mockResolvedValue({
+        result: { idToken: 'native-token' },
+      } as never);
+      vi.mocked(api.post).mockRejectedValue(backendError('Token de Google inválido'));
+      renderPage();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continuar con Google' }));
+
+      expect(await screen.findByText('Error al iniciar sesión con Google')).toBeInTheDocument();
+      expect(alertSpy).not.toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalled();
     });
 
     it.each(['user canceled', 'User cancelled login'])(
