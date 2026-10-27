@@ -169,6 +169,14 @@ _Avoid_: Baldosa, botón
 Cada repetición dentro de una partida de reacción simple o de timing.
 _Avoid_: Ronda (reservada para el cuadro eliminatorio)
 
+**Impacto**:
+Instante en que la pelota del juego Timing vuelve a la raqueta, el momento ideal para golpear.
+_Avoid_: Golpe (reservado para el toque del jugador)
+
+**Desviación**:
+Milisegundos entre el toque del jugador y el impacto: negativa si se toca pronto y positiva si se toca tarde. Se muestra tras cada pelota y su media aparece en el resultado de Timing.
+_Avoid_: Error, retraso
+
 **Salida en falso**:
 Toque anticipado, antes de que aparezca la señal, en reacción simple. No cuenta y el intento se repite.
 _Avoid_: Falta, error

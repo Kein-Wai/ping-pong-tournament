@@ -93,15 +93,15 @@ Rama `feat/calentamiento-sesion`. Hechas las **entregas 1 y 2**: catálogo fijo 
 
 ## 9. Juegos de Reflejo (feature en curso)
 
-Rama `feat/juegos-reflejo-base`. Entregas: 1 menú, selector, récords, armazón común, glosario y Tejas · 2 Reacción simple · 3 Go / No-Go · 4 Ping Pong · 5 Timing. Sin librerías nuevas. Los récords van en `localStorage` (`reflejo:<userId>:<juego>`).
+Rama `feat/juegos-reflejo-base`. Hechas las cinco entregas: menú, selector, récords y armazón común (1), Tejas, Reacción simple, Go / No-Go, Ping Pong y Timing. Sin librerías nuevas. Los récords van en `localStorage` (`reflejo:<userId>:<juego>`). Comprobado en Chrome (escritorio, móvil vertical y apaisado); **sin probar en dispositivos reales** (sonido, vibración y pantalla encendida: ver W4).
 
 | # | Qué | Notas |
 |---|---|---|
 | J1 | Juegos al backlog: **Flechas**, **Seguimiento de color** y **Secuencia** | Ideas descritas en la conversación de diseño; sin reglas cerradas |
 | J2 | **Récords en la API/BD** si se quiere ranking de club | El récord local se pierde al borrar los datos del navegador; el selector lo avisa |
 | J3 | Valorar `react-konva` si un juego futuro lo necesita | Su última versión exige React 19.3; hoy el cliente usa `^19.2.7` |
-| J5 | **Registro slug → componente** en `JuegoPartida` al llegar el 2.º juego | Hoy `JuegoPartida` pinta `TilesGame` para cualquier slug; con Reacción simple mostraría Tejas bajo su título. `ReflexCue` ('hit'/'miss') también es específico de Tejas |
 | J6 | Un **0 como primer récord** se guarda y el selector mostraría «Récord: 0 aciertos» | La partida ya muestra «Mala suerte»; decidir si un 0 debe guardarse |
+| J7 | **Precisión de Reacción simple**: el tiempo se mide desde el instante lógico de la señal, pero la pantalla se pone verde en el siguiente tick (≤25 ms) más el render; un toque justo tras la señal cuenta como reacción | Valorar medir desde que se pinta (rAF) y tratar reacciones de menos de ~100 ms como anticipación (salida en falso). Cambia reglas acordadas, por eso no se hizo |
 | J4 | **Guard de ruta por rol** para `/calentamiento` y `/juegos-reflejo` | Hoy solo se oculta el ítem del menú; la ruta exige solo estar autenticado |
 
 ### Deuda de nombres detectada al hacer el glosario
