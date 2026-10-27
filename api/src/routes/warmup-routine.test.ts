@@ -99,7 +99,7 @@ describe('Rutinas de calentamiento (/api/warmup-routines)', () => {
       const response = await request(app).post(URL).set(bearer(OWNER)).send(BODY);
 
       expect(response.status).toBe(201);
-      expect(response.body).toEqual({ success: true, data: savedRoutine() });
+      expect(response.body).toEqual({ success: true, message: 'Rutina guardada', data: savedRoutine() });
       expect(prismaMock.client.warmupRoutine.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: { userId: OWNER_ID, name: 'Torneo', items: ITEMS } }),
       );
@@ -183,7 +183,11 @@ describe('Rutinas de calentamiento (/api/warmup-routines)', () => {
       const response = await request(app).put(`${URL}/r1`).set(bearer(OWNER)).send(body);
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true, data: savedRoutine({ name: 'Nueva' }) });
+      expect(response.body).toEqual({
+        success: true,
+        message: 'Rutina actualizada',
+        data: savedRoutine({ name: 'Nueva' }),
+      });
       expect(prismaMock.client.warmupRoutine.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'r1' }, data: body }),
       );

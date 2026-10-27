@@ -81,7 +81,7 @@ router.post(
           `Has alcanzado el máximo de ${MAX_ROUTINES_PER_PLAYER} rutinas. Borra una para guardar otra.`,
         );
       }
-      sendData(res, result, 201);
+      sendMessage(res, 'Rutina guardada', 201, result);
     } catch (error) {
       const message = conflictMessage(error);
       if (message) return sendError(res, 409, message);
@@ -118,7 +118,7 @@ router.put(
         data: validation.data,
         select: ROUTINE_SELECT,
       });
-      sendData(res, updated);
+      sendMessage(res, 'Rutina actualizada', 200, updated);
     } catch (error) {
       const message = conflictMessage(error);
       if (message) return sendError(res, 409, message);
