@@ -25,6 +25,8 @@ import { SessionDetalles } from './pages/Entrenamientos/SessionDetalles';
 import { AnalisisList } from './pages/Analisis/AnalisisList';
 import { ManualMatchTracker } from './pages/Analisis/ManualMatchTracker';
 import { Calentamiento } from './pages/Calentamiento/Calentamiento';
+import { JuegosReflejo } from './pages/JuegosReflejo/JuegosReflejo';
+import { JuegoPartida } from './pages/JuegosReflejo/JuegoPartida';
 import { EntrenamientosGenerales } from './pages/Entrenamientos/EntrenamientosGenerales';
 import { FeedbackPage } from './pages/Feedback/FeedbackPage';
 import { ForgotPassword } from './pages/Auth/ForgotPassword';
@@ -209,6 +211,8 @@ function AppContent() {
                 <Route path={APP_ROUTES.ANALISIS.LIST} element={<AnalisisList />} />
                 <Route path={APP_ROUTES.ANALISIS.TRACKER_PATH} element={<ManualMatchTracker />} />
                 <Route path={APP_ROUTES.CALENTAMIENTO} element={<Calentamiento />} />
+                <Route path={APP_ROUTES.JUEGOS_REFLEJO.LIST} element={<JuegosReflejo />} />
+                <Route path={APP_ROUTES.JUEGOS_REFLEJO.PLAY_PATH} element={<JuegoPartida />} />
                 <Route path={APP_ROUTES.EQUIPOS.LIST} element={<Equipos />} />
                 <Route path={APP_ROUTES.EQUIPOS.NEW} element={<EquipoNuevo />} />
                 <Route path={APP_ROUTES.EQUIPOS.DETAILS_PATH} element={<EquipoDetalles />} />
