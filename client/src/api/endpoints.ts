@@ -102,6 +102,10 @@ export const ENDPOINTS = {
     BASE: '/feedback',
     UPDATE_STATUS: (id: string) => `/feedback/${id}/status`,
   },
+  WARMUP_ROUTINES: {
+    BASE: '/warmup-routines',
+    BY_ID: (id: string) => `/warmup-routines/${id}`,
+  },
   EVENTS: {
     BASE: '/events',
     BY_CLUB: (clubId: string) => `/events/club/${clubId}`,

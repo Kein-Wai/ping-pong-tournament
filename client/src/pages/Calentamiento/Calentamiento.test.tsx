@@ -1,8 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
 import { WARMUP_EXERCISES } from '../../constants/warmupExercises';
-import { renderWithProviders } from '../../test/utils';
+import { chooseOption, renderWithProviders } from '../../test/utils';
 import { Calentamiento } from './Calentamiento';
+
+// Se mockea el `api` de bajo nivel (la frontera del sistema) y no los servicios.
+vi.mock('../../api/axios', () => ({
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+}));
+
+const envelope = (data: unknown, message?: string) => ({ data: { success: true, data, message } });
+
+// Por defecto las rutinas guardadas no llegan nunca: los tests del constructor y de la sesión
+// no dependen de ellas y así no hay actualizaciones de estado fuera de `act`.
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(api.get).mockReturnValue(new Promise(() => undefined) as never);
+});
 
 const preparado = () => screen.getByRole('button', { name: /preparado/i });
 const anadir = (nombre: string) => fireEvent.click(screen.getByRole('button', { name: `Añadir ${nombre}` }));
@@ -288,5 +304,191 @@ describe('Calentamiento (/calentamiento): sesión', () => {
 
     expect(nombresDeLaRutina()).toEqual(['Estiramientos', 'Derecha a Derecha']);
     expect(preparado()).toBeEnabled();
+  });
+});
+
+describe('Calentamiento (/calentamiento): mis rutinas guardadas', () => {
+  const guardada = (id: string, name: string, items: unknown[]) => ({
+    id,
+    name,
+    items,
+    createdAt: '2026-10-27T10:00:00.000Z',
+    updatedAt: '2026-10-27T10:00:00.000Z',
+  });
+  const ITEMS_TORNEO = [
+    { exerciseKey: 'estiramientos', durationSec: 60, restSec: 10 },
+    { exerciseKey: 'derecha-derecha', durationSec: 90, restSec: 30 },
+  ];
+  const ITEMS_ENTRENO = [{ exerciseKey: 'movilidad', durationSec: 120, restSec: 5 }];
+  const TORNEO = guardada('r1', 'Torneo', ITEMS_TORNEO);
+  const ENTRENO = guardada('r2', 'Antes de entrenar', ITEMS_ENTRENO);
+
+  const serve = (routines: unknown[]) =>
+    vi.mocked(api.get).mockImplementation((async (url: string) => {
+      if (url === ENDPOINTS.WARMUP_ROUTINES.BASE) return envelope(routines);
+      throw new Error(`Peticion no esperada: ${url}`);
+    }) as never);
+
+  const renderPage = async (routines: unknown[]) => {
+    serve(routines);
+    renderWithProviders(<Calentamiento />);
+    await waitFor(() => expect(screen.queryByText(/cargando tus rutinas/i)).not.toBeInTheDocument());
+  };
+
+  const guardar = (nombre: string) => screen.getByRole('button', { name: nombre });
+
+  it('Debería cargar al abrir la rutina guardada más reciente en el constructor', async () => {
+    await renderPage([TORNEO, ENTRENO]);
+
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos', 'Derecha a Derecha']);
+    expect(screen.getByRole('textbox', { name: 'Duración del ejercicio 2' })).toHaveValue('90 s');
+    expect(screen.getByText('2 de 5 rutinas guardadas')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Rutina guardada' })).toHaveValue('Torneo');
+  });
+
+  it('Debería explicar que aún no hay rutinas guardadas y dejar el constructor vacío', async () => {
+    await renderPage([]);
+
+    expect(screen.getByText('Aún no tienes rutinas guardadas.')).toBeInTheDocument();
+    expect(nombresDeLaRutina()).toEqual([]);
+  });
+
+  it('Debería cargar otra rutina al elegirla en el selector', async () => {
+    await renderPage([TORNEO, ENTRENO]);
+
+    chooseOption(/rutina guardada/i, 'Antes de entrenar');
+
+    expect(nombresDeLaRutina()).toEqual(['Movilidad sin raqueta']);
+  });
+
+  it('Debería avisar de los cambios sin guardar y quitar el aviso al guardarlos', async () => {
+    vi.mocked(api.put).mockResolvedValue(
+      envelope(guardada('r1', 'Torneo', [...ITEMS_TORNEO, { exerciseKey: 'drill-libre', durationSec: 60, restSec: 30 }]), 'Rutina actualizada') as never,
+    );
+    await renderPage([TORNEO]);
+    expect(screen.queryByText('Cambios sin guardar')).not.toBeInTheDocument();
+    expect(guardar('Guardar')).toBeDisabled();
+
+    anadir('Drill en el momento');
+    expect(screen.getByText('Cambios sin guardar')).toBeInTheDocument();
+    fireEvent.click(guardar('Guardar'));
+
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        ENDPOINTS.WARMUP_ROUTINES.BY_ID('r1'),
+        {
+          name: 'Torneo',
+          items: [
+            ...ITEMS_TORNEO,
+            { exerciseKey: 'drill-libre', durationSec: 60, restSec: 30 },
+          ],
+        },
+        undefined,
+      ),
+    );
+    await waitFor(() => expect(screen.queryByText('Cambios sin guardar')).not.toBeInTheDocument());
+  });
+
+  it('Debería guardar como nueva pidiendo el nombre y dejarla seleccionada', async () => {
+    vi.mocked(api.post).mockResolvedValue(envelope(guardada('r3', 'Final', ITEMS_ENTRENO), 'Rutina guardada') as never);
+    await renderPage([]);
+    anadir('Movilidad sin raqueta');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Duración del ejercicio 1' }), { target: { value: '120' } });
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Duración del ejercicio 1' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Descanso del ejercicio 1' }), { target: { value: '5' } });
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Descanso del ejercicio 1' }));
+
+    fireEvent.click(guardar('Guardar como nueva'));
+    const dialogo = await screen.findByRole('dialog');
+    fireEvent.change(within(dialogo).getByRole('textbox', { name: 'Nombre de la rutina' }), {
+      target: { value: 'Final' },
+    });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        ENDPOINTS.WARMUP_ROUTINES.BASE,
+        { name: 'Final', items: ITEMS_ENTRENO },
+        undefined,
+      ),
+    );
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Rutina guardada' })).toHaveValue('Final'));
+    expect(screen.getByText('1 de 5 rutinas guardadas')).toBeInTheDocument();
+  });
+
+  it('Debería no permitir guardar como nueva con cinco rutinas y explicarlo', async () => {
+    const cinco = ['a', 'b', 'c', 'd', 'e'].map((id) => guardada(id, `Rutina ${id}`, ITEMS_ENTRENO));
+
+    await renderPage(cinco);
+
+    expect(guardar('Guardar como nueva')).toBeDisabled();
+    expect(screen.getByText('Has alcanzado el máximo de 5 rutinas. Borra una para guardar otra.')).toBeInTheDocument();
+  });
+
+  it('Debería renombrar la rutina cargada conservando sus ejercicios guardados', async () => {
+    vi.mocked(api.put).mockResolvedValue(envelope(guardada('r1', 'Final de liga', ITEMS_TORNEO), 'Rutina actualizada') as never);
+    await renderPage([TORNEO]);
+    anadir('Drill en el momento'); // un cambio sin guardar que renombrar NO debe guardar
+
+    fireEvent.click(guardar('Renombrar'));
+    const dialogo = await screen.findByRole('dialog');
+    const campo = within(dialogo).getByRole('textbox', { name: 'Nombre de la rutina' });
+    expect(campo).toHaveValue('Torneo');
+    fireEvent.change(campo, { target: { value: 'Final de liga' } });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Renombrar' }));
+
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        ENDPOINTS.WARMUP_ROUTINES.BY_ID('r1'),
+        { name: 'Final de liga', items: ITEMS_TORNEO },
+        undefined,
+      ),
+    );
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Rutina guardada' })).toHaveValue('Final de liga'));
+  });
+
+  it('Debería pedir confirmación antes de borrar la rutina cargada', async () => {
+    vi.mocked(api.delete).mockResolvedValue(envelope(undefined, 'Rutina eliminada') as never);
+    await renderPage([TORNEO, ENTRENO]);
+
+    fireEvent.click(guardar('Borrar rutina'));
+    const dialogo = await screen.findByRole('dialog');
+    expect(api.delete).not.toHaveBeenCalled();
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Borrar' }));
+
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith(ENDPOINTS.WARMUP_ROUTINES.BY_ID('r1'), undefined));
+    await waitFor(() => expect(screen.getByText('1 de 5 rutinas guardadas')).toBeInTheDocument());
+    expect(guardar('Borrar rutina')).toBeDisabled();
+  });
+
+  it('Debería dejar la pantalla como estaba si el servidor rechaza el guardado', async () => {
+    vi.mocked(api.post).mockRejectedValue(new Error('409'));
+    await renderPage([]);
+    anadir('Estiramientos');
+
+    fireEvent.click(guardar('Guardar como nueva'));
+    const dialogo = await screen.findByRole('dialog');
+    fireEvent.change(within(dialogo).getByRole('textbox', { name: 'Nombre de la rutina' }), {
+      target: { value: 'Repetida' },
+    });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(screen.getByText('Aún no tienes rutinas guardadas.')).toBeInTheDocument();
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos']);
+  });
+
+  it('Debería ocultar el panel durante la sesión y volver a enseñarlo al volver a la rutina', async () => {
+    await renderPage([TORNEO]);
+
+    fireEvent.click(preparado());
+    expect(screen.queryByText('Mis rutinas')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Terminar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, terminar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Volver a mi rutina' }));
+
+    expect(screen.getByText('Mis rutinas')).toBeInTheDocument();
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos', 'Derecha a Derecha']);
   });
 });

@@ -7,6 +7,8 @@ import { COUNTDOWN_SEC, type WarmupItem } from './warmupEngine';
  */
 
 export const MAX_ROUTINE_ITEMS = 20;
+/** Rutinas que puede tener guardadas un jugador; la API lo aplica también. */
+export const MAX_SAVED_ROUTINES = 5;
 export const MIN_DURATION_SEC = 15;
 export const MAX_DURATION_SEC = 600;
 export const MIN_REST_SEC = 0;
@@ -67,4 +69,22 @@ export function moveExercise(entries: RoutineEntry[], id: string, direction: 'up
   const moved = [...entries];
   [moved[from], moved[to]] = [moved[to], moved[from]];
   return moved;
+}
+
+/** Convierte una rutina guardada en entradas del constructor, cada una con su propio identificador. */
+export function entriesFromItems(items: WarmupItem[], createId: () => string): RoutineEntry[] {
+  return items.slice(0, MAX_ROUTINE_ITEMS).map((item) => ({ ...item, id: createId() }));
+}
+
+/** Compara dos listas de ejercicios por contenido y orden, para saber si hay cambios sin guardar. */
+export function areSameItems(a: WarmupItem[], b: WarmupItem[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every(
+      (item, index) =>
+        item.exerciseKey === b[index].exerciseKey &&
+        item.durationSec === b[index].durationSec &&
+        item.restSec === b[index].restSec,
+    )
+  );
 }

@@ -65,4 +65,20 @@ describe('useWarmupBuilder', () => {
     act(() => result.current.add('movilidad'));
     expect(result.current.entries).toHaveLength(20);
   });
+
+  it('Debería sustituir la rutina por una guardada, con un identificador nuevo en cada ejercicio', () => {
+    const { result } = renderHook(() => useWarmupBuilder());
+    act(() => result.current.add('drill-libre'));
+    const guardada = [
+      { exerciseKey: 'estiramientos' as const, durationSec: 45, restSec: 5 },
+      { exerciseKey: 'estiramientos' as const, durationSec: 90, restSec: 20 },
+    ];
+
+    act(() => result.current.load(guardada));
+
+    expect(result.current.items).toEqual(guardada);
+    const [primero, segundo] = result.current.entries;
+    expect(primero.id).not.toBe(segundo.id);
+    expect(result.current.totalSec).toBe(5 + 5 + 45 + 20 + 90);
+  });
 });

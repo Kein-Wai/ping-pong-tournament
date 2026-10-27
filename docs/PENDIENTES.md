@@ -79,11 +79,14 @@ Hueco principal: Prisma está simulado en todos los tests, así que **ningún te
 
 ## 8. Calentamiento (feature en curso)
 
-Rama `feat/calentamiento-sesion`. Hecha la **entrega 1**: catálogo fijo de 9 ejercicios con animaciones SVG, constructor de rutina en memoria, sesión guiada con cronómetro, pitidos, vibración y pantalla encendida (solo cliente; la rutina no se guarda). Términos en `GLOSSARY.md`.
+Rama `feat/calentamiento-sesion`. Hechas las **entregas 1 y 2**: catálogo fijo de 9 ejercicios con animaciones SVG, constructor, sesión guiada con cronómetro, pitidos, vibración y pantalla encendida, y guardado de hasta 5 rutinas por jugador (tabla `warmup_routine`, API `/api/warmup-routines`, panel «Mis rutinas»). Términos en `GLOSSARY.md`.
+
+**Antes de probarlo en local:** aplicar la migración `20261027120000_added_warmup_routines` y regenerar el cliente de Prisma en el contenedor de la API (`COMANDOS.md` §6). Sin eso `/api/warmup-routines` responde 500.
 
 | # | Qué | Notas |
 |---|---|---|
-| W2 | **Guardado**: tabla `warmup_routine` (`playerId`, `name` único por jugador, `items` JSON), API `/api/warmup-routines` (solo Player, filtrada por `req.user.id`), Zod, máximo 5 rutinas por jugador comprobado en transacción (409), selector «Mis rutinas» con «Guardar» y «Guardar como nueva» | Repetir en la API las 9 claves de `constants/warmupExercises.ts` y los topes de `utils/warmupRoutine.ts` (20 ejercicios, 15-600 s, descanso 0-300 s). Prisma está mockeado en los tests: la transacción del máximo solo se comprueba a mano contra Postgres |
 | W3 | **Voces** de la cuenta atrás: grabar `3`, `2`, `1`, `ya`, `descanso` (opcional `fin`, `preparado`) en mp3 mono 128 kbps y sustituir los pitidos en `utils/warmupSound.ts` | Sin voz para los nombres de ejercicio (cada cambio obligaría a regrabar) |
 | W4 | **Probar en dispositivos reales**: sonido, vibración (no existe en iPhone) y Wake Lock en iPhone y Android; qué pasa con la pantalla bloqueada a mano | Los tests simulan esas APIs |
 | W5 | Revisar con ojo humano las frases de los ejercicios y que Movilidad sin raqueta (brazos y piernas en contrafase) se vea bien en movimiento | Las animaciones son esquemáticas, hechas a mano |
+| W6 | Las 9 claves de ejercicio y los topes de tiempo están duplicados entre `client/src/constants/warmupExercises.ts` y `api/src/schemas/warmupRoutine.ts` (no hay paquete compartido) | Un test en cada lado fija la lista; hay que cambiar los dos a la vez |
+| W7 | Con 8 peticiones simultáneas de un mismo jugador la transacción serializable devuelve 409 «inténtalo de nuevo» a varias (nunca supera el máximo). Un reintento automático en el servidor lo evitaría | Solo afecta a doble clic o peticiones paralelas; el cliente desactiva el botón mientras guarda |

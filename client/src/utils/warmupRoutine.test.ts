@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { getView, startSession } from './warmupEngine';
 import {
   addExercise,
+  areSameItems,
+  entriesFromItems,
   getTotalSec,
   moveExercise,
   removeExercise,
@@ -154,6 +156,55 @@ describe('Operaciones de la rutina de calentamiento (warmupRoutine)', () => {
       const lista = [entrada({ id: 'a', exerciseKey: 'movilidad', durationSec: 75, restSec: 5 })];
 
       expect(toWarmupItems(lista)).toEqual([{ exerciseKey: 'movilidad', durationSec: 75, restSec: 5 }]);
+    });
+  });
+
+  describe('entriesFromItems', () => {
+    const guardada = [
+      { exerciseKey: 'estiramientos' as const, durationSec: 60, restSec: 10 },
+      { exerciseKey: 'estiramientos' as const, durationSec: 45, restSec: 5 },
+    ];
+
+    it('Debería crear una entrada por ejercicio, en el mismo orden y con un identificador propio cada una', () => {
+      let n = 0;
+
+      const lista = entriesFromItems(guardada, () => `id-${(n += 1)}`);
+
+      expect(lista).toEqual([
+        { id: 'id-1', exerciseKey: 'estiramientos', durationSec: 60, restSec: 10 },
+        { id: 'id-2', exerciseKey: 'estiramientos', durationSec: 45, restSec: 5 },
+      ]);
+    });
+
+    it('Debería respetar el máximo de ejercicios por rutina', () => {
+      const demasiados = Array.from({ length: MAX_ROUTINE_ITEMS + 3 }, () => guardada[0]);
+
+      expect(entriesFromItems(demasiados, () => 'x')).toHaveLength(MAX_ROUTINE_ITEMS);
+    });
+  });
+
+  describe('areSameItems', () => {
+    const a = [{ exerciseKey: 'movilidad' as const, durationSec: 60, restSec: 10 }];
+
+    it('Debería considerar iguales dos listas con el mismo contenido aunque sean objetos distintos', () => {
+      expect(areSameItems(a, [{ ...a[0] }])).toBe(true);
+    });
+
+    it.each([
+      ['otra duración', [{ ...a[0], durationSec: 61 }]],
+      ['otro descanso', [{ ...a[0], restSec: 11 }]],
+      ['otro ejercicio', [{ ...a[0], exerciseKey: 'estiramientos' as const }]],
+      ['un ejercicio de más', [a[0], a[0]]],
+      ['ninguno', []],
+    ])('Debería detectar la diferencia con %s', (_caso, otra) => {
+      expect(areSameItems(a, otra)).toBe(false);
+    });
+
+    it('Debería tener en cuenta el orden', () => {
+      const x = { exerciseKey: 'movilidad' as const, durationSec: 60, restSec: 10 };
+      const y = { exerciseKey: 'estiramientos' as const, durationSec: 60, restSec: 10 };
+
+      expect(areSameItems([x, y], [y, x])).toBe(false);
     });
   });
 });
