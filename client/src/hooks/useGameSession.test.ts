@@ -67,6 +67,21 @@ describe('useGameSession', () => {
     expect(getRecord('user-1', 'tejas')).toBe(12);
   });
 
+  it('finish() conserva el detalle opcional que entrega el juego para mostrarlo en el resultado', () => {
+    const { result } = setup();
+    act(() => result.current.start());
+    act(() => vi.advanceTimersByTime(3000));
+
+    act(() => result.current.finish(40, 'Desviación media: 54 ms'));
+
+    expect(result.current.result).toEqual({
+      score: 40,
+      isNewRecord: true,
+      record: 40,
+      detail: 'Desviación media: 54 ms',
+    });
+  });
+
   it('un resultado peor no es nuevo récord y conserva el anterior', () => {
     saveIfBetter('user-1', 'tejas', 20, 'higher');
     const { result } = setup();

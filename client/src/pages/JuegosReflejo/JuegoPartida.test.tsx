@@ -3,6 +3,7 @@ import { act, fireEvent, screen } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { APP_ROUTES } from '../../constants/routes';
 import { GAME_DURATION_MS, GAP_MS } from '../../utils/reflex/tilesEngine';
+import { BALLS, PAUSE_MS, flightMsOf } from '../../utils/reflex/timingEngine';
 import { getRecord, saveIfBetter } from '../../utils/reflex/reflexRecords';
 import { loginAs, renderWithProviders } from '../../test/utils';
 import { JuegoPartida } from './JuegoPartida';
@@ -68,6 +69,57 @@ describe('Partida de un juego de reflejo (/juegos-reflejo/:juego)', () => {
 
     wait(2000);
     expect(screen.getByText('Puntos: 0')).toBeInTheDocument();
+  });
+
+  it('Debería jugar cada juego con su propio componente, no con el de Tejas', () => {
+    renderAt('/juegos-reflejo/reaccion-simple');
+    expect(screen.getByRole('heading', { name: 'Reacción simple' })).toBeInTheDocument();
+
+    empezar();
+    wait(3000);
+
+    expect(screen.getByText('Intento 1 de 5')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Teja 1' })).not.toBeInTheDocument();
+  });
+
+  it('Debería jugar Go / No-Go con su tablero de 9 casillas', () => {
+    renderAt('/juegos-reflejo/go-no-go');
+    expect(screen.getByRole('heading', { name: 'Go / No-Go' })).toBeInTheDocument();
+
+    empezar();
+    wait(3000);
+
+    expect(screen.getAllByRole('button', { name: /^Casilla \d+$/ })).toHaveLength(9);
+    expect(screen.queryByRole('button', { name: 'Teja 1' })).not.toBeInTheDocument();
+  });
+
+  it('Debería jugar Ping Pong con su campo y su marcador de rebotes', () => {
+    renderAt('/juegos-reflejo/ping-pong');
+    expect(screen.getByRole('heading', { name: 'Ping Pong' })).toBeInTheDocument();
+
+    empezar();
+    wait(3000);
+
+    expect(screen.getByRole('group', { name: /campo de ping pong/i })).toBeInTheDocument();
+    expect(screen.getByText('Rebotes: 0')).toBeInTheDocument();
+  });
+
+  it('Debería jugar Timing y mostrar la desviación media junto al resultado', () => {
+    renderAt('/juegos-reflejo/timing');
+    expect(screen.getByRole('heading', { name: 'Timing' })).toBeInTheDocument();
+    empezar();
+    wait(3000);
+    expect(screen.getByText(`Pelota 1 de ${BALLS}`)).toBeInTheDocument();
+
+    for (let ball = 0; ball < BALLS; ball += 1) {
+      wait(flightMsOf(ball));
+      fireEvent.pointerDown(screen.getByRole('button', { name: /zona de golpeo/i }));
+      wait(PAUSE_MS);
+    }
+    wait(100);
+
+    expect(screen.getByText('100 puntos')).toBeInTheDocument();
+    expect(screen.getByText(/^Desviación media: \d+ ms$/)).toBeInTheDocument();
   });
 
   it('Debería mostrar el resultado con un nuevo récord al terminar la primera partida', () => {

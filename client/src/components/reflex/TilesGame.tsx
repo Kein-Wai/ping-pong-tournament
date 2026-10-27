@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Group, SimpleGrid, Stack, Text } from '@mantine/core';
-import type { ReflexCue } from '../../utils/reflex/reflexSound';
+import { Group, Stack, Text } from '@mantine/core';
+import { useLatestRef } from '../../hooks/useLatestRef';
+import type { ReflexGameProps } from '../../types/reflex';
+import { remainingSecOf } from '../../utils/reflex/clock';
+import { PressButton } from './PressButton';
+import { SquareBoard } from './SquareBoard';
 import {
   GAME_DURATION_MS,
   TILE_COUNT,
@@ -12,31 +16,22 @@ import {
   type TilesState,
 } from '../../utils/reflex/tilesEngine';
 
-interface TilesGameProps {
-  onFinish: (score: number) => void;
-  onCue: (cue: ReflexCue) => void;
-}
-
 // Con un intervalo más largo una teja podría encenderse hasta esa fracción de segundo tarde.
 const TICK_MS = 25;
 
-const remainingSecOf = (game: TilesState, now: number) =>
-  Math.max(0, Math.ceil((GAME_DURATION_MS - (now - game.startedAt)) / 1000));
+const remainingSecOfGame = (game: TilesState, now: number) =>
+  remainingSecOf(game.startedAt, GAME_DURATION_MS, now);
 
-export const TilesGame = ({ onFinish, onCue }: TilesGameProps) => {
+export const TilesGame = ({ onFinish, onCue }: ReflexGameProps) => {
   const [view, setView] = useState(() => {
     const game = createTilesGame(Date.now());
-    return { game, remainingSec: remainingSecOf(game, game.startedAt) };
+    return { game, remainingSec: remainingSecOfGame(game, game.startedAt) };
   });
   const gameRef = useRef<TilesState>(view.game);
   const finishedRef = useRef(false);
-  // Los avisos van en refs para que el intervalo no se reinicie si el padre pasa funciones nuevas.
-  const onCueRef = useRef(onCue);
-  const onFinishRef = useRef(onFinish);
-  useEffect(() => {
-    onCueRef.current = onCue;
-    onFinishRef.current = onFinish;
-  }, [onCue, onFinish]);
+  // Los avisos van en refs para que el bucle no se reinicie si el padre pasa funciones nuevas.
+  const onCueRef = useLatestRef(onCue);
+  const onFinishRef = useLatestRef(onFinish);
 
   // El motor vive en una ref para poder avisar (sonido, fin) sin efectos secundarios dentro de setState.
   const apply = useCallback((next: TilesState, now: number) => {
@@ -50,13 +45,13 @@ export const TilesGame = ({ onFinish, onCue }: TilesGameProps) => {
       onFinishRef.current(scoreOf(next));
     }
     // El reloj corre a 40 ticks por segundo pero solo cambia algo visible al mover una teja o un segundo.
-    const remainingSec = remainingSecOf(next, now);
+    const remainingSec = remainingSecOfGame(next, now);
     setView((current) =>
       current.game === next && current.remainingSec === remainingSec
         ? current
         : { game: next, remainingSec }
     );
-  }, []);
+  }, [onCueRef, onFinishRef]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -81,23 +76,23 @@ export const TilesGame = ({ onFinish, onCue }: TilesGameProps) => {
         <Text fw={600}>{`Fallos: ${view.game.misses}`}</Text>
         <Text fw={600}>{`Tiempo: ${view.remainingSec} s`}</Text>
       </Group>
-      <SimpleGrid cols={4} spacing="xs">
+      <SquareBoard columns={4} label="Cuadrícula de tejas">
         {Array.from({ length: TILE_COUNT }, (_, tile) => {
           const lit = view.game.litTile === tile;
           return (
-            <Button
+            <PressButton
               key={tile}
               aria-label={`Teja ${tile + 1}`}
               data-lit={lit}
               color={lit ? 'orange' : 'gray'}
               variant={lit ? 'filled' : 'light'}
-              onClick={() => handleTap(tile)}
+              onPress={() => handleTap(tile)}
               // Sin esto el móvil espera ~300 ms antes de registrar el toque.
-              style={{ height: 'auto', aspectRatio: '1', touchAction: 'manipulation' }}
+              style={{ height: '100%', touchAction: 'manipulation' }}
             />
           );
         })}
-      </SimpleGrid>
+      </SquareBoard>
     </Stack>
   );
 };

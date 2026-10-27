@@ -23,7 +23,7 @@ describe('Juegos de Reflejo (/juegos-reflejo)', () => {
   it('Debería decir que no hay récord si el jugador aún no ha jugado', () => {
     renderWithProviders(<JuegosReflejo />);
 
-    expect(screen.getByText(/sin récord/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/sin récord/i)).toHaveLength(REFLEX_GAMES.length);
   });
 
   it('Debería mostrar el récord personal del jugador con su unidad', () => {
@@ -32,6 +32,7 @@ describe('Juegos de Reflejo (/juegos-reflejo)', () => {
     renderWithProviders(<JuegosReflejo />);
 
     expect(screen.getByText(/récord: 14 puntos/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/sin récord/i)).toHaveLength(REFLEX_GAMES.length - 1);
   });
 
   it('Debería ignorar el récord de otro jugador del mismo dispositivo', () => {
@@ -39,7 +40,7 @@ describe('Juegos de Reflejo (/juegos-reflejo)', () => {
 
     renderWithProviders(<JuegosReflejo />);
 
-    expect(screen.getByText(/sin récord/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/sin récord/i)).toHaveLength(REFLEX_GAMES.length);
   });
 
   it('Debería enlazar cada juego con su partida', () => {
@@ -49,6 +50,30 @@ describe('Juegos de Reflejo (/juegos-reflejo)', () => {
       'href',
       '/juegos-reflejo/tejas'
     );
+    expect(screen.getByRole('link', { name: /jugar reacción simple/i })).toHaveAttribute(
+      'href',
+      '/juegos-reflejo/reaccion-simple'
+    );
+    expect(screen.getByRole('link', { name: /jugar go \/ no-go/i })).toHaveAttribute(
+      'href',
+      '/juegos-reflejo/go-no-go'
+    );
+    expect(screen.getByRole('link', { name: /jugar ping pong/i })).toHaveAttribute(
+      'href',
+      '/juegos-reflejo/ping-pong'
+    );
+    expect(screen.getByRole('link', { name: /jugar timing/i })).toHaveAttribute(
+      'href',
+      '/juegos-reflejo/timing'
+    );
+  });
+
+  it('Debería mostrar el récord de Reacción simple en milisegundos', () => {
+    saveIfBetter('u1', 'reaccion-simple', 245, 'lower');
+
+    renderWithProviders(<JuegosReflejo />);
+
+    expect(screen.getByText(/récord: 245 ms/i)).toBeInTheDocument();
   });
 
   it('Debería avisar de que los récords se guardan solo en este dispositivo', () => {

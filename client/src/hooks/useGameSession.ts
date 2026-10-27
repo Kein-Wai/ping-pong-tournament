@@ -9,6 +9,8 @@ export interface GameResult {
   score: number;
   isNewRecord: boolean;
   record: number;
+  /** Dato extra que el juego quiere mostrar junto al resultado, como una desviación media. */
+  detail?: string;
 }
 
 const COUNTDOWN_FROM = 3;
@@ -50,11 +52,11 @@ export function useGameSession(userId: string, game: ReflexGame) {
   }, []);
 
   const finish = useCallback(
-    (score: number) => {
+    (score: number, detail?: string) => {
       if (phase !== 'playing') return;
       const saved = saveIfBetter(userId, game.slug, score, game.direction);
       setRecord(saved.record);
-      setResult({ score, ...saved });
+      setResult({ score, ...saved, detail });
       setPhase('result');
     },
     [phase, userId, game.slug, game.direction]

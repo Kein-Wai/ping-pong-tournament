@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { Button, Stack, Text, Title } from '@mantine/core';
 import { Link, useParams } from 'react-router-dom';
-import { TilesGame } from '../../components/reflex/TilesGame';
-import { findReflexGame, type ReflexGame } from '../../constants/reflexGames';
+import { REFLEX_GAME_COMPONENTS } from '../../components/reflex/gameComponents';
+import { findReflexGame, type KnownReflexGame } from '../../constants/reflexGames';
 import { APP_ROUTES } from '../../constants/routes';
 import { useFeedbackSound } from '../../hooks/useFeedbackSound';
 import { useGameSession } from '../../hooks/useGameSession';
@@ -15,11 +15,12 @@ const BackLink = () => (
   </Button>
 );
 
-const GameRound = ({ game }: { game: ReflexGame }) => {
+const GameRound = ({ game }: { game: KnownReflexGame }) => {
   const userId = useAuthStore((state) => state.user?.id) ?? '';
   const session = useGameSession(userId, game);
   const sound = useFeedbackSound(createReflexSound);
   const { phase, countdown, result, record } = session;
+  const GameComponent = REFLEX_GAME_COMPONENTS[game.slug];
 
   useEffect(() => {
     if (phase === 'countdown') sound.play('tick');
@@ -51,12 +52,13 @@ const GameRound = ({ game }: { game: ReflexGame }) => {
         </Title>
       )}
       {phase === 'playing' && (
-        <TilesGame onFinish={session.finish} onCue={sound.play} />
+        <GameComponent onFinish={session.finish} onCue={sound.play} />
       )}
       {phase === 'result' && result !== null && (
         <Stack gap="md" align="center">
           <Title order={3}>Resultado</Title>
           <Text size="xl" fw={700}>{game.formatScore(result.score)}</Text>
+          {result.detail !== undefined && <Text c="dimmed">{result.detail}</Text>}
           {result.isNewRecord && result.score === 0 && (
             <Text c="dimmed">Mala suerte, vuelve a intentarlo.</Text>
           )}
