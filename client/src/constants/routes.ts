@@ -16,6 +16,7 @@ export const APP_ROUTES = {
   ADMIN_PANEL: '/admin',
   PARTIDOS: '/historial',
   ESTADISTICAS: '/estadisticas',
+  CALENTAMIENTO: '/calentamiento',
 
   // Jugadores
   JUGADORES: {

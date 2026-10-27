@@ -47,7 +47,7 @@ Severidad: **Alta** = arreglar antes de producción · **Media** = próximo cicl
 | A11 | Media | Operaciones | No hay **CI** para API ni cliente (el único workflow es el de iOS). Los 658 + 1846 tests solo se ejecutan si alguien se acuerda | `.github/workflows/` | — |
 | A12 | Baja | Operaciones | `Dockerfile` de la API arranca en modo desarrollo (`tsx watch`); el build de producción usa `prisma db push` en lugar de `migrate deploy` | `api/Dockerfile`, `package.json` | — |
 | A13 | Media | Seguridad | `docker-compose.yaml` lleva `CRON_SECRET` y la contraseña de Postgres en claro y versionados; no lee el `.env` de la raíz (contra lo que dice `CLAUDE.md`) | `docker-compose.yaml` | — |
-| A14 | Baja | Higiene | `prisma/oldseeds.ts` y `baseDataAndDemo.ts` sin uso claro | `api/prisma/` | Prueba de borrado: si se borra `oldseeds.ts` no desaparece nada |
+| A14 | Baja | Higiene | `baseDataAndDemo.ts` sin uso claro (`oldseeds.ts` ya se eliminó) | `api/prisma/` | Prueba de borrado: comprobar si `seed.ts` lo importa |
 | A15 | Baja | Documentación | Swagger documenta peticiones (derivadas de Zod) pero no las respuestas | `swagger/` | — |
 
 ### Client
@@ -117,7 +117,7 @@ Aplicar el patrón de `TorneoDetalles` (página fina + hooks con test + componen
 
 ### Fase G7 — Higiene · ~media sesión
 
-`fs` (C6), 54 `console.*` (C7), `capacitor.config.ts` (C8), `types/api.ts` por dominios (C10), `oldseeds.ts` (A14), `routes/auth.ts` por casos de uso (A8), respuestas en Swagger (A15).
+`fs` (C6), 54 `console.*` (C7), `capacitor.config.ts` (C8), `types/api.ts` por dominios (C10), `routes/auth.ts` por casos de uso (A8), respuestas en Swagger (A15).
 
 ---
 

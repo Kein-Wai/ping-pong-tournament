@@ -50,6 +50,7 @@ const renderLayout = () =>
       <Route path={APP_ROUTES.HOME} element={<MainLayout />} />
       <Route path={APP_ROUTES.LOGIN} element={<div>Pantalla de login</div>} />
       <Route path={APP_ROUTES.TORNEOS.LIST} element={<div>Pantalla de torneos</div>} />
+      <Route path={APP_ROUTES.CALENTAMIENTO} element={<div>Pantalla de calentamiento</div>} />
     </Routes>,
   );
 
@@ -83,6 +84,7 @@ describe('MainLayout', () => {
       'Historial',
       'Estadísticas',
       'Análisis Pro',
+      'Calentamiento',
       'Bandeja de Soporte',
       'Sugerencias y Bugs',
     ];
@@ -141,6 +143,7 @@ describe('MainLayout', () => {
         'Historial',
         'Estadísticas',
         'Análisis Pro',
+        'Calentamiento',
         'Sugerencias y Bugs',
       ]);
     });
@@ -156,6 +159,7 @@ describe('MainLayout', () => {
         'Unirse a un Club',
         'Torneos',
         'Análisis Pro',
+        'Calentamiento',
         'Sugerencias y Bugs',
       ]);
     });
@@ -404,6 +408,15 @@ describe('MainLayout', () => {
       fireEvent.click(screen.getByText('Torneos'));
 
       expect(await screen.findByText('Pantalla de torneos')).toBeInTheDocument();
+    });
+
+    it('un jugador llega a la pantalla de calentamiento desde el menu', async () => {
+      loginAs({ role: 'Player' });
+      renderLayout();
+
+      fireEvent.click(screen.getByText('Calentamiento'));
+
+      expect(await screen.findByText('Pantalla de calentamiento')).toBeInTheDocument();
     });
 
     it('cerrar sesion limpia la sesion y lleva a la pantalla de login', async () => {

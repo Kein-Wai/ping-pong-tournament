@@ -1,0 +1,494 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { api } from '../../api/axios';
+import { ENDPOINTS } from '../../api/endpoints';
+import { WARMUP_EXERCISES } from '../../constants/warmupExercises';
+import { chooseOption, renderWithProviders } from '../../test/utils';
+import { Calentamiento } from './Calentamiento';
+
+// Se mockea el `api` de bajo nivel (la frontera del sistema) y no los servicios.
+vi.mock('../../api/axios', () => ({
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+}));
+
+const envelope = (data: unknown, message?: string) => ({ data: { success: true, data, message } });
+
+// Por defecto las rutinas guardadas no llegan nunca: los tests del constructor y de la sesión
+// no dependen de ellas y así no hay actualizaciones de estado fuera de `act`.
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(api.get).mockReturnValue(new Promise(() => undefined) as never);
+});
+
+const preparado = () => screen.getByRole('button', { name: /preparado/i });
+const anadir = (nombre: string) => fireEvent.click(screen.getByRole('button', { name: `Añadir ${nombre}` }));
+const nombresDeLaRutina = () =>
+  screen.queryAllByRole('listitem').map((item) => within(item).getByTestId('nombre-ejercicio').textContent);
+
+describe('Calentamiento (/calentamiento): constructor', () => {
+  it('Debería ofrecer los nueve ejercicios y no dejar empezar sin ninguno', () => {
+    renderWithProviders(<Calentamiento />);
+
+    WARMUP_EXERCISES.forEach((exercise) => {
+      expect(screen.getByRole('button', { name: `Añadir ${exercise.name}` })).toBeInTheDocument();
+    });
+    expect(preparado()).toBeDisabled();
+    expect(screen.getByText(/añade ejercicios/i)).toBeInTheDocument();
+  });
+
+  it('Debería añadir ejercicios a la rutina y mostrar el número de ejercicios y el tiempo total', () => {
+    renderWithProviders(<Calentamiento />);
+
+    anadir('Estiramientos');
+
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos']);
+    // 5 s de cuenta atrás + 10 s de descanso + 60 s de ejercicio.
+    expect(screen.getByText('1 ejercicio · 1 min 15 s')).toBeInTheDocument();
+    expect(preparado()).toBeEnabled();
+  });
+
+  it('Debería permitir repetir un ejercicio', () => {
+    renderWithProviders(<Calentamiento />);
+
+    anadir('Derecha a Derecha');
+    anadir('Derecha a Derecha');
+
+    expect(nombresDeLaRutina()).toEqual(['Derecha a Derecha', 'Derecha a Derecha']);
+    expect(screen.getByText('2 ejercicios · 3 min 5 s')).toBeInTheDocument();
+  });
+
+  it('Debería reordenar y quitar ejercicios con los botones de cada fila', () => {
+    renderWithProviders(<Calentamiento />);
+    anadir('Estiramientos');
+    anadir('Movilidad sin raqueta');
+    anadir('Drill en el momento');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Subir ejercicio 3' }));
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos', 'Drill en el momento', 'Movilidad sin raqueta']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bajar ejercicio 1' }));
+    expect(nombresDeLaRutina()).toEqual(['Drill en el momento', 'Estiramientos', 'Movilidad sin raqueta']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar ejercicio 2' }));
+    expect(nombresDeLaRutina()).toEqual(['Drill en el momento', 'Movilidad sin raqueta']);
+  });
+
+  it('Debería desactivar subir en el primero y bajar en el último', () => {
+    renderWithProviders(<Calentamiento />);
+    anadir('Estiramientos');
+    anadir('Movilidad sin raqueta');
+
+    expect(screen.getByRole('button', { name: 'Subir ejercicio 1' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Bajar ejercicio 2' })).toBeDisabled();
+  });
+
+  it('Debería cambiar la duración y el descanso de un ejercicio y actualizar el total', () => {
+    renderWithProviders(<Calentamiento />);
+    anadir('Estiramientos');
+
+    const duracion = screen.getByRole('textbox', { name: 'Duración del ejercicio 1' });
+    fireEvent.change(duracion, { target: { value: '120' } });
+    fireEvent.blur(duracion);
+    const descanso = screen.getByRole('textbox', { name: 'Descanso del ejercicio 1' });
+    fireEvent.change(descanso, { target: { value: '20' } });
+    fireEvent.blur(descanso);
+
+    // 5 + 20 + 120 = 145 s
+    expect(screen.getByText('1 ejercicio · 2 min 25 s')).toBeInTheDocument();
+  });
+
+  it('Debería ajustar al mínimo una duración demasiado corta al salir del campo', () => {
+    renderWithProviders(<Calentamiento />);
+    anadir('Estiramientos');
+
+    const duracion = screen.getByRole('textbox', { name: 'Duración del ejercicio 1' });
+    fireEvent.change(duracion, { target: { value: '3' } });
+    fireEvent.blur(duracion);
+
+    expect(duracion).toHaveValue('15 s');
+    // 5 + 10 + 15 = 30 s
+    expect(screen.getByText('1 ejercicio · 30 s')).toBeInTheDocument();
+  });
+
+  it('Debería dejar de permitir añadir al llegar a 20 ejercicios', () => {
+    renderWithProviders(<Calentamiento />);
+
+    for (let i = 0; i < 20; i += 1) anadir('Movilidad sin raqueta');
+
+    expect(nombresDeLaRutina()).toHaveLength(20);
+    expect(screen.getByRole('button', { name: 'Añadir Estiramientos' })).toBeDisabled();
+    expect(screen.getByText(/máximo de 20 ejercicios/i)).toBeInTheDocument();
+  });
+});
+
+describe('Calentamiento (/calentamiento): sesión', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const pasar = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
+
+  // Rutina de prueba: Estiramientos (60 s, descanso 10 s) y Derecha a Derecha (60 s, descanso 30 s).
+  const empezar = () => {
+    renderWithProviders(<Calentamiento />);
+    anadir('Estiramientos');
+    anadir('Derecha a Derecha');
+    fireEvent.click(preparado());
+  };
+
+  it('Debería arrancar con una cuenta atrás de 5 s y ocultar el constructor', () => {
+    empezar();
+
+    expect(screen.getByText('¡Prepárate!')).toBeInTheDocument();
+    expect(screen.getByTestId('reloj')).toHaveTextContent('5');
+    expect(screen.getByText(/empezamos con estiramientos/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Añadir Estiramientos' })).not.toBeInTheDocument();
+  });
+
+  it('Debería pasar al descanso del primer ejercicio al acabar la cuenta atrás', () => {
+    empezar();
+
+    pasar(5_000);
+
+    expect(screen.getByText('Prepárate para')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Estiramientos' })).toBeInTheDocument();
+    expect(screen.getByTestId('reloj')).toHaveTextContent('00:10');
+    expect(screen.getByRole('button', { name: 'Ya estoy listo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Esperar' })).toBeEnabled();
+  });
+
+  it('Debería enseñar el ejercicio con su animación, su frase y el reloj bajando', () => {
+    empezar();
+
+    pasar(5_000 + 10_000);
+    expect(screen.getByRole('img', { name: 'Estiramientos' })).toBeInTheDocument();
+    expect(screen.getByText(/estira cuello, hombros/i)).toBeInTheDocument();
+    expect(screen.getByTestId('reloj')).toHaveTextContent('01:00');
+    expect(screen.queryByRole('button', { name: 'Ya estoy listo' })).not.toBeInTheDocument();
+
+    pasar(20_000);
+    expect(screen.getByTestId('reloj')).toHaveTextContent('00:40');
+  });
+
+  it('Debería mostrar en qué ejercicio va y cuánto queda de la rutina', () => {
+    empezar();
+
+    pasar(5_000 + 10_000);
+
+    // Quedan 60 s de este ejercicio + 30 s de descanso + 60 s del siguiente = 2 min 30 s.
+    expect(screen.getByText('Ejercicio 1 de 2 · quedan 2 min 30 s')).toBeInTheDocument();
+  });
+
+  it('Debería pasar al siguiente ejercicio con su propio descanso', () => {
+    empezar();
+
+    pasar(5_000 + 10_000 + 60_000);
+
+    expect(screen.getByRole('heading', { name: 'Derecha a Derecha' })).toBeInTheDocument();
+    expect(screen.getByTestId('reloj')).toHaveTextContent('00:30');
+    // Descanso de 30 s + 60 s de ejercicio.
+    expect(screen.getByText('Ejercicio 2 de 2 · quedan 1 min 30 s')).toBeInTheDocument();
+  });
+
+  it('Debería congelar el reloj al pausar y seguir al reanudar', () => {
+    empezar();
+    pasar(2_000);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pausar' }));
+    pasar(30_000);
+    expect(screen.getByTestId('reloj')).toHaveTextContent('3');
+    expect(screen.queryByRole('button', { name: 'Pausar' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reanudar' }));
+    pasar(1_000);
+    expect(screen.getByTestId('reloj')).toHaveTextContent('2');
+  });
+
+  it('Debería mantener el descanso mientras el jugador espera y empezar el ejercicio al decir que está listo', () => {
+    empezar();
+    pasar(5_000);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Esperar' }));
+    pasar(120_000);
+    expect(screen.getByText(/esperando: pulsa/i)).toBeInTheDocument();
+    expect(screen.getByTestId('reloj')).toHaveTextContent('00:10');
+    expect(screen.getByRole('button', { name: 'Esperar' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ya estoy listo' }));
+    expect(screen.getByTestId('reloj')).toHaveTextContent('01:00');
+    expect(screen.getByText(/estira cuello, hombros/i)).toBeInTheDocument();
+  });
+
+  it('Debería saltar el descanso con «Ya estoy listo» sin haber esperado', () => {
+    empezar();
+    pasar(5_000 + 3_000);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ya estoy listo' }));
+
+    expect(screen.getByTestId('reloj')).toHaveTextContent('01:00');
+  });
+
+  it('Debería saltar al siguiente ejercicio y volver al anterior con los botones', () => {
+    empezar();
+    pasar(5_000 + 10_000 + 20_000);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente ejercicio' }));
+    expect(screen.getByRole('heading', { name: 'Derecha a Derecha' })).toBeInTheDocument();
+    expect(screen.getByTestId('reloj')).toHaveTextContent('00:30');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ejercicio anterior' }));
+    expect(screen.getByRole('heading', { name: 'Estiramientos' })).toBeInTheDocument();
+    expect(screen.getByTestId('reloj')).toHaveTextContent('00:10');
+  });
+
+  it('Debería desactivar «anterior» durante la cuenta atrás inicial', () => {
+    empezar();
+
+    expect(screen.getByRole('button', { name: 'Ejercicio anterior' })).toBeDisabled();
+  });
+
+  it('Debería pedir confirmación antes de terminar y poder seguir', () => {
+    empezar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Terminar' }));
+    expect(screen.getByText('¿Terminar el calentamiento?')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Seguir' }));
+    expect(screen.queryByText('¿Terminar el calentamiento?')).not.toBeInTheDocument();
+    expect(screen.getByText('¡Prepárate!')).toBeInTheDocument();
+  });
+
+  it('Debería terminar al confirmar y enseñar la pantalla final', () => {
+    empezar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Terminar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, terminar' }));
+
+    expect(screen.getByText('¡Calentamiento terminado!')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Repetir' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Volver a mi rutina' })).toBeInTheDocument();
+  });
+
+  it('Debería terminar solo al acabar el último ejercicio', () => {
+    empezar();
+
+    // 5 s de cuenta atrás + (10 + 60) + (30 + 60) = 165 s.
+    pasar(164_000);
+    expect(screen.queryByText('¡Calentamiento terminado!')).not.toBeInTheDocument();
+
+    pasar(1_000);
+    expect(screen.getByText('¡Calentamiento terminado!')).toBeInTheDocument();
+    expect(screen.getByText('Rutina de 2 min 45 s')).toBeInTheDocument();
+  });
+
+  it('Debería repetir la sesión desde la cuenta atrás con «Repetir»', () => {
+    empezar();
+    pasar(165_000);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Repetir' }));
+
+    expect(screen.getByText('¡Prepárate!')).toBeInTheDocument();
+    expect(screen.getByTestId('reloj')).toHaveTextContent('5');
+  });
+
+  it('Debería volver al constructor con la rutina intacta con «Volver a mi rutina»', () => {
+    empezar();
+    pasar(165_000);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Volver a mi rutina' }));
+
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos', 'Derecha a Derecha']);
+    expect(preparado()).toBeEnabled();
+  });
+});
+
+describe('Calentamiento (/calentamiento): mis rutinas guardadas', () => {
+  const guardada = (id: string, name: string, items: unknown[]) => ({
+    id,
+    name,
+    items,
+    createdAt: '2026-10-27T10:00:00.000Z',
+    updatedAt: '2026-10-27T10:00:00.000Z',
+  });
+  const ITEMS_TORNEO = [
+    { exerciseKey: 'estiramientos', durationSec: 60, restSec: 10 },
+    { exerciseKey: 'derecha-derecha', durationSec: 90, restSec: 30 },
+  ];
+  const ITEMS_ENTRENO = [{ exerciseKey: 'movilidad', durationSec: 120, restSec: 5 }];
+  const TORNEO = guardada('r1', 'Torneo', ITEMS_TORNEO);
+  const ENTRENO = guardada('r2', 'Antes de entrenar', ITEMS_ENTRENO);
+
+  const serve = (routines: unknown[]) =>
+    vi.mocked(api.get).mockImplementation((async (url: string) => {
+      if (url === ENDPOINTS.WARMUP_ROUTINES.BASE) return envelope(routines);
+      throw new Error(`Peticion no esperada: ${url}`);
+    }) as never);
+
+  const renderPage = async (routines: unknown[]) => {
+    serve(routines);
+    renderWithProviders(<Calentamiento />);
+    await waitFor(() => expect(screen.queryByText(/cargando tus rutinas/i)).not.toBeInTheDocument());
+  };
+
+  const guardar = (nombre: string) => screen.getByRole('button', { name: nombre });
+
+  it('Debería cargar al abrir la rutina guardada más reciente en el constructor', async () => {
+    await renderPage([TORNEO, ENTRENO]);
+
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos', 'Derecha a Derecha']);
+    expect(screen.getByRole('textbox', { name: 'Duración del ejercicio 2' })).toHaveValue('90 s');
+    expect(screen.getByText('2 de 5 rutinas guardadas')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Rutina guardada' })).toHaveValue('Torneo');
+  });
+
+  it('Debería explicar que aún no hay rutinas guardadas y dejar el constructor vacío', async () => {
+    await renderPage([]);
+
+    expect(screen.getByText('Aún no tienes rutinas guardadas.')).toBeInTheDocument();
+    expect(nombresDeLaRutina()).toEqual([]);
+  });
+
+  it('Debería cargar otra rutina al elegirla en el selector', async () => {
+    await renderPage([TORNEO, ENTRENO]);
+
+    chooseOption(/rutina guardada/i, 'Antes de entrenar');
+
+    expect(nombresDeLaRutina()).toEqual(['Movilidad sin raqueta']);
+  });
+
+  it('Debería avisar de los cambios sin guardar y quitar el aviso al guardarlos', async () => {
+    vi.mocked(api.put).mockResolvedValue(
+      envelope(guardada('r1', 'Torneo', [...ITEMS_TORNEO, { exerciseKey: 'drill-libre', durationSec: 60, restSec: 30 }]), 'Rutina actualizada') as never,
+    );
+    await renderPage([TORNEO]);
+    expect(screen.queryByText('Cambios sin guardar')).not.toBeInTheDocument();
+    expect(guardar('Guardar')).toBeDisabled();
+
+    anadir('Drill en el momento');
+    expect(screen.getByText('Cambios sin guardar')).toBeInTheDocument();
+    fireEvent.click(guardar('Guardar'));
+
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        ENDPOINTS.WARMUP_ROUTINES.BY_ID('r1'),
+        {
+          name: 'Torneo',
+          items: [
+            ...ITEMS_TORNEO,
+            { exerciseKey: 'drill-libre', durationSec: 60, restSec: 30 },
+          ],
+        },
+        undefined,
+      ),
+    );
+    await waitFor(() => expect(screen.queryByText('Cambios sin guardar')).not.toBeInTheDocument());
+  });
+
+  it('Debería guardar como nueva pidiendo el nombre y dejarla seleccionada', async () => {
+    vi.mocked(api.post).mockResolvedValue(envelope(guardada('r3', 'Final', ITEMS_ENTRENO), 'Rutina guardada') as never);
+    await renderPage([]);
+    anadir('Movilidad sin raqueta');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Duración del ejercicio 1' }), { target: { value: '120' } });
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Duración del ejercicio 1' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Descanso del ejercicio 1' }), { target: { value: '5' } });
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Descanso del ejercicio 1' }));
+
+    fireEvent.click(guardar('Guardar como nueva'));
+    const dialogo = await screen.findByRole('dialog');
+    fireEvent.change(within(dialogo).getByRole('textbox', { name: 'Nombre de la rutina' }), {
+      target: { value: 'Final' },
+    });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        ENDPOINTS.WARMUP_ROUTINES.BASE,
+        { name: 'Final', items: ITEMS_ENTRENO },
+        undefined,
+      ),
+    );
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Rutina guardada' })).toHaveValue('Final'));
+    expect(screen.getByText('1 de 5 rutinas guardadas')).toBeInTheDocument();
+  });
+
+  it('Debería no permitir guardar como nueva con cinco rutinas y explicarlo', async () => {
+    const cinco = ['a', 'b', 'c', 'd', 'e'].map((id) => guardada(id, `Rutina ${id}`, ITEMS_ENTRENO));
+
+    await renderPage(cinco);
+
+    expect(guardar('Guardar como nueva')).toBeDisabled();
+    expect(screen.getByText('Has alcanzado el máximo de 5 rutinas. Borra una para guardar otra.')).toBeInTheDocument();
+  });
+
+  it('Debería renombrar la rutina cargada conservando sus ejercicios guardados', async () => {
+    vi.mocked(api.put).mockResolvedValue(envelope(guardada('r1', 'Final de liga', ITEMS_TORNEO), 'Rutina actualizada') as never);
+    await renderPage([TORNEO]);
+    anadir('Drill en el momento'); // un cambio sin guardar que renombrar NO debe guardar
+
+    fireEvent.click(guardar('Renombrar'));
+    const dialogo = await screen.findByRole('dialog');
+    const campo = within(dialogo).getByRole('textbox', { name: 'Nombre de la rutina' });
+    expect(campo).toHaveValue('Torneo');
+    fireEvent.change(campo, { target: { value: 'Final de liga' } });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Renombrar' }));
+
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        ENDPOINTS.WARMUP_ROUTINES.BY_ID('r1'),
+        { name: 'Final de liga', items: ITEMS_TORNEO },
+        undefined,
+      ),
+    );
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Rutina guardada' })).toHaveValue('Final de liga'));
+  });
+
+  it('Debería pedir confirmación antes de borrar la rutina cargada', async () => {
+    vi.mocked(api.delete).mockResolvedValue(envelope(undefined, 'Rutina eliminada') as never);
+    await renderPage([TORNEO, ENTRENO]);
+
+    fireEvent.click(guardar('Borrar rutina'));
+    const dialogo = await screen.findByRole('dialog');
+    expect(api.delete).not.toHaveBeenCalled();
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Borrar' }));
+
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith(ENDPOINTS.WARMUP_ROUTINES.BY_ID('r1'), undefined));
+    await waitFor(() => expect(screen.getByText('1 de 5 rutinas guardadas')).toBeInTheDocument());
+    expect(guardar('Borrar rutina')).toBeDisabled();
+  });
+
+  it('Debería dejar la pantalla como estaba si el servidor rechaza el guardado', async () => {
+    vi.mocked(api.post).mockRejectedValue(new Error('409'));
+    await renderPage([]);
+    anadir('Estiramientos');
+
+    fireEvent.click(guardar('Guardar como nueva'));
+    const dialogo = await screen.findByRole('dialog');
+    fireEvent.change(within(dialogo).getByRole('textbox', { name: 'Nombre de la rutina' }), {
+      target: { value: 'Repetida' },
+    });
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(screen.getByText('Aún no tienes rutinas guardadas.')).toBeInTheDocument();
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos']);
+  });
+
+  it('Debería ocultar el panel durante la sesión y volver a enseñarlo al volver a la rutina', async () => {
+    await renderPage([TORNEO]);
+
+    fireEvent.click(preparado());
+    expect(screen.queryByText('Mis rutinas')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Terminar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, terminar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Volver a mi rutina' }));
+
+    expect(screen.getByText('Mis rutinas')).toBeInTheDocument();
+    expect(nombresDeLaRutina()).toEqual(['Estiramientos', 'Derecha a Derecha']);
+  });
+});

@@ -346,6 +346,7 @@ model User {
   eventReminders                EventReminder[]
   teamAvailabilities            TeamMatchAvailability[]
   refreshTokens                 RefreshToken[]
+  warmupRoutines                WarmupRoutine[]
   @@index([name, email], name: "user_name_email_index")
   @@map("user")
 }
@@ -955,4 +956,22 @@ model RefreshToken {
   @@index([userId])
   @@index([familyId])
   @@map("refresh_token")
+}
+
+/// Rutina de calentamiento guardada por un jugador: lista ordenada de ejercicios
+/// del catálogo del cliente, con su duración y su descanso en segundos. Se guarda
+/// entera como JSON porque siempre se lee y se escribe completa y nunca se consulta
+/// por ejercicio. El máximo de rutinas por jugador lo aplica la API, no la base de datos.
+model WarmupRoutine {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String   @db.VarChar(40)
+  items     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@map("warmup_routine")
 }

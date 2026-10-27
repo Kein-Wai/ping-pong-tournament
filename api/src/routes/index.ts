@@ -9,6 +9,7 @@ import trainingRoutes from './training';
 import webhookRoutes from './webhook';
 import clubRoutes from './club';
 import { verifyToken } from '../middleware/auth.middleware';
+import { requirePlayer } from '../middleware/player.middleware';
 import manualMatchRoutes from './manual-match';
 import skillsRoutes from './skill';
 import generalTrainingRoutes from './general-training';
@@ -16,6 +17,7 @@ import teamRoutes from './team';
 import feedbackRoutes from './feedback';
 import seasonRoutes from './season';
 import eventRoutes from './event';
+import warmupRoutineRoutes from './warmup-routine';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -35,5 +37,6 @@ router.use('/teams', verifyToken, teamRoutes);
 router.use('/feedback', verifyToken, feedbackRoutes);
 router.use('/seasons', verifyToken, seasonRoutes);
 router.use('/events', verifyToken, eventRoutes);
+router.use('/warmup-routines', verifyToken, requirePlayer, warmupRoutineRoutes);
 
 export default router;
