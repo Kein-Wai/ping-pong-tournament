@@ -15,11 +15,11 @@ interface CueFeedback {
 }
 
 // Tono distinto por tipo de aviso para que se reconozca sin mirar la pantalla:
-// tic corto, inicio de ejercicio largo y agudo, cortesía grave y doble, final en tres notas.
+// tic corto, inicio de ejercicio largo y agudo, descanso grave y doble, final en tres notas.
 const CUE_FEEDBACK: Record<WarmupCue, CueFeedback> = {
   tick: { beeps: [{ frequencyHz: 880, atSec: 0, durationSec: 0.08 }], vibration: 30 },
   'exercise-start': { beeps: [{ frequencyHz: 1320, atSec: 0, durationSec: 0.4 }], vibration: 200 },
-  'courtesy-start': {
+  'rest-start': {
     beeps: [
       { frequencyHz: 440, atSec: 0, durationSec: 0.15 },
       { frequencyHz: 440, atSec: 0.25, durationSec: 0.15 },

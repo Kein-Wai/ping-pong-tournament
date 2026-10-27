@@ -23,19 +23,19 @@ describe('useWarmupBuilder', () => {
     expect(primero.exerciseKey).toBe('estiramientos');
     expect(primero.id).not.toBe(segundo.id);
     expect(result.current.items).toEqual([
-      { exerciseKey: 'estiramientos', durationSec: 60, courtesySec: 10 },
-      { exerciseKey: 'estiramientos', durationSec: 60, courtesySec: 10 },
+      { exerciseKey: 'estiramientos', durationSec: 60, restSec: 10 },
+      { exerciseKey: 'estiramientos', durationSec: 60, restSec: 10 },
     ]);
   });
 
-  it('Debería recalcular el tiempo total al cambiar duraciones y cortesías', () => {
+  it('Debería recalcular el tiempo total al cambiar duraciones y descansos', () => {
     const { result } = renderHook(() => useWarmupBuilder());
     act(() => result.current.add('movilidad'));
     const { id } = result.current.entries[0];
     expect(result.current.totalSec).toBe(5 + 10 + 60);
 
     act(() => result.current.changeDuration(id, 120));
-    act(() => result.current.changeCourtesy(id, 20));
+    act(() => result.current.changeRest(id, 20));
 
     expect(result.current.totalSec).toBe(5 + 20 + 120);
   });

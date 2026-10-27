@@ -32,7 +32,7 @@ export const Calentamiento = () => {
           onRemove={builder.remove}
           onMove={builder.move}
           onChangeDuration={builder.changeDuration}
-          onChangeCourtesy={builder.changeCourtesy}
+          onChangeRest={builder.changeRest}
           onStart={handleStart}
         />
       )}

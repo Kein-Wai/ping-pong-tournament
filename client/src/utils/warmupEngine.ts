@@ -3,17 +3,17 @@ import type { WarmupExerciseKey } from '../constants/warmupExercises';
 export interface WarmupItem {
   exerciseKey: WarmupExerciseKey;
   durationSec: number;
-  courtesySec: number;
+  restSec: number;
 }
 
-export type WarmupPhase = 'countdown' | 'courtesy' | 'exercise' | 'finished';
+export type WarmupPhase = 'countdown' | 'rest' | 'exercise' | 'finished';
 
 export interface WarmupState {
   items: WarmupItem[];
   phase: WarmupPhase;
   index: number;
   paused: boolean;
-  /** El jugador pulsó «Esperar»: la cortesía no termina sola hasta «Ya estoy listo». */
+  /** El jugador pulsó «Esperar»: el descanso no termina sola hasta «Ya estoy listo». */
   waiting: boolean;
   /** Tiempo que quedaba en la fase actual en el instante `anchorAt`. */
   remainingMs: number;
@@ -77,11 +77,11 @@ export function advance(state: WarmupState, now: number): WarmupState {
     const { items, index } = current;
 
     if (current.phase === 'countdown' && items.length > 0) {
-      current = enterPhase(current, 'courtesy', 0, items[0].courtesySec * 1000, endedAt);
-    } else if (current.phase === 'courtesy') {
+      current = enterPhase(current, 'rest', 0, items[0].restSec * 1000, endedAt);
+    } else if (current.phase === 'rest') {
       current = enterPhase(current, 'exercise', index, items[index].durationSec * 1000, endedAt);
     } else if (current.phase === 'exercise' && index + 1 < items.length) {
-      current = enterPhase(current, 'courtesy', index + 1, items[index + 1].courtesySec * 1000, endedAt);
+      current = enterPhase(current, 'rest', index + 1, items[index + 1].restSec * 1000, endedAt);
     } else {
       current = enterPhase(current, 'finished', index, 0, endedAt);
     }
@@ -103,17 +103,17 @@ export function resume(state: WarmupState, now: number): WarmupState {
   return { ...state, paused: false, anchorAt: now };
 }
 
-/** «Esperar»: detiene la cortesía hasta que el jugador diga que está listo (p. ej. buscando mesa). */
-export function holdCourtesy(rawState: WarmupState, now: number): WarmupState {
+/** «Esperar»: detiene el descanso hasta que el jugador diga que está listo (p. ej. buscando mesa). */
+export function holdRest(rawState: WarmupState, now: number): WarmupState {
   const state = advance(rawState, now);
-  if (state.phase !== 'courtesy' || state.waiting) return state;
+  if (state.phase !== 'rest' || state.waiting) return state;
   return { ...state, waiting: true, remainingMs: getRemainingMs(state, now), anchorAt: now };
 }
 
-/** «Ya estoy listo»: salta lo que quede de la cortesía y empieza el ejercicio. */
-export function skipCourtesy(rawState: WarmupState, now: number): WarmupState {
+/** «Ya estoy listo»: salta lo que quede del descanso y empieza el ejercicio. */
+export function skipRest(rawState: WarmupState, now: number): WarmupState {
   const state = advance(rawState, now);
-  if (state.phase !== 'courtesy') return state;
+  if (state.phase !== 'rest') return state;
   const durationMs = state.items[state.index].durationSec * 1000;
   return { ...enterPhase(state, 'exercise', state.index, durationMs, now), waiting: false };
 }
@@ -124,24 +124,24 @@ export function finish(rawState: WarmupState, now: number): WarmupState {
   return { ...enterPhase(state, 'finished', state.index, 0, now), paused: false, waiting: false };
 }
 
-function jumpToCourtesy(state: WarmupState, index: number, now: number): WarmupState {
+function jumpToRest(state: WarmupState, index: number, now: number): WarmupState {
   if (index >= state.items.length) return finish(state, now);
-  const courtesyMs = state.items[index].courtesySec * 1000;
-  return { ...enterPhase(state, 'courtesy', index, courtesyMs, now), waiting: false };
+  const restMs = state.items[index].restSec * 1000;
+  return { ...enterPhase(state, 'rest', index, restMs, now), waiting: false };
 }
 
-/** Salta a la cortesía del ejercicio siguiente (o al final si era el último). */
+/** Salta al descanso del ejercicio siguiente (o al final si era el último). */
 export function next(rawState: WarmupState, now: number): WarmupState {
   const state = advance(rawState, now);
   if (state.phase === 'finished') return state;
-  return jumpToCourtesy(state, state.phase === 'countdown' ? 0 : state.index + 1, now);
+  return jumpToRest(state, state.phase === 'countdown' ? 0 : state.index + 1, now);
 }
 
-/** Vuelve a la cortesía del ejercicio anterior; en el primero reinicia su cortesía. */
+/** Vuelve al descanso del ejercicio anterior; en el primero reinicia su descanso. */
 export function previous(rawState: WarmupState, now: number): WarmupState {
   const state = advance(rawState, now);
   if (state.phase === 'finished' || state.phase === 'countdown') return state;
-  return jumpToCourtesy(state, Math.max(0, state.index - 1), now);
+  return jumpToRest(state, Math.max(0, state.index - 1), now);
 }
 
 /** Tiempo de las fases que aún no han empezado, sin contar la actual. */
@@ -151,8 +151,8 @@ function getPendingMs(state: WarmupState): number {
   const firstPendingItem = phase === 'countdown' ? 0 : index + 1;
   const laterItemsMs = items
     .slice(firstPendingItem)
-    .reduce((total, item) => total + (item.courtesySec + item.durationSec) * 1000, 0);
-  const ownExerciseMs = phase === 'courtesy' ? items[index].durationSec * 1000 : 0;
+    .reduce((total, item) => total + (item.restSec + item.durationSec) * 1000, 0);
+  const ownExerciseMs = phase === 'rest' ? items[index].durationSec * 1000 : 0;
   return laterItemsMs + ownExerciseMs;
 }
 

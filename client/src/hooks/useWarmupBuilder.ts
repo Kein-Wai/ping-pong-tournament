@@ -6,7 +6,7 @@ import {
   MAX_ROUTINE_ITEMS,
   moveExercise,
   removeExercise,
-  setCourtesy,
+  setRest,
   setDuration,
   toWarmupItems,
   type RoutineEntry,
@@ -28,6 +28,6 @@ export function useWarmupBuilder() {
     remove: (id: string) => setEntries((current) => removeExercise(current, id)),
     move: (id: string, direction: 'up' | 'down') => setEntries((current) => moveExercise(current, id, direction)),
     changeDuration: (id: string, seconds: number) => setEntries((current) => setDuration(current, id, seconds)),
-    changeCourtesy: (id: string, seconds: number) => setEntries((current) => setCourtesy(current, id, seconds)),
+    changeRest: (id: string, seconds: number) => setEntries((current) => setRest(current, id, seconds)),
   };
 }

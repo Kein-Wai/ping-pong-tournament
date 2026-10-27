@@ -5,7 +5,7 @@ import {
   getTotalSec,
   moveExercise,
   removeExercise,
-  setCourtesy,
+  setRest,
   setDuration,
   toWarmupItems,
   MAX_ROUTINE_ITEMS,
@@ -16,23 +16,23 @@ const entrada = (overrides: Partial<RoutineEntry> = {}): RoutineEntry => ({
   id: 'e1',
   exerciseKey: 'estiramientos',
   durationSec: 60,
-  courtesySec: 10,
+  restSec: 10,
   ...overrides,
 });
 
 describe('Operaciones de la rutina de calentamiento (warmupRoutine)', () => {
   describe('addExercise', () => {
-    it('Debería añadir al final el ejercicio con la duración y la cortesía por defecto del catálogo', () => {
+    it('Debería añadir al final el ejercicio con la duración y el descanso por defecto del catálogo', () => {
       const lista = addExercise([], 'derecha-derecha', 'a');
 
-      expect(lista).toEqual([{ id: 'a', exerciseKey: 'derecha-derecha', durationSec: 60, courtesySec: 30 }]);
+      expect(lista).toEqual([{ id: 'a', exerciseKey: 'derecha-derecha', durationSec: 60, restSec: 30 }]);
     });
 
     it('Debería permitir repetir el mismo ejercicio y respetar el orden de llegada', () => {
       const lista = addExercise(addExercise([], 'estiramientos', 'a'), 'estiramientos', 'b');
 
       expect(lista.map((e) => e.id)).toEqual(['a', 'b']);
-      expect(lista.map((e) => e.courtesySec)).toEqual([10, 10]);
+      expect(lista.map((e) => e.restSec)).toEqual([10, 10]);
     });
 
     it('Debería no modificar la lista original', () => {
@@ -108,11 +108,11 @@ describe('Operaciones de la rutina de calentamiento (warmupRoutine)', () => {
     });
   });
 
-  describe('setCourtesy', () => {
-    const lista = [entrada({ id: 'a' }), entrada({ id: 'b', courtesySec: 20 })];
+  describe('setRest', () => {
+    const lista = [entrada({ id: 'a' }), entrada({ id: 'b', restSec: 20 })];
 
-    it('Debería cambiar solo la cortesía de la entrada indicada', () => {
-      expect(setCourtesy(lista, 'b', 45).map((e) => e.courtesySec)).toEqual([10, 45]);
+    it('Debería cambiar solo el descanso de la entrada indicada', () => {
+      expect(setRest(lista, 'b', 45).map((e) => e.restSec)).toEqual([10, 45]);
     });
 
     it.each([
@@ -120,21 +120,21 @@ describe('Operaciones de la rutina de calentamiento (warmupRoutine)', () => {
       [9_999, 300],
       [12.4, 12],
     ])('Debería ajustar %s s a %s s (de 0 a 300, enteros)', (pedido, esperado) => {
-      expect(setCourtesy(lista, 'a', pedido)[0].courtesySec).toBe(esperado);
+      expect(setRest(lista, 'a', pedido)[0].restSec).toBe(esperado);
     });
 
     it('Debería ignorar un valor que no es un número', () => {
-      expect(setCourtesy(lista, 'a', Number.NaN)).toEqual(lista);
+      expect(setRest(lista, 'a', Number.NaN)).toEqual(lista);
     });
   });
 
   describe('getTotalSec', () => {
     const rutina = [
-      entrada({ id: 'a', durationSec: 60, courtesySec: 10 }),
-      entrada({ id: 'b', durationSec: 90, courtesySec: 30 }),
+      entrada({ id: 'a', durationSec: 60, restSec: 10 }),
+      entrada({ id: 'b', durationSec: 90, restSec: 30 }),
     ];
 
-    it('Debería sumar la cuenta atrás inicial, las cortesías y las duraciones', () => {
+    it('Debería sumar la cuenta atrás inicial, los descansos y las duraciones', () => {
       expect(getTotalSec(rutina)).toBe(195);
     });
 
@@ -151,9 +151,9 @@ describe('Operaciones de la rutina de calentamiento (warmupRoutine)', () => {
 
   describe('toWarmupItems', () => {
     it('Debería pasar al formato del motor sin los id', () => {
-      const lista = [entrada({ id: 'a', exerciseKey: 'movilidad', durationSec: 75, courtesySec: 5 })];
+      const lista = [entrada({ id: 'a', exerciseKey: 'movilidad', durationSec: 75, restSec: 5 })];
 
-      expect(toWarmupItems(lista)).toEqual([{ exerciseKey: 'movilidad', durationSec: 75, courtesySec: 5 }]);
+      expect(toWarmupItems(lista)).toEqual([{ exerciseKey: 'movilidad', durationSec: 75, restSec: 5 }]);
     });
   });
 });

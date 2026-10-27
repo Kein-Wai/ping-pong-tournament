@@ -126,8 +126,8 @@ describe('useWarmupAlerts', () => {
     });
 
     it('Debería dar un pitido largo y agudo, y una vibración, al empezar el ejercicio', () => {
-      const { context, cambiarA } = arrancar(view({ phase: 'courtesy', remainingSec: 4 }));
-      cambiarA(view({ phase: 'courtesy', remainingSec: 3 }));
+      const { context, cambiarA } = arrancar(view({ phase: 'rest', remainingSec: 4 }));
+      cambiarA(view({ phase: 'rest', remainingSec: 3 }));
       const tic = context.oscillators[0]; // referencia de tono
 
       cambiarA(view({ phase: 'exercise', remainingSec: 60 }));
@@ -138,12 +138,12 @@ describe('useWarmupAlerts', () => {
       expect(navigator.vibrate).toHaveBeenLastCalledWith(200);
     });
 
-    it('Debería dar dos pitidos graves al empezar la cortesía', () => {
+    it('Debería dar dos pitidos graves al empezar el descanso', () => {
       const { context, cambiarA } = arrancar(view({ phase: 'exercise', remainingSec: 60 }));
       cambiarA(view({ phase: 'exercise', remainingSec: 3 }));
       const tic = context.oscillators[0];
 
-      cambiarA(view({ phase: 'courtesy', index: 1, remainingSec: 30 }));
+      cambiarA(view({ phase: 'rest', index: 1, remainingSec: 30 }));
 
       const pitidos = context.oscillators.slice(1);
       expect(pitidos).toHaveLength(2);

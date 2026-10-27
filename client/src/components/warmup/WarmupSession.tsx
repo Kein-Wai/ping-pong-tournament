@@ -37,12 +37,12 @@ export const WarmupSession = ({
   const [confirmingFinish, setConfirmingFinish] = useState(false);
   const exercise = WARMUP_EXERCISES_BY_KEY[items[view.index].exerciseKey];
   const isCountdown = view.phase === 'countdown';
-  const isCourtesy = view.phase === 'courtesy';
+  const isRest = view.phase === 'rest';
 
   return (
     <Stack gap="md" align="center">
       {isCountdown && <Title order={3}>¡Prepárate!</Title>}
-      {isCourtesy && (
+      {isRest && (
         <Text size="sm" c="dimmed">
           Prepárate para
         </Text>
@@ -56,17 +56,17 @@ export const WarmupSession = ({
       </Text>
 
       {isCountdown && <Text c="dimmed">Empezamos con {exercise.name}</Text>}
-      {!isCountdown && !isCourtesy && (
+      {!isCountdown && !isRest && (
         <Text ta="center" maw={420}>
           {exercise.description}
         </Text>
       )}
-      {isCourtesy && view.waiting && (
+      {isRest && view.waiting && (
         <Text ta="center" c="dimmed">
           Esperando: pulsa «Ya estoy listo» cuando quieras empezar.
         </Text>
       )}
-      {isCourtesy && (
+      {isRest && (
         <Group>
           <Button onClick={onSkip}>Ya estoy listo</Button>
           <Button variant="default" disabled={view.waiting} onClick={onHold}>

@@ -4,8 +4,8 @@ import {
   advance,
   pause,
   resume,
-  holdCourtesy,
-  skipCourtesy,
+  holdRest,
+  skipRest,
   next,
   previous,
   finish,
@@ -14,8 +14,8 @@ import {
 } from './warmupEngine';
 
 const RUTINA: WarmupItem[] = [
-  { exerciseKey: 'estiramientos', durationSec: 60, courtesySec: 10 },
-  { exerciseKey: 'derecha-derecha', durationSec: 90, courtesySec: 30 },
+  { exerciseKey: 'estiramientos', durationSec: 60, restSec: 10 },
+  { exerciseKey: 'derecha-derecha', durationSec: 90, restSec: 30 },
 ];
 
 describe('Motor de calentamiento (warmupEngine)', () => {
@@ -39,17 +39,17 @@ describe('Motor de calentamiento (warmupEngine)', () => {
       expect(getView(state, 3_000)).toMatchObject({ phase: 'countdown', remainingSec: 3 });
     });
 
-    it('Debería pasar de la cuenta atrás a la cortesía del primer ejercicio', () => {
+    it('Debería pasar de la cuenta atrás al descanso del primer ejercicio', () => {
       const state = startSession(RUTINA, 1_000);
 
-      expect(getView(state, 6_000)).toMatchObject({ phase: 'courtesy', index: 0, remainingSec: 10 });
+      expect(getView(state, 6_000)).toMatchObject({ phase: 'rest', index: 0, remainingSec: 10 });
     });
 
-    it('Debería recorrer cortesía, ejercicio y cortesía del siguiente con la duración de cada uno', () => {
+    it('Debería recorrer descanso, ejercicio y descanso del siguiente con la duración de cada uno', () => {
       const state = startSession(RUTINA, 0);
 
       expect(getView(state, 15_000)).toMatchObject({ phase: 'exercise', index: 0, remainingSec: 60 });
-      expect(getView(state, 75_000)).toMatchObject({ phase: 'courtesy', index: 1, remainingSec: 30 });
+      expect(getView(state, 75_000)).toMatchObject({ phase: 'rest', index: 1, remainingSec: 30 });
       expect(getView(state, 105_000)).toMatchObject({ phase: 'exercise', index: 1, remainingSec: 90 });
     });
 
@@ -65,12 +65,12 @@ describe('Motor de calentamiento (warmupEngine)', () => {
 
       const despuesDelSalto = advance(state, 80_000);
 
-      expect(getView(despuesDelSalto, 80_000)).toMatchObject({ phase: 'courtesy', index: 1, remainingSec: 25 });
-      expect(getView(despuesDelSalto, 85_000)).toMatchObject({ phase: 'courtesy', index: 1, remainingSec: 20 });
+      expect(getView(despuesDelSalto, 80_000)).toMatchObject({ phase: 'rest', index: 1, remainingSec: 25 });
+      expect(getView(despuesDelSalto, 85_000)).toMatchObject({ phase: 'rest', index: 1, remainingSec: 20 });
     });
 
-    it('Debería pasar directo al ejercicio cuando la cortesía es de 0 s', () => {
-      const state = startSession([{ exerciseKey: 'estiramientos', durationSec: 60, courtesySec: 0 }], 0);
+    it('Debería pasar directo al ejercicio cuando el descanso es de 0 s', () => {
+      const state = startSession([{ exerciseKey: 'estiramientos', durationSec: 60, restSec: 0 }], 0);
 
       expect(getView(state, 5_000)).toMatchObject({ phase: 'exercise', index: 0, remainingSec: 60 });
     });
@@ -116,12 +116,12 @@ describe('Motor de calentamiento (warmupEngine)', () => {
     });
   });
 
-  describe('cortesía', () => {
-    it('Debería mantener la cortesía indefinidamente mientras el jugador espera', () => {
-      const esperando = holdCourtesy(startSession(RUTINA, 0), 6_000);
+  describe('descanso', () => {
+    it('Debería mantener el descanso indefinidamente mientras el jugador espera', () => {
+      const esperando = holdRest(startSession(RUTINA, 0), 6_000);
 
       expect(getView(esperando, 500_000)).toMatchObject({
-        phase: 'courtesy',
+        phase: 'rest',
         index: 0,
         remainingSec: 9,
         waiting: true,
@@ -129,38 +129,38 @@ describe('Motor de calentamiento (warmupEngine)', () => {
     });
 
     it('Debería pasar al ejercicio con su duración completa al decir «Ya estoy listo» tras esperar', () => {
-      const esperando = holdCourtesy(startSession(RUTINA, 0), 6_000);
+      const esperando = holdRest(startSession(RUTINA, 0), 6_000);
 
-      const listo = skipCourtesy(esperando, 500_000);
+      const listo = skipRest(esperando, 500_000);
 
       expect(getView(listo, 500_000)).toMatchObject({ phase: 'exercise', index: 0, remainingSec: 60, waiting: false });
       expect(getView(listo, 501_000)).toMatchObject({ phase: 'exercise', remainingSec: 59 });
     });
 
-    it('Debería saltar la cortesía sin haber esperado', () => {
-      const listo = skipCourtesy(startSession(RUTINA, 0), 7_000);
+    it('Debería saltar el descanso sin haber esperado', () => {
+      const listo = skipRest(startSession(RUTINA, 0), 7_000);
 
       expect(getView(listo, 7_000)).toMatchObject({ phase: 'exercise', index: 0, remainingSec: 60 });
     });
 
     it('Debería seguir esperando tras pausar y reanudar durante la espera', () => {
-      const esperando = holdCourtesy(startSession(RUTINA, 0), 6_000);
+      const esperando = holdRest(startSession(RUTINA, 0), 6_000);
 
       const reanudada = resume(pause(esperando, 7_000), 8_000);
 
-      expect(getView(reanudada, 900_000)).toMatchObject({ phase: 'courtesy', remainingSec: 9, waiting: true });
+      expect(getView(reanudada, 900_000)).toMatchObject({ phase: 'rest', remainingSec: 9, waiting: true });
     });
 
-    it('Debería ignorar «Esperar» y «Ya estoy listo» fuera de la cortesía', () => {
+    it('Debería ignorar «Esperar» y «Ya estoy listo» fuera del descanso', () => {
       const enEjercicio = startSession(RUTINA, 0);
 
-      expect(getView(holdCourtesy(enEjercicio, 20_000), 20_000)).toMatchObject({ phase: 'exercise', waiting: false });
-      expect(getView(skipCourtesy(enEjercicio, 20_000), 20_000)).toMatchObject({ phase: 'exercise', remainingSec: 55 });
+      expect(getView(holdRest(enEjercicio, 20_000), 20_000)).toMatchObject({ phase: 'exercise', waiting: false });
+      expect(getView(skipRest(enEjercicio, 20_000), 20_000)).toMatchObject({ phase: 'exercise', remainingSec: 55 });
     });
   });
 
   describe('tiempo total restante', () => {
-    it('Debería sumar cuenta atrás, cortesías y ejercicios al empezar', () => {
+    it('Debería sumar cuenta atrás, descansos y ejercicios al empezar', () => {
       const state = startSession(RUTINA, 0);
 
       expect(getView(state, 0).totalRemainingSec).toBe(195);
@@ -172,8 +172,8 @@ describe('Motor de calentamiento (warmupEngine)', () => {
       expect(getView(state, 20_000).totalRemainingSec).toBe(175);
     });
 
-    it('Debería incluir el ejercicio de la cortesía actual y no avanzar mientras se espera', () => {
-      const esperando = holdCourtesy(startSession(RUTINA, 0), 6_000);
+    it('Debería incluir el ejercicio del descanso actual y no avanzar mientras se espera', () => {
+      const esperando = holdRest(startSession(RUTINA, 0), 6_000);
 
       expect(getView(esperando, 500_000).totalRemainingSec).toBe(189);
     });
@@ -186,16 +186,16 @@ describe('Motor de calentamiento (warmupEngine)', () => {
   });
 
   describe('navegación', () => {
-    it('Debería saltar a la cortesía del ejercicio siguiente', () => {
+    it('Debería saltar al descanso del ejercicio siguiente', () => {
       const state = startSession(RUTINA, 0);
 
-      expect(getView(next(state, 20_000), 20_000)).toMatchObject({ phase: 'courtesy', index: 1, remainingSec: 30 });
+      expect(getView(next(state, 20_000), 20_000)).toMatchObject({ phase: 'rest', index: 1, remainingSec: 30 });
     });
 
-    it('Debería saltar la cuenta atrás hacia la cortesía del primer ejercicio', () => {
+    it('Debería saltar la cuenta atrás hacia el descanso del primer ejercicio', () => {
       const state = startSession(RUTINA, 0);
 
-      expect(getView(next(state, 2_000), 2_000)).toMatchObject({ phase: 'courtesy', index: 0, remainingSec: 10 });
+      expect(getView(next(state, 2_000), 2_000)).toMatchObject({ phase: 'rest', index: 0, remainingSec: 10 });
     });
 
     it('Debería terminar al pedir el siguiente desde el último ejercicio', () => {
@@ -204,16 +204,16 @@ describe('Motor de calentamiento (warmupEngine)', () => {
       expect(getView(next(state, 120_000), 120_000)).toMatchObject({ phase: 'finished', remainingSec: 0 });
     });
 
-    it('Debería volver a la cortesía del ejercicio anterior', () => {
+    it('Debería volver al descanso del ejercicio anterior', () => {
       const state = startSession(RUTINA, 0);
 
-      expect(getView(previous(state, 120_000), 120_000)).toMatchObject({ phase: 'courtesy', index: 0, remainingSec: 10 });
+      expect(getView(previous(state, 120_000), 120_000)).toMatchObject({ phase: 'rest', index: 0, remainingSec: 10 });
     });
 
-    it('Debería reiniciar la cortesía del primer ejercicio si no hay anterior', () => {
+    it('Debería reiniciar el descanso del primer ejercicio si no hay anterior', () => {
       const state = startSession(RUTINA, 0);
 
-      expect(getView(previous(state, 20_000), 20_000)).toMatchObject({ phase: 'courtesy', index: 0, remainingSec: 10 });
+      expect(getView(previous(state, 20_000), 20_000)).toMatchObject({ phase: 'rest', index: 0, remainingSec: 10 });
     });
 
     it('Debería ignorar anterior durante la cuenta atrás inicial', () => {
@@ -223,12 +223,12 @@ describe('Motor de calentamiento (warmupEngine)', () => {
     });
 
     it('Debería conservar la pausa y quitar la espera al saltar', () => {
-      const esperando = pause(holdCourtesy(startSession(RUTINA, 0), 6_000), 7_000);
+      const esperando = pause(holdRest(startSession(RUTINA, 0), 6_000), 7_000);
 
       const saltada = next(esperando, 8_000);
 
       expect(getView(saltada, 900_000)).toMatchObject({
-        phase: 'courtesy',
+        phase: 'rest',
         index: 1,
         remainingSec: 30,
         paused: true,

@@ -4,8 +4,8 @@ import type { WarmupItem } from '../utils/warmupEngine';
 import { useWarmupSession } from './useWarmupSession';
 
 const RUTINA: WarmupItem[] = [
-  { exerciseKey: 'estiramientos', durationSec: 60, courtesySec: 10 },
-  { exerciseKey: 'derecha-derecha', durationSec: 90, courtesySec: 30 },
+  { exerciseKey: 'estiramientos', durationSec: 60, restSec: 10 },
+  { exerciseKey: 'derecha-derecha', durationSec: 90, restSec: 30 },
 ];
 
 describe('useWarmupSession', () => {
@@ -51,7 +51,7 @@ describe('useWarmupSession', () => {
       vi.advanceTimersByTime(5_000);
     });
 
-    expect(result.current.view).toMatchObject({ phase: 'courtesy', index: 0, remainingSec: 10 });
+    expect(result.current.view).toMatchObject({ phase: 'rest', index: 0, remainingSec: 10 });
   });
 
   it('Debería congelar la vista al pausar y seguir donde se quedó al reanudar', () => {
@@ -74,7 +74,7 @@ describe('useWarmupSession', () => {
     expect(result.current.view).toMatchObject({ remainingSec: 2, paused: false });
   });
 
-  it('Debería esperar en la cortesía hasta que el jugador diga que está listo', () => {
+  it('Debería esperar en el descanso hasta que el jugador diga que está listo', () => {
     const { result } = renderHook(() => useWarmupSession(RUTINA));
     act(() => result.current.start());
     act(() => {
@@ -85,7 +85,7 @@ describe('useWarmupSession', () => {
     act(() => {
       vi.advanceTimersByTime(60_000);
     });
-    expect(result.current.view).toMatchObject({ phase: 'courtesy', remainingSec: 9, waiting: true });
+    expect(result.current.view).toMatchObject({ phase: 'rest', remainingSec: 9, waiting: true });
 
     act(() => result.current.skip());
     expect(result.current.view).toMatchObject({ phase: 'exercise', index: 0, remainingSec: 60, waiting: false });
@@ -99,10 +99,10 @@ describe('useWarmupSession', () => {
     });
 
     act(() => result.current.next());
-    expect(result.current.view).toMatchObject({ phase: 'courtesy', index: 1, remainingSec: 30 });
+    expect(result.current.view).toMatchObject({ phase: 'rest', index: 1, remainingSec: 30 });
 
     act(() => result.current.previous());
-    expect(result.current.view).toMatchObject({ phase: 'courtesy', index: 0, remainingSec: 10 });
+    expect(result.current.view).toMatchObject({ phase: 'rest', index: 0, remainingSec: 10 });
 
     act(() => result.current.finish());
     expect(result.current.view).toMatchObject({ phase: 'finished', remainingSec: 0 });
@@ -118,7 +118,7 @@ describe('useWarmupSession', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    expect(result.current.view).toMatchObject({ phase: 'courtesy', index: 1, remainingSec: 25 });
+    expect(result.current.view).toMatchObject({ phase: 'rest', index: 1, remainingSec: 25 });
   });
 
   it('Debería dejar de refrescar cuando la sesión termina y al desmontar', () => {

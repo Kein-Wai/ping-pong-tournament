@@ -7,10 +7,10 @@ import {
 } from '../../constants/warmupExercises';
 import { formatDuration } from '../../utils/warmupFormat';
 import {
-  MAX_COURTESY_SEC,
+  MAX_REST_SEC,
   MAX_DURATION_SEC,
   MAX_ROUTINE_ITEMS,
-  MIN_COURTESY_SEC,
+  MIN_REST_SEC,
   MIN_DURATION_SEC,
   type RoutineEntry,
 } from '../../utils/warmupRoutine';
@@ -24,7 +24,7 @@ export interface WarmupBuilderProps {
   onRemove: (id: string) => void;
   onMove: (id: string, direction: 'up' | 'down') => void;
   onChangeDuration: (id: string, seconds: number) => void;
-  onChangeCourtesy: (id: string, seconds: number) => void;
+  onChangeRest: (id: string, seconds: number) => void;
   onStart: () => void;
 }
 
@@ -36,7 +36,7 @@ export const WarmupBuilder = ({
   onRemove,
   onMove,
   onChangeDuration,
-  onChangeCourtesy,
+  onChangeRest,
   onStart,
 }: WarmupBuilderProps) => {
   const count = entries.length;
@@ -130,13 +130,13 @@ export const WarmupBuilder = ({
                     onCommit={(seconds) => onChangeDuration(entry.id, seconds)}
                   />
                   <SecondsField
-                    label="Cortesía"
-                    ariaLabel={`Cortesía del ejercicio ${position}`}
-                    value={entry.courtesySec}
-                    min={MIN_COURTESY_SEC}
-                    max={MAX_COURTESY_SEC}
+                    label="Descanso"
+                    ariaLabel={`Descanso del ejercicio ${position}`}
+                    value={entry.restSec}
+                    min={MIN_REST_SEC}
+                    max={MAX_REST_SEC}
                     step={5}
-                    onCommit={(seconds) => onChangeCourtesy(entry.id, seconds)}
+                    onCommit={(seconds) => onChangeRest(entry.id, seconds)}
                   />
                 </Group>
               </Paper>

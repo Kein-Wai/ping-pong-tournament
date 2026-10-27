@@ -36,13 +36,13 @@ describe('Catálogo de ejercicios de calentamiento', () => {
     WARMUP_EXERCISES.forEach((exercise) => expect(exercise.defaultDurationSec).toBe(60));
   });
 
-  it('Debería dar 10 s de cortesía a los ejercicios sin mesa y 30 s a los que la necesitan', () => {
+  it('Debería dar 10 s de descanso a los ejercicios sin mesa y 30 s a los que la necesitan', () => {
     const sinMesa = WARMUP_EXERCISES.filter((exercise) => !exercise.needsTable);
 
     expect(sinMesa.map((exercise) => exercise.key)).toEqual(['estiramientos', 'movilidad']);
-    sinMesa.forEach((exercise) => expect(exercise.defaultCourtesySec).toBe(10));
+    sinMesa.forEach((exercise) => expect(exercise.defaultRestSec).toBe(10));
     WARMUP_EXERCISES.filter((exercise) => exercise.needsTable).forEach((exercise) =>
-      expect(exercise.defaultCourtesySec).toBe(30),
+      expect(exercise.defaultRestSec).toBe(30),
     );
   });
 

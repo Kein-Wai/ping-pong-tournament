@@ -26,16 +26,16 @@ export interface WarmupExercise {
   name: string;
   /** Frase corta que acompaña a la animación durante la sesión. */
   description: string;
-  /** Si hace falta mesa libre: condiciona la cortesía por defecto. */
+  /** Si hace falta mesa libre: condiciona el descanso por defecto. */
   needsTable: boolean;
   defaultDurationSec: number;
-  defaultCourtesySec: number;
+  defaultRestSec: number;
 }
 
 const DEFAULT_DURATION_SEC = 60;
 // Sin mesa basta con cambiar de sitio; con mesa a veces hay que esperar a que quede libre.
-const COURTESY_WITHOUT_TABLE_SEC = 10;
-const COURTESY_WITH_TABLE_SEC = 30;
+const REST_WITHOUT_TABLE_SEC = 10;
+const REST_WITH_TABLE_SEC = 30;
 
 type WarmupExerciseContent = Pick<WarmupExercise, 'key' | 'name' | 'description' | 'needsTable'>;
 
@@ -99,7 +99,7 @@ const EXERCISE_CONTENT: readonly WarmupExerciseContent[] = [
 export const WARMUP_EXERCISES: readonly WarmupExercise[] = EXERCISE_CONTENT.map((exercise) => ({
   ...exercise,
   defaultDurationSec: DEFAULT_DURATION_SEC,
-  defaultCourtesySec: exercise.needsTable ? COURTESY_WITH_TABLE_SEC : COURTESY_WITHOUT_TABLE_SEC,
+  defaultRestSec: exercise.needsTable ? REST_WITH_TABLE_SEC : REST_WITHOUT_TABLE_SEC,
 }));
 
 export const WARMUP_EXERCISES_BY_KEY: Readonly<Record<WarmupExerciseKey, WarmupExercise>> =

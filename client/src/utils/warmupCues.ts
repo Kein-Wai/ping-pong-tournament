@@ -1,13 +1,13 @@
 import type { WarmupView } from './warmupEngine';
 
-export type WarmupCue = 'tick' | 'exercise-start' | 'courtesy-start' | 'finish';
+export type WarmupCue = 'tick' | 'exercise-start' | 'rest-start' | 'finish';
 
 const TICK_FROM_SEC = 3;
 
 // Entrar en la cuenta atrás solo ocurre al arrancar, y eso ya lo marca el botón «Preparado».
 const PHASE_CUES: Record<WarmupView['phase'], WarmupCue[]> = {
   countdown: [],
-  courtesy: ['courtesy-start'],
+  rest: ['rest-start'],
   exercise: ['exercise-start'],
   finished: ['finish'],
 };

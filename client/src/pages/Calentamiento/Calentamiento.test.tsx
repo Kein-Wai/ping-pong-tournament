@@ -26,7 +26,7 @@ describe('Calentamiento (/calentamiento): constructor', () => {
     anadir('Estiramientos');
 
     expect(nombresDeLaRutina()).toEqual(['Estiramientos']);
-    // 5 s de cuenta atrás + 10 s de cortesía + 60 s de ejercicio.
+    // 5 s de cuenta atrás + 10 s de descanso + 60 s de ejercicio.
     expect(screen.getByText('1 ejercicio · 1 min 15 s')).toBeInTheDocument();
     expect(preparado()).toBeEnabled();
   });
@@ -66,16 +66,16 @@ describe('Calentamiento (/calentamiento): constructor', () => {
     expect(screen.getByRole('button', { name: 'Bajar ejercicio 2' })).toBeDisabled();
   });
 
-  it('Debería cambiar la duración y la cortesía de un ejercicio y actualizar el total', () => {
+  it('Debería cambiar la duración y el descanso de un ejercicio y actualizar el total', () => {
     renderWithProviders(<Calentamiento />);
     anadir('Estiramientos');
 
     const duracion = screen.getByRole('textbox', { name: 'Duración del ejercicio 1' });
     fireEvent.change(duracion, { target: { value: '120' } });
     fireEvent.blur(duracion);
-    const cortesia = screen.getByRole('textbox', { name: 'Cortesía del ejercicio 1' });
-    fireEvent.change(cortesia, { target: { value: '20' } });
-    fireEvent.blur(cortesia);
+    const descanso = screen.getByRole('textbox', { name: 'Descanso del ejercicio 1' });
+    fireEvent.change(descanso, { target: { value: '20' } });
+    fireEvent.blur(descanso);
 
     // 5 + 20 + 120 = 145 s
     expect(screen.getByText('1 ejercicio · 2 min 25 s')).toBeInTheDocument();
@@ -117,7 +117,7 @@ describe('Calentamiento (/calentamiento): sesión', () => {
 
   const pasar = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
 
-  // Rutina de prueba: Estiramientos (60 s, cortesía 10 s) y Derecha a Derecha (60 s, cortesía 30 s).
+  // Rutina de prueba: Estiramientos (60 s, descanso 10 s) y Derecha a Derecha (60 s, descanso 30 s).
   const empezar = () => {
     renderWithProviders(<Calentamiento />);
     anadir('Estiramientos');
@@ -134,7 +134,7 @@ describe('Calentamiento (/calentamiento): sesión', () => {
     expect(screen.queryByRole('button', { name: 'Añadir Estiramientos' })).not.toBeInTheDocument();
   });
 
-  it('Debería pasar a la cortesía del primer ejercicio al acabar la cuenta atrás', () => {
+  it('Debería pasar al descanso del primer ejercicio al acabar la cuenta atrás', () => {
     empezar();
 
     pasar(5_000);
@@ -164,18 +164,18 @@ describe('Calentamiento (/calentamiento): sesión', () => {
 
     pasar(5_000 + 10_000);
 
-    // Quedan 60 s de este ejercicio + 30 s de cortesía + 60 s del siguiente = 2 min 30 s.
+    // Quedan 60 s de este ejercicio + 30 s de descanso + 60 s del siguiente = 2 min 30 s.
     expect(screen.getByText('Ejercicio 1 de 2 · quedan 2 min 30 s')).toBeInTheDocument();
   });
 
-  it('Debería pasar al siguiente ejercicio con su propia cortesía', () => {
+  it('Debería pasar al siguiente ejercicio con su propio descanso', () => {
     empezar();
 
     pasar(5_000 + 10_000 + 60_000);
 
     expect(screen.getByRole('heading', { name: 'Derecha a Derecha' })).toBeInTheDocument();
     expect(screen.getByTestId('reloj')).toHaveTextContent('00:30');
-    // Cortesía de 30 s + 60 s de ejercicio.
+    // Descanso de 30 s + 60 s de ejercicio.
     expect(screen.getByText('Ejercicio 2 de 2 · quedan 1 min 30 s')).toBeInTheDocument();
   });
 
@@ -193,7 +193,7 @@ describe('Calentamiento (/calentamiento): sesión', () => {
     expect(screen.getByTestId('reloj')).toHaveTextContent('2');
   });
 
-  it('Debería mantener la cortesía mientras el jugador espera y empezar el ejercicio al decir que está listo', () => {
+  it('Debería mantener el descanso mientras el jugador espera y empezar el ejercicio al decir que está listo', () => {
     empezar();
     pasar(5_000);
 
@@ -208,7 +208,7 @@ describe('Calentamiento (/calentamiento): sesión', () => {
     expect(screen.getByText(/estira cuello, hombros/i)).toBeInTheDocument();
   });
 
-  it('Debería saltar la cortesía con «Ya estoy listo» sin haber esperado', () => {
+  it('Debería saltar el descanso con «Ya estoy listo» sin haber esperado', () => {
     empezar();
     pasar(5_000 + 3_000);
 

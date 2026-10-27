@@ -25,50 +25,50 @@ describe('getCues', () => {
     expect(getCues(view({ remainingSec: before }), view({ remainingSec: after }))).toEqual(['tick']);
   });
 
-  it('Debería hacer tic también en la cuenta atrás y en la cortesía', () => {
+  it('Debería hacer tic también en la cuenta atrás y en el descanso', () => {
     expect(getCues(view({ phase: 'countdown', remainingSec: 4 }), view({ phase: 'countdown', remainingSec: 3 }))).toEqual(['tick']);
-    expect(getCues(view({ phase: 'courtesy', remainingSec: 2 }), view({ phase: 'courtesy', remainingSec: 1 }))).toEqual(['tick']);
+    expect(getCues(view({ phase: 'rest', remainingSec: 2 }), view({ phase: 'rest', remainingSec: 1 }))).toEqual(['tick']);
   });
 
   it('Debería no repetir el tic mientras el segundo no cambia', () => {
     expect(getCues(view({ remainingSec: 3 }), view({ remainingSec: 3 }))).toEqual([]);
   });
 
-  it('Debería avisar del inicio del ejercicio, de la cortesía y del final', () => {
-    expect(getCues(view({ phase: 'courtesy' }), view({ phase: 'exercise' }))).toEqual(['exercise-start']);
-    expect(getCues(view({ phase: 'countdown' }), view({ phase: 'courtesy' }))).toEqual(['courtesy-start']);
+  it('Debería avisar del inicio del ejercicio, del descanso y del final', () => {
+    expect(getCues(view({ phase: 'rest' }), view({ phase: 'exercise' }))).toEqual(['exercise-start']);
+    expect(getCues(view({ phase: 'countdown' }), view({ phase: 'rest' }))).toEqual(['rest-start']);
     expect(getCues(view({ phase: 'exercise' }), view({ phase: 'finished', remainingSec: 0 }))).toEqual(['finish']);
   });
 
-  it('Debería avisar de la cortesía al pasar al ejercicio siguiente', () => {
-    const antes = view({ phase: 'courtesy', index: 0 });
+  it('Debería avisar del descanso al pasar al ejercicio siguiente', () => {
+    const antes = view({ phase: 'rest', index: 0 });
 
-    expect(getCues(antes, view({ phase: 'courtesy', index: 1 }))).toEqual(['courtesy-start']);
+    expect(getCues(antes, view({ phase: 'rest', index: 1 }))).toEqual(['rest-start']);
   });
 
   it('Debería dar solo el aviso de la fase en la que aterriza tras un salto de reloj', () => {
     const antes = view({ phase: 'exercise', index: 0, remainingSec: 55 });
 
-    expect(getCues(antes, view({ phase: 'courtesy', index: 1, remainingSec: 25 }))).toEqual(['courtesy-start']);
+    expect(getCues(antes, view({ phase: 'rest', index: 1, remainingSec: 25 }))).toEqual(['rest-start']);
   });
 
   it('Debería dar el aviso de fase y no el tic cuando coinciden', () => {
-    expect(getCues(view({ phase: 'courtesy', remainingSec: 1 }), view({ phase: 'exercise', remainingSec: 3 }))).toEqual([
+    expect(getCues(view({ phase: 'rest', remainingSec: 1 }), view({ phase: 'exercise', remainingSec: 3 }))).toEqual([
       'exercise-start',
     ]);
   });
 
   it('Debería callar mientras la sesión está en pausa, aunque el jugador salte de ejercicio', () => {
-    const pausada = view({ phase: 'courtesy', index: 1, paused: true });
+    const pausada = view({ phase: 'rest', index: 1, paused: true });
 
     expect(getCues(view({ phase: 'exercise', index: 0 }), pausada)).toEqual([]);
     expect(getCues(view({ remainingSec: 4 }), view({ remainingSec: 3, paused: true }))).toEqual([]);
   });
 
-  it('Debería callar mientras el jugador espera en la cortesía', () => {
-    const esperando = view({ phase: 'courtesy', remainingSec: 2, waiting: true });
+  it('Debería callar mientras el jugador espera en el descanso', () => {
+    const esperando = view({ phase: 'rest', remainingSec: 2, waiting: true });
 
-    expect(getCues(view({ phase: 'courtesy', remainingSec: 3 }), esperando)).toEqual([]);
+    expect(getCues(view({ phase: 'rest', remainingSec: 3 }), esperando)).toEqual([]);
   });
 
   it('Debería no hacer tic fuera de los tres últimos segundos', () => {

@@ -15,9 +15,9 @@ Una de las partes fijas del catálogo de calentamiento (Estiramientos, Movilidad
 _Avoid_: Ejercicio a secas, paso, bloque
 
 **Rutina de calentamiento**:
-Lista ordenada de ejercicios de calentamiento que un jugador monta y guarda con un nombre, cada uno con su duración y su cortesía. Un jugador puede guardar hasta cinco.
+Lista ordenada de ejercicios de calentamiento que un jugador monta y guarda con un nombre, cada uno con su duración y su descanso. Un jugador puede guardar hasta cinco.
 _Avoid_: Plan de calentamiento, sesión de calentamiento
 
-**Cortesía**:
-Tiempo de preparación que el jugador tiene antes de empezar un ejercicio de calentamiento, para desplazarse o conseguir mesa. Puede alargarse sin límite hasta que el jugador indique que está listo.
-_Avoid_: Descanso, pausa, transición
+**Descanso**:
+Tiempo previo a cada ejercicio de calentamiento en el que el jugador se prepara, se desplaza o consigue mesa. Puede alargarse sin límite hasta que el jugador indique que está listo. No es la pausa del cronómetro, que congela cualquier fase.
+_Avoid_: Cortesía, pausa, transición
