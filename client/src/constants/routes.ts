@@ -17,6 +17,11 @@ export const APP_ROUTES = {
   PARTIDOS: '/historial',
   ESTADISTICAS: '/estadisticas',
   CALENTAMIENTO: '/calentamiento',
+  JUEGOS_REFLEJO: {
+    LIST: '/juegos-reflejo',
+    PLAY_PATH: '/juegos-reflejo/:juego',
+    PLAY: (slug: string) => `/juegos-reflejo/${slug}`,
+  },
 
   // Jugadores
   JUGADORES: {

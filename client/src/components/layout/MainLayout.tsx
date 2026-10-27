@@ -38,6 +38,7 @@ import {
   IconBug,
   IconCalendarStats,
   IconFlame,
+  IconBolt,
   IconReportAnalytics,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
@@ -281,6 +282,12 @@ export const MainLayout = () => {
       label: 'Calentamiento',
       icon: IconFlame,
       path: APP_ROUTES.CALENTAMIENTO,
+      show: !!user?.id && isPlayer,
+    },
+    {
+      label: 'Juegos de Reflejo',
+      icon: IconBolt,
+      path: APP_ROUTES.JUEGOS_REFLEJO.LIST,
       show: !!user?.id && isPlayer,
     },
     {
