@@ -37,6 +37,7 @@ import {
   IconShield,
   IconBug,
   IconCalendarStats,
+  IconFlame,
   IconReportAnalytics,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
@@ -274,6 +275,12 @@ export const MainLayout = () => {
       label: 'Análisis Pro',
       icon: IconReportAnalytics,
       path: APP_ROUTES.ANALISIS.LIST,
+      show: !!user?.id && isPlayer,
+    },
+    {
+      label: 'Calentamiento',
+      icon: IconFlame,
+      path: APP_ROUTES.CALENTAMIENTO,
       show: !!user?.id && isPlayer,
     },
     {

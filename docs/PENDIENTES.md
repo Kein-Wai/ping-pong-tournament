@@ -76,3 +76,14 @@ Hueco principal: Prisma está simulado en todos los tests, así que **ningún te
 - `GET /api/clubs` es público a propósito (un jugador nuevo debe ver los clubes para pedir ingreso).
 - Registrarse como `AdminClub` es intencional; el club necesita la aprobación del SuperAdmin.
 - Las variables de entorno obligatorias de la API son `JWT_SECRET`, `CRON_SECRET` y `CLIENT_URL`.
+
+## 8. Calentamiento (feature en curso)
+
+Rama `feat/calentamiento-sesion`. Hecha la **entrega 1**: catálogo fijo de 9 ejercicios con animaciones SVG, constructor de rutina en memoria, sesión guiada con cronómetro, pitidos, vibración y pantalla encendida (solo cliente; la rutina no se guarda). Términos en `GLOSSARY.md`.
+
+| # | Qué | Notas |
+|---|---|---|
+| W2 | **Guardado**: tabla `warmup_routine` (`playerId`, `name` único por jugador, `items` JSON), API `/api/warmup-routines` (solo Player, filtrada por `req.user.id`), Zod, máximo 5 rutinas por jugador comprobado en transacción (409), selector «Mis rutinas» con «Guardar» y «Guardar como nueva» | Repetir en la API las 9 claves de `constants/warmupExercises.ts` y los topes de `utils/warmupRoutine.ts` (20 ejercicios, 15-600 s, cortesía 0-300 s). Prisma está mockeado en los tests: la transacción del máximo solo se comprueba a mano contra Postgres |
+| W3 | **Voces** de la cuenta atrás: grabar `3`, `2`, `1`, `ya`, `descanso` (opcional `fin`, `preparado`) en mp3 mono 128 kbps y sustituir los pitidos en `utils/warmupSound.ts` | Sin voz para los nombres de ejercicio (cada cambio obligaría a regrabar) |
+| W4 | **Probar en dispositivos reales**: sonido, vibración (no existe en iPhone) y Wake Lock en iPhone y Android; qué pasa con la pantalla bloqueada a mano | Los tests simulan esas APIs |
+| W5 | Revisar con ojo humano las frases de los ejercicios y que Movilidad sin raqueta (brazos y piernas en contrafase) se vea bien en movimiento | Las animaciones son esquemáticas, hechas a mano |
