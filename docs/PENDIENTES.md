@@ -90,3 +90,26 @@ Rama `feat/calentamiento-sesion`. Hechas las **entregas 1 y 2**: catálogo fijo 
 | W5 | Revisar con ojo humano las frases de los ejercicios y que Movilidad sin raqueta (brazos y piernas en contrafase) se vea bien en movimiento | Las animaciones son esquemáticas, hechas a mano |
 | W6 | Las 9 claves de ejercicio y los topes de tiempo están duplicados entre `client/src/constants/warmupExercises.ts` y `api/src/schemas/warmupRoutine.ts` (no hay paquete compartido) | Un test en cada lado fija la lista; hay que cambiar los dos a la vez |
 | W7 | Con 8 peticiones simultáneas de un mismo jugador la transacción serializable devuelve 409 «inténtalo de nuevo» a varias (nunca supera el máximo). Un reintento automático en el servidor lo evitaría | Solo afecta a doble clic o peticiones paralelas; el cliente desactiva el botón mientras guarda |
+
+## 9. Juegos de Reflejo (feature en curso)
+
+Rama `feat/juegos-reflejo-base`. Entregas: 1 menú, selector, récords, armazón común, glosario y Tejas · 2 Reacción simple · 3 Go / No-Go · 4 Ping Pong · 5 Timing. Sin librerías nuevas. Los récords van en `localStorage` (`reflejo:<userId>:<juego>`).
+
+| # | Qué | Notas |
+|---|---|---|
+| J1 | Juegos al backlog: **Flechas**, **Seguimiento de color** y **Secuencia** | Ideas descritas en la conversación de diseño; sin reglas cerradas |
+| J2 | **Récords en la API/BD** si se quiere ranking de club | El récord local se pierde al borrar los datos del navegador; el selector lo avisa |
+| J3 | Valorar `react-konva` si un juego futuro lo necesita | Su última versión exige React 19.3; hoy el cliente usa `^19.2.7` |
+| J5 | **Registro slug → componente** en `JuegoPartida` al llegar el 2.º juego | Hoy `JuegoPartida` pinta `TilesGame` para cualquier slug; con Reacción simple mostraría Tejas bajo su título. `ReflexCue` ('hit'/'miss') también es específico de Tejas |
+| J6 | Un **0 como primer récord** se guarda y el selector mostraría «Récord: 0 aciertos» | La partida ya muestra «Mala suerte»; decidir si un 0 debe guardarse |
+| J4 | **Guard de ruta por rol** para `/calentamiento` y `/juegos-reflejo` | Hoy solo se oculta el ítem del menú; la ruta exige solo estar autenticado |
+
+### Deuda de nombres detectada al hacer el glosario
+
+| # | Qué | Notas |
+|---|---|---|
+| N1 | **Liga**: existen el modelo `League`/`LeagueClas` y el tipo `Liga`, pero la funcionalidad nunca se construyó | Decidir si se borra o se implementa; mientras tanto, no reutilizar «liga» para el formato todos contra todos |
+| N2 | Los campos `gamesWon`/`gamesLost` de la clasificación de grupo son **sets** (en tenis de mesa «game» y «set» son lo mismo) | Renombrar exige migración; valorar `@map` o dejarlo documentado |
+| N3 | `MatchStatus.Iniciado` y `Abierto`: comprobar si `Iniciado` se usa en algún sitio o se creó «por si acaso» | Si no se usa, retirarlo del enum |
+| N4 | Etiquetas de interfaz inconsistentes para el mismo concepto: «Cuadro Final», «Eliminatorias», «Llaves», «Liga (Todos contra Todos)» | Unificar según `GLOSSARY.md` |
+| N5 | `CLAUDE.md` dice que `GLOSSARY.md` no existe: ya existe desde el PR de Calentamiento | Corregir esa línea de «Domain docs» |
