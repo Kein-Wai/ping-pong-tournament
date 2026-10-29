@@ -7,7 +7,7 @@ import {
   TournamentExportInfo,
 } from './excel-data';
 
-const TEMPLATE_PATH = path.join(__dirname, '../../public/assets/Planillas Maestra.xlsx');
+const TEMPLATE_PATH = path.join(process.cwd(), 'public/assets/Planillas Maestra.xlsx');
 
 /**
  * Rellena la hoja 1 con los datos del torneo y la lista de jugadores.
