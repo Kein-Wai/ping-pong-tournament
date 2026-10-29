@@ -144,17 +144,29 @@ describe('Datos de exportacion a Excel (api/src/services/excel-data.ts)', () => 
       const groups = buildGroups(players, 2);
       const bracket = buildBracket(TOURNAMENT, groups);
 
-      // 2 grupos x 2 clasificados = 4 jugadores = 2 partidos
-      expect(bracket.bracketSize).toBe(4);
-      expect(bracket.drawSlots).toHaveLength(4);
+      // 2 grupos x 2 clasificados = 4 jugadores reales en el cuadro
+      const realSlots = bracket.drawSlots.filter((slot) => slot !== 'EXENTO');
+      expect(realSlots).toHaveLength(4);
     });
 
-    it('usa la excepcion de nombre de la plantilla de 32', () => {
+    it('usa la plantilla de 8 cuando el cuadro natural es menor, porque no hay LlaveSEx4', () => {
       const players = normalizePlayers(PLAYERS);
       const groups = buildGroups(players, 2);
       const bracket = buildBracket(TOURNAMENT, groups);
 
-      expect(bracket.templateName).toBe('LlaveSEx4');
+      expect(bracket.templateName).toBe('LlaveSEx8');
+      expect(bracket.bracketSize).toBe(8);
+    });
+
+    it('rellena con EXENTO el cuadro menor de 8 para que cada clasificado pase de cuartos', () => {
+      const players = normalizePlayers(PLAYERS);
+      const groups = buildGroups(players, 2);
+      const bracket = buildBracket(TOURNAMENT, groups);
+
+      expect(bracket.drawSlots).toHaveLength(8);
+      expect(bracket.drawSlots.filter((slot) => slot === 'EXENTO')).toHaveLength(4);
+      // Los cuatro clasificados ocupan las semillas impares (1, 3, 5, 7).
+      expect(bracket.drawSlots.filter((_, index) => index % 2 === 0)).not.toContain('EXENTO');
     });
   });
 
@@ -168,7 +180,7 @@ describe('Datos de exportacion a Excel (api/src/services/excel-data.ts)', () => 
       expect(data.players).toHaveLength(8);
       expect(data.playerRows).toHaveLength(8);
       expect(data.groups).toHaveLength(2);
-      expect(data.bracket.drawSlots).toHaveLength(4);
+      expect(data.bracket.drawSlots).toHaveLength(8);
     });
 
     it('formatea la fecha en espanol', () => {

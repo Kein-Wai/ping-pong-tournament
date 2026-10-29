@@ -2,6 +2,9 @@ import { randomUUID } from 'crypto';
 import { buildGroupsEngine, TournamentSeed } from '../utils/group-engine';
 import { createKnockoutDraw, KnockoutSeed } from '../utils/knockout-engine';
 
+/** Plazas de la hoja de llave mas pequena que trae la plantilla maestra. */
+const MIN_BRACKET_SIZE = 8;
+
 /** Letra que identifica cada grupo en la hoja de Excel. */
 export const GROUP_LETTERS = [
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
@@ -213,6 +216,14 @@ export const buildBracket = (
     drawSlots.push(match.playerOne ? match.playerOne.id : 'EXENTO');
     drawSlots.push(match.playerTwo ? match.playerTwo.id : 'EXENTO');
   });
+
+  // La plantilla maestra no tiene hoja de menos de 8 plazas: se usa la de 8 y
+  // cada clasificado se empareja con un EXENTO para saltar los cuartos.
+  if (drawSlots.length < MIN_BRACKET_SIZE) {
+    const spread = MIN_BRACKET_SIZE / drawSlots.length;
+    const padded = drawSlots.flatMap((slot) => [slot, ...Array(spread - 1).fill('EXENTO')]);
+    drawSlots.splice(0, drawSlots.length, ...padded);
+  }
 
   const bracketSize = drawSlots.length;
   // Excepcion: la plantilla de 32 tiene otro nombre.
