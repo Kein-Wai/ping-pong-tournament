@@ -1,4 +1,4 @@
-import { calculateMatchResults, ScoredMatch } from './match';
+import { calculateEffectiveResults, ScoredMatch } from './match';
 
 /** Fila de clasificación de un jugador dentro de un grupo. */
 export interface GroupClassification {
@@ -44,7 +44,7 @@ const emptyMetrics = (): StandingMetrics => ({
  * Módulo PURO: no toca la base de datos, no depende del reloj y no muta sus
  * entradas. Aquí vive todo el dominio de la fase de grupos: el acumulado de
  * sets y puntos, los puntos de clasificación (2 por ganar el partido, 1 por
- * jugar o perder) y los criterios de desempate oficiales de tenis de mesa.
+ * jugar o perder; un W.O. da 0 al que se retira y no cuenta puntos de juego) y los criterios de desempate oficiales de tenis de mesa.
  *
  * Su interface es una sola función: esa es la superficie de test del módulo.
  */
@@ -63,7 +63,7 @@ export const computeGroupStandings = (
     // Un partido con un jugador que no pertenece al grupo no altera la tabla.
     if (!p1Metrics || !p2Metrics) continue;
 
-    const { p1Sets, p2Sets, p1Points, p2Points } = calculateMatchResults(match);
+    const { p1Sets, p2Sets, p1Points, p2Points } = calculateEffectiveResults(match);
     const p1Won = p1Sets > p2Sets;
     const p2Won = p2Sets > p1Sets;
 
@@ -76,7 +76,7 @@ export const computeGroupStandings = (
       pointsLost: p1Metrics.pointsLost + p2Points,
       gamesWon: p1Metrics.gamesWon + (p1Won ? 1 : 0),
       gamesLost: p1Metrics.gamesLost + (p2Won ? 1 : 0),
-      pointsClas: p1Metrics.pointsClas + (p1Won ? 2 : p2Won ? 1 : 0),
+      pointsClas: p1Metrics.pointsClas + (p1Won ? 2 : p2Won && !match.walkover ? 1 : 0),
     });
 
     metrics.set(match.playerTwoId, {
@@ -88,7 +88,7 @@ export const computeGroupStandings = (
       pointsLost: p2Metrics.pointsLost + p1Points,
       gamesWon: p2Metrics.gamesWon + (p2Won ? 1 : 0),
       gamesLost: p2Metrics.gamesLost + (p1Won ? 1 : 0),
-      pointsClas: p2Metrics.pointsClas + (p2Won ? 2 : p1Won ? 1 : 0),
+      pointsClas: p2Metrics.pointsClas + (p2Won ? 2 : p1Won && !match.walkover ? 1 : 0),
     });
   }
 

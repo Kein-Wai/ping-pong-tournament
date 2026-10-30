@@ -16,6 +16,7 @@ import {
 } from './knockout';
 import { createKnockoutDraw } from './knockout-engine';
 import { computeEliminatedPositions } from './tournament-positions';
+import { finalizeLeague } from './league';
 
 type KnockoutHarvest = Awaited<ReturnType<typeof harvestKnockoutPlayers>>;
 
@@ -36,14 +37,24 @@ export const processMatchResult = async (prisma: PrismaClient, match: Match) => 
   }
 
   if (match.leagueId) {
-    const league = await prisma.league.findUnique({
-      where: { id: match.leagueId },
-    });
-
-    if (league) {
-      console.info(`Procesando partido de liga: ${league.id}`);
-    }
+    await processLeagueMatch(prisma, match.leagueId);
   }
+};
+
+/** Completa la liga en cuanto no queda ningún partido por jugar. */
+const processLeagueMatch = async (prisma: PrismaClient, leagueId: string) => {
+  const league = await prisma.league.findUnique({ where: { id: leagueId } });
+  if (league?.status !== MatchStatus.Iniciado) return;
+
+  const pending = await prisma.match.count({
+    where: {
+      leagueId,
+      status: { in: [MatchStatus.Programado, MatchStatus.Iniciado, MatchStatus.Abierto] },
+    },
+  });
+  if (pending > 0) return;
+
+  await prisma.$transaction((tx) => finalizeLeague(tx, leagueId));
 };
 
 /** Procesa un partido que pertenece a un torneo. */

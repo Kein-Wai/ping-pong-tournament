@@ -130,6 +130,16 @@ router.post(
       return;
     }
 
+    if (leagueId) {
+      sendError(res, 400, 'Los partidos de liga se generan al iniciar la liga');
+      return;
+    }
+
+    if ((groupId || knockoutId) && !tournamentId) {
+      sendError(res, 400, 'Un grupo o un cuadro necesita el torneo al que pertenece');
+      return;
+    }
+
     // Autorización ANTES de escribir: el partido es del club del torneo o, sin torneo, del de los jugadores.
     const ownership = tournamentId
       ? {
@@ -148,6 +158,30 @@ router.post(
       sendError(res, 403, 'No tienes permiso para crear partidos en este club');
       return;
     }
+
+    // Con la autorización resuelta por el torneo, el grupo y el cuadro deben ser de ESE torneo:
+    // si no, el partido recalcularía la clasificación de una competición de otro club.
+    if (groupId) {
+      const group = await prisma.tournamentGroup.findUnique({
+        where: { id: groupId },
+        select: { tournamentId: true },
+      });
+      if (group?.tournamentId !== tournamentId) {
+        sendError(res, 400, 'El grupo no pertenece al torneo indicado');
+        return;
+      }
+    }
+    if (knockoutId) {
+      const knockout = await prisma.tournamentKnockout.findUnique({
+        where: { id: knockoutId },
+        select: { tournamentId: true },
+      });
+      if (knockout?.tournamentId !== tournamentId) {
+        sendError(res, 400, 'El cuadro no pertenece al torneo indicado');
+        return;
+      }
+    }
+
     const currentSeason = await resolveCurrentSeason(prisma);
     const newMatch = await createMatch(prisma, {
       playerOneId,
@@ -197,6 +231,7 @@ router.put(
       where: { id },
       include: {
         tournament: { select: { clubId: true } },
+        league: { select: { clubId: true, status: true } },
         playerOne: { select: { clubId: true } },
       },
     });
@@ -208,6 +243,39 @@ router.put(
 
     if (!hasClubPermission(req.user, getMatchOwnerClubId(existingMatch))) {
       sendError(res, 403, 'No tienes permiso para editar este partido');
+      return;
+    }
+
+    // Una liga cerrada o cancelada conserva su clasificación final: sus resultados ya no cambian.
+    if (existingMatch.leagueId && existingMatch.league?.status !== 'Iniciado') {
+      sendError(res, 400, 'La liga no está en curso: no se pueden cambiar sus resultados');
+      return;
+    }
+
+    // Un W.O. se fijó al retirar al jugador: reescribirlo dejaría el indicador sobre un marcador real.
+    if (existingMatch.walkover) {
+      sendError(res, 400, 'Un partido W.O. no se puede modificar');
+      return;
+    }
+
+    // El cuerpo solo cambia el marcador: a qué liga, torneo, grupo o cuadro pertenece un
+    // partido no se toca, porque la autorización se calcula con la asociación actual y
+    // cambiarla permitiría recalcular la clasificación de una competición de otro club.
+    const requested = validation.data;
+    const changesAssociation = (['leagueId', 'tournamentId', 'groupId', 'knockoutId'] as const).some(
+      (key) => requested[key] !== undefined && requested[key] !== existingMatch[key],
+    );
+    if (changesAssociation) {
+      sendError(res, 400, 'No se puede cambiar la liga, el torneo, el grupo ni el cuadro de un partido');
+      return;
+    }
+
+    const changesPlayers =
+      !!existingMatch.leagueId &&
+      ((requested.playerOneId !== undefined && requested.playerOneId !== existingMatch.playerOneId) ||
+        (requested.playerTwoId !== undefined && requested.playerTwoId !== existingMatch.playerTwoId));
+    if (changesPlayers) {
+      sendError(res, 400, 'No se pueden cambiar los jugadores de un partido de liga');
       return;
     }
 

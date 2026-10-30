@@ -38,6 +38,13 @@ export const APP_ROUTES = {
     DETAILS_PATH: '/torneos/:id', // 👈 Usado en App.tsx
     DETAILS: (id: string | number) => `/torneos/${id}`, // 👈 Usado en los navigate()
   },
+  // Ligas
+  LIGAS: {
+    LIST: '/ligas',
+    NEW: '/ligas/nueva',
+    DETAILS_PATH: '/ligas/:id',
+    DETAILS: (id: string | number) => `/ligas/${id}`,
+  },
   EQUIPOS: {
     LIST: '/equipos',
     NEW: '/equipos/nuevo',

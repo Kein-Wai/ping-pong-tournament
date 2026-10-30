@@ -24,6 +24,8 @@ import type { MatchStatus } from '@prisma/client';
 export interface ScoredMatch {
   playerOneId: string;
   playerTwoId: string;
+  /** Partido ganado por retirada del rival: sus puntos de juego son ficticios (ADR 0002). */
+  walkover?: boolean | null;
   setOnePlayerOne?: number | null;
   setOnePlayerTwo?: number | null;
   setTwoPlayerOne?: number | null;
@@ -100,4 +102,14 @@ export const calculateMatchResults = (match: ScoredMatch): MatchResults => {
     p1WinsMatch,
     p2WinsMatch,
   };
+};
+
+/**
+ * Resultado de un partido tal y como cuenta para estadisticas y clasificaciones.
+ * En un W.O. los sets y la victoria cuentan, pero los puntos del marcador
+ * convencional (11-0 por set) no: nadie los jugó.
+ */
+export const calculateEffectiveResults = (match: ScoredMatch): MatchResults => {
+  const results = calculateMatchResults(match);
+  return match.walkover ? { ...results, p1Points: 0, p2Points: 0 } : results;
 };
