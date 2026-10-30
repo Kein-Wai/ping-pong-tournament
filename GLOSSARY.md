@@ -51,8 +51,23 @@ Participación de un jugador en un torneo. Está pendiente, confirmada o marcada
 Sets que debe ganar un jugador para llevarse un partido de torneo. Se fija por separado para la fase de grupos y para las eliminatorias.
 
 **Liga**:
-Competición interna de un club en varias jornadas. Existe como término y como tabla en la base de datos, pero la funcionalidad nunca se construyó. No es lo mismo que el formato «todos contra todos» de un torneo.
+Competición interna de un club en la que todos sus jugadores se enfrentan entre sí, a una vuelta o a ida y vuelta, sin fechas fijas por partido. Se prepara, se inicia, se completa o se cancela. No es lo mismo que el formato «todos contra todos» de un torneo.
 _Avoid_: Liga para el formato de torneo todos contra todos
+
+**Jornada**:
+Grupo de partidos de una liga en el que cada jugador juega como máximo una vez. Ordena el calendario, pero no lleva fecha. Un jugador que no juega en una jornada descansa.
+_Avoid_: Ronda (reservada para el cuadro eliminatorio), fecha
+
+**Clasificación de la liga**:
+Tabla de una liga con los puntos de cada jugador (2 por victoria, 1 por derrota jugada, 0 por no jugar). Desempata el enfrentamiento directo entre dos empatados y, con tres o más, la diferencia de sets y después la de puntos.
+_Avoid_: Ranking
+
+**Clasificación final**:
+Foto de la clasificación de la liga guardada al completarse, que ya no cambia aunque después se corrijan datos.
+
+**W.O.**:
+Partido que gana un jugador porque su rival se retiró de la liga y no lo disputó. Cuenta como victoria para la clasificación y el ELO, con sets convencionales y sin puntos.
+_Avoid_: Walkover en textos de interfaz, incomparecencia
 
 **Grupo**:
 Subconjunto de jugadores de un torneo que se enfrentan todos contra todos en la fase de grupos.

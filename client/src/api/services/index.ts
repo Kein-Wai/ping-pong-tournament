@@ -10,6 +10,7 @@
 export { authService } from './auth';
 export { usersService } from './users';
 export { tournamentsService } from './tournaments';
+export { leaguesService } from './leagues';
 export { clubsService } from './clubs';
 export { matchesService } from './matches';
 export { trainingsService, exercisesService } from './trainings';

@@ -34,6 +34,9 @@ import { ResetPassword } from './pages/Auth/ResetPassword';
 import { CalendarioEventos } from './pages/Eventos/CalendarioEventos';
 import { PoliticaPrivacidad } from './pages/Legal/PoliticaPrivacidad';
 import { ExcelTournamentCreator } from './pages/Torneos/ExcelTournamentCreator';
+import { Ligas } from './pages/Ligas/Ligas';
+import { LigaNueva } from './pages/Ligas/LigaNueva';
+import { LigaDetalles } from './pages/Ligas/LigaDetalles';
 
 import { Equipos } from './pages/Equipos/Equipos';
 import { EquipoNuevo } from './pages/Equipos/EquipoNuevo';
@@ -186,6 +189,10 @@ function AppContent() {
                   element={<ExcelTournamentCreator />}
                 />
                 <Route path={APP_ROUTES.TORNEOS.DETAILS_PATH} element={<TorneoDetalles />} />
+
+                <Route path={APP_ROUTES.LIGAS.LIST} element={<Ligas />} />
+                <Route path={APP_ROUTES.LIGAS.NEW} element={<LigaNueva />} />
+                <Route path={APP_ROUTES.LIGAS.DETAILS_PATH} element={<LigaDetalles />} />
 
                 <Route path={APP_ROUTES.JUGADORES.LIST} element={<Jugadores />} />
                 <Route path={APP_ROUTES.JUGADORES.PROFILE_PATH} element={<JugadorPerfil />} />

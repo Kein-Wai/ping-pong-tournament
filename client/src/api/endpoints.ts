@@ -47,6 +47,21 @@ export const ENDPOINTS = {
     ENROLLED: (playerId: string) => `/tournaments/player/${playerId}/enrolled`,
     SWAP_PLAYERS: (id: string) => `/tournaments/${id}/swap-players`,
   },
+  LEAGUES: {
+    BASE: '/leagues',
+    BY_ID: (id: string) => `/leagues/${id}`,
+    START: (id: string) => `/leagues/${id}/start`,
+    CANCEL: (id: string) => `/leagues/${id}/cancel`,
+    FINISH: (id: string) => `/leagues/${id}/finish`,
+    MATCHES: (id: string) => `/leagues/${id}/matches`,
+    STANDINGS: (id: string) => `/leagues/${id}/standings`,
+    PARTICIPANTS: (id: string) => `/leagues/${id}/participants`,
+    PARTICIPANT: (id: string, playerId: string) => `/leagues/${id}/participants/${playerId}`,
+    PARTICIPANT_STATUS: (id: string, playerId: string) =>
+      `/leagues/${id}/participants/${playerId}/status`,
+    WITHDRAW: (id: string, playerId: string) => `/leagues/${id}/participants/${playerId}/withdraw`,
+    REGISTER: (id: string) => `/leagues/${id}/register`,
+  },
   MATCHES: {
     BASE: '/matches',
     BY_ID: (id: string) => `/matches/${id}`,

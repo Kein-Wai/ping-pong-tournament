@@ -23,6 +23,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import {
   IconHome,
   IconTrophy,
+  IconListNumbers,
   IconUsers,
   IconHistory,
   IconChartBar,
@@ -241,6 +242,12 @@ export const MainLayout = () => {
       show: true,
       badge:
         notificationsBadge.pendingTournaments > 0 ? notificationsBadge.pendingTournaments : null,
+    },
+    {
+      label: 'Ligas',
+      icon: IconListNumbers,
+      path: APP_ROUTES.LIGAS.LIST,
+      show: isSuperAdmin || isAdminClub || (isPlayer && hasApprovedClub),
     },
     {
       label: 'Calendario Oficial',

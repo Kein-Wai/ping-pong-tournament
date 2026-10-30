@@ -1,6 +1,6 @@
 import { Prisma, MatchStatus, UpdateSourceType } from '@prisma/client';
 import { POINTS_MATCHES, SCORE_DEFAULT } from '../constants';
-import { calculateMatchResults, CompletedMatch } from './match';
+import { calculateEffectiveResults, CompletedMatch } from './match';
 import { resolveCurrentSeason } from './season';
 import { calculateSkillGrowth } from './skills';
 
@@ -111,7 +111,7 @@ const saveOrUpdateStats = async (
  * del partido anterior y borra las mejoras de skill que habia generado.
  */
 const revertCompletedMatch = async (prisma: Prisma.TransactionClient, previousMatch: CompletedMatch) => {
-  const prevRes = calculateMatchResults(previousMatch);
+  const prevRes = calculateEffectiveResults(previousMatch);
 
   const p1Stats = await prisma.stats.findFirst({
     where: { userId: previousMatch.playerOneId, seasonId: previousMatch.seasonId },
@@ -166,7 +166,7 @@ const revertCompletedMatch = async (prisma: Prisma.TransactionClient, previousMa
  * los dos jugadores y genera las mejoras de skill pendientes.
  */
 const applyCompletedMatch = async (prisma: Prisma.TransactionClient, newMatch: CompletedMatch) => {
-  const newRes = calculateMatchResults(newMatch);
+  const newRes = calculateEffectiveResults(newMatch);
 
   const p1Stats = await prisma.stats.findFirst({
     where: { userId: newMatch.playerOneId, seasonId: newMatch.seasonId },

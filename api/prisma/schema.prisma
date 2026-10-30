@@ -334,6 +334,7 @@ model User {
   groupClasifications           TournamentGroupClas[]
   leagueClasifications          LeagueClas[]
   tournamentInscriptions        TournamentParticipant[]
+  leagueInscriptions            LeagueParticipant[]
   tournamentgroupClasifications TournamentClas[]
   trainings                     PlayerTraining[]
   trainingSessions              TrainingSession[]
@@ -481,6 +482,8 @@ model Match {
   status              MatchStatus? @default(Programado)
   winnerGoesToMatchId String?      @map("winner_goes_to")
   loserGoesToMatchId  String?      @map("loser_goes_to")
+  walkover            Boolean      @default(false)
+  round               Int?         @map("round")
 
   // Relaciones
   season       Season?             @relation(fields: [seasonId], references: [id], onDelete: SetNull)
@@ -549,19 +552,38 @@ model League {
   clubId          String?          @map("club_id")
   seasonId        String?          @map("season_id")
   dateStart       DateTime         @map("datestart") @db.Date
-  name            String           @unique @db.VarChar(255)
-  numPlayers      Int              @map("num_players")
+  name            String           @db.VarChar(255)
+  numPlayers      Int              @default(0) @map("num_players")
   typeTournament  TypeTournament?  @default(Interno) @map("type_tournament")
   levelTournament LevelTournament? @default(Mixto) @map("level_tournament")
   status          MatchStatus?     @default(Programado)
+  setsToWin       Int              @default(2) @map("sets_to_win")
+  doubleRound     Boolean          @default(false) @map("double_round")
 
   // Relaciones
   matches        Match[]
+  participants   LeagueParticipant[]
   clasifications LeagueClas[]
   club           Club?        @relation(fields: [clubId], references: [id])
   season         Season?      @relation(fields: [seasonId], references: [id], onDelete: SetNull)
 
+  @@unique([clubId, name])
   @@map("league")
+}
+
+model LeagueParticipant {
+  id           String                  @id @default(uuid())
+  leagueId     String                  @map("league_id")
+  playerId     String                  @map("player_id")
+  registeredAt DateTime                @default(now()) @map("registered_at")
+  status       PlayerTournamentStatus? @default(Pendiente)
+
+  // Relaciones
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  player User   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, playerId])
+  @@map("league_participant")
 }
 
 model TournamentParticipant {
@@ -648,6 +670,7 @@ model LeagueClas {
   league League @relation(fields: [leagueId], references: [id])
   player User   @relation(fields: [playerId], references: [id])
 
+  @@unique([leagueId, playerId])
   @@map("league_clas")
 }
 

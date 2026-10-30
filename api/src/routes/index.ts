@@ -18,6 +18,7 @@ import feedbackRoutes from './feedback';
 import seasonRoutes from './season';
 import eventRoutes from './event';
 import warmupRoutineRoutes from './warmup-routine';
+import leagueRoutes from './league';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -27,6 +28,7 @@ router.use('/user-types', verifyToken, userTypeRoutes);
 router.use('/users', verifyToken, userRoutes);
 router.use('/matches', verifyToken, matchRoutes);
 router.use('/tournaments', verifyToken, tournamentRoutes);
+router.use('/leagues', verifyToken, leagueRoutes);
 router.use('/exercises', verifyToken, exerciseRoutes);
 router.use('/trainings', verifyToken, trainingRoutes);
 router.use('/manual-matches', verifyToken, manualMatchRoutes);
