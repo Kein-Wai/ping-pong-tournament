@@ -9,10 +9,11 @@ vi.mock('../db', async () => ({
   default: (await import('../testing/prisma-mock')).prismaMock.client,
 }));
 
-// El propietario de los partidos manuales es `playerClub1` (id player-1).
+// El propietario de los partidos manuales es `playerClub1` (id player-1, club-1).
+// El AdminClub de su club también puede gestionarlos: eso se prueba en manual-match.coach.test.ts.
 const OWNER_ID = 'player-1';
 const OWNER: IdentityName = 'playerClub1';
-const STRANGERS: IdentityName[] = ['playerClub2', 'freePlayer', 'adminClub1', 'superAdmin'];
+const STRANGERS: IdentityName[] = ['playerClub2', 'freePlayer', 'adminClub2', 'superAdmin'];
 let app: Awaited<typeof import('../index')>['app'];
 
 describe('Partidos manuales (/api/manual-matches): solo su propietario los modifica', () => {
@@ -24,12 +25,19 @@ describe('Partidos manuales (/api/manual-matches): solo su propietario los modif
   beforeEach(() => {
     prismaMock.reset();
     prismaMock.client.season.findFirst.mockResolvedValue(currentSeasonFixture());
-    prismaMock.client.manualMatch.findUnique.mockResolvedValue({ id: 'mm1', userId: OWNER_ID });
+    prismaMock.client.manualMatch.findUnique.mockResolvedValue({
+      id: 'mm1',
+      userId: OWNER_ID,
+      user: { clubId: 'club-1', clubStatus: 'Aprobado', userType: { name: 'Player' } },
+    });
     prismaMock.client.manualMatch.update.mockResolvedValue({ id: 'mm1', userId: OWNER_ID });
     prismaMock.client.pointAnalysis.findUnique.mockResolvedValue({
       id: 'pt1',
       manualMatchId: 'mm1',
-      match: { userId: OWNER_ID },
+      match: {
+        userId: OWNER_ID,
+        user: { clubId: 'club-1', clubStatus: 'Aprobado', userType: { name: 'Player' } },
+      },
     });
     prismaMock.client.pointAnalysis.create.mockResolvedValue({ id: 'pt-new' });
     prismaMock.client.pointAnalysis.delete.mockResolvedValue({ id: 'pt1' });

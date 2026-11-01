@@ -26,9 +26,14 @@ import {
   IconSearch,
   IconClipboardList,
   IconPingPong,
+  IconUser,
 } from '@tabler/icons-react';
 import { manualMatchesService } from '../../api/services/manualMatches';
 import { seasonsService } from '../../api/services/seasons';
+import { usersService } from '../../api/services/users';
+import { usePermissions } from '../../hooks/usePermissions';
+import { useAuthStore } from '../../store/authStore';
+import { UserClubStatus } from '../../types/enums';
 import type {
   AnalysisType,
   DominantHand,
@@ -39,6 +44,7 @@ import type {
   RubberType,
 } from '../../types/enums';
 import { APP_ROUTES } from '../../constants/routes';
+import { playerFullName } from '../../utils/leagueView';
 import type { ManualMatch } from '../../types/api';
 import { DateInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
@@ -47,6 +53,8 @@ const ITEMS_PER_PAGE = 8;
 
 export const AnalisisList = () => {
   const navigate = useNavigate();
+  const { isAdminClub } = usePermissions();
+  const { user } = useAuthStore();
   const [matches, setMatches] = useState<ManualMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -70,15 +78,50 @@ export const AnalisisList = () => {
   const [setsToWin, setSetsToWin] = useState<string>('3');
   const [matchDate, setMatchDate] = useState<Date | null>(new Date());
 
+  // Solo el AdminClub: jugadores de su club a quienes puede analizar, y filtro del listado.
+  const [clubPlayers, setClubPlayers] = useState<{ value: string; label: string }[]>([]);
+  const [playerFilter, setPlayerFilter] = useState<string | null>(null);
+  const [analyzeTo, setAnalyzeTo] = useState<string | null>(null);
+
   useEffect(() => {
-    Promise.all([manualMatchesService.list(), seasonsService.current()])
-      .then(([matchesData, activeS]) => {
-        setMatches(matchesData);
+    seasonsService
+      .current()
+      .then((activeS) => {
         if (activeS) setCurrentSeason(activeS.name);
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .catch(console.error);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    manualMatchesService
+      .list({ playerId: playerFilter ?? undefined })
+      .then((matchesData) => {
+        if (!cancelled) setMatches(matchesData);
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [playerFilter]);
+
+  useEffect(() => {
+    if (!isAdminClub) return;
+    usersService
+      .list()
+      // Solo jugadores ya aprobados en el club: es lo que la API acepta al crear.
+      .then((players) =>
+        setClubPlayers(
+          players
+            .filter((p) => p.clubStatus === UserClubStatus.Aprobado)
+            .map((p) => ({ value: p.id, label: playerFullName(p) })),
+        ),
+      )
+      .catch(console.error);
+  }, [isAdminClub]);
 
   const handleStartMatch = async () => {
     setCreating(true);
@@ -90,6 +133,7 @@ export const AnalisisList = () => {
         matchType: matchType as ManualMatchType,
         location: 'Casa',
         format: matchFormat as MatchFormat,
+        ...(analyzeTo ? { playerId: analyzeTo } : {}),
         analysisType: (initialStatus === 'Programado' ? 'Rapido' : analysisType) as AnalysisType,
         opponentHand: opponentHand as DominantHand | null,
         opponentStyle: opponentStyle as Playstyle | null,
@@ -158,6 +202,25 @@ export const AnalisisList = () => {
             </Tabs.Tab>
           </Tabs.List>
         </Tabs>
+        {isAdminClub && (
+          <Select
+            aria-label="Filtrar por jugador"
+            placeholder="Todos los jugadores"
+            leftSection={<IconUser size={16} />}
+            data={clubPlayers}
+            value={playerFilter}
+            onChange={(val) => {
+              // La lista anterior pertenece al filtro anterior: no debe verse mientras llega la nueva.
+              setMatches([]);
+              setLoading(true);
+              setPlayerFilter(val);
+              setPage(1);
+            }}
+            searchable
+            clearable
+            style={{ width: 220 }}
+          />
+        )}
         <TextInput
           placeholder="Buscar rival..."
           leftSection={<IconSearch size={16} />}
@@ -216,6 +279,11 @@ export const AnalisisList = () => {
                           >
                             {m.status}
                           </Badge>
+                          {isAdminClub && m.user && m.userId !== user?.id && (
+                            <Badge color="grape" variant="outline">
+                              {`Jugador: ${playerFullName(m.user)}`}
+                            </Badge>
+                          )}
                         </Group>
                         <Text c="dimmed" size="sm">
                           {m.date ? new Date(m.date).toLocaleDateString('es-ES') : 'Sin fecha'} ·
@@ -270,6 +338,18 @@ export const AnalisisList = () => {
             onChange={setInitialStatus}
             color={initialStatus === 'Programado' ? 'orange' : 'blue'}
           />
+
+          {isAdminClub && (
+            <Select
+              label="Analizar a"
+              placeholder="Yo (análisis propio)"
+              data={clubPlayers}
+              value={analyzeTo}
+              onChange={setAnalyzeTo}
+              searchable
+              clearable
+            />
+          )}
 
           <SimpleGrid cols={2}>
             <DateInput

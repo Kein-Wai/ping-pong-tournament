@@ -213,10 +213,23 @@ export interface ManualMatchPoint {
   comment?: string | null;
 }
 
+/** Jugador analizado en un partido manual, tal como lo incluye el listado. */
+export interface ManualMatchPlayer {
+  id: string;
+  name: string;
+  surname?: string | null;
+  nickname?: string | null;
+}
+
 /** Partido manual (analisis de puntos). */
 export interface ManualMatch {
   id: string;
+  /** Dueño del análisis: el jugador analizado (el propio usuario o un jugador de su club). */
   userId?: string;
+  /** Entrenador que lo creó para el jugador; vacío si es un análisis propio. */
+  coachId?: string | null;
+  /** Solo en el listado. */
+  user?: ManualMatchPlayer;
   seasonId?: string | null;
   date: string;
   location: MatchLocation;

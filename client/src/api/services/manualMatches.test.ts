@@ -35,6 +35,24 @@ describe('manualMatchesService', () => {
       expect(result).toHaveLength(1);
     });
 
+    it('list filtra por jugador enviando playerId como query', async () => {
+      mockedApi.get.mockResolvedValue(envelope([{ id: 'm1' }]));
+
+      await manualMatchesService.list({ playerId: 'p1' });
+
+      expect(mockedApi.get).toHaveBeenCalledWith(ENDPOINTS.MANUAL_MATCHES.BASE, {
+        params: { playerId: 'p1' },
+      });
+    });
+
+    it('list sin filtro no envía parámetros', async () => {
+      mockedApi.get.mockResolvedValue(envelope([]));
+
+      await manualMatchesService.list({});
+
+      expect(mockedApi.get).toHaveBeenCalledWith(ENDPOINTS.MANUAL_MATCHES.BASE, undefined);
+    });
+
     it('byId pide el partido con sus puntos', async () => {
       mockedApi.get.mockResolvedValue(envelope({ id: 'm1', points: [{ id: 'pt1' }] }));
 
@@ -74,6 +92,26 @@ describe('manualMatchesService', () => {
 
       expect(mockedApi.post).toHaveBeenCalledWith(ENDPOINTS.MANUAL_MATCHES.BASE, payload, undefined);
       expect(result.id).toBe('m9');
+    });
+  });
+
+  describe('create para un jugador', () => {
+    it('envía playerId para que el entrenador analice a un jugador de su club', async () => {
+      mockedApi.post.mockResolvedValue(envelope({ id: 'm9' }));
+
+      await manualMatchesService.create({
+        opponentName: 'Rival',
+        matchType: 'Amistoso',
+        location: 'Casa',
+        format: 'Individual',
+        playerId: 'p1',
+      });
+
+      expect(mockedApi.post).toHaveBeenCalledWith(
+        ENDPOINTS.MANUAL_MATCHES.BASE,
+        expect.objectContaining({ playerId: 'p1' }),
+        undefined,
+      );
     });
   });
 
