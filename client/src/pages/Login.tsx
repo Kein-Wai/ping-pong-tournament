@@ -21,6 +21,7 @@ import LOGIN_BG from '../assets/login-bg.jpg';
 
 export const Login = () => {
   const login = useAuthStore((state) => state.login);
+  const fetchProfile = useAuthStore((state) => state.fetchProfile);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<string | null>('login');
@@ -112,6 +113,8 @@ export const Login = () => {
     };
 
     login(token, loggedUser, refreshToken);
+    // El token solo trae id, rol y club: nombre, apellido y mote llegan del perfil.
+    void fetchProfile();
     navigate(APP_ROUTES.HOME);
   };
 

@@ -16,6 +16,7 @@ import { Login } from './Login';
 vi.mock('../api/axios', () => ({
   api: {
     post: vi.fn(),
+    get: vi.fn(),
   },
 }));
 
@@ -139,6 +140,8 @@ describe('Login', () => {
     useAuthStore.setState({ token: null, user: null, isAuthenticated: false });
     localStorage.clear();
     vi.mocked(api.post).mockResolvedValue(tokenResponse() as never);
+    // Por defecto el perfil no llega: estos tests miran el usuario que sale del token.
+    vi.mocked(api.get).mockReturnValue(new Promise(() => undefined) as never);
   });
 
   afterEach(() => {
@@ -187,6 +190,28 @@ describe('Login', () => {
           { email: 'ana@test.com', password: 'Secreto1@' },
           undefined,
         ),
+      );
+    });
+
+    it('completa nombre y apellido con el perfil cuando el token solo trae id, rol y club', async () => {
+      vi.mocked(api.post).mockResolvedValue(
+        tokenResponse({ id: 'u1', email: 'ana@test.com', role: 'Player' }) as never,
+      );
+      renderPage();
+      fillLogin();
+
+      vi.mocked(api.get).mockResolvedValue({
+        data: {
+          success: true,
+          data: { id: 'u1', name: 'Ana', surname: 'Gil', userType: { name: 'Player' } },
+        },
+      } as never);
+
+      submitLogin();
+
+      await screen.findByText('Pantalla de inicio');
+      await waitFor(() =>
+        expect(useAuthStore.getState().user).toMatchObject({ name: 'Ana', surname: 'Gil' }),
       );
     });
 
