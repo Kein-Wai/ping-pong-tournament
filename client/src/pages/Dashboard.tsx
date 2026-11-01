@@ -34,6 +34,7 @@ import {
   IconUsers,
 } from '@tabler/icons-react';
 import { APP_ROUTES } from '../constants/routes';
+import { playerFullName } from '../utils/leagueView';
 import type { ClubDetails, ClubTeam, Season } from '../types/api';
 import type { DashboardPlayer, UpcomingTeamMatch } from '../types/dashboard';
 
@@ -104,8 +105,7 @@ export const Dashboard = () => {
         <Group justify="space-between" align="center">
           <Stack gap={4}>
             <Title order={2}>
-              ¡Bienvenido de nuevo,{' '}
-              {user?.nickname ? user?.nickname : `${user?.name} ${user?.surname || ''}`}!
+              ¡Bienvenido de nuevo, {playerFullName(user)}!
             </Title>
             <Group gap="xs" mt={4}>
               <Badge variant="light" color={isAdminClub ? 'orange' : 'blue'}>
