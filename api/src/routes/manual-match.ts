@@ -6,40 +6,66 @@ import {
   addPointSchema,
   completeMatchSchema,
   updateManualMatchSchema,
+  listManualMatchesQuerySchema,
 } from '../schemas/manualMatch';
-import { MatchStatus } from '@prisma/client';
+import { MatchStatus, type Prisma } from '@prisma/client';
 import { resolveCurrentSeason } from '../utils/season';
 import { calculateSkillGrowth } from '../utils/skills';
 import { getPlayerCurrentSkills } from '../utils/stats';
 import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
+import type { UserPayload } from '../middleware/auth.middleware';
+import {
+  canManageManualMatch,
+  isApprovedClubAdmin,
+  managedPlayerWhere,
+  manualMatchOwnershipSelect,
+} from '../utils/manual-match-access';
 
 const router = Router();
 
 /**
- * Los partidos manuales son personales: solo su propietario los modifica. Si el
- * partido no existe o es de otro responde igual (404), para no revelar que existe.
+ * Un partido manual lo gestiona su propietario (el jugador analizado) y los AdminClub
+ * de su club. Devuelve el propietario si `actor` puede gestionarlo y `null` si no
+ * existe o no tiene acceso: ambos casos responden igual (404) para no revelar que existe.
  */
-const isOwnMatch = async (matchId: string, userId: string | undefined): Promise<boolean> => {
-  if (!userId) return false;
+const findManageableOwnerId = async (
+  matchId: string,
+  actor: UserPayload | undefined,
+): Promise<string | null> => {
+  if (!actor) return null;
   const match = await prisma.manualMatch.findUnique({
     where: { id: matchId },
-    select: { userId: true },
+    select: manualMatchOwnershipSelect,
   });
-  return match?.userId === userId;
+  return match && canManageManualMatch(match, actor) ? match.userId : null;
 };
 
 const NOT_FOUND_MESSAGE = 'Partido no encontrado o sin acceso';
 
-// 1. Obtener todos los partidos manuales del usuario logueado
+// 1. Obtener los partidos manuales del usuario logueado; el AdminClub, además, los de los jugadores de su club
 router.get('/', asyncHandler(async (req, res) => {
   const userId = req.user?.id;
   if (!userId) return sendError(res, 401, 'No autorizado');
 
+  const query = listManualMatchesQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(query.error));
+  }
+
+  // El club sale del token. El filtro por jugador se suma con AND: solo puede reducir el alcance.
+  const scope: Prisma.ManualMatchWhereInput = isApprovedClubAdmin(req.user)
+    ? {
+        OR: [{ userId }, { user: managedPlayerWhere(req.user.clubId) }],
+      }
+    : { userId };
+  const { playerId } = query.data;
+
   const matches = await prisma.manualMatch.findMany({
-    where: { userId },
+    where: playerId ? { AND: [scope, { userId: playerId }] } : scope,
     orderBy: { date: 'desc' },
     include: {
       _count: { select: { points: true } }, // Cuenta cuántos puntos se registraron
+      user: { select: { id: true, name: true, surname: true, nickname: true } }, // Jugador analizado
     },
   });
 
@@ -56,14 +82,31 @@ router.post('/', asyncHandler(async (req, res) => {
   if (!validation.success) {
     return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
   }
+  const { playerId, ...matchData } = validation.data;
+
+  // Con `playerId` el entrenador analiza a un jugador de su club: el análisis es del jugador.
+  const isCoachAnalysis = !!playerId && playerId !== userId;
+  if (isCoachAnalysis) {
+    if (!isApprovedClubAdmin(req.user)) {
+      return sendError(res, 403, 'Solo el entrenador de un club aprobado puede analizar a un jugador');
+    }
+    // El club sale del token, nunca del body.
+    const player = await prisma.user.findFirst({
+      where: { id: playerId, ...managedPlayerWhere(req.user.clubId) },
+      select: { id: true },
+    });
+    if (!player) return sendError(res, 404, 'Jugador no encontrado en tu club');
+  }
+
   const currentSeason = await resolveCurrentSeason(prisma);
   const newMatch = await prisma.manualMatch.create({
     data: {
-      ...validation.data,
-      userId,
+      ...matchData,
+      userId: isCoachAnalysis ? playerId : userId,
+      coachId: isCoachAnalysis ? userId : undefined,
       seasonId: currentSeason.id,
-      date: validation.data.date ? new Date(validation.data.date) : new Date(),
-      status: validation.data.status || MatchStatus.Iniciado,
+      date: matchData.date ? new Date(matchData.date) : new Date(),
+      status: matchData.status || MatchStatus.Iniciado,
     },
   });
 
@@ -77,10 +120,11 @@ router.get('/:id', asyncHandler(async (req, res) => {
     where: { id: req.params.id as string },
     include: {
       points: { orderBy: { pointOrder: 'asc' } }, // Puntos ordenados cronológicamente
+      user: manualMatchOwnershipSelect.user,
     },
   });
 
-  if (!match || match.userId !== req.user?.id) {
+  if (!match || !canManageManualMatch(match, req.user)) {
     return sendError(res, 404, 'Partido no encontrado o sin acceso');
   }
 
@@ -89,7 +133,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }, 'Error al obtener el partido', 500));
 
 router.put('/:id', asyncHandler(async (req, res) => {
-  if (!(await isOwnMatch(req.params.id as string, req.user?.id))) {
+  if (!(await findManageableOwnerId(req.params.id as string, req.user))) {
     return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 
@@ -112,7 +156,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
 
 // 4. Añadir un punto al partido (Se llama cada vez que el árbitro toca un botón)
 router.post('/:id/points', asyncHandler(async (req, res) => {
-  if (!(await isOwnMatch(req.params.id as string, req.user?.id))) {
+  if (!(await findManageableOwnerId(req.params.id as string, req.user))) {
     return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 
@@ -134,15 +178,18 @@ router.post('/:id/points', asyncHandler(async (req, res) => {
 
 // 5. Botón de Pánico: Deshacer el último punto
 router.delete('/:id/points/:pointId', asyncHandler(async (req, res) => {
-  // El punto debe ser del partido indicado y ese partido, del usuario.
+  // El punto debe ser del partido indicado y ese partido, gestionable por el usuario.
   const point = await prisma.pointAnalysis.findUnique({
     where: { id: req.params.pointId as string },
-    select: { manualMatchId: true, match: { select: { userId: true } } },
+    select: {
+      manualMatchId: true,
+      match: { select: manualMatchOwnershipSelect },
+    },
   });
   if (
     !point ||
     point.manualMatchId !== req.params.id ||
-    point.match.userId !== req.user?.id
+    !canManageManualMatch(point.match, req.user)
   ) {
     return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
@@ -157,14 +204,14 @@ router.delete('/:id/points/:pointId', asyncHandler(async (req, res) => {
 // 6. Finalizar el partido (Se llama al terminar el último set)
 // 6. Finalizar el partido (Se llama al terminar el último set)
 router.put('/:id/complete', asyncHandler(async (req, res) => {
-  const userId = req.user?.id;
-  if (!userId) return sendError(res, 401, 'No autorizado');
+  if (!req.user?.id) return sendError(res, 401, 'No autorizado');
 
   const validation = completeMatchSchema.safeParse(req.body);
   if (!validation.success) return sendError(res, 400, 'Datos inválidos');
 
-  // Las estadísticas se suman al usuario: el partido tiene que ser suyo.
-  if (!(await isOwnMatch(req.params.id as string, userId))) {
+  // Las estadísticas se suman al dueño del análisis (el jugador), lo finalice él o su entrenador.
+  const userId = await findManageableOwnerId(req.params.id as string, req.user);
+  if (!userId) {
     return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 

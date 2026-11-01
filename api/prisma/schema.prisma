@@ -338,8 +338,9 @@ model User {
   tournamentgroupClasifications TournamentClas[]
   trainings                     PlayerTraining[]
   trainingSessions              TrainingSession[]
-  manualMatches                 ManualMatch[]
-  skills                        PlayerSkills[]      
+  manualMatches                 ManualMatch[]      @relation("ManualMatchOwner")
+  coachedManualMatches          ManualMatch[]      @relation("ManualMatchCoach")
+  skills                        PlayerSkills[]
   skillUpdates                  PlayerSkillUpdate[]
   generalAttendances            GeneralTrainingAttendance[]
   teams                         Team[]
@@ -677,6 +678,8 @@ model LeagueClas {
 model ManualMatch {
   id              String           @id @default(uuid())
   userId          String           @map("user_id")
+  // Entrenador (AdminClub) que creó el análisis para el jugador `userId`; null si es propio.
+  coachId         String?          @map("coach_id")
   seasonId        String?          @map("season_id")
   date            DateTime         @db.Date
   location        MatchLocation
@@ -700,7 +703,8 @@ model ManualMatch {
   planningNotes    String?        @db.Text
   
   // Relaciones
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User             @relation("ManualMatchOwner", fields: [userId], references: [id], onDelete: Cascade)
+  coach           User?            @relation("ManualMatchCoach", fields: [coachId], references: [id], onDelete: SetNull)
   season          Season?          @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   points          PointAnalysis[]
   setScores       Json? // Ejemplo de lo que guardará: [{ myScore: 11, oppScore: 8 }, { myScore: 12, oppScore: 14 }]

@@ -283,7 +283,7 @@ export const MainLayout = () => {
       label: 'Análisis Pro',
       icon: IconReportAnalytics,
       path: APP_ROUTES.ANALISIS.LIST,
-      show: !!user?.id && isPlayer,
+      show: !!user?.id && (isPlayer || isAdminClub),
     },
     {
       label: 'Calentamiento',

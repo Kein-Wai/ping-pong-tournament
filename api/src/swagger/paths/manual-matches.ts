@@ -1,16 +1,32 @@
 import { requestBodyFromSchema } from '../zod-schema';
-import { addPointSchema } from '../../schemas/manualMatch';
+import { addPointSchema, createManualMatchSchema } from '../../schemas/manualMatch';
 export const manual_matchesPaths = {
       '/api/manual-matches': {
         get: {
-          summary: 'Listar partidos de análisis del usuario',
+          summary:
+            'Listar partidos de análisis del usuario; el AdminClub (club aprobado) recibe además los de los jugadores de su club',
           tags: ['Manual Matches'],
+          parameters: [
+            {
+              name: 'playerId',
+              in: 'query',
+              required: false,
+              description: 'Filtra por jugador analizado. Nunca amplía lo que el usuario puede ver.',
+              schema: { type: 'string' },
+            },
+          ],
           responses: { 200: { description: 'Partidos obtenidos' } },
         },
         post: {
-          summary: 'Crear un partido de análisis',
+          requestBody: requestBodyFromSchema(createManualMatchSchema),
+          summary:
+            'Crear un partido de análisis; con playerId, un AdminClub de club aprobado lo crea para un jugador de su club',
           tags: ['Manual Matches'],
-          responses: { 201: { description: 'Partido creado' } },
+          responses: {
+            201: { description: 'Partido creado' },
+            403: { description: 'Solo el entrenador de un club aprobado puede analizar a un jugador' },
+            404: { description: 'Jugador no encontrado en el club' },
+          },
         },
       },
       '/api/manual-matches/{id}': {

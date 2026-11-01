@@ -15,6 +15,8 @@ import {
 } from '@prisma/client';
 
 export const createManualMatchSchema = z.object({
+  // Jugador analizado cuando el análisis lo crea su entrenador; sin él es un análisis propio.
+  playerId: z.string().min(1).optional(),
   date: z.iso.datetime().optional(),
   location: z.enum(MatchLocation),
   matchType: z.enum(ManualMatchType),
@@ -47,6 +49,11 @@ export const createManualMatchSchema = z.object({
     .optional()
     .nullable(),
   setsToWin: z.number().int().min(1).default(3),
+});
+
+export const listManualMatchesQuerySchema = z.object({
+  // Filtra el listado por jugador analizado; nunca amplía lo que el usuario puede ver.
+  playerId: z.string().min(1).optional(),
 });
 
 export const completeMatchSchema = z.object({

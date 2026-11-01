@@ -126,6 +126,7 @@ describe('MainLayout', () => {
         'Ejercicios',
         'Historial',
         'Estadísticas',
+        'Análisis Pro',
         'Sugerencias y Bugs',
       ]);
     });

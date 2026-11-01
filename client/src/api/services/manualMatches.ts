@@ -34,6 +34,8 @@ interface OpponentPayload {
 
 /** Datos para crear un partido manual (createManualMatchSchema). */
 export interface CreateManualMatchPayload extends OpponentPayload {
+  /** Jugador de su club al que el entrenador analiza; sin él, el análisis es propio. */
+  playerId?: string;
   opponentName: string;
   matchType: ManualMatchType;
   location: MatchLocation;
@@ -79,7 +81,12 @@ export interface CompleteMatchPayload {
 }
 
 export const manualMatchesService = {
-  list: () => http.get<ManualMatch[]>(ENDPOINTS.MANUAL_MATCHES.BASE),
+  /** `playerId` filtra por jugador analizado; la API nunca amplía por él lo que el usuario puede ver. */
+  list: (filters: { playerId?: string } = {}) =>
+    http.get<ManualMatch[]>(
+      ENDPOINTS.MANUAL_MATCHES.BASE,
+      filters.playerId ? { params: { playerId: filters.playerId } } : undefined,
+    ),
 
   /** `T` deja a cada pantalla tipar el partido con la proyección que consume (puntos, tanteos, notas). */
   byId: <T = ManualMatch>(id: string) => http.get<T>(ENDPOINTS.MANUAL_MATCHES.BY_ID(id)),
