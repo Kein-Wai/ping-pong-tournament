@@ -22,7 +22,9 @@ import { DEMO_TOURNAMENTS } from './demo/tournamentSpecs';
  * El club, su admin y las dos cuentas con login propio conservan su id, así que las
  * sesiones abiertas siguen valiendo. Si la regeneración falla a medias, basta con repetir.
  */
-const prisma = new PrismaClient();
+// El tope por defecto (5 s) caduca al generar grupos contra una base remota: cada escritura
+// de la transacción suma latencia y falla con "Transaction not found".
+const prisma = new PrismaClient({ transactionOptions: { maxWait: 10_000, timeout: 120_000 } });
 
 const DEMO_CLUB_NAME = '(DEMO) Club Tenis de Mesa Castellón';
 const DEMO_ADMIN_EMAIL = 'admin@castellon.local';
