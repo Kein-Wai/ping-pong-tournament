@@ -9,10 +9,13 @@
     "build": "npx prisma generate && npx prisma db push && tsc",
     "start": "node dist/src/index.js",
     "lint": "eslint src/",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "seed:base": "tsx prisma/seeds/base.ts",
+    "seed:demo": "tsx prisma/seeds/demo.ts",
+    "seed:ctm": "tsx prisma/seeds/ctm.ts"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seeds/ctm.ts"
   },
   "keywords": [],
   "author": "",

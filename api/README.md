@@ -52,7 +52,7 @@ Este seam evita que cada ruta reimplemente la regla: las funciones
 api/
 ├── prisma/
 │   ├── schema.prisma            # 32 modelos, 33 enums, 35 tablas mapeadas a snake_case
-│   ├── baseDataAndDemo.ts       # Datos iniciales de demo
+│   ├── seeds/                   # base.ts (formatea), demo.ts (club demo), ctm.ts (club real); ayudantes en seeds/demo/
 │   └── migrations/              # Migraciones SQL versionadas
 ├── public/
 │   ├── assets/                  # Plantilla maestra de Excel
@@ -334,7 +334,9 @@ npx vitest run src/routes/match.transaction.test.ts   # un fichero
 npm run lint    # ESLint (sin avisos)
 npm run format  # Prettier (solo en ficheros nuevos)
 npx prisma migrate deploy   # aplica las migraciones pendientes
-npx prisma db seed          # datos de demo
+npm run seed:base           # VACÍA la base y crea lo básico (exige SEED_CONFIRM_WIPE=yes y SEED_SUPERADMIN_PASSWORD)
+npm run seed:demo           # refresca el club demo en su sitio
+npm run seed:ctm            # club real CTM Costa Azahar (lo mismo que npx prisma db seed)
 ```
 
 ### Con Docker Compose
