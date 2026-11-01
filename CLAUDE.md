@@ -17,7 +17,7 @@ Monorepo for a table-tennis tournament/training app. The stack, naming, security
 
 ## Commands not listed in .clinerules
 
-- Single API test: `npx vitest run src/routes/season.test.ts`; by name: `npx vitest run -t "pattern"` (`npm test` runs in watch mode). Seed: `npx prisma db seed`.
+- Single API test: `npx vitest run src/routes/season.test.ts`; by name: `npx vitest run -t "pattern"` (`npm test` runs in watch mode). Seeds: `npm run seed:base` (wipes the whole DB, needs `SEED_CONFIRM_WIPE=yes`), `seed:demo` (refreshes the demo club in place), `seed:ctm` (same as `npx prisma db seed`).
 - Client has no `test` script, but `vitest.config.ts` exists (jsdom): `npx vitest run src/hooks/useTorneoFormato.test.ts`.
 - Full stack: `docker compose up` (db :5432, api :3000, client :5173). Needs a root `.env` copied from `.env.example`. The API fails fast on startup if `JWT_SECRET`, `CRON_SECRET` or `CLIENT_URL` are missing (`api/src/config.ts`). `docker-compose.yaml` still carries some fixed values instead of reading the root `.env` (open decision D4 in `docs/PENDIENTES.md`).
 

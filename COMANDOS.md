@@ -140,7 +140,17 @@ docker compose exec api sh -c 'DIRECT_URL="$DATABASE_URL" npx prisma migrate dev
 docker compose exec api sh -c 'DIRECT_URL="$DATABASE_URL" npx prisma migrate deploy'   # aplicar las existentes
 ```
 
-**Datos de demo:** `npx prisma db seed` (en la API). **Estado:** `npx prisma migrate status`.
+**Estado de las migraciones:** `npx prisma migrate status`.
+
+**Seeds** (en `api/`, scripts en `prisma/seeds/`). Son tres y cada uno hace una sola cosa:
+
+| Comando | Qué hace | ¿Seguro en producción? |
+|---|---|---|
+| `SEED_CONFIRM_WIPE=yes SEED_SUPERADMIN_PASSWORD=... npm run seed:base` | **Vacía la base entera** y crea roles, temporada vigente, SuperAdmin y usuarios del sistema. Solo para formatear del todo. Se niega a correr sin las dos variables y muestra a qué base apunta. | **No** |
+| `npm run seed:demo` | Refresca el club demo en su sitio (conserva el club, su admin y las dos cuentas con login) y regenera su contenido. | Sí, se puede repetir |
+| `npm run seed:ctm` (o `npx prisma db seed`) | Crea el club real CTM Costa Azahar; solo borra y recrea lo de ese club. | Sí |
+
+Orden tras formatear: `seed:base` → `seed:demo` y/o `seed:ctm`. Demo y CTM fallan con un mensaje claro si faltan los datos base. Antes de lanzar uno contra producción, comprueba el nombre de la base que imprime la primera línea.
 
 **En producción:** el build de la API en Render ejecuta `prisma db push`, que sincroniza el esquema (vale mientras los datos sean de prueba; antes de tener datos reales hay que pasar a `prisma migrate deploy`). Una migración nueva debe ser **aditiva** siempre que sea posible (tablas o columnas nuevas, no borrados) para poder volver atrás sin tocar la base de datos.
 

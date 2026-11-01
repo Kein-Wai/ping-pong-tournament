@@ -1,10 +1,12 @@
-import { PrismaClient, TypeUser } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { loadBaseData } from './baseData';
 
+/**
+ * SEED CTM COSTA AZAHAR: crea el club real. Solo borra y recrea lo de ese club; el resto
+ * de la base no se toca. Necesita los datos base (`npm run seed:base`).
+ */
 const prisma = new PrismaClient();
-
-const BYE_USER_ID = '00000000-0000-0000-0000-000000000000';
-const TBD_USER_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
 const EQUIPOS = [
   { name: 'Bufanuvols', category: '2ª Autonómica G1 (FTTCV)', level: 'Intermedio' },
@@ -957,12 +959,7 @@ async function main() {
     console.log('🗑️ Datos anteriores de CTM Costa Azahar eliminados correctamente.');
   }
 
-  const adminClubRoleId = await prisma.userType.findFirst({
-    where: { name: TypeUser.AdminClub },
-  });
-  const currentSeason = await prisma.season.findFirst({
-    where: { name: 'Temporada 2026/2027' },
-  });
+  const { adminClubRoleId, playerRoleId, currentSeason } = await loadBaseData(prisma);
 
   console.log('🏢 Generando Club Principal...');
   const club = await prisma.club.create({
@@ -980,10 +977,10 @@ async function main() {
   const hashedPasswordd = await bcrypt.hash('Juli@nV@lentin@@tene@2026', 10);
   const admin = await prisma.user.create({
     data: {
-      email: 'julianlevin@hotmail.com',
+      email: 'ctmcostaazar@gmail.com',
       name: 'Julian',
       surname: 'Levin',
-      userTypeId: adminClubRoleId?.id as string,
+      userTypeId: adminClubRoleId,
       password: hashedPasswordd,
       clubId: club.id,
       clubStatus: 'Aprobado',
@@ -991,48 +988,6 @@ async function main() {
       active: true,
     },
   });
-
-  // 4. ADMINISTRADOR GLOBAL
-  // const hashedPassword = await bcrypt.hash('112233cheung', 10);
-  // await prisma.user.create({
-  //   data: {
-  //     email: 'keinwaisuperadmin@hotmail.com',
-  //     name: 'Kein-Wai',
-  //     surname: 'Cheung',
-  //     nickname: 'SuperAdmin',
-  //     userTypeId: superAdminRoleId,
-  //     password: hashedPassword,
-  //     authProvider: 'LOCAL',
-  //     active: true,
-  //   },
-  // });
-
-  // 5. USUARIOS DEL SISTEMA (EXENTO Y TBD)
-  // await prisma.user.upsert({
-  //   where: { id: BYE_USER_ID },
-  //   update: {},
-  //   create: {
-  //     id: BYE_USER_ID,
-  //     email: 'exento@torneo.local',
-  //     name: 'EXENTO',
-  //     surname: '(Pasa de ronda)',
-  //     userTypeId: playerRoleId,
-  //     active: true,
-  //   },
-  // });
-
-  // await prisma.user.upsert({
-  //   where: { id: TBD_USER_ID },
-  //   update: {},
-  //   create: {
-  //     id: TBD_USER_ID,
-  //     email: 'tbd@torneo.local',
-  //     name: 'Por',
-  //     surname: 'Determinar',
-  //     userTypeId: playerRoleId,
-  //     active: true,
-  //   },
-  // });
 
   console.log('🛡️ Generando Equipos...');
   const dbTeams: Record<string, string> = {};
@@ -1043,7 +998,7 @@ async function main() {
         category: eq.category,
         level: eq.level,
         clubId: club.id,
-        seasonId: currentSeason?.id as string,
+        seasonId: currentSeason.id,
       },
     });
     dbTeams[eq.name] = created.id;
@@ -1244,10 +1199,6 @@ async function main() {
     { name: 'Víctor', surname: '', level: 'Iniciacion', email: 'victor@tm.local' },
   ];
 
-  const playerRoleId = await prisma.userType.findFirst({
-    where: { name: TypeUser.Player },
-  });
-
   const passwordDefault = await bcrypt.hash('123456', 10);
 
   // Mapeamos los jugadores y los creamos uno a uno calculando su baseSkill
@@ -1270,7 +1221,7 @@ async function main() {
         email: jugador.email,
         name: jugador.name,
         surname: jugador.surname !== '' ? jugador.surname : undefined,
-        userTypeId: playerRoleId?.id as string,
+        userTypeId: playerRoleId,
         clubId: club.id,
         clubStatus: 'Aprobado',
         level: jugador.level as any,
@@ -1284,7 +1235,7 @@ async function main() {
 
         stats: {
           create: {
-            seasonId: currentSeason?.id as string,
+            seasonId: currentSeason.id,
             elo: eloBase,
             matchWon: 0,
             matchLost: 0,
@@ -1298,7 +1249,7 @@ async function main() {
         },
         skills: {
           create: {
-            seasonId: currentSeason?.id as string,
+            seasonId: currentSeason.id,
             derechaPlano: baseSkill,
             revesPlano: baseSkill,
             topspinDerecha: baseSkill,
@@ -1342,7 +1293,7 @@ async function main() {
         region: ev.region as any,
         color: ev.color,
         clubId: club.id,
-        seasonId: currentSeason?.id as string,
+        seasonId: currentSeason.id,
       },
     });
   }
