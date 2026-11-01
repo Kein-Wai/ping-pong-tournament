@@ -139,12 +139,21 @@ describe('Dashboard', () => {
   });
 
   describe('cabecera', () => {
-    it('saluda con el mote cuando el usuario lo tiene', async () => {
+    it('saluda con nombre y apellido aunque el usuario tenga mote', async () => {
       loginAs({ nickname: 'Luchi' });
 
       await renderLoaded();
 
-      expect(screen.getByText(/Bienvenido de nuevo, Luchi/)).toBeInTheDocument();
+      expect(screen.getByText(/Bienvenido de nuevo, Ana Pérez/)).toBeInTheDocument();
+      expect(screen.queryByText(/Luchi/)).not.toBeInTheDocument();
+    });
+
+    it('saluda solo con el nombre cuando no tiene apellido', async () => {
+      loginAs({ surname: undefined });
+
+      await renderLoaded();
+
+      expect(screen.getByText(/Bienvenido de nuevo, Ana!/)).toBeInTheDocument();
     });
 
     it('saluda con nombre y apellido cuando no tiene mote', async () => {
