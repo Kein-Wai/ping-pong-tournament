@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Network } from '@capacitor/network';
 import { useConnectivityStore } from '../store/connectivityStore';
 import { isNativeApp } from '../utils/platform';
@@ -9,11 +9,23 @@ vi.mock('@capacitor/network', () => ({
 }));
 vi.mock('../utils/platform', () => ({ isNativeApp: vi.fn() }));
 
+// Cada test deja de escuchar al terminar: los eventos de `window` son globales y se acumularían.
+const stops: Array<() => void> = [];
+const start = async () => {
+  const stop = await startConnectivityMonitoring();
+  stops.push(stop);
+  return stop;
+};
+
 type StatusListener = (status: { connected: boolean }) => void;
 
 describe('startConnectivityMonitoring', () => {
   const remove = vi.fn().mockResolvedValue(undefined);
   let emit: StatusListener;
+
+  afterEach(() => {
+    stops.splice(0).forEach((stop) => stop());
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -29,7 +41,7 @@ describe('startConnectivityMonitoring', () => {
   it('en el navegador no hace nada', async () => {
     vi.mocked(isNativeApp).mockReturnValue(false);
 
-    const stop = await startConnectivityMonitoring();
+    const stop = await start();
     stop();
 
     expect(Network.getStatus).not.toHaveBeenCalled();
@@ -39,13 +51,13 @@ describe('startConnectivityMonitoring', () => {
   it('en nativo toma el estado inicial de la red', async () => {
     vi.mocked(Network.getStatus).mockResolvedValue({ connected: false, connectionType: 'none' });
 
-    await startConnectivityMonitoring();
+    await start();
 
     expect(useConnectivityStore.getState().networkOnline).toBe(false);
   });
 
   it('actualiza el estado cuando la red cambia', async () => {
-    await startConnectivityMonitoring();
+    await start();
 
     emit({ connected: false });
     expect(useConnectivityStore.getState().networkOnline).toBe(false);
@@ -55,7 +67,7 @@ describe('startConnectivityMonitoring', () => {
   });
 
   it('al parar deja de escuchar', async () => {
-    const stop = await startConnectivityMonitoring();
+    const stop = await start();
 
     stop();
 
@@ -65,7 +77,7 @@ describe('startConnectivityMonitoring', () => {
   it('si no se puede leer el estado inicial, supone que hay red y sigue escuchando', async () => {
     vi.mocked(Network.getStatus).mockRejectedValue(new Error('plugin no disponible'));
 
-    await startConnectivityMonitoring();
+    await start();
 
     expect(useConnectivityStore.getState().networkOnline).toBe(true);
     expect(Network.addListener).toHaveBeenCalledTimes(1);
@@ -78,7 +90,7 @@ describe('startConnectivityMonitoring', () => {
         resolveStatus = resolve;
       }),
     );
-    const started = startConnectivityMonitoring();
+    const started = start();
     let known = false;
     void whenConnectivityKnown().then(() => {
       known = true;
@@ -101,10 +113,57 @@ describe('startConnectivityMonitoring', () => {
 
   it('el interruptor «Trabajar offline» no lo toca la red', async () => {
     useConnectivityStore.getState().setWorkOffline(true);
-    await startConnectivityMonitoring();
+    await start();
 
     emit({ connected: true });
 
     expect(useConnectivityStore.getState().workOffline).toBe(true);
+  });
+
+  describe('señales de respaldo del WebView', () => {
+    it('si el sistema avisa de que se perdió la red (modo avión), pasa a sin conexión', async () => {
+      await start();
+
+      window.dispatchEvent(new Event('offline'));
+
+      expect(useConnectivityStore.getState().networkOnline).toBe(false);
+    });
+
+    it('al volver la red del sistema, relee el estado real del móvil', async () => {
+      vi.mocked(Network.getStatus).mockResolvedValue({ connected: false, connectionType: 'none' });
+      await start();
+      vi.mocked(Network.getStatus).mockResolvedValue({ connected: true, connectionType: 'wifi' });
+
+      window.dispatchEvent(new Event('online'));
+      await vi.waitFor(() => expect(useConnectivityStore.getState().networkOnline).toBe(true));
+    });
+
+    it('al volver a la app desde segundo plano relee el estado de la red', async () => {
+      await start();
+      vi.mocked(Network.getStatus).mockResolvedValue({ connected: false, connectionType: 'none' });
+
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      await vi.waitFor(() => expect(useConnectivityStore.getState().networkOnline).toBe(false));
+    });
+
+    it('al parar deja de escuchar esas señales', async () => {
+      const stop = await start();
+      stop();
+
+      window.dispatchEvent(new Event('offline'));
+
+      expect(useConnectivityStore.getState().networkOnline).toBe(true);
+    });
+
+    it('si el plugin de red falla al escuchar, las señales de respaldo siguen funcionando', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.mocked(Network.addListener).mockRejectedValue(new Error('plugin no disponible'));
+
+      await start();
+      window.dispatchEvent(new Event('offline'));
+
+      expect(useConnectivityStore.getState().networkOnline).toBe(false);
+    });
   });
 });
