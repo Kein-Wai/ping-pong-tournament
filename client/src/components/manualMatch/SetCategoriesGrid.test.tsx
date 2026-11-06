@@ -28,23 +28,45 @@ describe('SetCategoriesGrid', () => {
     expect(screen.getByText('A Mejorar')).toBeInTheDocument();
   });
 
-  it('lista los puntos ganados con su cuenta, de más a menos frecuente', () => {
+  it('lista los puntos ganados de más a menos frecuente', () => {
     renderGrid();
 
     const won = within(columnOf('Tus Fortalezas'));
     const labels = won.getAllByText(/Servicio|Ataque/).map((el) => el.textContent);
     expect(labels).toEqual(['Servicio > Cortado (Derecha)', 'Ataque']);
-    expect(won.getByText('5')).toBeInTheDocument();
-    expect(won.getByText('2')).toBeInTheDocument();
   });
 
-  it('lista los puntos perdidos en su propia columna', () => {
+  it('cada habilidad ganada muestra su % entre los ganados y su % entre todos los puntos', () => {
+    renderGrid();
+
+    const won = within(columnOf('Tus Fortalezas'));
+    // 5 de 7 ganados = 71 %, 5 de 8 puntos = 63 %; 2 de 7 = 29 %, 2 de 8 = 25 %.
+    expect(won.getByText('71% · 63%')).toBeInTheDocument();
+    expect(won.getByText('29% · 25%')).toBeInTheDocument();
+  });
+
+  it('lista los puntos perdidos en su propia columna, con sus porcentajes', () => {
     renderGrid();
 
     const lost = within(columnOf('A Mejorar'));
     expect(lost.getByText('FalloSaque')).toBeInTheDocument();
-    expect(lost.getByText('1')).toBeInTheDocument();
+    // 1 de 1 perdido = 100 %, 1 de 8 puntos = 13 %.
+    expect(lost.getByText('100% · 13%')).toBeInTheDocument();
     expect(lost.queryByText('Ataque')).not.toBeInTheDocument();
+  });
+
+  it('ya no enseña los puntos en absoluto', () => {
+    renderGrid();
+
+    expect(screen.queryByText('5')).not.toBeInTheDocument();
+    expect(screen.queryByText('2')).not.toBeInTheDocument();
+  });
+
+  it('cada columna explica qué es cada porcentaje', () => {
+    renderGrid();
+
+    expect(within(columnOf('Tus Fortalezas')).getByText('% de ganados · % del total')).toBeInTheDocument();
+    expect(within(columnOf('A Mejorar')).getByText('% de perdidos · % del total')).toBeInTheDocument();
   });
 
   it('una columna sin puntos dice «Ninguno»', () => {

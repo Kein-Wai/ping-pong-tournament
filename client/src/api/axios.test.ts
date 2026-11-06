@@ -15,6 +15,39 @@ vi.mock('@mantine/notifications', () => ({
  */
 vi.mock('./session', () => ({ refreshSession: vi.fn().mockResolvedValue(null) }));
 
+describe('Aviso de éxito (client/src/api/axios.ts)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /** Dispara el interceptor de respuesta correcta con la petición que se indica. */
+  const succeedWith = (config: Record<string, unknown>) => {
+    const handler = api.interceptors.response.handlers?.[0]?.fulfilled;
+    if (!handler) throw new Error('El interceptor de respuesta no tiene manejador de éxito.');
+    return handler({ config, data: { success: true, message: 'Hecho' } } as never);
+  };
+
+  it('avisa al usuario cuando una mutación sale bien', async () => {
+    await succeedWith({ method: 'post', url: '/users' });
+
+    expect(notifications.show).toHaveBeenCalledWith(
+      expect.objectContaining({ color: 'green', message: 'Hecho' }),
+    );
+  });
+
+  it('no avisa cuando la petición pide éxito silencioso', async () => {
+    await succeedWith({ method: 'post', url: '/points', silentSuccess: true });
+
+    expect(notifications.show).not.toHaveBeenCalled();
+  });
+
+  it('el éxito silencioso devuelve igualmente la respuesta', async () => {
+    const response = await succeedWith({ method: 'delete', url: '/points/1', silentSuccess: true });
+
+    expect(response).toMatchObject({ data: { success: true } });
+  });
+});
+
 describe('Interceptor de errores (client/src/api/axios.ts)', () => {
   beforeEach(() => {
     vi.clearAllMocks();

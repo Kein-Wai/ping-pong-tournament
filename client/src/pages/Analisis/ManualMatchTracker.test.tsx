@@ -588,7 +588,7 @@ describe('ManualMatchTracker', () => {
             subcategory: 'Cortado',
             placement: 'Derecha',
           },
-          undefined,
+          { silentSuccess: true },
         ),
       );
       expect(await screen.findByText('#1')).toBeInTheDocument();
@@ -613,7 +613,7 @@ describe('ManualMatchTracker', () => {
             subcategory: null,
             placement: null,
           },
-          undefined,
+          { silentSuccess: true },
         ),
       );
     });
@@ -638,7 +638,7 @@ describe('ManualMatchTracker', () => {
             subcategory: 'Topeado',
             placement: 'Reves',
           },
-          undefined,
+          { silentSuccess: true },
         ),
       );
       expect(await screen.findByText('Topeado (Reves)')).toBeInTheDocument();
@@ -710,7 +710,7 @@ describe('ManualMatchTracker', () => {
       await waitFor(() =>
         expect(api.delete).toHaveBeenCalledWith(
           ENDPOINTS.MANUAL_MATCHES.DELETE_POINT('m1', 'pt-1-2'),
-          undefined,
+          { silentSuccess: true },
         ),
       );
       await waitFor(() => expect(screen.queryByText('#2')).not.toBeInTheDocument());
@@ -793,8 +793,10 @@ describe('ManualMatchTracker', () => {
       const dialog = within(screen.getByRole('dialog'));
       expect(dialog.getByText('Tus Fortalezas (Ganados)')).toBeInTheDocument();
       expect(dialog.getByText('Servicio')).toBeInTheDocument();
-      expect(dialog.getByText('10')).toBeInTheDocument();
+      // 10 de 11 ganados = 91 % (y de 11 puntos, igual); el punto final, 1 de 11 = 9 %.
+      expect(dialog.getByText('91% · 91%')).toBeInTheDocument();
       expect(dialog.getByText('SinRazon')).toBeInTheDocument();
+      expect(dialog.getByText('9% · 9%')).toBeInTheDocument();
       expect(dialog.getByText('Ninguno')).toBeInTheDocument();
     });
 
@@ -832,7 +834,7 @@ describe('ManualMatchTracker', () => {
       await waitFor(() =>
         expect(api.delete).toHaveBeenCalledWith(
           ENDPOINTS.MANUAL_MATCHES.DELETE_POINT('m1', 'new-1'),
-          undefined,
+          { silentSuccess: true },
         ),
       );
       await waitFor(() => expect(screen.queryByText('¡Set Finalizado!')).not.toBeInTheDocument());
@@ -916,9 +918,12 @@ describe('ManualMatchTracker', () => {
       expect(screen.getByText(/Resultado: Ganaste/)).toBeInTheDocument();
       const dialog = within(screen.getByRole('dialog'));
       expect(dialog.getByText('Servicio > Cortado (Derecha)')).toBeInTheDocument();
-      expect(dialog.getByText('8')).toBeInTheDocument();
+      // 8 de 11 ganados = 73 %, 8 de 13 puntos = 62 %.
+      expect(dialog.getByText('73% · 62%')).toBeInTheDocument();
       expect(dialog.getByText('Ataque')).toBeInTheDocument();
       expect(dialog.getByText('FalloSaque')).toBeInTheDocument();
+      // 2 de 2 perdidos = 100 %, 2 de 13 puntos = 15 %.
+      expect(dialog.getByText('100% · 15%')).toBeInTheDocument();
     });
 
     it('«Cerrar Resumen» lo cierra', async () => {
@@ -937,6 +942,49 @@ describe('ManualMatchTracker', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Set 2' }));
 
       expect(screen.queryByText('Resumen del Set 2')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('total del partido', () => {
+    // Set 1: 11-2 con 8 saques y 3 ataques ganados; set 2 en curso: 1 ataque ganado y 1 fallo.
+    const withTwoSets = () =>
+      makeMatch({
+        mySets: 1,
+        points: [
+          ...Array.from({ length: 8 }, (_, i) => point(1, i + 1, true, { category: 'Servicio' })),
+          ...Array.from({ length: 3 }, (_, i) => point(1, 9 + i, true, { category: 'Ataque' })),
+          ...Array.from({ length: 2 }, (_, i) =>
+            point(1, 12 + i, false, { category: 'FalloSaque' }),
+          ),
+          point(2, 1, true, { category: 'Ataque' }),
+          point(2, 2, false, { category: 'FalloSaque' }),
+        ],
+      });
+
+    it('«Total» suma los puntos de todos los sets, incluido el que se juega', async () => {
+      await renderTracker(withTwoSets());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Total' }));
+
+      expect(await screen.findByText('Total del partido')).toBeInTheDocument();
+      const dialog = within(screen.getByRole('dialog'));
+      expect(dialog.getByText('Puntos del partido: 12 - 3')).toBeInTheDocument();
+      // Servicio: 8 de 12 ganados = 67 %, 8 de 15 puntos = 53 %.
+      expect(dialog.getByText('67% · 53%')).toBeInTheDocument();
+      // Ataque: 4 de 12 = 33 %, 4 de 15 = 27 %.
+      expect(dialog.getByText('33% · 27%')).toBeInTheDocument();
+      // FalloSaque: 3 de 3 perdidos = 100 %, 3 de 15 = 20 %.
+      expect(dialog.getByText('100% · 20%')).toBeInTheDocument();
+    });
+
+    it('«Cerrar Resumen» lo cierra', async () => {
+      await renderTracker(withTwoSets());
+      fireEvent.click(screen.getByRole('button', { name: 'Total' }));
+      await screen.findByText('Total del partido');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cerrar Resumen' }));
+
+      await waitFor(() => expect(screen.queryByText('Total del partido')).not.toBeInTheDocument());
     });
   });
 

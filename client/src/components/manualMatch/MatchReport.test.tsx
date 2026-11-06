@@ -112,6 +112,27 @@ describe('MatchReport', () => {
     expect(screen.getByText('Derecha (Centro)')).toBeInTheDocument();
   });
 
+  it('en modo profundo con puntos resume todo el partido en porcentajes', () => {
+    const points: TrackedPoint[] = [
+      { id: 'a', setNumber: 1, pointOrder: 1, isWon: true, category: 'Ataque', subcategory: 'Derecha' },
+      { id: 'b', setNumber: 2, pointOrder: 1, isWon: true, category: 'Ataque', subcategory: 'Derecha' },
+      { id: 'c', setNumber: 2, pointOrder: 2, isWon: false },
+    ];
+    renderReport({ match: { ...MATCH, analysisType: 'Extenso' }, points });
+
+    expect(screen.getByText('Resumen Global')).toBeInTheDocument();
+    // 2 de 2 ganados = 100 %, 2 de 3 puntos = 67 %.
+    expect(screen.getByText('100% · 67%')).toBeInTheDocument();
+    // 1 de 1 perdido = 100 %, 1 de 3 puntos = 33 %.
+    expect(screen.getByText('100% · 33%')).toBeInTheDocument();
+  });
+
+  it('en modo rápido no muestra el resumen global', () => {
+    renderReport({ points: POINTS });
+
+    expect(screen.queryByText('Resumen Global')).not.toBeInTheDocument();
+  });
+
   it('en modo rápido no muestra el desglose aunque haya puntos', () => {
     renderReport({ points: POINTS });
 

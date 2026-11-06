@@ -13,7 +13,17 @@ const AUTH_URLS = [
   ENDPOINTS.AUTH.LOGOUT,
 ];
 
-type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /**
+     * Omite el aviso verde de «Operación exitosa». Para acciones muy frecuentes cuyo
+     * resultado ya se ve en pantalla (p. ej. cada punto del análisis); los errores se avisan igual.
+     */
+    silentSuccess?: boolean;
+  }
+}
+
+type RetriableConfig =InternalAxiosRequestConfig & { _retried?: boolean };
 
 // Quien cierra la sesión lo registra main.tsx: importar el store aquí cerraba el ciclo
 // axios → authStore → servicios → client → axios.
@@ -41,10 +51,10 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    const { method } = response.config;
+    const { method, silentSuccess } = response.config;
 
     // Si la operación modifica datos (POST, PUT, DELETE) y es exitosa
-    if (method && ['post', 'put', 'delete'].includes(method.toLowerCase())) {
+    if (!silentSuccess && method && ['post', 'put', 'delete'].includes(method.toLowerCase())) {
       notifications.show({
         title: 'Operación exitosa',
         message: response.data?.message || 'La acción se ha procesado correctamente.',

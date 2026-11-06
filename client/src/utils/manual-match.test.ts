@@ -6,12 +6,14 @@ import {
   formatPlanningText,
   getActiveSet,
   getPointLabel,
+  getMatchSummary,
   getReportSetScores,
   getSetSummary,
   getSortedCategories,
   isReadyToComplete,
   parsePlanningNotes,
   resizeSetScores,
+  toPercent,
   toSetScorePayload,
 } from './manual-match';
 
@@ -92,6 +94,50 @@ describe('getSetSummary', () => {
       myScore: 0,
       oppScore: 0,
     });
+  });
+});
+
+describe('getMatchSummary', () => {
+  it('suma los puntos de todos los sets', () => {
+    const points = [
+      point(1, 1, true, { category: 'Ataque' }),
+      point(1, 2, false, { category: 'FalloSaque' }),
+      point(2, 1, true, { category: 'Ataque' }),
+      point(2, 2, true, { category: 'Servicio', subcategory: 'Cortado', placement: 'Derecha' }),
+      point(2, 3, false, { category: 'FalloSaque' }),
+    ];
+
+    expect(getMatchSummary(points)).toEqual({
+      wonCategories: { Ataque: 2, 'Servicio > Cortado (Derecha)': 1 },
+      lostCategories: { FalloSaque: 2 },
+      myScore: 3,
+      oppScore: 2,
+    });
+  });
+
+  it('un partido sin puntos está vacío', () => {
+    expect(getMatchSummary([])).toEqual({
+      wonCategories: {},
+      lostCategories: {},
+      myScore: 0,
+      oppScore: 0,
+    });
+  });
+});
+
+describe('toPercent', () => {
+  it('redondea al entero más cercano', () => {
+    expect(toPercent(1, 3)).toBe(33);
+    expect(toPercent(2, 3)).toBe(67);
+  });
+
+  it('la totalidad es 100 y la mitad 50', () => {
+    expect(toPercent(5, 5)).toBe(100);
+    expect(toPercent(1, 2)).toBe(50);
+  });
+
+  it('sin total no hay porcentaje: 0 en vez de NaN', () => {
+    expect(toPercent(0, 0)).toBe(0);
   });
 });
 

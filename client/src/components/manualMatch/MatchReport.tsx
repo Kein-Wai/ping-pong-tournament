@@ -2,6 +2,8 @@ import { Badge, Button, Group, Paper, ScrollArea, Stack, Table, Text, Title } fr
 import { IconArrowLeft } from '@tabler/icons-react';
 
 import type { SetScore, TrackedMatch, TrackedPoint } from '../../types/manualMatch';
+import { getMatchSummary } from '../../utils/manual-match';
+import { SetCategoriesGrid } from './SetCategoriesGrid';
 
 interface MatchReportProps {
   match: TrackedMatch;
@@ -105,6 +107,15 @@ export const MatchReport = ({
 
     {match.analysisType === 'Extenso' && points.length > 0 && (
       <>
+        <Title order={4} mt="md">
+          Resumen Global
+        </Title>
+        <SetCategoriesGrid
+          summary={getMatchSummary(points)}
+          wonTitle="Tus Fortalezas"
+          lostTitle="A Mejorar"
+        />
+
         <Title order={4} mt="md">
           Desglose Punto a Punto
         </Title>

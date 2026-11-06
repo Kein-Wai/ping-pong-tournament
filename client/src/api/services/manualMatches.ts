@@ -97,12 +97,15 @@ export const manualMatchesService = {
   update: (id: string, payload: UpdateManualMatchPayload) =>
     http.put<ManualMatch>(ENDPOINTS.MANUAL_MATCHES.UPDATE(id), payload),
 
-  /** `T` deja a cada pantalla tipar el punto con la proyección que consume. */
+  /**
+   * `T` deja a cada pantalla tipar el punto con la proyección que consume. Sin aviso de éxito:
+   * en pleno juego los puntos van rápido y el marcador ya muestra que se guardó.
+   */
   addPoint: <T = ManualMatchPoint>(id: string, payload: AddPointPayload) =>
-    http.post<T>(ENDPOINTS.MANUAL_MATCHES.ADD_POINT(id), payload),
+    http.post<T>(ENDPOINTS.MANUAL_MATCHES.ADD_POINT(id), payload, { silentSuccess: true }),
 
   deletePoint: (id: string, pointId: string) =>
-    http.delete<void>(ENDPOINTS.MANUAL_MATCHES.DELETE_POINT(id, pointId)),
+    http.delete<void>(ENDPOINTS.MANUAL_MATCHES.DELETE_POINT(id, pointId), { silentSuccess: true }),
 
   complete: (id: string, payload: CompleteMatchPayload) =>
     http.put<ManualMatch>(ENDPOINTS.MANUAL_MATCHES.COMPLETE(id), payload),
