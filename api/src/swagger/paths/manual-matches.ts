@@ -1,5 +1,9 @@
 import { requestBodyFromSchema } from '../zod-schema';
-import { addPointSchema, createManualMatchSchema } from '../../schemas/manualMatch';
+import {
+  addPointSchema,
+  createManualMatchSchema,
+  syncManualMatchSchema,
+} from '../../schemas/manualMatch';
 export const manual_matchesPaths = {
       '/api/manual-matches': {
         get: {
@@ -81,7 +85,35 @@ export const manual_matchesPaths = {
           parameters: [
             { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           ],
-          responses: { 200: { description: 'Partido completado con éxito' } },
+          responses: {
+            200: { description: 'Partido completado con éxito' },
+            409: { description: 'El partido ya estaba finalizado; no se vuelven a sumar estadísticas' },
+          },
+        },
+      },
+      '/api/manual-matches/{id}/sync': {
+        put: {
+          requestBody: requestBodyFromSchema(syncManualMatchSchema),
+          summary:
+            'Sincronizar un partido analizado desde la app móvil: documento completo e idempotente (partido nuevo o con la versión descargada)',
+          tags: ['Manual Matches'],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              description: 'UUID del partido, generado por el móvil',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: { description: 'Partido sincronizado (o envío ya aplicado) con su nueva versión' },
+            400: { description: 'Documento inválido' },
+            403: { description: 'Solo el entrenador de un club aprobado puede analizar a un jugador' },
+            404: { description: 'Partido, jugador o acceso inexistente' },
+            409: { description: 'El partido cambió en otro dispositivo, ya está finalizado o un punto pertenece a otro partido' },
+            503: { description: 'Otro envío del mismo partido está en curso; reintentar' },
+          },
         },
       },
 

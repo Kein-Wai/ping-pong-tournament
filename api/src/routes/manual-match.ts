@@ -7,11 +7,12 @@ import {
   completeMatchSchema,
   updateManualMatchSchema,
   listManualMatchesQuerySchema,
+  syncManualMatchSchema,
 } from '../schemas/manualMatch';
-import { MatchStatus, type Prisma } from '@prisma/client';
+import { MatchStatus, Prisma } from '@prisma/client';
 import { resolveCurrentSeason } from '../utils/season';
-import { calculateSkillGrowth } from '../utils/skills';
-import { getPlayerCurrentSkills } from '../utils/stats';
+import { completeManualMatch } from '../utils/manual-match-completion';
+import { syncManualMatch } from '../utils/manual-match-sync';
 import { asyncHandler, sendData, sendError, sendMessage } from '../http/response';
 import type { UserPayload } from '../middleware/auth.middleware';
 import {
@@ -147,7 +148,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   // 2. Solo guardamos lo que Zod nos ha devuelto limpio y seguro (validation.data)
   const updatedMatch = await prisma.manualMatch.update({
     where: { id: req.params.id as string },
-    data: validation.data,
+    data: { ...validation.data, version: { increment: 1 } },
   });
 
   sendData(res, updatedMatch);
@@ -165,11 +166,18 @@ router.post('/:id/points', asyncHandler(async (req, res) => {
     return sendError(res, 400, 'Datos de punto inválidos');
   }
 
-  const point = await prisma.pointAnalysis.create({
-    data: {
-      ...validation.data,
-      manualMatchId: req.params.id as string,
-    },
+  // Cada cambio del partido sube su versión: así un móvil con una copia vieja no la sobrescribe.
+  const point = await prisma.$transaction(async (tx) => {
+    await tx.manualMatch.update({
+      where: { id: req.params.id as string },
+      data: { version: { increment: 1 } },
+    });
+    return tx.pointAnalysis.create({
+      data: {
+        ...validation.data,
+        manualMatchId: req.params.id as string,
+      },
+    });
   });
 
   sendData(res, point, 201);
@@ -194,14 +202,17 @@ router.delete('/:id/points/:pointId', asyncHandler(async (req, res) => {
     return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 
-  await prisma.pointAnalysis.delete({
-    where: { id: req.params.pointId as string },
+  await prisma.$transaction(async (tx) => {
+    await tx.pointAnalysis.delete({ where: { id: req.params.pointId as string } });
+    await tx.manualMatch.update({
+      where: { id: req.params.id as string },
+      data: { version: { increment: 1 } },
+    });
   });
   sendMessage(res, 'Punto deshecho');
 
 }, 'Error al deshacer el punto', 500));
 
-// 6. Finalizar el partido (Se llama al terminar el último set)
 // 6. Finalizar el partido (Se llama al terminar el último set)
 router.put('/:id/complete', asyncHandler(async (req, res) => {
   if (!req.user?.id) return sendError(res, 401, 'No autorizado');
@@ -215,72 +226,63 @@ router.put('/:id/complete', asyncHandler(async (req, res) => {
     return sendError(res, 404, NOT_FOUND_MESSAGE);
   }
 
+  const matchId = req.params.id as string;
   // Envolvemos en transacción para asegurar la base de datos
   const updatedMatch = await prisma.$transaction(async (tx) => {
-    const currentSeason = await resolveCurrentSeason(tx);
-    const match = await tx.manualMatch.update({
-      where: { id: req.params.id as string },
-      data: {
-        status: MatchStatus.Completado,
-        mySets: validation.data.mySets,
-        opponentSets: validation.data.opponentSets,
-        lightNotes: validation.data.lightNotes,
-        setScores: validation.data.setScores ? validation.data.setScores : undefined, // 👈 Se guarda como JSON
-      },
+    const completed = await completeManualMatch(tx, {
+      matchId,
+      userId,
+      result: validation.data,
     });
-
-    let myTotalPoints = 0;
-    let oppTotalPoints = 0;
-    if (validation.data.setScores) {
-      validation.data.setScores.forEach((s) => {
-        myTotalPoints += s.myScore;
-        oppTotalPoints += s.oppScore;
-      });
-    }
-    const isWin = validation.data.mySets > validation.data.opponentSets;
-
-    // 👇 NUEVO: Inyectar en Stats las métricas personales
-    await tx.stats.upsert({
-      where: { userId_seasonId: { userId, seasonId: currentSeason.id } },
-      create: {
-        userId,
-        seasonId: currentSeason.id,
-        manualMatchWon: isWin ? 1 : 0,
-        manualMatchLost: isWin ? 0 : 1,
-        manualSetWon: validation.data.mySets,
-        manualSetLost: validation.data.opponentSets,
-        manualPointWon: myTotalPoints,
-        manualPointLost: oppTotalPoints,
-      },
-      update: {
-        manualMatchWon: { increment: isWin ? 1 : 0 },
-        manualMatchLost: { increment: isWin ? 0 : 1 },
-        manualSetWon: { increment: validation.data.mySets },
-        manualSetLost: { increment: validation.data.opponentSets },
-        manualPointWon: { increment: myTotalPoints },
-        manualPointLost: { increment: oppTotalPoints },
-      },
-    });
-
-    // Obtener stats y aplicar curva decreciente
-    const userSkills = await getPlayerCurrentSkills(tx, userId);
-
-    // Inyectar subida al tracker personal
-    await tx.playerSkillUpdate.create({
-      data: {
-        playerId: userId,
-        sourceType: 'Partido',
-        status: 'EXPECTED',
-        fortalezaMental: calculateSkillGrowth(userSkills?.fortalezaMental),
-        experiencia: calculateSkillGrowth(userSkills?.experiencia),
-      },
-    });
-
-    return match;
+    return completed ? tx.manualMatch.findUnique({ where: { id: matchId } }) : null;
   });
+
+  // Repetir la petición no vuelve a sumar estadísticas: el partido ya estaba finalizado.
+  if (!updatedMatch) return sendError(res, 409, 'El partido ya está finalizado');
 
   sendData(res, updatedMatch);
 
 }, 'Error al finalizar el partido', 500));
+
+// 7. Sincronizar un partido analizado desde la app móvil (documento completo, idempotente).
+// Ver docs/adr/0003: el móvil guarda todo en local y lo envía entero al finalizar o salir.
+router.put('/:id/sync', asyncHandler(async (req, res) => {
+  const actor = req.user;
+  if (!actor?.id) return sendError(res, 401, 'No autorizado');
+
+  const matchId = z.uuid().safeParse(req.params.id);
+  if (!matchId.success) return sendError(res, 400, 'Identificador de partido inválido');
+
+  const validation = syncManualMatchSchema.safeParse(req.body);
+  if (!validation.success) {
+    return sendError(res, 400, 'Datos inválidos', z.treeifyError(validation.error));
+  }
+
+  let outcome;
+  try {
+    // Serializable: dos envíos simultáneos del mismo partido no pueden aplicarse a la vez.
+    outcome = await prisma.$transaction(
+      (tx) => syncManualMatch(tx, actor, matchId.data, validation.data),
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  } catch (error) {
+    // P2034: chocó con otro envío en curso; el móvil lo reintenta solo.
+    if ((error as { code?: string }).code === 'P2034') {
+      return sendError(res, 503, 'Otro envío del partido está en curso. Reintenta en unos segundos.');
+    }
+    throw error;
+  }
+
+  switch (outcome.kind) {
+    case 'ok':
+      return sendData(res, outcome.match);
+    case 'conflict':
+      return sendError(res, 409, outcome.message);
+    case 'forbidden':
+      return sendError(res, 403, outcome.message);
+    default:
+      return sendError(res, 404, NOT_FOUND_MESSAGE);
+  }
+}, 'Error al sincronizar el partido', 500));
 
 export default router;

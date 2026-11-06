@@ -35,6 +35,9 @@ app.use(
   }),
 );
 
+// Un partido analizado se sincroniza como un solo documento con todos sus puntos (hasta 2000), que
+// supera los 100 kB por defecto. El resto de la API conserva ese límite.
+app.use('/api/manual-matches', express.json({ limit: '1mb' }));
 app.use(express.json());
 app.use(express.static('public'));
 app.use(
