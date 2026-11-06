@@ -1,5 +1,7 @@
+import axios from 'axios';
 import { create } from 'zustand';
 import { usersService } from '../api/services/users';
+import { loadCachedProfile } from '../offline/profileCache';
 import { authService } from '../api/services/auth';
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../api/session';
 
@@ -80,6 +82,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ user: userToStore, isAuthenticated: true });
     } catch (error) {
+      // Sin red no es motivo para cerrar la sesión (y revocar el refresh token): se conserva y se
+      // usa el perfil guardado en el móvil, si lo hay.
+      if (axios.isAxiosError(error) && !error.response) {
+        const cached = await loadCachedProfile(token);
+        if (cached) set({ user: cached, isAuthenticated: true });
+        return;
+      }
       console.error('Error fetching profile, clearing auth...', error);
       get().logout();
     }

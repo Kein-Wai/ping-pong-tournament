@@ -113,3 +113,13 @@ Rama `feat/juegos-reflejo-base`. Hechas las cinco entregas: menú, selector, ré
 | N3 | `MatchStatus.Iniciado` y `Abierto`: comprobar si `Iniciado` se usa en algún sitio o se creó «por si acaso» | Si no se usa, retirarlo del enum |
 | N4 | Etiquetas de interfaz inconsistentes para el mismo concepto: «Cuadro Final», «Eliminatorias», «Llaves», «Liga (Todos contra Todos)» | Unificar según `GLOSSARY.md` |
 | N5 | `CLAUDE.md` dice que `GLOSSARY.md` no existe: ya existe desde el PR de Calentamiento | Corregir esa línea de «Domain docs» |
+
+## 10. Modo sin conexión (feature planificada)
+
+Plan, decisiones cerradas y fases en [`offline-progreso.md`](./offline-progreso.md) (rama de docs `docs/offline-plan`). Fases: 1 Base → 2 Calentamiento y Reflejos → 3 API de sincronización → 4 Análisis Pro offline. Nada de código hecho todavía. Cada fase con código de cliente exige una nueva build nativa (TestFlight y Play Store).
+
+| # | Qué | Notas |
+|---|---|---|
+| O1 | **Fusionar `feat/analisis-porcentajes`** antes de empezar la fase 4 | Toca `ManualMatchTracker`, `useRegistroPuntos` y `addPoint`/`deletePoint` |
+| O2 | **Cifrar la base local y mover los tokens a almacenamiento seguro** | Fuera de la primera versión a propósito; enlaza con D2 |
+| O3 | **Probar en móvil real** cada fase (iOS y Android) | Los tests solo usan el adaptador en memoria, no SQL real |

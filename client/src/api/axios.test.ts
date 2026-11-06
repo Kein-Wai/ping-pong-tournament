@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications';
 import { api, setUnauthorizedHandler } from './axios';
 import { resetErrorNotifier } from './notify';
 import { refreshSession } from './session';
+import { useConnectivityStore } from '../store/connectivityStore';
 
 vi.mock('@mantine/notifications', () => ({
   notifications: { show: vi.fn() },
@@ -13,7 +14,10 @@ vi.mock('@mantine/notifications', () => ({
  * falla. Estos tests comprueban que nunca se rompe y que el mensaje de
  * validacion de Zod llega intacto.
  */
-vi.mock('./session', () => ({ refreshSession: vi.fn().mockResolvedValue(null) }));
+vi.mock('./session', () => ({
+  ACCESS_TOKEN_KEY: 'pingpong_token',
+  refreshSession: vi.fn().mockResolvedValue(null),
+}));
 
 describe('Aviso de éxito (client/src/api/axios.ts)', () => {
   beforeEach(() => {
@@ -227,5 +231,42 @@ describe('Interceptor de errores (client/src/api/axios.ts)', () => {
         expect(window.location.href).toBe('/torneos');
       },
     );
+  });
+});
+
+describe('«Trabajar offline» (client/src/api/axios.ts)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useConnectivityStore.setState({ networkOnline: true, workOffline: false });
+  });
+  afterEach(() => useConnectivityStore.setState({ networkOnline: true, workOffline: false }));
+
+  const requestHandler = () => {
+    const handler = api.interceptors.request.handlers?.[0]?.fulfilled;
+    if (!handler) throw new Error('El interceptor de petición no tiene manejador.');
+    return handler;
+  };
+
+  it('con el interruptor activado no deja salir la petición', async () => {
+    useConnectivityStore.setState({ workOffline: true });
+
+    await expect(
+      Promise.resolve(requestHandler()({ headers: {} } as never)),
+    ).rejects.toMatchObject({ code: 'ERR_OFFLINE_MODE' });
+  });
+
+  it('con el interruptor desactivado deja pasar la petición', async () => {
+    const config = { headers: {} };
+
+    expect(await requestHandler()(config as never)).toBe(config);
+  });
+
+  it('el rechazo por modo offline no muestra aviso de error de red', async () => {
+    const handler = api.interceptors.response.handlers?.[0]?.rejected;
+    if (!handler) throw new Error('Falta el manejador de error.');
+
+    await expect(handler({ code: 'ERR_OFFLINE_MODE' })).rejects.toBeDefined();
+
+    expect(notifications.show).not.toHaveBeenCalled();
   });
 });

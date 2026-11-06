@@ -41,6 +41,9 @@ import {
   IconFlame,
   IconBolt,
   IconReportAnalytics,
+  IconLock,
+  IconWifiOff,
+  IconWifi,
 } from '@tabler/icons-react';
 import DICTIONARY from '../../constants/dictionary.json';
 import { APP_ROUTES } from '../../constants/routes';
@@ -52,6 +55,12 @@ import type { DominantHand, Playstyle, RubberType } from '../../types/enums';
 import { DateInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
 import { notifications } from '@mantine/notifications';
+import { useConnectivity } from '../../hooks/useConnectivity';
+import { worksOffline } from '../../offline/offlineAccess';
+import { ConnectivityBar } from '../offline/ConnectivityBar';
+import { LogoutWithPendingModal } from '../offline/LogoutWithPendingModal';
+import { useSyncStore } from '../../store/syncStore';
+import { RequiresConnection } from '../offline/RequiresConnection';
 
 export const MainLayout = () => {
   const [opened, { toggle }] = useDisclosure();
@@ -61,6 +70,8 @@ export const MainLayout = () => {
   const location = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'light';
+  const { isNative, isOnline, workOffline, setWorkOffline } = useConnectivity();
+  const isOffline = isNative && !isOnline;
 
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [hand, setHand] = useState<string | null>(null);
@@ -156,10 +167,17 @@ export const MainLayout = () => {
     }
   };
 
-  const handleLogout = () => {
+  const hasUnsent = useSyncStore((state) => state.pending + state.needsAttention > 0);
+  const [logoutWarningOpen, setLogoutWarningOpen] = useState(false);
+
+  const performLogout = () => {
+    setLogoutWarningOpen(false);
     logout();
     navigate(APP_ROUTES.LOGIN);
   };
+
+  // Con pendientes sin enviar se avisa antes de salir; salir no los borra.
+  const handleLogout = () => (hasUnsent ? setLogoutWarningOpen(true) : performLogout());
 
   const handleCompleteOnboarding = async () => {
     if (!hand || !style || !birthDate || !rubberForehand || !rubberBackhand) return;
@@ -358,6 +376,14 @@ export const MainLayout = () => {
               >
                 Modo {isDark ? 'Oscuro' : 'Claro'}
               </Menu.Item>
+              {isNative && (
+                <Menu.Item
+                  leftSection={workOffline ? <IconWifi size={16} /> : <IconWifiOff size={16} />}
+                  onClick={() => setWorkOffline(!workOffline)}
+                >
+                  {workOffline ? 'Volver a conectar' : 'Trabajar offline'}
+                </Menu.Item>
+              )}
               <Menu.Divider />
               <Menu.Item color="red" leftSection={<IconLogout size={14} />} onClick={handleLogout}>
                 Cerrar Sesión
@@ -374,7 +400,9 @@ export const MainLayout = () => {
             label={item.label}
             leftSection={<item.icon size="1.2rem" stroke={1.5} />}
             rightSection={
-              item.badge ? (
+              isOffline && !worksOffline(item.path) ? (
+                <IconLock size={14} aria-label="Requiere conexión" />
+              ) : item.badge ? (
                 <Badge color="red" variant="filled" size="sm" circle>
                   {item.badge}
                 </Badge>
@@ -391,10 +419,22 @@ export const MainLayout = () => {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Outlet />
+        <ConnectivityBar />
+        {isOffline && !user ? (
+          <RequiresConnection message="Abre la app con conexión al menos una vez para poder usarla sin red." />
+        ) : isOffline && !worksOffline(location.pathname) ? (
+          <RequiresConnection />
+        ) : (
+          <Outlet />
+        )}
       </AppShell.Main>
 
       {/* MODALES */}
+      <LogoutWithPendingModal
+        opened={logoutWarningOpen}
+        onClose={() => setLogoutWarningOpen(false)}
+        onLogout={performLogout}
+      />
       <Modal
         opened={onboardingOpen}
         onClose={() => {}}

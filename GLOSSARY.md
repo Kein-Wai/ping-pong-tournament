@@ -195,3 +195,21 @@ _Avoid_: Error, retraso
 **Salida en falso**:
 Toque anticipado, antes de que aparezca la señal, en reacción simple. No cuenta y el intento se repite.
 _Avoid_: Falta, error
+
+### Uso sin conexión
+
+**Modo offline**:
+Uso de la app nativa sin internet, bien porque no hay red, bien porque el usuario lo activó a mano con «Trabajar offline». Solo está disponible en iOS y Android.
+_Avoid_: Modo avión
+
+**Pendiente**:
+Cambio hecho en el móvil que el servidor aún no ha recibido. Se envía solo al volver la conexión, o cuando el usuario pulsa «Sincronizar».
+_Avoid_: Cola, borrador
+
+**Requiere atención**:
+Estado de un pendiente que el servidor rechazó y que espera la decisión del usuario. No se reintenta solo.
+_Avoid_: Error de sincronización
+
+**Partido local**:
+Partido de Análisis Pro que se guarda solo en el móvil mientras se analiza y se envía entero al finalizar o al salir.
+_Avoid_: Partido offline, borrador

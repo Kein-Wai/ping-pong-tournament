@@ -36,9 +36,11 @@ import {
 import { APP_ROUTES } from '../constants/routes';
 import { playerFullName } from '../utils/leagueView';
 import type { ClubDetails, ClubTeam, Season } from '../types/api';
+import { useConnectivity } from '../hooks/useConnectivity';
+import { OfflineHome } from '../components/offline/OfflineHome';
 import type { DashboardPlayer, UpcomingTeamMatch } from '../types/dashboard';
 
-export const Dashboard = () => {
+const OnlineDashboard = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
@@ -335,4 +337,10 @@ export const Dashboard = () => {
       )}
     </Stack>
   );
+};
+
+/** Sin conexión el inicio se reduce a lo que funciona: no carga datos del servidor. */
+export const Dashboard = () => {
+  const { isNative, isOnline } = useConnectivity();
+  return isNative && !isOnline ? <OfflineHome /> : <OnlineDashboard />;
 };
