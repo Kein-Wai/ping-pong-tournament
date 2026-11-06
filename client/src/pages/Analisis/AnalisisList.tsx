@@ -28,9 +28,10 @@ import {
   IconPingPong,
   IconUser,
 } from '@tabler/icons-react';
-import { manualMatchesService } from '../../api/services/manualMatches';
+import { manualMatchesRepository as manualMatchesService } from '../../offline/manualMatchesRepository';
 import { seasonsService } from '../../api/services/seasons';
-import { usersService } from '../../api/services/users';
+import { LocalStateBadge } from '../../components/offline/LocalMatchNotice';
+import { clubPlayersRepository as usersService } from '../../offline/clubPlayersRepository';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuthStore } from '../../store/authStore';
 import { UserClubStatus } from '../../types/enums';
@@ -279,6 +280,7 @@ export const AnalisisList = () => {
                           >
                             {m.status}
                           </Badge>
+                          <LocalStateBadge state={m.localState} />
                           {isAdminClub && m.user && m.userId !== user?.id && (
                             <Badge color="grape" variant="outline">
                               {`Jugador: ${playerFullName(m.user)}`}

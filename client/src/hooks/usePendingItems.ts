@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getAppLocalStore } from '../offline/appLocalStore';
+import type { LocalStore } from '../offline/localStore';
 import { getAppSync } from '../offline/appSync';
-import { discardOutboxItem, listOutbox, retryOutboxItem, type OutboxItem } from '../offline/outbox';
+import { listOutbox, retryOutboxItem, type OutboxItem } from '../offline/outbox';
+import { discardWithCleanup } from '../offline/outboxLabels';
 import { useAuthStore } from '../store/authStore';
 import { useSyncStore } from '../store/syncStore';
 
@@ -36,14 +38,25 @@ export const usePendingItems = () => {
   );
 
   const discard = useCallback(
-    async (id: string) => {
+    async (item: OutboxItem) => {
       const store = await getAppLocalStore();
       if (!store || !userId) return;
-      await discardOutboxItem(store, userId, id);
+      await discardWithCleanup({ store, userId }, item);
       await getAppSync()?.refresh();
     },
     [userId],
   );
 
-  return { items, retry, discard };
+  /** Ejecuta una acción propia del tipo (p. ej. «Guardar como partido nuevo») y recalcula la cola. */
+  const runAction = useCallback(
+    async (item: OutboxItem, run: (item: OutboxItem, context: { store: LocalStore; userId: string }) => Promise<void>) => {
+      const store = await getAppLocalStore();
+      if (!store || !userId) return;
+      await run(item, { store, userId });
+      await getAppSync()?.syncNow();
+    },
+    [userId],
+  );
+
+  return { items, retry, discard, runAction };
 };

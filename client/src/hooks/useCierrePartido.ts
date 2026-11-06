@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { notifications } from '@mantine/notifications';
 
-import { manualMatchesService } from '../api/services/manualMatches';
+import { manualMatchesRepository as manualMatchesService } from '../offline/manualMatchesRepository';
 import type { QuickSetScore, TrackedMatch } from '../types/manualMatch';
 import {
   buildQuickNotes,

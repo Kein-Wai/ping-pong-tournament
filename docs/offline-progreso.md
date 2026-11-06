@@ -63,10 +63,10 @@ Tamaño aproximado en sesiones, como en `PENDIENTES.md`. Estado a 2026-11-06. La
 
 | Fase | Qué | Rama | Estado |
 |---|---|---|---|
-| 1 | Base | `feat/offline-base` | HECHA (commiteada, PR por abrir; falta prueba en emulador) |
-| 2 | Calentamiento + Reflejos | `feat/offline-calentamiento` | HECHA sin commit (sale de `feat/offline-base`; guard de rol J4 queda abierto) |
-| 3 | API de sincronización | `feat/offline-api-sync` | HECHA sin commit (worktree `../ping-pong-api-sync`, sale de `main`; añade también `lastSyncId` para la idempotencia) |
-| 4 | Análisis Pro offline | `feat/offline-analisis` | PENDIENTE |
+| 1 | Base | `feat/offline-base` | HECHA y fusionada (PR #11) |
+| 2 | Calentamiento + Reflejos | `feat/offline-calentamiento` | HECHA, commiteada (guard de rol J4 queda abierto) |
+| 3 | API de sincronización | `feat/offline-api-sync` | HECHA, commiteada; DESPLEGAR antes de usar el análisis offline (worktree `../ping-pong-api-sync`, sale de `main`; añade también `lastSyncId` para la idempotencia) |
+| 4 | Análisis Pro offline | `feat/offline-analisis` | HECHA (sale de `feat/offline-calentamiento`; falta prueba en emulador y desplegar la fase 3) |
 
 Orden: 1 → 2 → 3 → 4. La fase 3 es independiente del cliente y aditiva (las apps antiguas siguen funcionando), así que puede desplegarse sola.
 
@@ -108,12 +108,12 @@ Orden: 1 → 2 → 3 → 4. La fase 3 es independiente del cliente y aditiva (la
 
 | # | Tarea | Tamaño |
 |---|---|---|
-| 4.1 | Descarga y caché: lista completa, 20 detalles recientes, jugadores del club (Admin) | M |
-| 4.2 | Partido local: crear con UUID, planificar, editar rival, iniciar | M |
-| 4.3 | Registro local-first: `useRegistroPuntos` y los hooks vecinos escriben en el `LocalStore` en nativo; la web queda como hoy | L |
-| 4.4 | Finalizar/salir envía el documento; 409, 403 y validación pasan a «Requiere atención» | M |
-| 4.5 | Resolución de conflictos: reintentar o guardar como partido nuevo | M |
-| 4.6 | Reporte y estadísticas de un partido pendiente: se acreditan en el servidor al sincronizar; la interfaz lo indica | S |
+| 4.1 ✅ | Descarga y caché: lista completa, 20 detalles recientes, jugadores del club (Admin) | M |
+| 4.2 ✅ | Partido local: crear con UUID, planificar, editar rival, iniciar | M |
+| 4.3 ✅ | Registro local-first: `useRegistroPuntos` y los hooks vecinos escriben en el `LocalStore` en nativo; la web queda como hoy | L |
+| 4.4 ✅ | Finalizar/salir envía el documento; 409, 403 y validación pasan a «Requiere atención» | M |
+| 4.5 ✅ | Resolución de conflictos: reintentar o guardar como partido nuevo | M |
+| 4.6 ✅ | Reporte y estadísticas de un partido pendiente: se acreditan en el servidor al sincronizar; la interfaz lo indica | S |
 
 ## Riesgos y lo que no se cubre
 
@@ -136,3 +136,12 @@ Orden: 1 → 2 → 3 → 4. La fase 3 es independiente del cliente y aditiva (la
 - Heredado de la fase 1: `ProtectedRoute` redirige a login si no hay `user`, así que el aviso «abre con conexión una vez» no se alcanza en un primer arranque sin red y sin perfil guardado.
 - Integración de la API con Postgres real: `TEST_DATABASE_URL` (instrucciones en la cabecera de `manual-match.sync.integration.test.ts`). No ejecutar `npm run build` de `api/` (hace `prisma db push` contra la base remota de `api/.env`).
 - Al fusionar: el PR de la fase 1 va primero; el de la fase 2 se apunta a `main` después; el de la fase 3 es independiente y puede desplegarse solo (migración aditiva). La rama `docs/offline-plan` es obsoleta.
+
+## Fase 4: cómo quedó (2026-11-07)
+
+- **Repositorio local-first** `client/src/offline/manualMatchesRepository.ts`: misma interfaz que `manualMatchesService`; en el navegador delega en el servidor. En nativo el partido vive entero en el móvil (`localMatches.ts`): puntos con UUID propio, `revision`/`syncedRevision`, `baseVersion`, `syncId` y `conflict`.
+- **Envío:** al finalizar (`complete`), al salir del análisis (`closeMatch`) o al crear/planificar/editar rival fuera del tracker. Mientras el tracker está abierto (`useMatchSession`) la sincronización está bloqueada y los cambios se acumulan. Al arrancar, `enqueueUnsent` encola lo que quedó sin enviar si la app se cerró con un partido abierto.
+- **Manejador** `matchesSync.ts`: `PUT /manual-matches/:id/sync`; 400/403/404/409 dejan la copia intacta marcada con el motivo (requiere atención). Acciones en la lista de pendientes: «Guardar como partido nuevo» (copia con ids nuevos y sin versión) y descartar (quita la copia local para que no se reencole).
+- **Descargas:** lista completa y detalle de los 20 más recientes al abrir con red; jugadores del club (`clubPlayersRepository`) para el AdminClub.
+- **Interfaz:** etiqueta «Pendiente de enviar» / «Requiere atención» en el listado y aviso en el informe (4.6).
+- **Límite conocido:** si un envío llega al servidor pero se pierde la respuesta y después se edita el partido, el reenvío lleva la `baseVersion` antigua y acaba en conflicto (la salida es «Guardar como partido nuevo»).

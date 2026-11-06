@@ -2,7 +2,7 @@ import { Button, Modal, Stack, Text } from '@mantine/core';
 import { useState } from 'react';
 import { getAppLocalStore } from '../../offline/appLocalStore';
 import { getAppSync } from '../../offline/appSync';
-import { discardAllOutbox } from '../../offline/outbox';
+import { discardAllWithCleanup } from '../../offline/outboxLabels';
 import { useAuthStore } from '../../store/authStore';
 import { selectIsOnline, useConnectivityStore } from '../../store/connectivityStore';
 import { useSyncStore } from '../../store/syncStore';
@@ -39,7 +39,7 @@ export const LogoutWithPendingModal = ({ opened, onClose, onLogout }: LogoutWith
   const discardAndLogout = async () => {
     const store = await getAppLocalStore();
     const userId = useAuthStore.getState().user?.id;
-    if (store && userId) await discardAllOutbox(store, userId);
+    if (store && userId) await discardAllWithCleanup({ store, userId });
     onLogout();
   };
 

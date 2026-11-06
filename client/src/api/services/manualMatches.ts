@@ -80,6 +80,20 @@ export interface CompleteMatchPayload {
   setScores?: SetScore[] | null;
 }
 
+/** Documento completo de un partido tal como lo envía la app móvil (syncManualMatchSchema de la API). */
+export interface SyncMatchPayload {
+  /** Identifica este envío: repetirlo no vuelve a aplicar nada. */
+  syncId: string;
+  /** Versión con la que se descargó el partido; `null` si se creó sin conexión. */
+  baseVersion: number | null;
+  match: Omit<CreateManualMatchPayload, 'status'> & {
+    status: MatchStatus;
+    lightNotes?: string | null;
+  };
+  points: (AddPointPayload & { id: string })[];
+  result?: CompleteMatchPayload | null;
+}
+
 export const manualMatchesService = {
   /** `playerId` filtra por jugador analizado; la API nunca amplía por él lo que el usuario puede ver. */
   list: (filters: { playerId?: string } = {}) =>
@@ -109,6 +123,12 @@ export const manualMatchesService = {
 
   complete: (id: string, payload: CompleteMatchPayload) =>
     http.put<ManualMatch>(ENDPOINTS.MANUAL_MATCHES.COMPLETE(id), payload),
+
+  /** Sin aviso de éxito: lo dispara la cola de pendientes en segundo plano. */
+  sync: (id: string, payload: SyncMatchPayload) =>
+    http.put<ManualMatch & { version: number }>(ENDPOINTS.MANUAL_MATCHES.SYNC(id), payload, {
+      silentSuccess: true,
+    }),
 };
 
 export default manualMatchesService;

@@ -10,6 +10,13 @@ export const registerOutboxHandler = (kind: string, handler: OutboxHandler): voi
   handlers[kind] = handler;
 };
 
+/** Tareas que cada funcionalidad quiere hacer al arrancar la sincronización de un usuario, antes del primer envío. */
+const startupTasks: Array<(userId: string) => Promise<void>> = [];
+
+export const registerStartupTask = (task: (userId: string) => Promise<void>): void => {
+  startupTasks.push(task);
+};
+
 let active: { userId: string; controller: SyncController } | null = null;
 
 /** Controlador de sincronización en marcha, o `null` si no hay sesión o no hay almacén local. */
@@ -38,5 +45,12 @@ export const startAppSync = async (userId: string): Promise<void> => {
     getUserId: () => userId,
   });
   active = { userId, controller };
+  for (const task of startupTasks) {
+    try {
+      await task(userId);
+    } catch (error) {
+      console.error('Fallo una tarea de arranque de la sincronización.', error);
+    }
+  }
   controller.start();
 };

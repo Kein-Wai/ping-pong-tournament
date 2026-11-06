@@ -97,6 +97,7 @@ export const ENDPOINTS = {
     ADD_POINT: (id: string) => `/manual-matches/${id}/points`,
     DELETE_POINT: (id: string, pointId: string) => `/manual-matches/${id}/points/${pointId}`,
     COMPLETE: (id: string) => `/manual-matches/${id}/complete`,
+    SYNC: (id: string) => `/manual-matches/${id}/sync`,
   },
   SKILLS: {
     BASE: '/skills',
