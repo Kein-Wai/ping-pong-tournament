@@ -72,19 +72,19 @@ Orden: 1 → 2 → 3 → 4. La fase 3 es independiente del cliente y aditiva (la
 
 **Consecuencia para las builds:** SQLite y el plugin de red son nativos, así que cada fase con código de cliente exige una **nueva build en TestFlight y Play Store**, y las funciones sin conexión solo existen en quien tenga la app actualizada. Un PR sobre `client/**` dispara el build de iOS.
 
-**Requisito previo de la fase 4:** que el PR `feat/analisis-porcentajes` (porcentajes, total del partido y avisos de punto silenciosos) esté fusionado, porque toca `ManualMatchTracker`, `useRegistroPuntos` y `addPoint`/`deletePoint`.
+**Requisito previo de la fase 4 (cumplido, fusionado como PR #10):** que el PR `feat/analisis-porcentajes` (porcentajes, total del partido y avisos de punto silenciosos) esté fusionado, porque toca `ManualMatchTracker`, `useRegistroPuntos` y `addPoint`/`deletePoint`.
 
-### Fase 1 — Base (~3 sesiones)
+### Fase 1 — Base (~3 sesiones) — hecha, en la rama `feat/offline-base`
 
 | # | Tarea | Tamaño |
 |---|---|---|
-| 1.1 | Añadir `@capacitor/network` y `@capacitor-community/sqlite`; `npx cap sync` y comprobar que compilan iOS y Android | S |
-| 1.2 | Interfaz `LocalStore`, adaptador SQLite, adaptador en memoria y migraciones versionadas de la base local | M |
-| 1.3 | `useConnectivity`: estado de red + interruptor «Trabajar offline» persistente; detección de «es nativo» para que la web no cambie | S |
-| 1.4 | Perfil local: guardarlo al cargar el perfil y usarlo al arrancar sin red; ajuste de `initializeAuth` en `App.tsx` | M |
-| 1.5 | Cola de salida (outbox): tabla, motor con disparadores y espera creciente, estados (pendiente, enviando, requiere atención), un manejador por tipo de elemento, regla de «no sincronizar con partido abierto» | M-L |
-| 1.6 | UI: barra de estado, contador y botón «Sincronizar», lista de pendientes, pantalla «Requiere conexión», candado en el menú, inicio reducido | M |
-| 1.7 | Cerrar sesión con pendientes y «Descartar pendientes» | S |
+| 1.1 ✅ | Añadir `@capacitor/network` y `@capacitor-community/sqlite`; `npx cap sync` y comprobar que compilan iOS y Android | S |
+| 1.2 ✅ | Interfaz `LocalStore`, adaptador SQLite, adaptador en memoria y migraciones versionadas de la base local | M |
+| 1.3 ✅ | `useConnectivity`: estado de red + interruptor «Trabajar offline» persistente; detección de «es nativo» para que la web no cambie | S |
+| 1.4 ✅ | Perfil local: guardarlo al cargar el perfil y usarlo al arrancar sin red; ajuste de `initializeAuth` en `App.tsx` | M |
+| 1.5 ✅ | Cola de salida (outbox): tabla, motor con disparadores y espera creciente, estados (pendiente, enviando, requiere atención), un manejador por tipo de elemento, regla de «no sincronizar con partido abierto» | M-L |
+| 1.6 ✅ | UI: barra de estado, contador y botón «Sincronizar», lista de pendientes, pantalla «Requiere conexión», candado en el menú, inicio reducido | M |
+| 1.7 ✅ | Cerrar sesión con pendientes y «Descartar pendientes» | S |
 
 ### Fase 2 — Calentamiento + Reflejos (~1-2 sesiones)
 
