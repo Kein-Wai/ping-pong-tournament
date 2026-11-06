@@ -144,7 +144,7 @@ describe('useRegistroPuntos', () => {
           subcategory: 'Cortado',
           placement: 'Derecha',
         },
-        undefined,
+        { silentSuccess: true },
       );
       expect(result.current.isWonState).toBeNull();
       expect(result.current.pointHistory).toHaveLength(1);
@@ -170,7 +170,7 @@ describe('useRegistroPuntos', () => {
           subcategory: null,
           placement: null,
         },
-        undefined,
+        { silentSuccess: true },
       );
       expect(result.current.oppScore).toBe(1);
     });
@@ -186,7 +186,7 @@ describe('useRegistroPuntos', () => {
       expect(api.post).toHaveBeenCalledWith(
         ENDPOINTS.MANUAL_MATCHES.ADD_POINT('m1'),
         expect.objectContaining({ setNumber: 1, pointOrder: 6 }),
-        undefined,
+        { silentSuccess: true },
       );
     });
 
@@ -216,7 +216,7 @@ describe('useRegistroPuntos', () => {
 
       expect(api.delete).toHaveBeenCalledWith(
         ENDPOINTS.MANUAL_MATCHES.DELETE_POINT('m1', 'p1-2'),
-        undefined,
+        { silentSuccess: true },
       );
       expect(result.current.pointHistory.map((p) => p.id)).toEqual(['p1-1']);
       expect(result.current.isWonState).toBeNull();

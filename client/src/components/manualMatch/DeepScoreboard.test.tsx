@@ -4,7 +4,12 @@ import { renderWithProviders } from '../../test/utils';
 import { DeepScoreboard } from './DeepScoreboard';
 
 const renderBoard = (props: Partial<React.ComponentProps<typeof DeepScoreboard>> = {}) => {
-  const handlers = { onSelectSet: vi.fn(), onUndo: vi.fn(), onEditRival: vi.fn() };
+  const handlers = {
+    onSelectSet: vi.fn(),
+    onSelectTotal: vi.fn(),
+    onUndo: vi.fn(),
+    onEditRival: vi.fn(),
+  };
   const view = renderWithProviders(
     <DeepScoreboard
       opponentName="Maximiliano Pérez"
@@ -64,6 +69,21 @@ describe('DeepScoreboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Set 3' }));
 
     expect(onSelectSet).not.toHaveBeenCalled();
+  });
+
+  it('«Total» avisa para ver el resumen de todo el partido', () => {
+    const { onSelectTotal, onSelectSet } = renderBoard();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Total' }));
+
+    expect(onSelectTotal).toHaveBeenCalledTimes(1);
+    expect(onSelectSet).not.toHaveBeenCalled();
+  });
+
+  it('«Total» está disponible ya en el primer set', () => {
+    renderBoard({ currentSet: 1 });
+
+    expect(screen.getByRole('button', { name: 'Total' })).toBeInTheDocument();
   });
 
   it('deshacer avisa', () => {

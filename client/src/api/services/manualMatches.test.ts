@@ -174,7 +174,7 @@ describe('manualMatchesService', () => {
       expect(mockedApi.post).toHaveBeenCalledWith(
         ENDPOINTS.MANUAL_MATCHES.ADD_POINT('m1'),
         point,
-        undefined,
+        { silentSuccess: true },
       );
       expect(result.id).toBe('pt1');
     });
@@ -195,7 +195,7 @@ describe('manualMatchesService', () => {
       expect(mockedApi.post).toHaveBeenCalledWith(
         ENDPOINTS.MANUAL_MATCHES.ADD_POINT('m1'),
         point,
-        undefined,
+        { silentSuccess: true },
       );
     });
 
@@ -206,7 +206,7 @@ describe('manualMatchesService', () => {
 
       expect(mockedApi.delete).toHaveBeenCalledWith(
         ENDPOINTS.MANUAL_MATCHES.DELETE_POINT('m1', 'pt1'),
-        undefined,
+        { silentSuccess: true },
       );
       expect(result).toBeUndefined();
     });

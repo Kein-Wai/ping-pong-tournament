@@ -24,16 +24,23 @@ const countByLabel = (points: TrackedPoint[]): Record<string, number> =>
     return acc;
   }, {});
 
+const summarize = (pts: TrackedPoint[]): SetSummary => ({
+  wonCategories: countByLabel(pts.filter((p) => p.isWon)),
+  lostCategories: countByLabel(pts.filter((p) => !p.isWon)),
+  myScore: pts.filter((p) => p.isWon).length,
+  oppScore: pts.filter((p) => !p.isWon).length,
+});
+
 /** Puntos de un set agrupados por rótulo (ganados y perdidos) y su marcador. */
-export const getSetSummary = (points: TrackedPoint[], setNum: number): SetSummary => {
-  const pts = points.filter((p) => p.setNumber === setNum);
-  return {
-    wonCategories: countByLabel(pts.filter((p) => p.isWon)),
-    lostCategories: countByLabel(pts.filter((p) => !p.isWon)),
-    myScore: pts.filter((p) => p.isWon).length,
-    oppScore: pts.filter((p) => !p.isWon).length,
-  };
-};
+export const getSetSummary = (points: TrackedPoint[], setNum: number): SetSummary =>
+  summarize(points.filter((p) => p.setNumber === setNum));
+
+/** Lo mismo que `getSetSummary`, pero con los puntos de todos los sets del partido. */
+export const getMatchSummary = (points: TrackedPoint[]): SetSummary => summarize(points);
+
+/** `part` sobre `total` en porcentaje entero; 0 si no hay total (evita NaN). */
+export const toPercent = (part: number, total: number): number =>
+  total === 0 ? 0 : Math.round((part / total) * 100);
 
 /** Rótulos con su cuenta, de más a menos frecuente. */
 export const getSortedCategories = (categories: Record<string, number>): [string, number][] =>

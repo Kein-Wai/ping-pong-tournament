@@ -10,6 +10,8 @@ interface DeepScoreboardProps {
   myScore: number;
   oppScore: number;
   onSelectSet: (setNumber: number) => void;
+  /** Pide el resumen de todo el partido, no de un set. */
+  onSelectTotal: () => void;
   onUndo: () => void;
   onEditRival: () => void;
 }
@@ -23,6 +25,7 @@ export const DeepScoreboard = ({
   myScore,
   oppScore,
   onSelectSet,
+  onSelectTotal,
   onUndo,
   onEditRival,
 }: DeepScoreboardProps) => (
@@ -42,6 +45,15 @@ export const DeepScoreboard = ({
               Set {setNum}
             </Button>
           ))}
+          <Button
+            size="xs"
+            variant="outline"
+            color="gray"
+            onClick={onSelectTotal}
+            style={{ flexShrink: 0 }}
+          >
+            Total
+          </Button>
         </Group>
       </ScrollArea>
       <Group gap="xs">

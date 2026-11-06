@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Stack, Group, Button, Center, Loader } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
@@ -12,6 +13,7 @@ import { DeepScoreboard } from '../../components/manualMatch/DeepScoreboard';
 import { EndMatchModal } from '../../components/manualMatch/EndMatchModal';
 import { EndSetModal } from '../../components/manualMatch/EndSetModal';
 import { MatchReport } from '../../components/manualMatch/MatchReport';
+import { MatchSummaryModal } from '../../components/manualMatch/MatchSummaryModal';
 import { PlanningAccordion } from '../../components/manualMatch/PlanningAccordion';
 import { PlanningView } from '../../components/manualMatch/PlanningView';
 import { PointSelector } from '../../components/manualMatch/PointSelector';
@@ -19,13 +21,14 @@ import { QuickMatchView } from '../../components/manualMatch/QuickMatchView';
 import { RivalEditModal } from '../../components/manualMatch/RivalEditModal';
 import { SetHistory } from '../../components/manualMatch/SetHistory';
 import { SetSummaryModal } from '../../components/manualMatch/SetSummaryModal';
-import { getReportSetScores, getSetSummary } from '../../utils/manual-match';
+import { getMatchSummary, getReportSetScores, getSetSummary } from '../../utils/manual-match';
 
 export const ManualMatchTracker = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const { match, setMatch, loaded } = useManualMatch(id);
+  const [viewingMatchTotal, setViewingMatchTotal] = useState(false);
 
   const {
     editRivalModal,
@@ -262,6 +265,7 @@ export const ManualMatchTracker = () => {
         myScore={myScore}
         oppScore={oppScore}
         onSelectSet={setViewingSetSummary}
+        onSelectTotal={() => setViewingMatchTotal(true)}
         onUndo={handleUndoPoint}
         onEditRival={() => setEditRivalModal(true)}
       />
@@ -305,6 +309,12 @@ export const ManualMatchTracker = () => {
         setNumber={viewingSetSummary}
         summary={viewSummary}
         onClose={() => setViewingSetSummary(null)}
+      />
+
+      <MatchSummaryModal
+        opened={viewingMatchTotal}
+        summary={getMatchSummary(pointHistory)}
+        onClose={() => setViewingMatchTotal(false)}
       />
 
       <EndMatchModal
