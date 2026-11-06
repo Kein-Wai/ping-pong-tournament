@@ -1,0 +1,5 @@
+# El análisis de partido en la app nativa es local-first y se sincroniza como un documento con versión
+
+En las apps nativas, un partido analizado se guarda solo en el móvil desde que empieza, con o sin conexión, y se envía entero al finalizar o al salir. Así recuperar o perder la conexión nunca interrumpe un análisis y el comportamiento es el mismo en ambos casos. El servidor guarda una `version` por partido: el móvil envía la que descargó y, si no coincide, responde 409 y la copia local se conserva intacta para que el usuario decida (reintentar o guardarlo como partido nuevo), sin mezclar puntos automáticamente.
+
+Se descartaron enviar cada punto en directo cuando hay red (mantiene dos caminos de código y el cambio de conexión en mitad del partido es justo lo que se quería evitar) y repetir las llamadas existentes una a una al volver la red (lento, deja partidos a medias y obliga a resolver conflictos punto a punto). Consecuencia: durante el partido el servidor no tiene los puntos, y un partido analizado desde dos dispositivos a la vez acaba en conflicto para el segundo.
