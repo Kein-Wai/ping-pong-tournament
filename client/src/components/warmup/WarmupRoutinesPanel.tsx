@@ -102,6 +102,13 @@ export const WarmupRoutinesPanel = ({
           />
         )}
 
+        {selected?.syncError && (
+          <Alert color="orange" variant="light" p="xs">
+            {selected.syncError} La rutina sigue guardada en este móvil; ajusta lo que indica y vuelve
+            a guardarla.
+          </Alert>
+        )}
+
         {isDirty && (
           <Badge color="yellow" variant="light" w="fit-content">
             Cambios sin guardar

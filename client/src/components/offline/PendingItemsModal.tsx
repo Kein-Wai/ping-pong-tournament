@@ -1,5 +1,6 @@
 import { Badge, Button, Group, Modal, Paper, Stack, Text } from '@mantine/core';
 import { usePendingItems } from '../../hooks/usePendingItems';
+import { describeOutboxItem } from '../../offline/outboxLabels';
 
 interface PendingItemsModalProps {
   opened: boolean;
@@ -26,7 +27,7 @@ export const PendingItemsModal = ({ opened, onClose }: PendingItemsModalProps) =
             <Paper key={item.id} withBorder p="sm" radius="md">
               <Stack gap={6}>
                 <Group justify="space-between">
-                  <Text fw={600}>{item.kind}</Text>
+                  <Text fw={600}>{describeOutboxItem(item)}</Text>
                   <Badge color={status.color} variant="light">
                     {status.text}
                   </Badge>

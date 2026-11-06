@@ -19,7 +19,7 @@ describe('appSync', () => {
     registerOutboxHandler('prueba', handler);
 
     await startAppSync('u1');
-    await vi.waitFor(() => expect(handler).toHaveBeenCalledWith(7, expect.anything()));
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledWith(7, expect.anything(), expect.anything()));
 
     await vi.waitFor(async () => expect(await listOutbox(store, 'u1')).toEqual([]));
   });

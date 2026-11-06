@@ -11,10 +11,13 @@ import './index.css';
 import { setUnauthorizedHandler } from './api/axios';
 import { setTokenRefreshedHandler } from './api/session';
 import { startProfileCaching } from './offline/profileCache';
+import { registerWarmupRoutineHandler } from './offline/warmupRoutinesSync';
 import { useAuthStore } from './store/authStore';
 
 // El perfil se guarda en el móvil cada vez que cambia, para poder arrancar la app sin conexión.
 startProfileCaching(useAuthStore);
+// Las rutinas de calentamiento guardadas sin conexión se envían con su manejador.
+registerWarmupRoutineHandler();
 // Un 401 fuera del login significa sesión caducada: el interceptor avisa y el store la cierra.
 setUnauthorizedHandler(() => useAuthStore.getState().logout());
 // Al renovar la sesión el store debe seguir con el token vigente, no con el caducado.
