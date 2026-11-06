@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { AxiosError } from 'axios';
 import { api } from '../api/axios';
 import { ENDPOINTS } from '../api/endpoints';
+import { resetAppLocalStore, setAppLocalStore } from '../offline/appLocalStore';
+import { createMemoryLocalStore } from '../offline/memoryLocalStore';
+import { cacheProfile } from '../offline/profileCache';
 import { useAuthStore } from './authStore';
 
 // Se mockea el `api` de bajo nivel (la frontera del sistema) y no los servicios,
@@ -140,11 +144,15 @@ describe('useAuthStore', () => {
       expect(useAuthStore.getState().user?.role).toBe('Player');
     });
 
-    it('si la petición falla, cierra la sesión', async () => {
+    it('si el servidor rechaza la petición, cierra la sesión', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => undefined);
       signedIn();
       localStorage.setItem('pingpong_token', 'tok');
-      vi.mocked(api.get).mockRejectedValue(new Error('401'));
+      vi.mocked(api.get).mockRejectedValue(
+        new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', undefined, undefined, {
+          status: 401,
+        } as never),
+      );
 
       await useAuthStore.getState().fetchProfile();
 
@@ -154,6 +162,60 @@ describe('useAuthStore', () => {
         isAuthenticated: false,
       });
       expect(localStorage.getItem('pingpong_token')).toBeNull();
+    });
+
+    it('un error inesperado que no es de red también cierra la sesión', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      signedIn();
+      vi.mocked(api.get).mockRejectedValue(new Error('algo raro'));
+
+      await useAuthStore.getState().fetchProfile();
+
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
+
+    describe('sin conexión (la petición no llega al servidor)', () => {
+      const tokenOfAna = `h.${btoa(JSON.stringify({ id: 'u1' }))}.s`;
+
+      beforeEach(() => {
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        resetAppLocalStore();
+        setAppLocalStore(createMemoryLocalStore());
+        useAuthStore.setState({ token: tokenOfAna, user: null, isAuthenticated: true });
+        vi.mocked(api.get).mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK'));
+      });
+
+      it('conserva la sesión: sin red no es motivo para cerrarla', async () => {
+        localStorage.setItem('pingpong_token', tokenOfAna);
+
+        await useAuthStore.getState().fetchProfile();
+
+        expect(useAuthStore.getState()).toMatchObject({ token: tokenOfAna, isAuthenticated: true });
+        expect(localStorage.getItem('pingpong_token')).toBe(tokenOfAna);
+      });
+
+      it('usa el perfil guardado en el móvil', async () => {
+        await cacheProfile({ ...USER, role: 'AdminClub' });
+
+        await useAuthStore.getState().fetchProfile();
+
+        expect(useAuthStore.getState().user).toMatchObject({ id: 'u1', role: 'AdminClub' });
+      });
+
+      it('sin perfil guardado deja al usuario sin cargar pero con la sesión abierta', async () => {
+        await useAuthStore.getState().fetchProfile();
+
+        expect(useAuthStore.getState().user).toBeNull();
+        expect(useAuthStore.getState().isAuthenticated).toBe(true);
+      });
+
+      it('no se usa el perfil guardado de otro usuario', async () => {
+        await cacheProfile({ ...USER, role: 'Player', id: 'otro-usuario' });
+
+        await useAuthStore.getState().fetchProfile();
+
+        expect(useAuthStore.getState().user).toBeNull();
+      });
     });
   });
 });

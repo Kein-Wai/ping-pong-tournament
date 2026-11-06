@@ -1,9 +1,13 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { notifications } from '@mantine/notifications';
 import { extractErrorMessage, NETWORK_ERROR_MESSAGE } from './errors';
 import { errorNotifier } from './notify';
 import { ENDPOINTS } from './endpoints';
 import { ACCESS_TOKEN_KEY, refreshSession } from './session';
+import { selectIsOnline, useConnectivityStore } from '../store/connectivityStore';
+
+/** Código del rechazo que se da a toda petición cuando el usuario trabaja offline: no sale a la red. */
+export const OFFLINE_MODE_CODE = 'ERR_OFFLINE_MODE';
 
 // Estas rutas devuelven 401 por motivos propios (credenciales, sesión ya inválida): renovar no aplica.
 const AUTH_URLS = [
@@ -40,6 +44,10 @@ export const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
+    // Con «Trabajar offline» activado no se intenta ninguna petición, aunque haya red.
+    if (!selectIsOnline(useConnectivityStore.getState())) {
+      return Promise.reject(new AxiosError('Modo offline activado', OFFLINE_MODE_CODE, config));
+    }
     const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -106,7 +114,8 @@ api.interceptors.response.use(
           color: 'red',
         });
       }
-    } else {
+    } else if (error.code !== OFFLINE_MODE_CODE) {
+      // El rechazo por modo offline es una decisión del usuario, no un fallo que avisar.
       notifications.show({
         title: 'Error de red',
         message: NETWORK_ERROR_MESSAGE,

@@ -45,6 +45,11 @@ import { App as CapApp } from '@capacitor/app';
 import { APP_ROUTES } from './constants/routes';
 import { useAuthStore } from './store/authStore';
 import { refreshSession } from './api/session';
+import { useConnectivityMonitor } from './hooks/useConnectivity';
+import { whenConnectivityKnown } from './offline/connectivityMonitor';
+import { startAppSync, stopAppSync } from './offline/appSync';
+import { loadCachedProfile } from './offline/profileCache';
+import { selectIsOnline, useConnectivityStore } from './store/connectivityStore';
 
 const isNativeApp = () => {
   return (
@@ -105,11 +110,20 @@ const CustomSplashScreen = () => {
   );
 };
 
+/** Sin servidor al que preguntar, el usuario sale del perfil guardado en el móvil (si lo hay). */
+const restoreCachedProfile = async (token: string) => {
+  if (useAuthStore.getState().user) return;
+  const cached = await loadCachedProfile(token);
+  if (cached) useAuthStore.setState({ user: cached });
+};
+
 // Componente interno que ya vive dentro de BrowserRouter
 function AppContent() {
   const navigate = useNavigate();
   const { logout, token, fetchProfile } = useAuthStore();
+  const userId = useAuthStore((state) => state.user?.id ?? null);
   const [isInitializing, setIsInitializing] = useState(true); // 👈 Añadido estado de carga
+  useConnectivityMonitor();
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -119,7 +133,13 @@ function AppContent() {
           const decodedPayload = JSON.parse(atob(payloadBase64));
           const currentTime = Math.floor(Date.now() / 1000);
 
-          if (decodedPayload.exp && decodedPayload.exp < currentTime) {
+          // Hay que saber si hay red antes de decidir: sin ella no se intenta nada contra el servidor.
+          await whenConnectivityKnown();
+
+          if (!selectIsOnline(useConnectivityStore.getState())) {
+            // Sin conexión (o con «Trabajar offline»): la sesión se conserva y el perfil sale del móvil.
+            await restoreCachedProfile(token);
+          } else if (decodedPayload.exp && decodedPayload.exp < currentTime) {
             // El token de acceso dura una hora: al volver a abrir la app se renueva con el refresh token.
             // Al renovarse, el store cambia de token y este efecto vuelve a ejecutarse con el vigente.
             const renewed = await refreshSession().catch(() => 'sin-red');
@@ -127,6 +147,8 @@ function AppContent() {
               console.warn('Sesión caducada, cerrando sesión...');
               logout();
               navigate(APP_ROUTES.LOGIN);
+            } else if (renewed === 'sin-red') {
+              await restoreCachedProfile(token);
             }
           } else if (!useAuthStore.getState().user) {
             // Si el token es válido pero aún no tenemos los datos del usuario, los traemos
@@ -142,6 +164,13 @@ function AppContent() {
 
     initializeAuth();
   }, [token, navigate, logout, fetchProfile]);
+
+  // Los pendientes se envían solos con la sesión abierta; al cerrarla se detiene (los datos se conservan).
+  useEffect(() => {
+    if (!userId) return;
+    void startAppSync(userId);
+    return stopAppSync;
+  }, [userId]);
 
   useEffect(() => {
     const listener = CapApp.addListener('appUrlOpen', (data) => {
