@@ -39,7 +39,7 @@ type DocumentedPath = Record<string, DocumentedOperation>;
 
 describe('Documentacion Swagger (api/src/swagger)', () => {
   describe('Cobertura de rutas', () => {
-    it('documenta los 56 paths de la API', () => {
+    it('documenta los 57 paths de la API', () => {
       const all = [
         ...Object.values(authPaths),
         ...Object.values(clubsPaths),
@@ -58,10 +58,10 @@ describe('Documentacion Swagger (api/src/swagger)', () => {
         ...Object.values(userTypesPaths),
       ];
 
-      expect(all.length).toBe(56);
+      expect(all.length).toBe(57);
     });
 
-    it('los 56 paths exponen 76 operaciones', () => {
+    it('los 57 paths exponen 77 operaciones', () => {
       const all = [
         ...Object.values(authPaths),
         ...Object.values(clubsPaths),
@@ -82,7 +82,7 @@ describe('Documentacion Swagger (api/src/swagger)', () => {
 
       const operations = all.reduce((total, path) => total + Object.keys(path).length, 0);
 
-      expect(operations).toBe(76);
+      expect(operations).toBe(77);
     });
 
     it('cada ruta tiene al menos un metodo documentado', () => {

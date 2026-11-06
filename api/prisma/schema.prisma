@@ -701,7 +701,13 @@ model ManualMatch {
   analysisType    AnalysisType     @default(Rapido) @map("analysis_type")
   lightNotes      String?          @db.Text @map("light_notes")
   planningNotes    String?        @db.Text
-  
+
+  // Número de modificaciones del partido. La app móvil envía el que descargó y, si el servidor ya
+  // tiene otro, el partido cambió en otro dispositivo (409). Ver docs/adr/0003.
+  version         Int              @default(0)
+  // Identificador del último envío sincronizado: reenviar el mismo no repite nada (idempotencia).
+  lastSyncId      String?          @map("last_sync_id")
+
   // Relaciones
   user            User             @relation("ManualMatchOwner", fields: [userId], references: [id], onDelete: Cascade)
   coach           User?            @relation("ManualMatchCoach", fields: [coachId], references: [id], onDelete: SetNull)
