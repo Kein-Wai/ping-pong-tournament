@@ -4,6 +4,8 @@ import { Stack, Group, Button, Center, Loader } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { APP_ROUTES } from '../../constants/routes';
 import { useManualMatch } from '../../hooks/useManualMatch';
+import { LocalMatchNotice } from '../../components/offline/LocalMatchNotice';
+import { useMatchSession } from '../../hooks/useMatchSession';
 import { usePlanificacionPartido } from '../../hooks/usePlanificacionPartido';
 import { useRegistroPuntos } from '../../hooks/useRegistroPuntos';
 import { useRivalEdicion } from '../../hooks/useRivalEdicion';
@@ -27,6 +29,7 @@ export const ManualMatchTracker = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  useMatchSession(id);
   const { match, setMatch, loaded } = useManualMatch(id);
   const [viewingMatchTotal, setViewingMatchTotal] = useState(false);
 
@@ -143,14 +146,17 @@ export const ManualMatchTracker = () => {
   // --- 1. REPORTE FINAL ---
   if (match.status === 'Completado') {
     return (
-      <MatchReport
-        match={match}
-        mySets={mySetsWon}
-        oppSets={oppSetsWon}
-        setScores={getReportSetScores(match, pointHistory)}
-        points={pointHistory}
-        onBack={() => navigate(APP_ROUTES.ANALISIS.LIST)}
-      />
+      <>
+        <LocalMatchNotice state={match.localState} />
+        <MatchReport
+          match={match}
+          mySets={mySetsWon}
+          oppSets={oppSetsWon}
+          setScores={getReportSetScores(match, pointHistory)}
+          points={pointHistory}
+          onBack={() => navigate(APP_ROUTES.ANALISIS.LIST)}
+        />
+      </>
     );
   }
 

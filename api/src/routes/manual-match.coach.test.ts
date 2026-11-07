@@ -316,6 +316,7 @@ describe('Análisis de un jugador por su entrenador (/api/manual-matches)', () =
 
   describe('PUT /:id/complete hecho por el entrenador', () => {
     it('acredita estadísticas y habilidades al jugador, no al entrenador', async () => {
+      prismaMock.client.manualMatch.updateMany.mockResolvedValue({ count: 1 });
       const response = await request(app)
         .put('/api/manual-matches/mm1/complete')
         .set(bearer('adminClub1'))

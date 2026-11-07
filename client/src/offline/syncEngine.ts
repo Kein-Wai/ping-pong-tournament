@@ -2,8 +2,18 @@ import axios from 'axios';
 import type { LocalStore } from './localStore';
 import { listOutbox, OUTBOX_COLLECTION, updateOutboxItem, type OutboxItem } from './outbox';
 
+/** Lo que el manejador puede necesitar para anotar el resultado en el almacén local. */
+export interface OutboxHandlerContext {
+  store: LocalStore;
+  userId: string;
+}
+
 /** Envía un pendiente al servidor. Debe lanzar el error de la petición si falla. */
-export type OutboxHandler = (payload: unknown, item: OutboxItem) => Promise<void>;
+export type OutboxHandler = (
+  payload: unknown,
+  item: OutboxItem,
+  context: OutboxHandlerContext,
+) => Promise<void>;
 
 export interface SyncResult {
   sent: number;
@@ -28,7 +38,7 @@ export const backoffDelay = (attempts: number): number =>
   Math.min(BASE_DELAY_MS * 2 ** (attempts - 1), MAX_DELAY_MS);
 
 /** Rechazos que el servidor da por definitivos: reenviar lo mismo no los arreglaría. */
-const REJECTION_STATUSES = new Set([400, 403, 409]);
+const REJECTION_STATUSES = new Set([400, 403, 404, 409]);
 
 const rejectionOf = (error: unknown): { reason: string } | null => {
   if (!axios.isAxiosError(error) || !error.response) return null;
@@ -76,22 +86,35 @@ export const createSyncEngine = ({
       }
 
       await updateOutboxItem(store, userId, item.id, 'enviando');
+      // Mientras se envía, el usuario puede volver a encolar o descartar ese mismo pendiente: si ya
+      // no está «enviando», el resultado de este envío es de una versión antigua y no se anota.
+      const isStillSending = async () =>
+        (await store.get(userId, OUTBOX_COLLECTION, item.id))?.status === 'enviando';
       try {
-        await handler(item.payload, item);
-        await store.apply(userId, [{ type: 'remove', collection: OUTBOX_COLLECTION, id: item.id }]);
+        await handler(item.payload, item, { store, userId });
+        if (await isStillSending()) {
+          await store.apply(userId, [
+            { type: 'remove', collection: OUTBOX_COLLECTION, id: item.id },
+          ]);
+        }
         result.sent += 1;
       } catch (error) {
         const rejection = rejectionOf(error);
+        const current = await isStillSending();
         if (rejection) {
-          await updateOutboxItem(store, userId, item.id, 'requiere-atencion', rejection);
+          if (current) {
+            await updateOutboxItem(store, userId, item.id, 'requiere-atencion', rejection);
+          }
           result.needsAttention += 1;
           continue;
         }
         const attempts = item.attempts + 1;
-        await updateOutboxItem(store, userId, item.id, 'pendiente', {
-          attempts,
-          nextAttemptAt: now() + backoffDelay(attempts),
-        });
+        if (current) {
+          await updateOutboxItem(store, userId, item.id, 'pendiente', {
+            attempts,
+            nextAttemptAt: now() + backoffDelay(attempts),
+          });
+        }
         return { ...result, stopped: 'network' };
       }
     }

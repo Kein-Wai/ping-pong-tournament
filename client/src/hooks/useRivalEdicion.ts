@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { manualMatchesService } from '../api/services/manualMatches';
+import { manualMatchesRepository as manualMatchesService } from '../offline/manualMatchesRepository';
 import type { DominantHand, OpponentLevel, Playstyle, RubberType } from '../types/enums';
 import type { TrackedMatch } from '../types/manualMatch';
 

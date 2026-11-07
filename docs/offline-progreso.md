@@ -59,14 +59,14 @@ Poder usar sin internet las partes de la app que no lo necesitan de verdad, guar
 
 ## Fases
 
-Tamaño aproximado en sesiones, como en `PENDIENTES.md`. Todas empiezan en PENDIENTE.
+Tamaño aproximado en sesiones, como en `PENDIENTES.md`. Estado a 2026-11-06. La prueba en emulador Android se hace al final, con las fases 1-4 juntas.
 
 | Fase | Qué | Rama | Estado |
 |---|---|---|---|
-| 1 | Base | `feat/offline-base` | PENDIENTE |
-| 2 | Calentamiento + Reflejos | `feat/offline-calentamiento` | PENDIENTE |
-| 3 | API de sincronización | `feat/offline-api-sync` | PENDIENTE |
-| 4 | Análisis Pro offline | `feat/offline-analisis` | PENDIENTE |
+| 1 | Base | `feat/offline-base` | HECHA y fusionada (PR #11) |
+| 2 | Calentamiento + Reflejos | `feat/offline-calentamiento` | HECHA, commiteada (guard de rol J4 queda abierto) |
+| 3 | API de sincronización | `feat/offline-api-sync` | HECHA, commiteada; DESPLEGAR antes de usar el análisis offline (worktree `../ping-pong-api-sync`, sale de `main`; añade también `lastSyncId` para la idempotencia) |
+| 4 | Análisis Pro offline | `feat/offline-analisis` | HECHA (sale de `feat/offline-calentamiento`; falta prueba en emulador y desplegar la fase 3) |
 
 Orden: 1 → 2 → 3 → 4. La fase 3 es independiente del cliente y aditiva (las apps antiguas siguen funcionando), así que puede desplegarse sola.
 
@@ -90,30 +90,30 @@ Orden: 1 → 2 → 3 → 4. La fase 3 es independiente del cliente y aditiva (la
 
 | # | Tarea | Tamaño |
 |---|---|---|
-| 2.1 | Rutinas en el almacén local: leer del caché, crear/editar/borrar en cola, tope de 5 en local, renombrado « (2)» | M |
-| 2.2 | Manejador de sincronización de rutinas (usa los endpoints existentes `GET/POST/PUT/DELETE /api/warmup-routines`) y estado «No se pudo sincronizar» | S-M |
-| 2.3 | Marcar Calentamiento y Reflejos como disponibles sin red; de paso decidir el guard de ruta por rol (J4) | S |
+| 2.1 ✅ | Rutinas en el almacén local: leer del caché, crear/editar/borrar en cola, tope de 5 en local, renombrado « (2)» | M |
+| 2.2 ✅ | Manejador de sincronización de rutinas (usa los endpoints existentes `GET/POST/PUT/DELETE /api/warmup-routines`) y estado «No se pudo sincronizar» | S-M |
+| 2.3 ✅ (J4 abierto) | Marcar Calentamiento y Reflejos como disponibles sin red; de paso decidir el guard de ruta por rol (J4) | S |
 
 ### Fase 3 — API de sincronización (~1-2 sesiones)
 
 | # | Tarea | Tamaño |
 |---|---|---|
-| 3.1 | Migración aditiva: `ManualMatch.version Int @default(0)` | S |
-| 3.2 | Endpoint de sincronización por partido: esquema Zod, documento entero con UUID del cliente, `upsert` transaccional, `baseVersion`, 409 por desajuste, acceso comprobado al sincronizar, estadísticas y habilidades solo la primera vez que se completa | M-L |
-| 3.3 | `complete` idempotente (`updateMany` condicionado + 409) con test de regresión | S |
-| 3.4 | Probar contra la base local con SQL real (Prisma está mockeado en los tests) | S |
-| 3.5 | Swagger y `security-review` | S |
+| 3.1 ✅ | Migración aditiva: `ManualMatch.version Int @default(0)` | S |
+| 3.2 ✅ | Endpoint de sincronización por partido: esquema Zod, documento entero con UUID del cliente, `upsert` transaccional, `baseVersion`, 409 por desajuste, acceso comprobado al sincronizar, estadísticas y habilidades solo la primera vez que se completa | M-L |
+| 3.3 ✅ | `complete` idempotente (`updateMany` condicionado + 409) con test de regresión | S |
+| 3.4 ✅ | Probar contra la base local con SQL real (Prisma está mockeado en los tests) | S |
+| 3.5 ✅ | Swagger y `security-review` | S |
 
 ### Fase 4 — Análisis Pro offline (~3 sesiones)
 
 | # | Tarea | Tamaño |
 |---|---|---|
-| 4.1 | Descarga y caché: lista completa, 20 detalles recientes, jugadores del club (Admin) | M |
-| 4.2 | Partido local: crear con UUID, planificar, editar rival, iniciar | M |
-| 4.3 | Registro local-first: `useRegistroPuntos` y los hooks vecinos escriben en el `LocalStore` en nativo; la web queda como hoy | L |
-| 4.4 | Finalizar/salir envía el documento; 409, 403 y validación pasan a «Requiere atención» | M |
-| 4.5 | Resolución de conflictos: reintentar o guardar como partido nuevo | M |
-| 4.6 | Reporte y estadísticas de un partido pendiente: se acreditan en el servidor al sincronizar; la interfaz lo indica | S |
+| 4.1 ✅ | Descarga y caché: lista completa, 20 detalles recientes, jugadores del club (Admin) | M |
+| 4.2 ✅ | Partido local: crear con UUID, planificar, editar rival, iniciar | M |
+| 4.3 ✅ | Registro local-first: `useRegistroPuntos` y los hooks vecinos escriben en el `LocalStore` en nativo; la web queda como hoy | L |
+| 4.4 ✅ | Finalizar/salir envía el documento; 409, 403 y validación pasan a «Requiere atención» | M |
+| 4.5 ✅ | Resolución de conflictos: reintentar o guardar como partido nuevo | M |
+| 4.6 ✅ | Reporte y estadísticas de un partido pendiente: se acreditan en el servidor al sincronizar; la interfaz lo indica | S |
 
 ## Riesgos y lo que no se cubre
 
@@ -128,3 +128,20 @@ Orden: 1 → 2 → 3 → 4. La fase 3 es independiente del cliente y aditiva (la
 - Hechos comprobados al planificar: access token 1 h; refresh token 30 días, rotativo (`api/src/utils/refresh-token.ts`); `WarmupRoutine` ya tiene `updatedAt` y `@@unique([userId, name])`; `ManualMatch` no tiene `updatedAt` ni versión; los juegos de reflejo no llaman a la API.
 - Cliente: declarar URLs nuevas en `client/src/api/endpoints.ts` primero y usar los módulos de `api/services/*`.
 - Antes de cada fase: rama cortada de un `main` actualizado, `tdd` para la lógica nueva, y al terminar `simplify`, `code-review` y `security-review`.
+
+## Notas de retoma (2026-11-06)
+
+- **Fase 4, siguiente:** consume la API de la fase 3 (`PUT /manual-matches/:id/sync` con `syncId` + `baseVersion`; 409 = conflicto; 404 = sin acceso; 503 = reintentar) y el motor de la fase 1 (registrar un manejador con `registerOutboxHandler`, etiqueta con `registerOutboxLabel`, `blockSync()` mientras hay un partido abierto, repositorio local-first como el de rutinas en `client/src/offline/warmupRoutinesRepository.ts`).
+- Pendiente de fase 4: acción «Guardar como partido nuevo» en la lista de pendientes y etiquetas legibles por tipo.
+- Heredado de la fase 1: `ProtectedRoute` redirige a login si no hay `user`, así que el aviso «abre con conexión una vez» no se alcanza en un primer arranque sin red y sin perfil guardado.
+- Integración de la API con Postgres real: `TEST_DATABASE_URL` (instrucciones en la cabecera de `manual-match.sync.integration.test.ts`). No ejecutar `npm run build` de `api/` (hace `prisma db push` contra la base remota de `api/.env`).
+- Al fusionar: el PR de la fase 1 va primero; el de la fase 2 se apunta a `main` después; el de la fase 3 es independiente y puede desplegarse solo (migración aditiva). La rama `docs/offline-plan` es obsoleta.
+
+## Fase 4: cómo quedó (2026-11-07)
+
+- **Repositorio local-first** `client/src/offline/manualMatchesRepository.ts`: misma interfaz que `manualMatchesService`; en el navegador delega en el servidor. En nativo el partido vive entero en el móvil (`localMatches.ts`): puntos con UUID propio, `revision`/`syncedRevision`, `baseVersion`, `syncId` y `conflict`.
+- **Envío:** al finalizar (`complete`), al salir del análisis (`closeMatch`) o al crear/planificar/editar rival fuera del tracker. Mientras el tracker está abierto (`useMatchSession`) la sincronización está bloqueada y los cambios se acumulan. Al arrancar, `enqueueUnsent` encola lo que quedó sin enviar si la app se cerró con un partido abierto.
+- **Manejador** `matchesSync.ts`: `PUT /manual-matches/:id/sync`; 400/403/404/409 dejan la copia intacta marcada con el motivo (requiere atención). Acciones en la lista de pendientes: «Guardar como partido nuevo» (copia con ids nuevos y sin versión) y descartar (quita la copia local para que no se reencole).
+- **Descargas:** lista completa y detalle de los 20 más recientes al abrir con red; jugadores del club (`clubPlayersRepository`) para el AdminClub.
+- **Interfaz:** etiqueta «Pendiente de enviar» / «Requiere atención» en el listado y aviso en el informe (4.6).
+- **Límite conocido:** si un envío llega al servidor pero se pierde la respuesta y después se edita el partido, el reenvío lleva la `baseVersion` antigua y acaba en conflicto (la salida es «Guardar como partido nuevo»).

@@ -127,3 +127,32 @@ export const addPointSchema = z.object({
   subcategory: z.enum(PointSubcategory).optional().nullable(),
   placement: z.enum(PointPlacement).optional().nullable(),
 });
+
+/**
+ * Documento completo de un partido tal como lo envía la app móvil al sincronizar (ver
+ * docs/adr/0003). Los identificadores del partido y de cada punto los genera el móvil.
+ */
+export const syncManualMatchSchema = z
+  .object({
+    // Identifica este envío: repetirlo (p. ej. por una respuesta perdida) no vuelve a aplicar nada.
+    syncId: z.uuid(),
+    // Versión con la que el móvil descargó el partido; null si lo creó sin conexión.
+    baseVersion: z.number().int().min(0).nullable(),
+    match: createManualMatchSchema
+      .omit({ status: true })
+      .extend({
+        status: z.enum(MatchStatus),
+        lightNotes: z.string().optional().nullable(),
+      }),
+    points: z
+      .array(addPointSchema.extend({ id: z.uuid() }))
+      .max(2000, 'Demasiados puntos en un solo partido'),
+    // Obligatorio solo cuando el partido llega finalizado.
+    result: completeMatchSchema.optional().nullable(),
+  })
+  .refine((doc) => doc.match.status !== MatchStatus.Completado || !!doc.result, {
+    message: 'Un partido finalizado necesita su resultado',
+    path: ['result'],
+  });
+
+export type SyncManualMatchInput = z.infer<typeof syncManualMatchSchema>;

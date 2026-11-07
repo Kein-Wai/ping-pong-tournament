@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { manualMatchesService } from '../api/services/manualMatches';
+import { manualMatchesRepository as manualMatchesService } from '../offline/manualMatchesRepository';
 import { LOST_TREE, WON_TREE, type PointNode } from '../constants/manualMatch';
 import type { TrackedMatch, TrackedPoint } from '../types/manualMatch';
 import { getActiveSet } from '../utils/manual-match';

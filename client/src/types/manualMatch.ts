@@ -46,6 +46,8 @@ export interface TrackedMatch {
   lightNotes?: string | null;
   setScores?: SetScore[] | null;
   points?: TrackedPoint[];
+  /** Solo en la app nativa: la copia del móvil tiene cambios sin enviar o el servidor la rechazó. */
+  localState?: 'pendiente' | 'conflicto';
 }
 
 /** Planificación previa al partido, guardada como JSON en `planningNotes`. */

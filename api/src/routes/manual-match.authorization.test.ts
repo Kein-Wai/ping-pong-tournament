@@ -31,6 +31,7 @@ describe('Partidos manuales (/api/manual-matches): solo su propietario los modif
       user: { clubId: 'club-1', clubStatus: 'Aprobado', userType: { name: 'Player' } },
     });
     prismaMock.client.manualMatch.update.mockResolvedValue({ id: 'mm1', userId: OWNER_ID });
+    prismaMock.client.manualMatch.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.client.pointAnalysis.findUnique.mockResolvedValue({
       id: 'pt1',
       manualMatchId: 'mm1',

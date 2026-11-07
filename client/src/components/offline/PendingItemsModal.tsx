@@ -1,5 +1,6 @@
 import { Badge, Button, Group, Modal, Paper, Stack, Text } from '@mantine/core';
 import { usePendingItems } from '../../hooks/usePendingItems';
+import { describeOutboxItem, outboxActionsFor } from '../../offline/outboxLabels';
 
 interface PendingItemsModalProps {
   opened: boolean;
@@ -14,7 +15,7 @@ const STATUS_LABEL = {
 
 /** Lista de lo que espera para enviarse, con reintentar y descartar para cada elemento. */
 export const PendingItemsModal = ({ opened, onClose }: PendingItemsModalProps) => {
-  const { items, retry, discard } = usePendingItems();
+  const { items, retry, discard, runAction } = usePendingItems();
 
   return (
     <Modal opened={opened} onClose={onClose} title="Pendientes de enviar" centered>
@@ -26,7 +27,7 @@ export const PendingItemsModal = ({ opened, onClose }: PendingItemsModalProps) =
             <Paper key={item.id} withBorder p="sm" radius="md">
               <Stack gap={6}>
                 <Group justify="space-between">
-                  <Text fw={600}>{item.kind}</Text>
+                  <Text fw={600}>{describeOutboxItem(item)}</Text>
                   <Badge color={status.color} variant="light">
                     {status.text}
                   </Badge>
@@ -42,11 +43,23 @@ export const PendingItemsModal = ({ opened, onClose }: PendingItemsModalProps) =
                       Reintentar
                     </Button>
                   )}
+                  {item.status === 'requiere-atencion' &&
+                    outboxActionsFor(item).map((action) => (
+                      <Button
+                        key={action.label}
+                        size="compact-sm"
+                        variant="light"
+                        color="grape"
+                        onClick={() => void runAction(item, action.run)}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
                   <Button
                     size="compact-sm"
                     variant="subtle"
                     color="red"
-                    onClick={() => void discard(item.id)}
+                    onClick={() => void discard(item)}
                   >
                     Descartar
                   </Button>

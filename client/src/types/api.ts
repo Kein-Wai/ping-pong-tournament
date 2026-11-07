@@ -247,6 +247,8 @@ export interface ManualMatch {
   opponentSets: number;
   analysisType?: AnalysisType;
   points?: ManualMatchPoint[];
+  /** Solo en la app nativa: la copia del móvil tiene cambios sin enviar o el servidor la rechazó. */
+  localState?: 'pendiente' | 'conflicto';
 }
 
 /** Ejercicio del catalogo. */

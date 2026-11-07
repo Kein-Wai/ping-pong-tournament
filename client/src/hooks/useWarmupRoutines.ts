@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { warmupRoutinesService } from '../api/services/warmupRoutines';
+import { warmupRoutinesRepository as warmupRoutinesService } from '../offline/warmupRoutinesRepository';
 import type { SavedWarmupRoutine } from '../types/warmupRoutine';
 import type { WarmupItem } from '../utils/warmupEngine';
 import { MAX_SAVED_ROUTINES } from '../utils/warmupRoutine';

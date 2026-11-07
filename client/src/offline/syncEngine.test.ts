@@ -74,7 +74,7 @@ describe('syncEngine', () => {
     expect((await listOutbox(store, 'u1'))[0]).toMatchObject({ status: 'pendiente', attempts: 1 });
   });
 
-  it.each([400, 403, 409])(
+  it.each([400, 403, 404, 409])(
     'el rechazo %i pasa a «requiere atención» con el motivo y sigue con el resto',
     async (status) => {
       const { store, engine, handler } = await setup();
@@ -166,5 +166,36 @@ describe('syncEngine', () => {
   it('el retraso crece de forma exponencial con un tope', () => {
     expect(backoffDelay(2)).toBe(backoffDelay(1) * 2);
     expect(backoffDelay(50)).toBe(backoffDelay(49));
+  });
+
+  it('el manejador recibe el almacén y el usuario para poder anotar el resultado', async () => {
+    const { engine, handler, store } = await setup(['a']);
+
+    await engine.run('u1');
+
+    expect(handler).toHaveBeenCalledWith('a', expect.anything(), { store, userId: 'u1' });
+  });
+
+  it('si el pendiente se vuelve a encolar durante el envío, no se pierde ese cambio', async () => {
+    const { store, engine, handler } = await setup(['a']);
+    handler.mockImplementation(async () => {
+      await store.apply('u1', [enqueueOperation({ id: 'a', kind: 'rutina', payload: 'nuevo' }, 5)]);
+    });
+
+    await engine.run('u1');
+
+    expect(await listOutbox(store, 'u1')).toMatchObject([{ id: 'a', payload: 'nuevo', status: 'pendiente' }]);
+  });
+
+  it('si el pendiente se descarta durante el envío, no reaparece', async () => {
+    const { store, engine, handler } = await setup(['a']);
+    handler.mockImplementation(async () => {
+      await store.apply('u1', [{ type: 'remove', collection: 'outbox', id: 'a' }]);
+      throw new AxiosError('x', 'ERR_BAD_REQUEST', undefined, undefined, { status: 409 } as never);
+    });
+
+    await engine.run('u1');
+
+    expect(await listOutbox(store, 'u1')).toEqual([]);
   });
 });
